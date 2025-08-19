@@ -88,8 +88,7 @@ def TEE_LogPrintf(ql: Qiling, func_name):
 def fprintf(ql: Qiling, func_name):
     TEE_LogvPrintf(ql, func_name)
 
-def msee_ta_printf_va(ql: Qiling, func_name):
-    TEE_LogPrintf(ql, "msee_ta_printf_va")
+
 
 def vfprintf(ql: Qiling, func_name):
     TEE_LogvPrintf(ql, func_name)

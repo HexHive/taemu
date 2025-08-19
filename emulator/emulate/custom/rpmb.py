@@ -63,12 +63,9 @@ def TEE_RpmbOpenSession(ql: Qiling, func_name):
 
     ret = TEE_SUCCESS
     if para_sessionID in RPMSESSIONS:
-        ret = TEE_ERROR_RPM_SESSION
+        RPMSESSIONS[para_sessionID][0] = True
     else:
-        m = ql.mem.map_anywhere(
-            0x1000, minaddr=RPMSESSION_BUFFER_L2_MEM, info="Rpmsession_buffer"
-        )
-        RPMSESSIONS[para_sessionID] = m
+        RPMSESSIONS[para_sessionID] = (True, b"")
 
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -80,8 +77,7 @@ def TEE_RpmbCloseSession(ql: Qiling, func_name):
     para_sessionID = params["sessionID"]
 
     if para_sessionID in RPMSESSIONS:
-        ql.mem.unmap(RPMSESSIONS[para_sessionID], 0x1000)
-        del RPMSESSIONS[para_sessionID]
+        RPMSESSIONS[para_sessionID][0] = False
 
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
@@ -99,10 +95,13 @@ def TEE_RpmbReadData(ql: Qiling, func_name):
     ret = TEE_SUCCESS
     if not para_sessionID in RPMSESSIONS:
         ret = TEE_ERROR_RPM_SESSION
+    elif not RPMSESSIONS[para_sessionID][0]:
+        # not opened
+        ret = TEE_ERROR_RPM_SESSION
     else:
-        content = bytes(ql.mem.read(RPMSESSIONS[para_sessionID], para_size))
+        content = RPMSESSIONS[para_sessionID][1][:para_size]
         ql.mem.write(para_buffer, content)
-        ql.mem.write_ptr(para_retSize, para_size)
+        ql.mem.write_ptr(para_retSize, len(content))
 
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -121,9 +120,12 @@ def TEE_RpmbWriteData(ql: Qiling, func_name):
     ret = TEE_SUCCESS
     if not para_sessionID in RPMSESSIONS:
         ret = TEE_ERROR_RPM_SESSION
+    elif not RPMSESSIONS[para_sessionID][0]:
+        # not opened
+        ret = TEE_ERROR_RPM_SESSION
     else:
         content = bytes(ql.mem.read(para_buffer, para_size))
-        ql.mem.write(RPMSESSIONS[para_sessionID], content)
+        RPMSESSIONS[para_sessionID][1] = content
         ql.mem.write_ptr(para_retSize, para_size)
 
     ql.os.fcall.cc.setReturnValue(ret)

@@ -11,7 +11,7 @@ from Crypto.Random import get_random_bytes
 from .custom import rpmb
 from unicorn import UC_PROT_READ, UC_PROT_WRITE
 
-from .gp_api import TEE_LogvPrintf
+from .gp_api import TEE_LogvPrintf, TEE_LogPrintf
 
 def ut_pf_log_msg(ql: Qiling, func_name):
     TEE_LogvPrintf(ql, func_name)
@@ -19,3 +19,6 @@ def ut_pf_log_msg(ql: Qiling, func_name):
 def mdrv_open(ql: Qiling, func_name):
     ql.os.fcall.cc.setReturnValue(0x123)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def msee_ta_printf_va(ql: Qiling, func_name):
+    TEE_LogPrintf(ql, func_name)
