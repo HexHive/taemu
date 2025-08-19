@@ -1,0 +1,22 @@
+diff --git a/qiling/loader/elf.py b/qiling/loader/elf.py
+index a5a8ac6f..d1daf690 100644
+--- a/qiling/loader/elf.py
++++ b/qiling/loader/elf.py
+@@ -59,6 +59,8 @@ class AUXV(IntEnum):
+ # we will reserve 0x1000 bytes for this (which contains multiple slots of 4/8 bytes, each for one api)
+ API_HOOK_MEM = 0x1000000
+ API_HOOK_SIZE = 0x1000
++# cleanup memory layout
++HOOK_MEM = 0xeeeee000
+ 
+ # memory for syscall table
+ SYSCALL_MEM = API_HOOK_MEM + 0x1000
+@@ -387,7 +389,7 @@ class QlLoaderELF(QlLoader):
+         self.init_sp = self.ql.arch.regs.arch_sp
+ 
+         self.ql.os.entry_point = self.entry_point = entry_point
+-        self.ql.os.function_hook = FunctionHook(self.ql, elf_phdr, elf_phnum, elf_phent, load_address, mem_end)
++        self.ql.os.function_hook = FunctionHook(self.ql, elf_phdr, elf_phnum, elf_phent, load_address, HOOK_MEM)
+ 
+         # If there is a loader, we ignore exit
+         self.skip_exit_check = (self.elf_entry != self.entry_point)
