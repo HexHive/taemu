@@ -4,6 +4,7 @@ from qiling import Qiling
 from qiling.utils import ql_get_module
 from capstone import Cs
 from . import gp_api 
+from . import beanpod_api
 
 
 global TA_ELF
@@ -15,9 +16,12 @@ def __get_os_module(osname: str):
 
 def get_api_impl(func_name):
     api_func = getattr(gp_api, func_name, None)
-    if not api_func:
-        return gp_api.default_func
-    return api_func 
+    if api_func is not None:
+        return api_func
+    api_func = getattr(beanpod_api, func_name, None)
+    if api_func is not None:
+        return api_func
+    return gp_api.default_func
 
 
 def simple_diassembler(ql: Qiling, address: int, size: int, md: Cs) -> None:

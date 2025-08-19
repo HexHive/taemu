@@ -202,7 +202,7 @@ def start(ql: Qiling, ta_name: str):
                     def __del__(self):
                         ptr = cast(addressof(self), c_void_p)
                         shmdt(ptr)
-                
+               
                 shm = SHM.from_key(shm_key)
 
                 pybuf = ql.mem.map_anywhere(
@@ -255,6 +255,7 @@ def start(ql: Qiling, ta_name: str):
                             ql.log.error(f"unknown buf {buf:#0x} in {bufc2py}")
                             sock.close()
                             exit(-1)
+                        print(bufc2py)
                         (shm_size, shm, pybuf) = bufc2py[buf]
                         if size > shm_size:
                             ql.log.error(f"size larger than shm: {size:#0x} v.s. {shm_size}")

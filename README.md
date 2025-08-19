@@ -1,4 +1,28 @@
-# keyinstall TA pwn
+# GP TA Emulator 
+
+## Setup
+
+```
+./build-docker.sh
+```
+
+## Run
+
+```
+./run-docker.sh
+```
+
+to run the `0811...` beanpod TA:
+
+```
+./run.sh ../beanpod/tas/08110000000000000000000000000000.ta
+```
+
+to run the `0811...` beanpod TA with the gdb stub:
+
+```
+./gdb.sh ../beanpod/tas/08110000000000000000000000000000.ta
+```
 
 ## Emulation setup
 

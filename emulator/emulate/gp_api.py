@@ -4,6 +4,7 @@ from qiling.os.const import STRING, INT, BYTE, POINTER
 from .gp.utils.param import TEE_Param_Memref
 from .gp.utils.err import *
 from .gp.utils.string import *
+from .gp.printf import *
 
 from Crypto.Random import get_random_bytes
 
@@ -68,27 +69,6 @@ def free(ql: Qiling, func_name):
 def memcmp(ql: Qiling, func_name):
     TEE_MemCompare(ql, func_name)
 
-def parse_fmt_str(format_param, final_params):
-    format_dict = []
-    i = 0
-    while i < len(format_param):
-        if format_param[i] == "%":
-            next_char = format_param[i + 1]
-            if next_char == "s":
-                format_dict.append(f"s")
-                i += 2
-            else:
-                format_dict.append(f"d")
-                i += 2
-        else:
-            i += 1
-    for i, fm in enumerate(format_dict):
-        if fm == "s":
-            final_params[f"{i}"] = STRING
-        else:
-            final_params[f"{i}"] = INT
-    return final_params
-
 
 def TEE_LogPrintf(ql: Qiling, func_name):
     format_param = ql.os.resolve_fcall_params({"format": STRING})["format"]
@@ -105,20 +85,6 @@ def TEE_LogPrintf(ql: Qiling, func_name):
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-
-def ut_pf_log_msg(ql: Qiling, func_name):
-    p = ql.os.resolve_fcall_params({"log_level": INT, "format": STRING})
-    log_level = p["log_level"]
-    format_param = p["format"]
-    final_params = {"log_level": INT, "format": STRING}
-    final_params = parse_fmt_str(format_param, final_params)
-    params = ql.os.resolve_fcall_params(final_params)
-    del params["format"]
-    string_params = [params[f"{i}"] for i in range(0, len(params) - 1)]
-    out_str = format_param % tuple(string_params)
-    ql.log.info(f"{func_name}: {log_level}, {out_str}")
-    ql.arch.regs.arch_pc = ql.arch.regs.lr
-
 def fprintf(ql: Qiling, func_name):
     TEE_LogvPrintf(ql, func_name)
 
@@ -132,7 +98,17 @@ def puts(ql: Qiling, func_name):
     TEE_LogPrintf(ql, func_name)
 
 def TEE_LogvPrintf(ql: Qiling, func_name):
-    ut_pf_log_msg(ql, func_name)
+    p = ql.os.resolve_fcall_params({"log_level": INT, "format": STRING})
+    log_level = p["log_level"]
+    format_param = p["format"]
+    final_params = {"log_level": INT, "format": STRING}
+    final_params = parse_fmt_str(format_param, final_params)
+    params = ql.os.resolve_fcall_params(final_params)
+    del params["format"]
+    string_params = [params[f"{i}"] for i in range(0, len(params) - 1)]
+    out_str = format_param % tuple(string_params)
+    ql.log.info(f"{func_name}: {log_level}, {out_str}")
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def log_msg(ql: Qiling, func_name):
     p = ql.os.resolve_fcall_params(
@@ -151,7 +127,6 @@ def log_msg(ql: Qiling, func_name):
     out_str = format_param % tuple(string_params)
     ql.log.info(f"log_msg: {log_level}, {log_level_2},{out_str}")
     ql.arch.regs.arch_pc = ql.arch.regs.lr
-
 
 def snprintf(ql: Qiling, func_name):
     params_initial = ql.os.resolve_fcall_params(
@@ -199,7 +174,6 @@ def strlen(ql: Qiling, func_name):
 
 def TEE_MemMove(ql: Qiling, func_name):
     memmove(ql, func_name)
-
 
 def memmove(ql: Qiling, func_name):
     params = ql.os.resolve_fcall_params({"dest": INT, "src": INT, "size": INT})
