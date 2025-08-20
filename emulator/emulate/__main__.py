@@ -8,7 +8,7 @@ from qiling.const import QL_VERBOSE
 from qiling.const import QL_ARCH, QL_OS, QL_VERBOSE
 
 
-from .emulator_no_loader import simple_diassembler, hook_ta_plt, trace_block, simple_diassembler, hook_ta_dl
+from .emulator_no_loader import simple_diassembler, hook_ta_plt, trace_block, simple_diassembler, hook_ta_dl, fixup_got
 from .beanpod_ta import start
 
 DIR = dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -69,10 +69,10 @@ if __name__ == "__main__":
     else:
         v = QL_VERBOSE.DEFAULT
 
-    if "beanpod" in ta_path:
-        TEE = "beanpod"
-    elif "teegris" in ta_path:
+    if b"TEEGRIS" in open(ta_path, "rb").read():
         TEE = "teegris"
+    elif b"rom/libld-l4.so" in open(ta_path, "rb").read():
+        TEE = "beanpod"
 
     if TEE == "":
         TEE = args.tee
@@ -89,6 +89,7 @@ if __name__ == "__main__":
             profile="beanpod.ql"
         )
     elif TEE == "teegris":
+        print("doing teegris")
         ql = Qiling(
             [ta_path],
             rootfs=os.path.join(DIR, "../rootfs/"),
@@ -108,9 +109,8 @@ if __name__ == "__main__":
         ql.hook_code(simple_diassembler, user_data=ql.arch.disassembler)
     if args.trace:
         ql.hook_block(trace_block)
-    # you're drunk qiling
-    ql.mem.protect(0x7ff0d000, 0x00030000, 3)
     # start emulation
+    fixup_got(ql, ta_path, ta_elf)
     hook_ta_dl(ql, ta_path, ta_elf)
     ql.do_lib_patch()
     ql.log.info(f"[{ta_name}] emulation start")

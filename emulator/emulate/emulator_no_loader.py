@@ -3,11 +3,11 @@ import json
 from qiling import Qiling
 from qiling.utils import ql_get_module
 from capstone import Cs
+from elftools.elf.elffile import ELFFile
+from elftools.elf.relocation import RelocationSection
 from . import gp_api 
 from . import beanpod_api
-
-
-global TA_ELF
+from . import teegris_api
 
 
 def __get_os_module(osname: str):
@@ -19,6 +19,9 @@ def get_api_impl(func_name):
     if api_func is not None:
         return api_func
     api_func = getattr(beanpod_api, func_name, None)
+    if api_func is not None:
+        return api_func
+    api_func = getattr(teegris_api, func_name, None)
     if api_func is not None:
         return api_func
     return gp_api.default_func
@@ -40,8 +43,29 @@ def nop_instruction(ql: Qiling, offset, lib_name):
 counter = 0
 ql_resolve_mem = 0x99999000
 
+def fixup_got(ql: Qiling, ta_path, ta_elf:ELF):
+    # ... :/
+    ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
+    with open(ta_path, 'rb') as f:
+        elf = ELFFile(f)
+        for section in elf.iter_sections():
+            if not isinstance(section, RelocationSection):
+                continue
+            if section.name != ".rela.dyn":
+                continue
+            for rel in section.iter_relocations():
+                reloc_addr = rel.entry['r_offset']
+                r_type = rel.entry['r_info_type']
+                addend = rel.entry.get('r_addend', None)
+                print(f"  relocation at 0x{reloc_addr:x}, type={r_type}, addend={addend}")
+                ql.mem.write_ptr(ta_base + reloc_addr, ta_base + addend)
+
+
 def hook_ta_dl(ql: Qiling, ta_path, ta_elf:ELF):
     counter = 0
+    ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
+    print(hex(ta_base + 0x1c50), ql.mem.read_ptr(ta_base + 0x1c50))
+    ta_elf.address = ta_base
     ql.mem.map(ql_resolve_mem, 0x1000,info="dl_resolve")
     for func, addr in ta_elf.plt.items():
         ql.mem.write(ta_elf.got[func], (ql_resolve_mem+counter).to_bytes(4, "little"))

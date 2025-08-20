@@ -87,6 +87,7 @@ def start(ql: Qiling, ta_name: str):
 
     try:
         f = open(f"{ta_name[:-3]}.json", 'r')
+        ta_elf = ELF(ta_name, checksec=True)
         ta_info = json.load(f)
         if all(i in ta_info for i in ["TA_InvokeCommandEntryPoint_start", "TA_InvokeCommandEntryPoint_end", "TA_CreateEntryPoint_start", "TA_CreateEntryPoint_end", "TA_OpenSessionEntryPoint_start", "TA_OpenSessionEntryPoint_end", "TA_CloseSessionEntryPoint_start", "TA_CloseSessionEntryPoint_end", "TA_DestroyEntryPoint_start", "TA_DestroyEntryPoint_end"]):
             TA_CreateEntryPoint_start = ta_info["TA_CreateEntryPoint_start"]
@@ -99,11 +100,22 @@ def start(ql: Qiling, ta_name: str):
             TA_CloseSessionEntryPoint_end = ta_info['TA_CloseSessionEntryPoint_end']
             TA_DestroyEntryPoint_start = ta_info['TA_DestroyEntryPoint_start']
             TA_DestroyEntryPoint_end = ta_info['TA_DestroyEntryPoint_end']
-        
-
         else:
             print(f"TA info error")
             exit(-1)
+
+        if ta_elf.pie:
+            ta_base = ql.mem.get_lib_base(ta_name.split("/")[-1])
+            TA_CreateEntryPoint_start = TA_CreateEntryPoint_start + ta_base
+            TA_CreateEntryPoint_end = [end + ta_base for end in TA_CreateEntryPoint_end] 
+            TA_OpenSessionEntryPoint_start = TA_OpenSessionEntryPoint_start + ta_base
+            TA_OpenSessionEntryPoint_end = [end + ta_base for end in TA_OpenSessionEntryPoint_end]
+            TA_InvokeCommandEntryPoint_start = TA_InvokeCommandEntryPoint_start + ta_base
+            TA_InvokeCommandEntryPoint_end = [end + ta_base for end in TA_InvokeCommandEntryPoint_end ]
+            TA_CloseSessionEntryPoint_start = TA_CloseSessionEntryPoint_start + ta_base
+            TA_CloseSessionEntryPoint_end = [end + ta_base for end in TA_CloseSessionEntryPoint_end]
+            TA_DestroyEntryPoint_start = TA_DestroyEntryPoint_start + ta_base
+            TA_DestroyEntryPoint_end = [end + ta_base for end in TA_DestroyEntryPoint_end]
         
         f.close()
 
@@ -117,7 +129,7 @@ def start(ql: Qiling, ta_name: str):
 
 
         _debugger = ql._debugger
-        ql._debugger = False
+        ql._debugger = _debugger
         # run
         ql.run(begin=entrypoint)
 
