@@ -2,6 +2,7 @@ from qiling import Qiling
 from qiling.os.const import STRING, INT, BYTE, POINTER
 from unicorn.arm_const import *
 from .err import *
+from ... import asan
 
 HEAP = {"allocated": {}, "freed": {}}
 
@@ -17,41 +18,72 @@ def memset_core(ql, func_name, called_from_custom_lib):
 
 def malloc_core(ql: Qiling, func_name, called_from_custom_lib):
     size = ql.os.resolve_fcall_params({"size": INT})["size"]
-    ret2user_out = ql.mem.map_anywhere(size, minaddr=HEAP_MEM, perms=3, info="malloc_chunk")
+
+    real_size = asan.memory_alignment_round_up(
+        size + 2 * asan.ASAN_REDZONE_SIZE, 0x1000
+    )
+
+    out = ql.mem.map_anywhere(real_size, minaddr=HEAP_MEM, perms=3, info="malloc_chunk")
+    ret2user_out = out + asan.ASAN_REDZONE_SIZE
     ql.log.info(f"{func_name}: allocated {hex(size)} at {hex(ret2user_out)}")
     HEAP["allocated"][ret2user_out] = size
     if ret2user_out in HEAP["freed"]:
         del HEAP["freed"][ret2user_out]
+
+    asan.asan_hook_redzone_mem_rw(out, asan.ASAN_REDZONE_SIZE, ql)
+    asan.asan_hook_redzone_mem_rw(
+        ret2user_out + size, real_size - asan.ASAN_REDZONE_SIZE - size, ql
+    )
+
     ql.os.fcall.cc.setReturnValue(ret2user_out)
     if not called_from_custom_lib:
         ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
+
 def calloc_core(ql:Qiling, func_name):
     param = ql.os.resolve_fcall_params({"nmemb": INT, "size": INT})
     size = param['size'] * param['nmemb']
-    ret2user_out = ql.mem.map_anywhere(size, minaddr=HEAP_MEM, info="malloc_chunk")
+
+    real_size = asan.memory_alignment_round_up(
+        size + 2 * asan.ASAN_REDZONE_SIZE, 0x1000
+    )
+
+    out = ql.mem.map_anywhere(real_size, minaddr=HEAP_MEM, info="malloc_chunk")
+    ret2user_out = out + asan.ASAN_REDZONE_SIZE
+
     ql.log.info(f"{func_name}: allocated {hex(size)} at {hex(ret2user_out)}")
     HEAP["allocated"][ret2user_out] = size
     if ret2user_out in HEAP["freed"]:
         del HEAP["freed"][ret2user_out]
+
+    asan.asan_hook_redzone_mem_rw(out, asan.ASAN_REDZONE_SIZE, ql)
+    asan.asan_hook_redzone_mem_rw(
+        ret2user_out + size, real_size - asan.ASAN_REDZONE_SIZE - size, ql
+    )
+
     ql.os.fcall.cc.setReturnValue(ret2user_out)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
 def free_core(ql:Qiling, func_name, called_from_custom_lib):
+
     ptr = ql.os.resolve_fcall_params({"ptr": INT})["ptr"]
     if ptr not in HEAP["allocated"]:
         ql.log.critical(f"corrupted free at: {hex(ptr)}, {HEAP}")
         ql.arch.regs.arch_pc = 0xdeadbeef
+        return
     size = HEAP["allocated"][ptr]
     if ptr in HEAP["freed"]:
         ql.log.critical(f"double free at: {hex(ptr)}, {HEAP}")
-        ql.arch.regs.arch_pc = 0x0
+        ql.arch.regs.arch_pc = 0xdeadbeef
+        return
     ql.log.info(f"{func_name}: freeing memory at {hex(ptr)}")
-    ql.mem.unmap(ptr, (size + 0x1000 - 1) & ~(0x1000 - 1))
+    real_ptr = ptr - asan.ASAN_REDZONE_SIZE
+    ql.mem.unmap(real_ptr, (size + 0x1000 - 1) & ~(0x1000 - 1))
     HEAP["freed"][ptr] = size
     del HEAP["allocated"][ptr]
+
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     if not called_from_custom_lib:
         ql.arch.regs.arch_pc = ql.arch.regs.lr

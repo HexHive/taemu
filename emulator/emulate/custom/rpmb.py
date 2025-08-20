@@ -63,11 +63,11 @@ def TEE_RpmbOpenSession(ql: Qiling, func_name):
 
     ret = TEE_SUCCESS
     if para_sessionID in RPMSESSIONS:
-        RPMSESSIONS[para_sessionID][0] = True
+        RPMSESSIONS[para_sessionID]["opened"] = True
     else:
-        RPMSESSIONS[para_sessionID] = (True, b"")
+        RPMSESSIONS[para_sessionID] = {"opened": True, "content": b""}
 
-    ql.os.fcall.cc.setReturnValue(ret)
+    ql.os.fcall.cc.setReturnValue(para_sessionID)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
@@ -75,10 +75,12 @@ def TEE_RpmbCloseSession(ql: Qiling, func_name):
     global RPMSESSIONS
     params = ql.os.resolve_fcall_params({"sessionID": UINT})
     para_sessionID = params["sessionID"]
-
+    
+    ret = TEE_SUCCESS
     if para_sessionID in RPMSESSIONS:
-        RPMSESSIONS[para_sessionID][0] = False
-
+        RPMSESSIONS[para_sessionID]["opened"] = False
+    
+    ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
@@ -95,13 +97,13 @@ def TEE_RpmbReadData(ql: Qiling, func_name):
     ret = TEE_SUCCESS
     if not para_sessionID in RPMSESSIONS:
         ret = TEE_ERROR_RPM_SESSION
-    elif not RPMSESSIONS[para_sessionID][0]:
+    elif not RPMSESSIONS[para_sessionID]["opened"]:
         # not opened
         ret = TEE_ERROR_RPM_SESSION
     else:
-        content = RPMSESSIONS[para_sessionID][1][:para_size]
+        content = RPMSESSIONS[para_sessionID]["content"][:para_size]
         ql.mem.write(para_buffer, content)
-        ql.mem.write_ptr(para_retSize, len(content))
+        ql.mem.write_ptr(para_retSize, 0)
 
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -120,13 +122,13 @@ def TEE_RpmbWriteData(ql: Qiling, func_name):
     ret = TEE_SUCCESS
     if not para_sessionID in RPMSESSIONS:
         ret = TEE_ERROR_RPM_SESSION
-    elif not RPMSESSIONS[para_sessionID][0]:
+    elif not RPMSESSIONS[para_sessionID]["opened"]:
         # not opened
         ret = TEE_ERROR_RPM_SESSION
     else:
         content = bytes(ql.mem.read(para_buffer, para_size))
-        RPMSESSIONS[para_sessionID][1] = content
-        ql.mem.write_ptr(para_retSize, para_size)
+        RPMSESSIONS[para_sessionID]["content"] = content
+        ql.mem.write_ptr(para_retSize, 0)
 
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr

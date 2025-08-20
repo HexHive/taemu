@@ -12,6 +12,7 @@ from .emulator_no_loader import simple_diassembler, hook_ta_plt, trace_block, si
 from .beanpod_ta import start
 
 DIR = dir_path = os.path.dirname(os.path.realpath(__file__))
+TEE = ""
 
 def setup_args():
     """Returns an initialized argument parser."""
@@ -42,6 +43,12 @@ def setup_args():
         action="store_true",
         help="Verbose mode output.",
     )
+    parser.add_argument(
+        "--tee",
+        help="specify the TEE.",
+        required=False,
+        default="beanpod"
+    )
         
     parser.add_argument("ta", help="The Trusted Application to be executed.")
 
@@ -62,16 +69,38 @@ if __name__ == "__main__":
     else:
         v = QL_VERBOSE.DEFAULT
 
-    ql = Qiling(
-        [ta_path],
-        rootfs=os.path.join(DIR, "../rootfs/"),
-        ostype=QL_OS.LINUX,
-        archtype=QL_ARCH.ARM,
-        verbose=v,
-        thumb=True,
-        env={"LD_LIBRARY_PATH": "rom"},
-        profile="beanpod.ql"
-    )
+    if "beanpod" in ta_path:
+        TEE = "beanpod"
+    elif "teegris" in ta_path:
+        TEE = "teegris"
+
+    if TEE == "":
+        TEE = args.tee
+
+    if TEE == "beanpod":
+        ql = Qiling(
+            [ta_path],
+            rootfs=os.path.join(DIR, "../rootfs/"),
+            ostype=QL_OS.LINUX,
+            archtype=QL_ARCH.ARM,
+            verbose=v,
+            thumb=True,
+            env={"LD_LIBRARY_PATH": "rom"},
+            profile="beanpod.ql"
+        )
+    elif TEE == "teegris":
+        ql = Qiling(
+            [ta_path],
+            rootfs=os.path.join(DIR, "../rootfs/"),
+            ostype=QL_OS.LINUX,
+            archtype=QL_ARCH.ARM64,
+            verbose=v,
+            env={"LD_LIBRARY_PATH": "lib64"},
+            profile="beanpod.ql"
+        )
+    else:
+        print(f'[!] TEE not set  [!]')
+        exit(-1)
 
     if args.gdb:
         ql.debugger = True
@@ -81,13 +110,6 @@ if __name__ == "__main__":
         ql.hook_block(trace_block)
     # you're drunk qiling
     ql.mem.protect(0x7ff0d000, 0x00030000, 3)
-    # flag
-    if os.path.exists("/srv/flag1.txt"):
-        flag = open("/srv/flag1.txt").read()
-    else:
-        flag = "EPFL{emulatorflag}"
-    ql.mem.map(0x61a000, 0x1000, perms=3, info="flag")
-    ql.mem.write(0x61a000, flag.encode() + b"\x00")
     # start emulation
     hook_ta_dl(ql, ta_path, ta_elf)
     ql.do_lib_patch()
