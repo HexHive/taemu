@@ -42,6 +42,12 @@ def TEE_AllocateOperation(ql:Qiling, func_name):
         id2opration[OPERATION_ID] = op
         ql.mem.write_ptr(param_operation, OPERATION_ID)
         OPERATION_ID += 1
+    elif param_algorithm == TEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256:
+        ql.log.info(f"\tTEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256")
+        op = TEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256_Operation(OPERATION_ID, param_mode, param_maxKeySize, ql)
+        id2opration[OPERATION_ID] = op
+        ql.mem.write_ptr(param_operation, OPERATION_ID)
+        OPERATION_ID += 1
     else:
         ql.log.info(f"\t mode {hex(param_mode)} or algo {hex(param_algorithm)} not valid")
         ret = TEE_ERROR_NOT_SUPPORTED
@@ -176,6 +182,10 @@ def TEE_SetOperationKey(ql:Qiling, func_name):
         ql.log.info(f"\t{type(op)} op initialized")
         ql.log.info(f"\tkey: {op.key}")   
 
+    elif type(op) == TEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256_Operation:
+        op.initialize(key.rsa_param, ql)
+        ql.log.info("\tALG_RSAES_PKCS1_OAEP_MGF1_SHA256 initialized with new keys, passing...")
+    
     else:
         ql.log.error(f'TEE_SetOperationKey: unknown op type')
         ql.emu_stop()
@@ -202,6 +212,7 @@ def TEE_AsymmetricDecrypt(ql:Qiling, func_name):
         ql.emu_stop()
     op = id2opration[param_operation]
     if not op.initialized or op.mode != TEE_MODE_DECRYPT:
+        breakpoint()
         ql.log.error(f"TEE_AsymmetricDecrypt: op mode error or not initialized")
         ql.emu_stop()
     

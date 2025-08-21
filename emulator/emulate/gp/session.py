@@ -3,7 +3,7 @@ from qiling.os.const import STRING, UINT, POINTER
 from .utils.err import *
 from .utils.param import *
 
-from ..ta_mgr import get_good_responce_payload
+from ..custom.session_payload import get_good_response_payload
 
 
 ### beanpod IPC
@@ -141,8 +141,8 @@ def TEE_InvokeTACommand(ql: Qiling, func_name, called_from_custom_lib: bool):
     # @TODO: invoke a command for real
     # params should change accordingly in this function,
     # in order to make emulation continue, we might need to manually forge value in params
-    # new_params = get_good_responce_payload(ql, "3d08821c33a611e6a1fa089e01c83aa2.ta", ql.arch.regs.lr)
-    new_params = get_good_responce_payload(
+    # new_params = get_good_response_payload(ql, "3d08821c33a611e6a1fa089e01c83aa2.ta", ql.arch.regs.lr)
+    new_params = get_good_response_payload(
         ql, ql.arch.regs.lr
     )
     for i in range(4):

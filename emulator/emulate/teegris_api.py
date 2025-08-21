@@ -4,10 +4,7 @@ from qiling.os.const import STRING, INT, BYTE, POINTER
 from .gp.utils.param import TEE_Param_Memref
 from .gp.utils.err import *
 from .gp.utils.string import *
-
-
 from Crypto.Random import get_random_bytes
-
 from .custom import rpmb
 from unicorn import UC_PROT_READ, UC_PROT_WRITE
 

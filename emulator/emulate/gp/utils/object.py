@@ -30,16 +30,24 @@ class Object:
         current_param = params
         for _ in range(paramCount):
             attributeID = ql.mem.read_ptr(current_param, 4)
+            current_param += 4
             if (attributeID >> 29) & 0x1 == 0:  # ref
-                buffer = ql.mem.read_ptr(current_param+4, 4)
-                length = ql.mem.read_ptr(current_param+8, 4) 
+                buffer = ql.mem.read_ptr(current_param)
+                current_param += ql.arch.pointersize
+                length = ql.mem.read_ptr(current_param) 
+                current_param += ql.arch.pointersize
                 attr = TEE_Ref_Attribute(attributeID, buffer, length, ql)
             else:   # value
-                a = ql.mem.read_ptr(current_param+4, 4)
-                b = ql.mem.read_ptr(current_param+8, 4)
+                a = ql.mem.read_ptr(current_param, 4)
+                current_param += 4
+                b = ql.mem.read_ptr(current_param, 4)
+                current_param += 4
+                if ql.arch.pointersize == 8:
+                    # not sure about this
+                    current_param += 8
                 attr = TEE_Value_Attribute(attributeID, a, b)
             res.append(attr)
-            current_param += 12
+            current_param += 4 # alignment
         return res
 
 class AES_Obj(Object):
@@ -127,13 +135,14 @@ class RSA_KEYPAIR_Obj(Object):
                     self.rsa_optional_param['iq'] = ql.mem.read(attr.buffer, attr.length)
                     self.attrs[attr.attributeID] = (attr.buffer, attr.length)
                 else:
-                    ql.log.info(f"\retrieve_rsa_params: attr {hex(attr.attributeID)} not supoorted")
+                    breakpoint()
+                    ql.log.info(f"\tretrieve_rsa_params: attr {hex(attr.attributeID)} not supoorted")
                     return TEE_ERROR_BAD_PARAMETERS
 
         # if any of these are provided, all of these should be provided
         if bool(self.rsa_optional_param):
             if any([p not in self.rsa_optional_param for p in ['p', 'q', 'dp', 'dq', 'iq']]):
-                ql.log.info(f"\retrieve_rsa_params: p, q, dp, dq, iq should all be provided if one is provided.")
+                ql.log.info(f"\tretrieve_rsa_params: p, q, dp, dq, iq should all be provided if one is provided.")
                 return TEE_ERROR_BAD_PARAMETERS
 
         return TEE_SUCCESS

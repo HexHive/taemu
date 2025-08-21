@@ -11,6 +11,7 @@ TEE_ALG_AES_ECB_NOPAD   =   0x10000010
 TEE_ALG_AES_CBC_NOPAD   =   0x10000110
 TEE_ALG_SHA256          =   0x50000004
 TEE_ALG_RSAES_PKCS1_V1_5    =   0x60000130
+TEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256 = 0x60410230
 
 
 
@@ -23,6 +24,7 @@ TEE_MODE_DIGEST     = 0x00000005
 class Operation():
     def __init__(self, operaitonID, ql) -> None:
         self.operationID = operaitonID
+        self.ql = ql
 
 
 class Digest_Operation(Operation):
@@ -84,8 +86,8 @@ class AES_ECB_NOPAD_Operation(Operation):
             pad_src = src.ljust(pad_l, b'\x00')
             return self.cypher.encrypt(pad_src)[:l]
         else:
-            ql.log.error(f"mode {self.mode} for AES_ECB_NOPAD_Operation not implemented")
-            ql.emu_stop()
+            self.ql.log.error(f"mode {self.mode} for AES_ECB_NOPAD_Operation not implemented")
+            self.ql.emu_stop()
 
 
 class AES_CBC_NOPAD_Operation(Operation):
@@ -127,8 +129,8 @@ class AES_CBC_NOPAD_Operation(Operation):
             pad_src = src.ljust(pad_l, b'\x00')
             return self.cypher.encrypt(pad_src)[:l]
         else:
-            ql.log.error(f"mode {self.mode} for AES_CBC_NOPAD_Operation not implemented")
-            ql.emu_stop()
+            self.ql.log.error(f"mode {self.mode} for AES_CBC_NOPAD_Operation not implemented")
+            self.ql.emu_stop()
     
 class RSAES_PKCS1_V1_5_Operation(Operation):
     def __init__(self, operationID, mode, keySize, ql) -> None:
@@ -154,6 +156,20 @@ class RSAES_PKCS1_V1_5_Operation(Operation):
         ql.log.info(f"\tpt: {pt}, len: {len(pt):#0x}")
         return pt
 
+class TEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256_Operation(Operation):
+    def __init__(self, operationID, mode, keySize, ql) -> None:
+        super().__init__(operationID, ql)
+        self.keySize = keySize
+        self.mode = mode
+        self.key = None
+        self.cypher = None
+        self.initialized = False 
 
+    def initialize(self, params, ql):
+        #TODO
+        self.initialized = True
+
+    def decrypt(self, ct, ql: Qiling):
+        return b""
 
 

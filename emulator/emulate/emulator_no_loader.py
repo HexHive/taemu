@@ -1,5 +1,8 @@
 from pwn import *
 import json
+import importlib
+import pkgutil
+import pathlib
 from qiling import Qiling
 from qiling.utils import ql_get_module
 from capstone import Cs
@@ -8,6 +11,7 @@ from elftools.elf.relocation import RelocationSection
 from . import gp_api 
 from . import beanpod_api
 from . import teegris_api
+from .gp import bigint_ops, crypto, general_objects, persistent_objects, properties, session, transient_objects
 
 
 def __get_os_module(osname: str):
@@ -18,6 +22,12 @@ def get_api_impl(func_name):
     api_func = getattr(gp_api, func_name, None)
     if api_func is not None:
         return api_func
+    package = importlib.import_module('emulate.gp') 
+    for _, modname, ispkg in pkgutil.iter_modules(package.__path__, package.__name__ + "."):
+        if not ispkg:  # only import .py modules, skip subpackages if you want
+            api_func = getattr(importlib.import_module(modname), func_name, None)
+            if api_func is not None:
+                return api_func
     api_func = getattr(beanpod_api, func_name, None)
     if api_func is not None:
         return api_func

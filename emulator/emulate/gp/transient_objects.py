@@ -117,10 +117,8 @@ def TEE_InitRefAttribute(ql:Qiling, func_name):
 
     ql.mem.write(para_attr, p32(para_attributeID))
     ql.mem.write_ptr(para_attr + 4, para_buffer)
-    ql.mem.write_ptr(para_attr + 8, para_length)
+    ql.mem.write_ptr(para_attr + ql.arch.pointersize, para_length)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
-
-
 
 
 def TEE_InitValueAttribute(ql:Qiling, func_name):
@@ -136,8 +134,8 @@ def TEE_InitValueAttribute(ql:Qiling, func_name):
         ql.emu_stop() 
 
     ql.mem.write(para_attr, p32(para_attributeID))
-    ql.mem.write_ptr(para_attr + 4, para_a)
-    ql.mem.write(para_attr + 8, para_b)
+    ql.mem.write_ptr(para_attr + 4, para_a, 4)
+    ql.mem.write(para_attr + 8, para_b, 4)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def TEE_CopyObjectAttributes1(ql:Qiling, func_name):

@@ -115,20 +115,20 @@ def TEE_BigIntAdd(ql: Qiling, func_name):
     op2 = params["op2"]
 
     # Ensure all operands are initialized
-    dest_obj = _require_bigint(dest)
+    dest_obj = require_bigint(dest)
     if dest_obj is None:
-        _panic(ql, f"bigint dest buffer not initialized! {hex(dest)}")
+        panic(ql, f"bigint dest buffer not initialized! {hex(dest)}")
         return
 
-    v1, obj1 = _read_bigint(ql, op1)
+    v1, obj1 = read_bigint(ql, op1)
     if obj1 is None:
         return
-    v2, obj2 = _read_bigint(ql, op2)
+    v2, obj2 = read_bigint(ql, op2)
     if obj2 is None:
         return
 
     res = v1 + v2
-    if not _write_bigint(ql, dest, res, dest_obj):
+    if not write_bigint(ql, dest, res, dest_obj):
         return
 
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -139,20 +139,20 @@ def TEE_BigIntSub(ql: Qiling, func_name):
     op1 = params["op1"]
     op2 = params["op2"]
 
-    dest_obj = _require_bigint(dest)
+    dest_obj = require_bigint(dest)
     if dest_obj is None:
-        _panic(ql, f"bigint dest buffer not initialized! {hex(dest)}")
+        panic(ql, f"bigint dest buffer not initialized! {hex(dest)}")
         return
 
-    v1, obj1 = _read_bigint(ql, op1)
+    v1, obj1 = read_bigint(ql, op1)
     if obj1 is None:
         return
-    v2, obj2 = _read_bigint(ql, op2)
+    v2, obj2 = read_bigint(ql, op2)
     if obj2 is None:
         return
 
     res = v1 - v2
-    if not _write_bigint(ql, dest, res, dest_obj):
+    if not write_bigint(ql, dest, res, dest_obj):
         return
 
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -162,17 +162,17 @@ def TEE_BigIntNeg(ql: Qiling, func_name):
     dest = params["dest"]
     op = params["op"]
 
-    dest_obj = _require_bigint(dest)
+    dest_obj = require_bigint(dest)
     if dest_obj is None:
-        _panic(ql, f"bigint dest buffer not initialized! {hex(dest)}")
+        panic(ql, f"bigint dest buffer not initialized! {hex(dest)}")
         return
 
-    v, obj = _read_bigint(ql, op)
+    v, obj = read_bigint(ql, op)
     if obj is None:
         return
 
     res = -v
-    if not _write_bigint(ql, dest, res, dest_obj):
+    if not write_bigint(ql, dest, res, dest_obj):
         return
 
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -183,29 +183,25 @@ def TEE_BigIntMul(ql: Qiling, func_name):
     dest = params["dest"]
     op1 = params["op1"]
     op2 = params["op2"]
-
-    dest_obj = _require_bigint(dest)
+    dest_obj = require_bigint(dest)
     if dest_obj is None:
-        _panic(ql, f"bigint dest buffer not initialized! {hex(dest)}")
+        panic(ql, f"bigint dest buffer not initialized! {hex(dest)}")
         return
 
-    v1, obj1 = _read_bigint(ql, op1)
+    v1, obj1 = read_bigint(ql, op1)
     if obj1 is None:
         return
-    v2, obj2 = _read_bigint(ql, op2)
+    v2, obj2 = read_bigint(ql, op2)
     if obj2 is None:
         return
 
     res = v1 * v2
-    if not _write_bigint(ql, dest, res, dest_obj):
+    if not write_bigint(ql, dest, res, dest_obj):
         return
 
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-
-
-# ---- 8.7.1 TEE_BigIntCmp ----
 def TEE_BigIntCmp(ql: Qiling, func_name):
     params = ql.os.resolve_fcall_params({'op1': POINTER, 'op2': POINTER})
     v1 = bigint_to_int(ql, params['op1'])
@@ -216,7 +212,6 @@ def TEE_BigIntCmp(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-# ---- 8.7.2 TEE_BigIntCmpS32 ----
 def TEE_BigIntCmpS32(ql: Qiling, func_name):
     params = ql.os.resolve_fcall_params({'op': POINTER, 'shortVal': INT})
     v1 = bigint_to_int(ql, params['op'])
@@ -227,7 +222,6 @@ def TEE_BigIntCmpS32(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-# ---- 8.7.3 TEE_BigIntShiftRight ----
 def TEE_BigIntShiftRight(ql: Qiling, func_name):
     params = ql.os.resolve_fcall_params({'dest': POINTER, 'op': POINTER, 'bits': INT})
     val = bigint_to_int(ql, params['op'])
@@ -237,7 +231,6 @@ def TEE_BigIntShiftRight(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-# ---- 8.7.4 TEE_BigIntGetBit ----
 def TEE_BigIntGetBit(ql: Qiling, func_name):
     params = ql.os.resolve_fcall_params({'src': POINTER, 'bitIndex': INT})
     val = abs(bigint_to_int(ql, params['src']))
@@ -247,7 +240,6 @@ def TEE_BigIntGetBit(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-# ---- 8.7.5 TEE_BigIntGetBitCount ----
 def TEE_BigIntGetBitCount(ql: Qiling, func_name):
     params = ql.os.resolve_fcall_params({'src': POINTER})
     val = abs(bigint_to_int(ql, params['src']))
@@ -257,7 +249,6 @@ def TEE_BigIntGetBitCount(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-# ---- 8.7.6 TEE_BigIntSetBit ----
 def TEE_BigIntSetBit(ql: Qiling, func_name):
     params = ql.os.resolve_fcall_params({'op': POINTER, 'bitIndex': INT, 'value': INT})
     val = bigint_to_int(ql, params['op'])
@@ -273,7 +264,6 @@ def TEE_BigIntSetBit(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-# ---- 8.7.7 TEE_BigIntAssign ----
 def TEE_BigIntAssign(ql: Qiling, func_name):
     params = ql.os.resolve_fcall_params({'dest': POINTER, 'src': POINTER})
     val = bigint_to_int(ql, params['src'])
@@ -285,7 +275,6 @@ def TEE_BigIntAssign(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-# ---- 8.7.8 TEE_BigIntAbs ----
 def TEE_BigIntAbs(ql: Qiling, func_name):
     params = ql.os.resolve_fcall_params({'dest': POINTER, 'src': POINTER})
     val = abs(bigint_to_int(ql, params['src']))
@@ -294,4 +283,260 @@ def TEE_BigIntAbs(ql: Qiling, func_name):
     else:
         ql.log.info(f"{func_name}: abs({params['src']}) -> {val}")
         ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def TEE_BigIntSquare(ql: Qiling, func_name):
+    params = ql.os.resolve_fcall_params({"dest": POINTER, "op": POINTER})
+    dest = params["dest"]
+    op   = params["op"]
+
+    dest_obj = require_bigint(dest)
+    if dest_obj is None:
+        panic(ql, f"bigint dest buffer not initialized! {hex(dest)}")
+        return
+
+    v, obj = read_bigint(ql, op)
+    if obj is None:  
+        return
+
+    ql.log.info(f"{func_name}: {v}**2")
+    # Square (always non-negative)
+    res = v * v
+
+    # Write back (write_bigint should check capacity/overflow and panic if needed)
+    if not write_bigint(ql, dest, res, dest_obj):
+        return
+
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def TEE_BigIntDiv(ql: Qiling, func_name):
+    params = ql.os.resolve_fcall_params({
+        "dest_q": POINTER,
+        "dest_r": POINTER,
+        "op1": POINTER,
+        "op2": POINTER
+    })
+    dest_q = params["dest_q"]
+    dest_r = params["dest_r"]
+    op1    = params["op1"]
+    op2    = params["op2"]
+
+    # Read operands
+    v1, obj1 = read_bigint(ql, op1)
+    if obj1 is None:
+        return
+    v2, obj2 = read_bigint(ql, op2)
+    if obj2 is None:
+        return
+
+    # Division by zero -> programming error -> panic
+    if v2 == 0:
+        panic(ql, f"{func_name}: division by zero")
+        return
+    
+    ql.log.info(f"{func_name}: {v1} / {v2}")
+
+    # Quotient rounded towards zero; Python // floors, so use trunc on true division
+    # int(a / b) truncates toward zero for ints in Python
+    q = int(v1 / v2)
+    r = v1 - q * v2
+    # r now has same sign as v1 (or zero) with truncation toward zero
+
+    # Defer all memory writes until after we've computed both q and r
+    # so dest_q/dest_r can alias op1/op2 safely (spec only forbids q<->r overlap)
+
+    # Write quotient if requested
+    if dest_q:
+        dest_q_obj = require_bigint(dest_q)
+        if dest_q_obj is None:
+            panic(ql, f"bigint dest_q buffer not initialized! {hex(dest_q)}")
+            return
+        if not write_bigint(ql, dest_q, q, dest_q_obj):
+            return
+
+    # Write remainder if requested
+    if dest_r:
+        dest_r_obj = require_bigint(dest_r)
+        if dest_r_obj is None:
+            panic(ql, f"bigint dest_r buffer not initialized! {hex(dest_r)}")
+            return
+        if not write_bigint(ql, dest_r, r, dest_r_obj):
+            return
+
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def TEE_BigIntMod(ql, func_name):
+    params = ql.os.resolve_fcall_params({'dest': POINTER, 'op': POINTER, 'n': POINTER})
+    dest, op, n = params['dest'], params['op'], params['n']
+
+    if not all(p in BIGINTS for p in (dest, op, n)):
+        ql.log.critical(f"{func_name}: one or more bigint not initialized!")
+        ql.arch.regs.arch_pc = 0xdeadbeef
+        return
+
+    op_val, _ = read_bigint(ql, op) 
+    n_val, _ = read_bigint(ql, n)
+    if op_val is None or n_val is None:
+        return
+    
+    ql.log.info(f"{func_name}: {op_val} % {n_val}")
+
+    result = op_val % n_val
+    if not write_bigint(ql, dest, result, BIGINTS[dest]):
+        return 
+
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def TEE_BigIntAddMod(ql, func_name):
+    params = ql.os.resolve_fcall_params({'dest': POINTER, 'op1': POINTER, 'op2': POINTER, 'n': POINTER})
+    dest, op1, op2, n = params['dest'], params['op1'], params['op2'], params['n']
+
+    if not all(p in BIGINTS for p in (dest, op1, op2, n)):
+        ql.log.critical(f"{func_name}: one or more bigint not initialized!")
+        ql.arch.regs.arch_pc = 0xdeadbeef
+        return
+
+    n_val, _ = read_bigint(ql, n) 
+    op1_val, _ = read_bigint(op1, n) 
+    op2_val, _ = read_bigint(op2, n) 
+    if n_val is None or op1_val is None or op2_val is None:
+        return 
+    
+    ql.log.info(f"{func_name}: {op1_val}+{op2_val} % {n_val}")
+
+    result = (op1_val + op2_val) % n_val
+    if not write_bigint(ql, dest, result, BIGINTS[dest]):
+        return 
+
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def TEE_BigIntSubMod(ql, func_name):
+    params = ql.os.resolve_fcall_params({'dest': POINTER, 'op1': POINTER, 'op2': POINTER, 'n': POINTER})
+    dest, op1, op2, n = params['dest'], params['op1'], params['op2'], params['n']
+
+    if not all(p in BIGINTS for p in (dest, op1, op2, n)):
+        ql.log.critical(f"{func_name}: one or more bigint not initialized!")
+        ql.arch.regs.arch_pc = 0xdeadbeef
+        return
+
+    n_val, _ = read_bigint(ql, n)
+    op1_val, _ = read_bigint(op1, n) 
+    op2_val, _ = read_bigint(op2, n)
+    if n_val is None or op1_val is None or op2_val is None:
+        return 
+    
+    ql.log.info(f"{func_name}: {op1_val}-{op2_val} % {n_val}")
+
+    result = (op1_val - op2_val) % n_val
+    if not write_bigint(ql, dest, result, BIGINTS[dest]):
+        return
+
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def TEE_BigIntMulMod(ql, func_name):
+    params = ql.os.resolve_fcall_params({'dest': POINTER, 'op1': POINTER, 'op2': POINTER, 'n': POINTER})
+    dest, op1, op2, n = params['dest'], params['op1'], params['op2'], params['n']
+
+    if not all(p in BIGINTS for p in (dest, op1, op2, n)):
+        ql.log.critical(f"{func_name}: one or more bigint not initialized!")
+        ql.arch.regs.arch_pc = 0xdeadbeef
+        return
+
+    n_val, _ = read_bigint(ql, n)
+    op1_val, _ = read_bigint(op1, n) 
+    op2_val, _ = read_bigint(op2, n)
+    if n_val is None or op1_val is None or op2_val is None:
+        return 
+    
+    ql.log.info(f"{func_name}: {op1_val}*{op2_val} % {n_val}")
+
+    result = (op1_val * op2_val) % n_val
+    if not write_bigint(ql, dest, result, BIGINTS[dest]):
+        return
+
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def TEE_BigIntSquareMod(ql, func_name):
+    params = ql.os.resolve_fcall_params({'dest': POINTER, 'op': POINTER, 'n': POINTER})
+    dest, op, n = params['dest'], params['op'], params['n']
+
+    if not all(p in BIGINTS for p in (dest, op, n)):
+        ql.log.critical(f"{func_name}: one or more bigint not initialized!")
+        ql.arch.regs.arch_pc = 0xdeadbeef
+        return
+
+    n_val, _ = read_bigint(ql, n)
+    op_val, _ = read_bigint(op, n) 
+    if n_val is None or op_val is None:
+        return 
+    
+    ql.log.info(f"{func_name}: {op_val}**2 % {n_val}")
+
+    result = (op_val ** 2) % n_val
+    if not write_bigint(ql, dest, result, BIGINTS[dest]):
+        return
+
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def TEE_BigIntInvMod(ql, func_name):
+    params = ql.os.resolve_fcall_params({'dest': POINTER, 'op': POINTER, 'n': POINTER})
+    dest, op, n = params['dest'], params['op'], params['n']
+
+    if not all(p in BIGINTS for p in (dest, op, n)):
+        ql.log.critical(f"{func_name}: one or more bigint not initialized!")
+        ql.arch.regs.arch_pc = 0xdeadbeef
+        return
+
+    op_val, _ = read_bigint(ql, op)
+    n_val, _ = read_bigint(ql, n) 
+    if op_val is None or n_val is None:
+        return
+
+    ql.log.info(f"{func_name}: pow({op_val}, -1, {n_val})")
+
+    try:
+        result = pow(op_val, -1, n_val)  # Python 3.8+ supports modular inverse
+    except ValueError:
+        ql.log.warning(f"{func_name}: inverse does not exist (gcd != 1)")
+
+    if not write_bigint(ql, dest, result, BIGINTS[dest]):
+        return
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def TEE_BigIntExpMod(ql, func_name):
+    params = ql.os.resolve_fcall_params({'dest': POINTER, 'op1': POINTER, 'op2': POINTER, 'n': POINTER, 'context': POINTER})
+    dest, op1, op2, n = params['dest'], params['op1'], params['op2'], params['n']
+
+    if not all(p in BIGINTS for p in (dest, op1, op2, n)):
+        ql.log.critical(f"{func_name}: one or more bigint not initialized!")
+        ql.arch.regs.arch_pc = 0xdeadbeef
+        return
+    
+    n_val, _ = read_bigint(ql, n)
+    op1_val, _ = read_bigint(op1, n) 
+    op2_val, _ = read_bigint(op2, n)
+    if n_val is None or op1_val is None or op2_val is None:
+        return 
+    
+    ql.log.info(f"{func_name}: pow({op1_val}, {op2_val}, {n_val})")
+
+    result = pow(op1_val, op2_val, n_val)
+    if not write_bigint(ql, dest, result, BIGINTS[dest]):
+        return
+
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
