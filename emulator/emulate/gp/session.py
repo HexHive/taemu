@@ -3,7 +3,7 @@ from qiling.os.const import STRING, UINT, POINTER
 from .utils.err import *
 from .utils.param import *
 
-from ..beanpod_ta import get_good_responce_payload
+from ..ta_mgr import get_good_responce_payload
 
 
 ### beanpod IPC

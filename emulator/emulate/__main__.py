@@ -9,7 +9,7 @@ from qiling.const import QL_ARCH, QL_OS, QL_VERBOSE
 
 
 from .emulator_no_loader import simple_diassembler, hook_ta_plt, trace_block, simple_diassembler, hook_ta_dl, fixup_got
-from .beanpod_ta import start
+from .ta_mgr import start
 
 DIR = dir_path = os.path.dirname(os.path.realpath(__file__))
 TEE = ""
@@ -114,5 +114,5 @@ if __name__ == "__main__":
     hook_ta_dl(ql, ta_path, ta_elf)
     ql.do_lib_patch()
     ql.log.info(f"[{ta_name}] emulation start")
-    start(ql, ta_name)
+    start(ql, ta_name, TEE)
     ql.log.info(f"[{ta_name}] emulation end")

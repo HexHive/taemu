@@ -30,25 +30,6 @@ def pivot(ql: Qiling, cur) -> None:
     ql.stop()
     # ql.arch.regs.write("PC", ret_addr)
 
-def setup_params(ql: Qiling, info) -> None:
-    user_data = info.split("@")
-    if (len(user_data) != 3):
-        print(f"internal error")
-        exit(-1)
-
-    cmd = int(user_data[0])
-    ptypes = int(user_data[1])
-    params = json.loads(user_data[2])
-    tee_params = []
-    for p in params:
-        if "data" in p and "len" in p:
-            tee_params.append(TEE_Param_Memref(bytes.fromhex(p['data']), p['len']))
-        elif "a" in p and "b" in p:
-            tee_params.append(TEE_Param_value(p['a'], p['b']))
-        else:
-            print(f"params error")
-            exit(-1)
-    beanpod_api.GP_params_setup(ql, cmd, ptypes, tee_params)
 
 def get_n_ptype(param_type: int, n: int):
     if n >= 0 and n <= 3:
@@ -59,7 +40,7 @@ def get_n_ptype(param_type: int, n: int):
 
 min_addr = 0xbbbbb000
 
-def start(ql: Qiling, ta_name: str):
+def start(ql: Qiling, ta_name: str, tee: str):
     global TA_NAME
 
     bufc2py = {}
@@ -127,9 +108,8 @@ def start(ql: Qiling, ta_name: str):
         for e in TA_CreateEntryPoint_end:
             ql.hook_address(pivot, e, user_data="TA_CreateEntryPoint")
 
-
         _debugger = ql._debugger
-        ql._debugger = _debugger
+        ql.debugger = False
         # run
         ql.run(begin=entrypoint)
 
@@ -163,10 +143,16 @@ def start(ql: Qiling, ta_name: str):
             elif f == FUNCS.func_TEEC_OpenSession.value and l == 0x10:
                 uuid = (p32(u32(d[:4]), endian='big') + p16(u16(d[4:6]), endian='big') + p16(u16(d[6:8]), endian='big') + d[8:]).hex()
                 ql.log.debug(f"TEEC_OpenSession from uuid {uuid}")
-                if (uuid != ta_name.split("/")[-1][:-3]):
-                    ql.log.error(f"Inconsistent TA name!")
-                    sock.close()
-                    exit(-1)
+                if "-" in ta_name:
+                    if (uuid != ta_name.replace("-","").split("/")[-1][:-3]):
+                        ql.log.error(f"Inconsistent TA name!")
+                        sock.close()
+                        exit(-1)
+                else:
+                    if (uuid != ta_name.split("/")[-1][:-3]):
+                        ql.log.error(f"Inconsistent TA name!")
+                        sock.close()
+                        exit(-1)
                 if (session_opened != 0):
                     ql.log.error(f"Open session with one TA mutiple times not supported")
                     sock.close()
@@ -184,7 +170,9 @@ def start(ql: Qiling, ta_name: str):
                 for e in TA_OpenSessionEntryPoint_end:
                     ql.hook_address(pivot, e, user_data="TA_OpenSessionEntryPoint")
 
-                ql.arch.regs.r2 = sessionContext
+
+                #ql.arch.regs.r2 = sessionContext
+                ql.os.fcall.cc.setRawParam(2, sessionContext)
                 ql.run(begin=TA_OpenSessionEntryPoint_start)
 
             elif f == FUNCS.func_TEEC_RegisterSharedMemory.value and l == 16:
@@ -235,15 +223,18 @@ def start(ql: Qiling, ta_name: str):
                     sock.close()
                     exit(-1)
 
-                
-                ql.arch.regs.r0 = session_id_mem
-                ql.arch.regs.r1 = cmd
-                ql.arch.regs.r2 = ptypes
+                ql.os.fcall.cc.setRawParam(0, session_id_mem)
+                ql.os.fcall.cc.setRawParam(1, cmd)
+                ql.os.fcall.cc.setRawParam(2, ptypes)
+                #ql.arch.regs.r0 = session_id_mem
+                #ql.arch.regs.r1 = cmd
+                #ql.arch.regs.r2 = ptypes
                 # setup TEE_Params
                 params_mem = ql.mem.map_anywhere(
                     0x1000, minaddr=min_addr, perms=3, info="TEE_Params"
                 )  
-                ql.arch.regs.r3 = params_mem  
+                #ql.arch.regs.r3 = params_mem  
+                ql.os.fcall.cc.setRawParam(3, params_mem)
 
                 params = d[12:]
                 while pcnt < 4:
@@ -254,10 +245,13 @@ def start(ql: Qiling, ta_name: str):
                         b = u32(params[pcnt*24+4:pcnt*24+8])
                         ql.log.debug(f"value p {a} {b}")
 
-                        ql.mem.write_ptr(params_mem, a)
+                        ql.mem.write(params_mem, a.to_bytes(4, "little"))
                         params_mem += 4
-                        ql.mem.write_ptr(params_mem, b)
+                        ql.mem.write(params_mem, b.to_bytes(4, "little"))
                         params_mem += 4
+                        if tee != "beanpod":
+                            # 32 bit
+                            params_mem += 8
                     # tmp mem
                     elif t >= 5 and t <= 7:
                         buf = u64(params[pcnt*24:pcnt*24+8])
@@ -277,9 +271,9 @@ def start(ql: Qiling, ta_name: str):
                         ql.log.debug(f"SHM IN content: {shm.to_bytes()}")
                         ql.mem.write(pybuf, shm.to_bytes())
                         ql.mem.write_ptr(params_mem, pybuf)
-                        params_mem += 4
+                        params_mem += ql.arch.pointersize
                         ql.mem.write_ptr(params_mem, size)
-                        params_mem += 4
+                        params_mem += ql.arch.pointersize 
                     elif t == 0:
                         pass
                     else:
@@ -296,7 +290,7 @@ def start(ql: Qiling, ta_name: str):
                 # run
                 ql._debugger = _debugger
                 ql.run(begin=TA_InvokeCommandEntryPoint_start)
-                ret = ql.arch.regs.r0
+                ret = ql.os.fcall.cc.getReturnValue()
 
                 # sync shm
                 pcnt = 0

@@ -9,7 +9,7 @@ HEAP = {"allocated": {}, "freed": {}}
 HEAP_MEM=0xaaaaa000
 
 def memset_core(ql, func_name, called_from_custom_lib):
-    params = ql.os.resolve_fcall_params({"dest": INT, "x": BYTE, "size": INT})
+    params = ql.os.resolve_fcall_params({"dest": POINTER, "x": BYTE, "size": POINTER})
     ql.log.info(
         f'{func_name} {params["size"]:#0x} bytes of {hex(params["x"])} fill to {hex(params["dest"])}'
     )

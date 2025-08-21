@@ -4,7 +4,7 @@ from qiling.os.const import STRING, INT, BYTE, POINTER
 from .gp.utils.param import TEE_Param_Memref
 from .gp.utils.err import *
 from .gp.utils.string import *
-from .gp.printf import *
+from .gp.utils.printf import *
 
 from Crypto.Random import get_random_bytes
 
@@ -88,12 +88,13 @@ def TEE_LogPrintf(ql: Qiling, func_name):
 def fprintf(ql: Qiling, func_name):
     TEE_LogvPrintf(ql, func_name)
 
-
-
 def vfprintf(ql: Qiling, func_name):
     TEE_LogvPrintf(ql, func_name)
 
 def puts(ql: Qiling, func_name):
+    TEE_LogPrintf(ql, func_name)
+
+def printf(ql: Qiling, func_name):
     TEE_LogPrintf(ql, func_name)
 
 def TEE_LogvPrintf(ql: Qiling, func_name):
@@ -175,7 +176,7 @@ def TEE_MemMove(ql: Qiling, func_name):
     memmove(ql, func_name)
 
 def memmove(ql: Qiling, func_name):
-    params = ql.os.resolve_fcall_params({"dest": INT, "src": INT, "size": INT})
+    params = ql.os.resolve_fcall_params({"dest": POINTER, "src": POINTER, "size": POINTER})
     ql.log.info(
         f'{func_name} {params["size"]:#0x} from {hex(params["src"])} to {hex(params["dest"])}'
     )
