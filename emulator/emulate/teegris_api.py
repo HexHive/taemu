@@ -24,6 +24,13 @@ def TEES_IsREESharedMemory(ql: Qiling, func_name):
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+def TEES_CheckSecureObjectCreator(ql: Qiling, func_name):
+    ql.log.info(
+        f'{func_name} returning 1'
+    )
+    ql.os.fcall.cc.setReturnValue(1)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr 
+
 fd_counter = 5
 fds = {}
 

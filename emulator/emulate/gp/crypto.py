@@ -48,6 +48,12 @@ def TEE_AllocateOperation(ql:Qiling, func_name):
         id2opration[OPERATION_ID] = op
         ql.mem.write_ptr(param_operation, OPERATION_ID)
         OPERATION_ID += 1
+    elif param_algorithm == TEEGRIS_LOG_ENC:
+        ql.log.info(f"\tTEEGRIS custom log encryption (noop)")
+        op = TEEGRIS_LOG_ENC_Operation(OPERATION_ID, param_mode, ql)
+        id2opration[OPERATION_ID] = op
+        ql.mem.write_ptr(param_operation, OPERATION_ID)
+        OPERATION_ID += 1 
     else:
         ql.log.info(f"\t mode {hex(param_mode)} or algo {hex(param_algorithm)} not valid")
         ret = TEE_ERROR_NOT_SUPPORTED
@@ -185,7 +191,10 @@ def TEE_SetOperationKey(ql:Qiling, func_name):
     elif type(op) == TEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256_Operation:
         op.initialize(key.rsa_param, ql)
         ql.log.info("\tALG_RSAES_PKCS1_OAEP_MGF1_SHA256 initialized with new keys, passing...")
-    
+
+    elif type(op) == TEEGRIS_LOG_ENC_Operation:
+        op.initialize(key.key, ql)
+
     else:
         ql.log.error(f'TEE_SetOperationKey: unknown op type')
         ql.emu_stop()
@@ -258,6 +267,14 @@ def TEE_CipherInit(ql:Qiling, func_name):
 
         ql.log.info(f"TEE_CipherInit: {type(op)} op cypher init, iv: {op.iv}")
 
+    elif type(op) == TEEGRIS_LOG_ENC_Operation:
+        if op.initialized and not op.active:
+            op.activate(bytes(ql.mem.read(param_iv, param_ivLen)))
+        else:
+            ql.log.error(f"TEE_CipherInit: {type(op)} not initialized or already activated")
+            ql.emu_stop()
+        ql.log.info(f"TEE_CipherInit: {type(op)} op cypher init, iv: {op.iv}")
+
     else:
         ql.log.error(f"TEE_CipherInit: unknown op type")
         ql.emu_stop()
@@ -300,7 +317,13 @@ def TEE_CipherDoFinal(ql:Qiling, func_name):
             ql.log.error(f"TEE_CipherDoFinal: {type(op)} not activated")
             ql.emu_stop()
 
-        
+    elif type(op) == TEEGRIS_LOG_ENC_Operation:
+        if op.active:
+            srcContent = bytes(ql.mem.read(param_src, param_srcLen)) 
+            op.finalize(srcContent)
+            dstContent = op.finalize(srcContent)
+            ql.mem.write(param_dst, dstContent)
+            ql.mem.write_ptr(param_dstLen, len(dstContent)) 
 
     else:
         ql.log.error(f"TEE_CipherDoFinal: unknown op type")

@@ -34,6 +34,8 @@ def get_api_impl(func_name):
     api_func = getattr(teegris_api, func_name, None)
     if api_func is not None:
         return api_func
+    if api_func == "__stack_chk_fail":
+        return gp_api.stack_chk_fail
     return gp_api.default_func
 
 

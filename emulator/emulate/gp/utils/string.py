@@ -30,7 +30,9 @@ def malloc_core(ql: Qiling, func_name, called_from_custom_lib):
     if ret2user_out in HEAP["freed"]:
         del HEAP["freed"][ret2user_out]
 
+    ql.log.info(f'redzone hook {hex(out)}')
     asan.asan_hook_redzone_mem_rw(out, asan.ASAN_REDZONE_SIZE, ql)
+    ql.log.info(f'redzone hook {hex(ret2user_out + size)}')
     asan.asan_hook_redzone_mem_rw(
         ret2user_out + size, real_size - asan.ASAN_REDZONE_SIZE - size, ql
     )
@@ -83,6 +85,8 @@ def free_core(ql:Qiling, func_name, called_from_custom_lib):
     ql.mem.unmap(real_ptr, (size + 0x1000 - 1) & ~(0x1000 - 1))
     HEAP["freed"][ptr] = size
     del HEAP["allocated"][ptr]
+
+    asan.asan_hook_free_mem_rw(real_ptr, size, ql)
 
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     if not called_from_custom_lib:

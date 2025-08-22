@@ -12,6 +12,7 @@ TEE_ALG_AES_CBC_NOPAD   =   0x10000110
 TEE_ALG_SHA256          =   0x50000004
 TEE_ALG_RSAES_PKCS1_V1_5    =   0x60000130
 TEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256 = 0x60410230
+TEEGRIS_LOG_ENC = 0xf0100003
 
 
 
@@ -172,4 +173,24 @@ class TEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256_Operation(Operation):
     def decrypt(self, ct, ql: Qiling):
         return b""
 
+class TEEGRIS_LOG_ENC_Operation(Operation):
+    def __init__(self, operationID, mode, ql) -> None:
+        super().__init__(operationID, ql)
+        self.mode = mode
+        self.key = None
+        self.cypher = None
+        self.initialized = False 
+        self.active = False
+
+    def activate(self, iv):
+        self.iv = iv
+        self.active = True
+
+    def finalize(self, src):
+        return src
+
+    def initialize(self, key, ql):
+        self.initialized = True
+        self.key = key
+    
 

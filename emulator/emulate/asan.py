@@ -37,7 +37,7 @@ def asan_hook_redzone_mem_rw(redzone, size, ql:Qiling):
 
 def asan_hook_free_mem_rw(freed_region, size, ql:Qiling):
     real_size = memory_alignment_round_up(size + 2*ASAN_REDZONE_SIZE, 0x1000)
-    ql.hook_mem_unmapped(unmmaped_region_access, begin=freed_region, end=freed_region+real_size-1)
+    #ql.hook_mem_unmapped(unmmaped_region_access, begin=freed_region, end=freed_region+real_size-1)
     redzone_before = freed_region
     redzone_after = freed_region + ASAN_REDZONE_SIZE + size
     rh, wh = HOOKS[redzone_before]

@@ -50,6 +50,9 @@ def default_func(ql: Qiling, func_name):
     ql.log.info(f"{func_name} called, not implemented!")
     ql.emu_stop()
 
+def stack_chk_fail(ql: Qiling, func_name):
+    ql.log.critical(f"stack_chk_fail ***stack smashing detected***")
+    ql.arch.regs.arch_pc = 0xdeadbeef
 
 def malloc(ql:Qiling, func_name, called_from_custom_lib):
     TEE_Malloc(ql, func_name)
@@ -73,9 +76,7 @@ def memcmp(ql: Qiling, func_name):
 def TEE_LogPrintf(ql: Qiling, func_name):
     format_param = ql.os.resolve_fcall_params({"format": STRING})["format"]
     final_params = {"format": STRING}
-    final_params = parse_fmt_str(format_param, final_params)
-    params = ql.os.resolve_fcall_params(final_params)
-    del params["format"]
+    params = parse_fmt_str(ql, format_param, final_params, func_name)
     string_params = [params[f"{i}"] for i in range(0, len(params))]
     format_param = format_param.replace("%p", "0x%x")
     format_param = format_param.replace("%llu", "%u")
@@ -102,9 +103,7 @@ def TEE_LogvPrintf(ql: Qiling, func_name):
     log_level = p["log_level"]
     format_param = p["format"]
     final_params = {"log_level": INT, "format": STRING}
-    final_params = parse_fmt_str(format_param, final_params)
-    params = ql.os.resolve_fcall_params(final_params)
-    del params["format"]
+    params = parse_fmt_str(ql, format_param, final_params, func_name)
     string_params = [params[f"{i}"] for i in range(0, len(params) - 1)]
     out_str = format_param % tuple(string_params)
     ql.log.info(f"{func_name}: {log_level}, {out_str}")
@@ -130,44 +129,34 @@ def log_msg(ql: Qiling, func_name):
 
 def snprintf(ql: Qiling, func_name):
     params_initial = ql.os.resolve_fcall_params(
-        {"s": INT, "n": INT, "format": STRING}
+        {"s": POINTER, "n": INT, "format": STRING, "arg": POINTER}
     )
     format_param = params_initial["format"]
     n = params_initial["n"]
     s = params_initial["s"]
-    final_params = parse_fmt_str(
-        format_param, {"s": INT, "n": INT, "format": STRING}
+    arg = params_initial["arg"]
+    params = parse_fmt_str(
+        ql, format_param, {"s": INT, "n": INT, "format": STRING}, 
+        func_name, arg=arg
     )
-    params = ql.os.resolve_fcall_params(final_params)
-    del params["format"]
-    del params["s"]
-    del params["n"]
     string_params = [params[f"{i}"] for i in range(0, len(params))]
     out_str = format_param % tuple(string_params)
     full_len = len(out_str)
     out_str = out_str[: n - 1]
     out_str = out_str.encode() + b"\x00"
-    ql.log.info(f'snprintf: len: {hex(n)} "{out_str}" written to {hex(s)}')
+    ql.log.info(f'{func_name}: len: {hex(n)} "{out_str}" written to {hex(s)}')
     ql.mem.write(s, out_str)
     ql.os.fcall.cc.setReturnValue(full_len)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def read_c_str(ql: Qiling, addr):
-    read = b""
-    while True:
-        b = ql.mem.read(addr, 1)
-        if b == b"\x00":
-            break
-        else:
-            read += b
-            addr += 1
-    return read
+def vsnprintf(ql: Qiling, func_name):
+    snprintf(ql, func_name)
 
 def strlen(ql: Qiling, func_name):
-    ptr = ql.os.resolve_fcall_params({"ptr": INT})["ptr"]
+    ptr = ql.os.resolve_fcall_params({"ptr": POINTER})["ptr"]
+    ql.log.info(f'strlen {hex(ptr)}')#, "{string}"=> {hex(out)}')
     string = read_c_str(ql, ptr)
     out = len(string)
-    ql.log.info(f'strlen {hex(ptr)}, "{string}"=> {hex(out)}')
     ql.os.fcall.cc.setReturnValue(out)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
@@ -203,7 +192,7 @@ def memset(ql: Qiling, func_name):
 
 
 def TEE_MemCompare(ql: Qiling, func_name):
-    params = ql.os.resolve_fcall_params({"dest": INT, "src": INT, "size": INT})
+    params = ql.os.resolve_fcall_params({"dest": POINTER, "src": POINTER, "size": POINTER})
     buffer_1 = params["dest"]
     buffer_2 = params["src"]
     size = params["size"]

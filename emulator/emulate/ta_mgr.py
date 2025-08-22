@@ -170,8 +170,7 @@ def start(ql: Qiling, ta_name: str, tee: str):
                 for e in TA_OpenSessionEntryPoint_end:
                     ql.hook_address(pivot, e, user_data="TA_OpenSessionEntryPoint")
 
-
-                #ql.arch.regs.r2 = sessionContext
+                #ql._debugger = _debugger
                 ql.os.fcall.cc.setRawParam(2, sessionContext)
                 ql.run(begin=TA_OpenSessionEntryPoint_start)
 
@@ -179,7 +178,7 @@ def start(ql: Qiling, ta_name: str, tee: str):
                 shm_key = u32(d[:4])
                 size = u32(d[4:8])
                 buf = u64(d[8:])
-                ql.log.debug(f"TEEC_RegisterSharedMemory {shm_key:#0x} {buf:#0x} {size:#0x}")
+                ql.log.info(f"TEEC_RegisterSharedMemory {shm_key:#0x} {buf:#0x} {size:#0x}")
 
                 class SHM(Structure):   
                     _fields_ = [
