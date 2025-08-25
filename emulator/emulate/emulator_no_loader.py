@@ -2,6 +2,7 @@ from pwn import *
 import json
 import importlib
 import pkgutil
+import subprocess
 import pathlib
 from qiling import Qiling
 from qiling.utils import ql_get_module
@@ -14,6 +15,8 @@ from . import teegris_api
 from .gp import bigint_ops, crypto, general_objects, persistent_objects, properties, session, transient_objects
 from unicorn.arm64_const import UC_ARM64_INS_MRS
 from unicorn import UC_PROT_READ, UC_PROT_WRITE
+from .custom.mitee_loader import mitee_read_relocs
+
 
 def __get_os_module(osname: str):
     return ql_get_module(f".os.{osname.lower()}.syscall")
@@ -56,23 +59,23 @@ def nop_instruction(ql: Qiling, offset, lib_name):
 counter = 0
 ql_resolve_mem = 0x99999000
 
-def fixup_got(ql: Qiling, ta_path, ta_elf:ELF):
+def fixup_got(ql: Qiling, ta_path, ta_elf:ELF, is_mitee=False):
     # ... :/
     ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
-    with open(ta_path, 'rb') as f:
-        elf = ELFFile(f)
-        for section in elf.iter_sections():
-            if not isinstance(section, RelocationSection):
-                continue
-            if section.name != ".rela.dyn":
-                continue
-            for rel in section.iter_relocations():
-                reloc_addr = rel.entry['r_offset']
-                r_type = rel.entry['r_info_type']
-                addend = rel.entry.get('r_addend', None)
-                print(f"  relocation at 0x{reloc_addr:x}, type={r_type}, addend={addend}")
-                ql.mem.write_ptr(ta_base + reloc_addr, ta_base + addend)
-
+    for section in ta_elf.iter_sections():
+        if not isinstance(section, RelocationSection):
+            continue
+        if section.name != ".rela.dyn":
+            continue
+        for rel in section.iter_relocations():
+            reloc_addr = rel.entry['r_offset']
+            r_type = rel.entry['r_info_type']
+            addend = rel.entry.get('r_addend', None)
+            print(f"  relocation at 0x{reloc_addr:x}, type={r_type}, addend={addend}")
+            ql.mem.write_ptr(ta_base + reloc_addr, ta_base + addend)
+    if is_mitee:
+        #TODO: handle relocations using readelf 
+        pass
 
 def hook_ta_dl(ql: Qiling, ta_path, ta_elf:ELF, is_mitee=False):
     counter = 0
@@ -80,13 +83,17 @@ def hook_ta_dl(ql: Qiling, ta_path, ta_elf:ELF, is_mitee=False):
     ta_elf.address = ta_base
     ql.mem.map(ql_resolve_mem, 0x1000,info="dl_resolve")
     for func, addr in ta_elf.plt.items():
-        ql.mem.write(ta_elf.got[func], (ql_resolve_mem+counter).to_bytes(4, "little"))
+        ql.mem.write(ta_elf.got[func], (ql_resolve_mem+counter).to_bytes(ql.arch.pointersize, "little"))
         ql.log.info(f'hooking api function {func}, {hex(addr)}, {hex(ql_resolve_mem+counter)}')
         ql.hook_address(get_api_impl(func), ql_resolve_mem+counter, user_data=func)
-        counter += 4
+        counter += ql.arch.pointersize
     if is_mitee:
-        #TODO parse elf to find plt/got myself
-        pass
+        to_hook = mitee_read_relocs(ta_path)
+        for func, off in to_hook:
+            ql.mem.write(ta_base + off, (ql_resolve_mem+counter).to_bytes(ql.arch.pointersize, "little"))
+            ql.log.info(f'[mitee] hooking plt relocation function {func}, {hex(off)}, {hex(ql_resolve_mem+counter)}')
+            ql.hook_address(get_api_impl(func), ql_resolve_mem+counter, user_data=func)
+            counter += ql.arch.pointersize
 
 def hook_ta_custom(ql: Qiling, ta_path, ta_elf:ELF):
     # inline hooks for TAs
@@ -104,7 +111,7 @@ def hook_ta_custom(ql: Qiling, ta_path, ta_elf:ELF):
                 else:
                     ql.hook_address(get_api_impl(fname), addr, user_data=fname)
 
-def setup_tls(ql: Qiling, ta_path, ta_elf:ELF):
+def mitee_setup(ql: Qiling, ta_path, ta_elf:ELF):
     TLS_MEM_BASE = 0xeee000
     THREAD_STACK_BASE = 0xf00000 
     THREAD_STACK_SIZE = 0x10000
@@ -115,7 +122,11 @@ def setup_tls(ql: Qiling, ta_path, ta_elf:ELF):
     TLS_ADDR = TLS_MEM_BASE + 0x10
     def hook_mrs(ql: Qiling, port, size):
         #TODO figure out register where to store tls address
-        ql.arch.regs.x23 = TLS_ADDR
+        code_bytes = ql.mem.read(ql.arch.regs.arch_pc, 4)
+        for ins in ql.arch.disassembler.disasm(code_bytes, ql.arch.regs.arch_pc):
+            assert(ins.mnemonic  == "mrs")
+            target_reg = ins.op_str.split(',')[0]
+            exec(f'ql.arch.regs.{target_reg} = {TLS_ADDR}')
         return (0, TLS_ADDR)
     ql.mem.write_ptr(TLS_ADDR-0x8, THREAD_STACK_ADDR)
     ql.mem.write_ptr(TLS_ADDR-0x10, CANARY)

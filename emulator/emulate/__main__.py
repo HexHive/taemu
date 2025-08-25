@@ -7,7 +7,7 @@ from qiling import Qiling
 from qiling.const import QL_VERBOSE
 from qiling.const import QL_ARCH, QL_OS, QL_VERBOSE
 
-from .emulator_no_loader import simple_diassembler, trace_block, simple_diassembler, hook_ta_dl, fixup_got, hook_ta_custom, setup_tls
+from .emulator_no_loader import simple_diassembler, trace_block, simple_diassembler, hook_ta_dl, fixup_got, hook_ta_custom, mitee_setup
 from .ta_mgr import start
 
 DIR = dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -122,11 +122,11 @@ if __name__ == "__main__":
         ql.hook_block(trace_block)
     # start emulation
     fixup_got(ql, ta_path, ta_elf)
-    hook_ta_dl(ql, ta_path, ta_elf)
+    hook_ta_dl(ql, ta_path, ta_elf, is_mitee=TEE=="mitee")
     hook_ta_custom(ql, ta_path, ta_elf)
     if TEE == "mitee":
         # handle tpidr_el0
-        setup_tls(ql, ta_path, ta_elf)
+        mitee_setup(ql, ta_path, ta_elf)
     ql.do_lib_patch()
     ql.log.info(f"[{ta_name}] emulation start")
     start(ql, ta_name, TEE)
