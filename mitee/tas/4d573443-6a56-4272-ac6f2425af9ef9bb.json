@@ -1,0 +1,164 @@
+{
+    "inline": {
+        "TEE_MACComputeFinal": {
+            "addr": 115184,
+            "type": "gp_api"
+        },
+        "TEE_FreeTransientObject": {
+            "addr": 108736,
+            "type": "gp_api"
+        },
+        "TEE_ResetTransientObject": {
+            "addr": 109008,
+            "type": "gp_api"
+        },
+        "TEE_PopulateTransientObject": {
+            "addr": 109280,
+            "type": "gp_api"
+        },
+        "TEE_Malloc": {
+            "addr": 107960,
+            "type": "gp_api"
+        },
+        "TEE_ResetOperation": {
+            "addr": 114240,
+            "type": "gp_api"
+        },
+        "TEE_CloseTASession": {
+            "addr": 107080,
+            "type": "gp_api"
+        },
+        "TEE_InvokeTACommand": {
+            "addr": 107280,
+            "type": "gp_api"
+        },
+        "TEE_SetOperationKey": {
+            "addr": 114496,
+            "type": "gp_api"
+        },
+        "TEE_GetREETime": {
+            "addr": 107872,
+            "type": "gp_api"
+        },
+        "TEE_MACInit": {
+            "addr": 114856,
+            "type": "gp_api"
+        },
+        "TEE_ReadObjectData": {
+            "addr": 111088,
+            "type": "gp_api"
+        },
+        "TEE_GenerateRandom": {
+            "addr": 115496,
+            "type": "gp_api"
+        },
+        "TEE_CopyObjectAttributes": {
+            "addr": 109976,
+            "type": "gp_api"
+        },
+        "TEE_CreatePersistentObject": {
+            "addr": 110736,
+            "type": "gp_api"
+        },
+        "TEE_GetObjectInfo": {
+            "addr": 108328,
+            "type": "gp_api"
+        },
+        "TEE_AllocateTransientObject": {
+            "addr": 108528,
+            "type": "gp_api"
+        },
+        "TEE_OpenPersistentObject": {
+            "addr": 110408,
+            "type": "gp_api"
+        },
+        "TEE_WriteObjectData": {
+            "addr": 111328,
+            "type": "gp_api"
+        },
+        "TEE_InitRefAttribute": {
+            "addr": 109800,
+            "type": "gp_api"
+        },
+        "TEE_CloseObject": {
+            "addr": 108448,
+            "type": "gp_api"
+        },
+        "TEE_FreeOperation": {
+            "addr": 114088,
+            "type": "gp_api"
+        },
+        "TEE_AllocateOperation": {
+            "addr": 111504,
+            "type": "gp_api"
+        },
+        "TEE_GetSystemTime": {
+            "addr": 107792,
+            "type": "gp_api"
+        }
+    },
+    "TA_GetAuthTokenKey_start": 95168,
+    "TA_GetAuthTokenKey_end": [
+        97820
+    ],
+    "TA_ComputePasswordSignature_start": 100896,
+    "TA_ComputePasswordSignature_end": [
+        101108
+    ],
+    "TA_DestroyEntryPoint_start": 95008,
+    "TA_DestroyEntryPoint_end": [
+        95044
+    ],
+    "TA_Verify_start": 95168,
+    "TA_Verify_end": [
+        97820
+    ],
+    "TA_OpenSessionEntryPoint_start": 95088,
+    "TA_OpenSessionEntryPoint_end": [
+        95164
+    ],
+    "TA_CreateEntryPoint_start": 94232,
+    "TA_CreateEntryPoint_end": [
+        94996
+    ],
+    "TA_GetMasterKey_start": 99808,
+    "TA_GetMasterKey_end": [
+        100588
+    ],
+    "TA_MintAuthToken_start": 95168,
+    "TA_MintAuthToken_end": [
+        97820
+    ],
+    "TA_ComputeSignature_start": 101120,
+    "TA_ComputeSignature_end": [
+        101544
+    ],
+    "TA_Enroll_start": 95168,
+    "TA_Enroll_end": [
+        97820
+    ],
+    "TA_DoVerify_start": 99496,
+    "TA_DoVerify_end": [
+        99792
+    ],
+    "TA_DeleteAllUser_start": 95168,
+    "TA_DeleteAllUser_end": [
+        97820
+    ],
+    "TA_CloseSessionEntryPoint_start": 95048,
+    "TA_CloseSessionEntryPoint_end": [
+        95084
+    ],
+    "TA_InvokeCommandEntryPoint_start": 95168,
+    "TA_InvokeCommandEntryPoint_end": [
+        97820
+    ],
+    "TA_DeleteUser_start": 95168,
+    "TA_DeleteUser_end": [
+        97820
+    ],
+    "TA_CreatePasswordHandle_start": 99808,
+    "TA_CreatePasswordHandle_end": [
+        100588
+    ]
+}

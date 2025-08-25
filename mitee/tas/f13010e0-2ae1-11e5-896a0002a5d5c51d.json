@@ -1,0 +1,64 @@
+{
+    "inline": {
+        "TEE_MACComputeFinal": {
+            "addr": 2852184,
+            "type": "gp_api"
+        },
+        "TEE_Malloc": {
+            "addr": 2841448,
+            "type": "gp_api"
+        },
+        "TEE_CipherUpdate": {
+            "addr": 2849576,
+            "type": "gp_api"
+        },
+        "TEE_CloseTASession": {
+            "addr": 2840648,
+            "type": "gp_api"
+        },
+        "TEE_InvokeTACommand": {
+            "addr": 2840848,
+            "type": "gp_api"
+        },
+        "TEE_GenerateRandom": {
+            "addr": 2852496,
+            "type": "gp_api"
+        },
+        "TEE_KMGetHmacKey": {
+            "addr": 2841816,
+            "type": "gp_api"
+        },
+        "TEE_AllocateTransientObject": {
+            "addr": 2842752,
+            "type": "gp_api"
+        },
+        "TEE_CloseObject": {
+            "addr": 2842672,
+            "type": "gp_api"
+        },
+        "TEE_GetSystemTime": {
+            "addr": 2841368,
+            "type": "gp_api"
+        }
+    },
+    "TA_DestroyEntryPoint_start": 2367624,
+    "TA_DestroyEntryPoint_end": [
+        2367660
+    ],
+    "TA_OpenSessionEntryPoint_start": 2367664,
+    "TA_OpenSessionEntryPoint_end": [
+        2367796
+    ],
+    "TA_CreateEntryPoint_start": 2367560,
+    "TA_CreateEntryPoint_end": [
+        2367616
+    ],
+    "TA_CloseSessionEntryPoint_start": 2367800,
+    "TA_CloseSessionEntryPoint_end": [
+        2367836
+    ],
+    "TA_InvokeCommandEntryPoint_start": 2367840,
+    "TA_InvokeCommandEntryPoint_end": [
+        2367972
+    ]
+}

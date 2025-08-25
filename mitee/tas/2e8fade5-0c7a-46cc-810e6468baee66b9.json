@@ -1,0 +1,170 @@
+{
+    "inline": {
+        "TEE_FreeTransientObject": {
+            "addr": 147208,
+            "type": "gp_api"
+        },
+        "TEE_SEReaderGetProperties": {
+            "addr": 179032,
+            "type": "gp_api"
+        },
+        "TEE_SESecureChannelClose": {
+            "addr": 184384,
+            "type": "gp_api"
+        },
+        "TEE_SESessionOpenBasicChannel": {
+            "addr": 181376,
+            "type": "gp_api"
+        },
+        "TEE_SEChannelGetNumber_ext": {
+            "addr": 185456,
+            "type": "gp_api"
+        },
+        "TEE_Malloc": {
+            "addr": 146112,
+            "type": "gp_api"
+        },
+        "TEE_SEServiceClose": {
+            "addr": 177888,
+            "type": "gp_api"
+        },
+        "TEE_SEReaderGetName": {
+            "addr": 179424,
+            "type": "gp_api"
+        },
+        "TEE_SEReaderOpenSession": {
+            "addr": 180024,
+            "type": "gp_api"
+        },
+        "TEE_SEChannelGetSelectResponse": {
+            "addr": 182824,
+            "type": "gp_api"
+        },
+        "TEE_GetObjectBufferAttribute": {
+            "addr": 146600,
+            "type": "gp_api"
+        },
+        "TEE_SESessionGetATR": {
+            "addr": 180448,
+            "type": "gp_api"
+        },
+        "TEE_CloseTASession": {
+            "addr": 145280,
+            "type": "gp_api"
+        },
+        "TEE_InvokeTACommand": {
+            "addr": 145480,
+            "type": "gp_api"
+        },
+        "TEE_SESecureChannelOpen": {
+            "addr": 183424,
+            "type": "gp_api"
+        },
+        "TEE_ReadObjectData": {
+            "addr": 148816,
+            "type": "gp_api"
+        },
+        "TEE_SESessionIfsReq_ext": {
+            "addr": 186920,
+            "type": "gp_api"
+        },
+        "TEE_CloseAndDeletePersistentObject": {
+            "addr": 148608,
+            "type": "gp_api"
+        },
+        "TEE_SESessionHardReset_ext": {
+            "addr": 186392,
+            "type": "gp_api"
+        },
+        "TEE_SESessionOpenLogicalChannel": {
+            "addr": 181912,
+            "type": "gp_api"
+        },
+        "TEE_CreatePersistentObject": {
+            "addr": 148256,
+            "type": "gp_api"
+        },
+        "TEE_SEChannelClose": {
+            "addr": 182448,
+            "type": "gp_api"
+        },
+        "TEE_SESessionInterfaceReset_ext": {
+            "addr": 185864,
+            "type": "gp_api"
+        },
+        "TEE_GenerateKey": {
+            "addr": 147648,
+            "type": "gp_api"
+        },
+        "TEE_SESessionClose": {
+            "addr": 181000,
+            "type": "gp_api"
+        },
+        "TEE_AllocateTransientObject": {
+            "addr": 147000,
+            "type": "gp_api"
+        },
+        "TEE_OpenPersistentObject": {
+            "addr": 147928,
+            "type": "gp_api"
+        },
+        "TEE_WriteObjectData": {
+            "addr": 149056,
+            "type": "gp_api"
+        },
+        "TEE_SESecureChannelGetSecurityLevel": {
+            "addr": 184000,
+            "type": "gp_api"
+        },
+        "TEE_SEChannelTransmit_ext": {
+            "addr": 184760,
+            "type": "gp_api"
+        },
+        "TEE_CloseObject": {
+            "addr": 146920,
+            "type": "gp_api"
+        },
+        "TEE_InitValueAttribute": {
+            "addr": 147480,
+            "type": "gp_api"
+        },
+        "TEE_GetSystemTime": {
+            "addr": 146032,
+            "type": "gp_api"
+        },
+        "TEE_GetObjectInfo": {
+            "addr": 146480,
+            "type": "gp_api"
+        },
+        "TEE_SEServiceOpen": {
+            "addr": 177376,
+            "type": "gp_api"
+        },
+        "TEE_SEServiceGetReaders": {
+            "addr": 178264,
+            "type": "gp_api"
+        }
+    },
+    "TA_GetAuthTokenKey_start": 141600,
+    "TA_GetAuthTokenKey_end": [
+        142352
+    ],
+    "TA_DestroyEntryPoint_start": 139904,
+    "TA_DestroyEntryPoint_end": [
+        140020
+    ],
+    "TA_OpenSessionEntryPoint_start": 140024,
+    "TA_OpenSessionEntryPoint_end": [
+        140312
+    ],
+    "TA_CreateEntryPoint_start": 139752,
+    "TA_CreateEntryPoint_end": [
+        139900
+    ],
+    "TA_CloseSessionEntryPoint_start": 140320,
+    "TA_CloseSessionEntryPoint_end": [],
+    "TA_InvokeCommandEntryPoint_start": 140600,
+    "TA_InvokeCommandEntryPoint_end": [
+        140864
+    ]
+}

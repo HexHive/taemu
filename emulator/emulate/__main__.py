@@ -7,8 +7,7 @@ from qiling import Qiling
 from qiling.const import QL_VERBOSE
 from qiling.const import QL_ARCH, QL_OS, QL_VERBOSE
 
-
-from .emulator_no_loader import simple_diassembler, hook_ta_plt, trace_block, simple_diassembler, hook_ta_dl, fixup_got
+from .emulator_no_loader import simple_diassembler, trace_block, simple_diassembler, hook_ta_dl, fixup_got, hook_ta_custom, setup_tls
 from .ta_mgr import start
 
 DIR = dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -73,7 +72,8 @@ if __name__ == "__main__":
         TEE = "teegris"
     elif b"rom/libld-l4.so" in open(ta_path, "rb").read():
         TEE = "beanpod"
-
+    elif b"ld.so.1" in open(ta_path, "rb").read():
+        TEE = "mitee"
     if TEE == "":
         TEE = args.tee
 
@@ -86,7 +86,7 @@ if __name__ == "__main__":
             verbose=v,
             thumb=True,
             env={"LD_LIBRARY_PATH": "rom"},
-            profile="beanpod.ql"
+            profile="tee.ql"
         )
     elif TEE == "teegris":
         print("doing teegris")
@@ -97,7 +97,18 @@ if __name__ == "__main__":
             archtype=QL_ARCH.ARM64,
             verbose=v,
             env={"LD_LIBRARY_PATH": "lib64"},
-            profile="beanpod.ql"
+            profile="tee.ql"
+        )
+    elif TEE == "mitee":
+        print("doing mitee")
+        ql = Qiling(
+            [ta_path],
+            rootfs=os.path.join(DIR, "../rootfs/"),
+            ostype=QL_OS.LINUX,
+            archtype=QL_ARCH.ARM64,
+            verbose=v,
+            env={"LD_LIBRARY_PATH": "/"},
+            profile="tee.ql"
         )
     else:
         print(f'[!] TEE not set  [!]')
@@ -112,6 +123,10 @@ if __name__ == "__main__":
     # start emulation
     fixup_got(ql, ta_path, ta_elf)
     hook_ta_dl(ql, ta_path, ta_elf)
+    hook_ta_custom(ql, ta_path, ta_elf)
+    if TEE == "mitee":
+        # handle tpidr_el0
+        setup_tls(ql, ta_path, ta_elf)
     ql.do_lib_patch()
     ql.log.info(f"[{ta_name}] emulation start")
     start(ql, ta_name, TEE)

@@ -1,0 +1,92 @@
+{
+    "inline": {
+        "TEE_Malloc": {
+            "addr": 855040,
+            "type": "gp_api"
+        },
+        "TEE_SeekObjectData": {
+            "addr": 857240,
+            "type": "gp_api"
+        },
+        "TEE_GetREETime": {
+            "addr": 854952,
+            "type": "gp_api"
+        },
+        "TEE_ReadObjectData": {
+            "addr": 856656,
+            "type": "gp_api"
+        },
+        "TEE_GenerateRandom": {
+            "addr": 857592,
+            "type": "gp_api"
+        },
+        "TEE_CloseAndDeletePersistentObject": {
+            "addr": 856288,
+            "type": "gp_api"
+        },
+        "TEE_CreatePersistentObject": {
+            "addr": 855936,
+            "type": "gp_api"
+        },
+        "TEE_GetObjectInfo": {
+            "addr": 855408,
+            "type": "gp_api"
+        },
+        "TEE_OpenPersistentObject": {
+            "addr": 855608,
+            "type": "gp_api"
+        },
+        "TEE_WriteObjectData": {
+            "addr": 856896,
+            "type": "gp_api"
+        },
+        "TEE_GetPropertyAsIdentity": {
+            "addr": 858904,
+            "type": "gp_api"
+        },
+        "TEE_CloseObject": {
+            "addr": 855528,
+            "type": "gp_api"
+        },
+        "TEE_GetSystemTime": {
+            "addr": 854872,
+            "type": "gp_api"
+        },
+        "TEE_TruncateObjectData": {
+            "addr": 857072,
+            "type": "gp_api"
+        }
+    },
+    "TA_GetAuthTokenKey_start": 812688,
+    "TA_GetAuthTokenKey_end": [
+        813220
+    ],
+    "TA_ReadAuthTokenKey_start": 740136,
+    "TA_ReadAuthTokenKey_end": [
+        740596
+    ],
+    "TA_GetDeviceInfo_start": 813328,
+    "TA_GetDeviceInfo_end": [
+        813912
+    ],
+    "TA_DestroyEntryPoint_start": 809376,
+    "TA_DestroyEntryPoint_end": [
+        809412
+    ],
+    "TA_CreateEntryPoint_start": 808440,
+    "TA_CreateEntryPoint_end": [
+        809364
+    ],
+    "TA_GetClientIdentity_start": 813328,
+    "TA_GetClientIdentity_end": [
+        813912
+    ],
+    "TA_CloseSessionEntryPoint_start": 814240,
+    "TA_CloseSessionEntryPoint_end": [
+        814276
+    ],
+    "TA_InvokeCommandEntryPoint_start": 814280,
+    "TA_InvokeCommandEntryPoint_end": [
+        814872
+    ]
+}

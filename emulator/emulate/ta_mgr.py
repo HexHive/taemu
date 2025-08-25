@@ -113,7 +113,7 @@ def start(ql: Qiling, ta_name: str, tee: str):
             ql.hook_address(pivot, e, user_data="TA_CreateEntryPoint")
 
         _debugger = ql._debugger
-        ql.debugger = False
+        #ql.debugger = False
         # run
         ql.run(begin=entrypoint)
 

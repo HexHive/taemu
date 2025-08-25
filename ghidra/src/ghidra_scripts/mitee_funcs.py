@@ -7,25 +7,15 @@ from decompile_util import (
     INVOKE_COMMAND_FUNC_NAME,
     OPEN_SESSION_FUNC_NAME,
 )
-from oppo_vivo_tainvokedetect import find_vivo_oppo_invokecmd
-from gpdetect import detect_less_dumb
-from mitee_gpdetect import find_mitee_invokecmd
 import helpers
 import time
 import json
-from tipianalyzer import (
-    TypeCheckAnalyzer,
-    MemrefAnalyzerReport,
-    MemrefAnalyzerResult,
-)
 from ghidra.app.decompiler import DecompInterface
 from ghidra.util.task import ConsoleTaskMonitor
 from ghidra.program.util import DefinedDataIterator
 from ghidra.app.util import XReferenceUtil
 
-# from ghidra.program.model.listing import getCalledFunctions, getCallingFunctions
-
-
+from utils import find_returns 
 
 ################################################################################
 # TYPING
@@ -60,18 +50,6 @@ SIG_CHANGER = SignatureChanger(PROGRAM)
 ################################################################################
 # CODE
 ################################################################################
-
-def find_returns(function, aarch64=True):
-		# iterate over instructions in function, mark all rets	
-		ret_offsets = []
-		listing = getCurrentProgram().getListing()
-		instructions = listing.getInstructions(function.getBody(), True)
-		for instr in instructions:
-				mnemonic = instr.getMnemonicString().upper()
-				# Check for return instructions (RET)
-				if mnemonic in ["RET", "RETN", "RETQ"] and aarch64:  # common mnemonics, adjust per architecture
-						ret_offsets.append(instr.getAddress().getOffset()-0x100000)
-		return ret_offsets
 
 def mitee_find_GP():
 	print("working..")
@@ -115,7 +93,7 @@ def mitee_find_GP():
 				)
 				print(f"adding function {symbol} at {hex(gp_function.getEntryPoint().getOffset())}")
 				out[f'{symbol}_start'] = gp_function.getEntryPoint().getOffset()-0x100000
-				returns = find_returns(gp_function, aarch64=True)
+				returns = find_returns(gp_function)
 				out[f'{symbol}_end'] = returns
 	return out
 

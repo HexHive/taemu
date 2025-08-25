@@ -1,0 +1,16 @@
+{
+    "inline": {
+        "TEE_Malloc": {
+            "addr": 80216,
+            "type": "gp_api"
+        },
+        "TEE_GetPropertyAsIdentity": {
+            "addr": 81816,
+            "type": "gp_api"
+        },
+        "TEE_GetSystemTime": {
+            "addr": 80136,
+            "type": "gp_api"
+        }
+    }
+}

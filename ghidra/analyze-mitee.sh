@@ -1,10 +1,10 @@
 #!/bin/bash
 
-for file in "../../tas"/*.ta; do
+for file in "../mitee/tas"/*.ta; do
     # Check if any files matched
     [ -e "$file" ] || continue
 	basefile=$(basename "$file")
-    make run TARGET="$basefile"
+    make mitee TARGET="$basefile"
 done
 
 

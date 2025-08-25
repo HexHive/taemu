@@ -1,144 +1,176 @@
 {
     "inline": {
+        "TEE_MACComputeFinal": {
+            "addr": 489000,
+            "type": "gp_api"
+        },
         "TEE_FreeTransientObject": {
-            "addr": 580296,
+            "addr": 478376,
+            "type": "gp_api"
+        },
+        "TEE_AsymmetricEncrypt": {
+            "addr": 489312,
             "type": "gp_api"
         },
         "TEE_ResetTransientObject": {
-            "addr": 580568,
+            "addr": 478648,
             "type": "gp_api"
         },
         "TEE_PopulateTransientObject": {
-            "addr": 580840,
+            "addr": 478920,
             "type": "gp_api"
         },
         "TEE_Malloc": {
-            "addr": 578984,
+            "addr": 476000,
+            "type": "gp_api"
+        },
+        "TEE_CipherUpdate": {
+            "addr": 486032,
             "type": "gp_api"
         },
         "TEE_GetObjectBufferAttribute": {
-            "addr": 579688,
+            "addr": 477768,
             "type": "gp_api"
         },
         "TEE_DigestDoFinal": {
-            "addr": 587104,
+            "addr": 485352,
             "type": "gp_api"
         },
         "TEE_CipherInit": {
-            "addr": 587456,
-            "type": "gp_api"
-        },
-        "TEE_AsymmetricDecrypt": {
-            "addr": 588952,
+            "addr": 485704,
             "type": "gp_api"
         },
         "TEE_ResetOperation": {
-            "addr": 586288,
+            "addr": 484536,
             "type": "gp_api"
         },
         "TEE_CloseTASession": {
-            "addr": 578176,
+            "addr": 475184,
             "type": "gp_api"
         },
         "TEE_InvokeTACommand": {
-            "addr": 578376,
+            "addr": 475384,
             "type": "gp_api"
         },
         "TEE_SetOperationKey": {
-            "addr": 586544,
+            "addr": 484792,
+            "type": "gp_api"
+        },
+        "TEE_GetREETime": {
+            "addr": 475912,
             "type": "gp_api"
         },
         "TEE_ReadObjectData": {
-            "addr": 583136,
+            "addr": 481384,
             "type": "gp_api"
         },
         "TEE_DigestUpdate": {
-            "addr": 586904,
+            "addr": 485152,
             "type": "gp_api"
         },
         "TEE_GenerateRandom": {
-            "addr": 589616,
+            "addr": 491856,
             "type": "gp_api"
         },
         "TEE_CloseAndDeletePersistentObject": {
-            "addr": 582928,
+            "addr": 481176,
             "type": "gp_api"
         },
         "TEE_CopyObjectAttributes": {
-            "addr": 581536,
+            "addr": 479784,
             "type": "gp_api"
         },
         "TEE_CreatePersistentObject": {
-            "addr": 582576,
+            "addr": 480824,
             "type": "gp_api"
         },
         "TEE_GetObjectInfo": {
-            "addr": 579448,
+            "addr": 477528,
             "type": "gp_api"
         },
         "TEE_GenerateKey": {
-            "addr": 581968,
+            "addr": 480216,
             "type": "gp_api"
         },
         "TEE_AllocateTransientObject": {
-            "addr": 580088,
+            "addr": 478168,
             "type": "gp_api"
         },
         "TEE_OpenPersistentObject": {
-            "addr": 582248,
+            "addr": 480496,
             "type": "gp_api"
         },
         "TEE_WriteObjectData": {
-            "addr": 583376,
+            "addr": 481624,
             "type": "gp_api"
         },
         "TEE_InitRefAttribute": {
-            "addr": 581360,
+            "addr": 479440,
             "type": "gp_api"
         },
         "TEE_GetPropertyAsUUID": {
-            "addr": 590928,
+            "addr": 493168,
+            "type": "gp_api"
+        },
+        "TEE_MACUpdate": {
+            "addr": 488640,
             "type": "gp_api"
         },
         "TEE_CloseObject": {
-            "addr": 580008,
+            "addr": 478088,
+            "type": "gp_api"
+        },
+        "TEE_AsymmetricVerifyDigest": {
+            "addr": 491272,
             "type": "gp_api"
         },
         "TEE_FreeOperation": {
-            "addr": 586136,
+            "addr": 484384,
+            "type": "gp_api"
+        },
+        "TEE_SaveTa_Data": {
+            "addr": 476656,
+            "type": "gp_api"
+        },
+        "TEE_InitValueAttribute": {
+            "addr": 479616,
             "type": "gp_api"
         },
         "TEE_AllocateOperation": {
-            "addr": 583552,
+            "addr": 481800,
             "type": "gp_api"
         },
-        "TEE_GetSystemTime": {
-            "addr": 578904,
+        "TEE_DeleteTa": {
+            "addr": 477072,
+            "type": "gp_api"
+        },
+        "TEE_AsymmetricSignDigest": {
+            "addr": 490632,
             "type": "gp_api"
         },
         "TEE_CipherDoFinal": {
-            "addr": 587784,
+            "addr": 487144,
             "type": "gp_api"
         }
     },
-    "TA_DestroyEntryPoint_start": 248968,
+    "TA_DestroyEntryPoint_start": 197360,
     "TA_DestroyEntryPoint_end": [
-        249016
+        197396
     ],
-    "TA_OpenSessionEntryPoint_start": 246312,
+    "TA_OpenSessionEntryPoint_start": 196760,
     "TA_OpenSessionEntryPoint_end": [
-        246380
+        196816
     ],
-    "TA_CreateEntryPoint_start": 245808,
+    "TA_CreateEntryPoint_start": 196632,
     "TA_CreateEntryPoint_end": [
-        246304
+        196752
     ],
-    "TA_InvokeCommandEntryPoint_start": 247160,
+    "TA_InvokeCommandEntryPoint_start": 196824,
     "TA_InvokeCommandEntryPoint_end": [
-        247400
+        197308
     ],
-    "TA_CloseSessionEntryPoint_start": 248912,
+    "TA_CloseSessionEntryPoint_start": 197320,
     "TA_CloseSessionEntryPoint_end": [
-        248960
+        197356
     ]
 }

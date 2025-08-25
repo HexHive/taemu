@@ -9,7 +9,7 @@ unset PYTHONPATH
 IN=${IN:-/data}
 echo $@
 TA=${1}
-TA_PATH="/tas/${TA}"
+TA_PATH="/mitee_tas/$TA"
 TIMEOUT=300
 
 PROJECT="GhidraProject"
@@ -28,4 +28,3 @@ timeout ${TIMEOUT} ${GHIDRA}/support/analyzeHeadless \
 	  -scriptPath /src/ghidra_scripts/ \
 	  -preScript FunctionIDHeadlessPrescript.java \
 	  -postScript mitee_funcs.py \
-

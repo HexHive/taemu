@@ -12,7 +12,8 @@ from . import gp_api
 from . import beanpod_api
 from . import teegris_api
 from .gp import bigint_ops, crypto, general_objects, persistent_objects, properties, session, transient_objects
-
+from unicorn.arm64_const import UC_ARM64_INS_MRS
+from unicorn import UC_PROT_READ, UC_PROT_WRITE
 
 def __get_os_module(osname: str):
     return ql_get_module(f".os.{osname.lower()}.syscall")
@@ -73,10 +74,9 @@ def fixup_got(ql: Qiling, ta_path, ta_elf:ELF):
                 ql.mem.write_ptr(ta_base + reloc_addr, ta_base + addend)
 
 
-def hook_ta_dl(ql: Qiling, ta_path, ta_elf:ELF):
+def hook_ta_dl(ql: Qiling, ta_path, ta_elf:ELF, is_mitee=False):
     counter = 0
     ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
-    print(hex(ta_base + 0x1c50), ql.mem.read_ptr(ta_base + 0x1c50))
     ta_elf.address = ta_base
     ql.mem.map(ql_resolve_mem, 0x1000,info="dl_resolve")
     for func, addr in ta_elf.plt.items():
@@ -84,15 +84,42 @@ def hook_ta_dl(ql: Qiling, ta_path, ta_elf:ELF):
         ql.log.info(f'hooking api function {func}, {hex(addr)}, {hex(ql_resolve_mem+counter)}')
         ql.hook_address(get_api_impl(func), ql_resolve_mem+counter, user_data=func)
         counter += 4
+    if is_mitee:
+        #TODO parse elf to find plt/got myself
+        pass
 
-def hook_ta_plt(ql: Qiling, ta, ta_elf: ELF):
-    ta_base = ql.mem.get_lib_base(ta.split("/")[-1])
+def hook_ta_custom(ql: Qiling, ta_path, ta_elf:ELF):
+    # inline hooks for TAs
+    ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
     ta_elf.address = ta_base
-    return
-    for func, addr in ta_elf.plt.items():
-        ql.log.info(f'hooking api function {func}, {hex(addr)}')
-        ql.hook_address(get_beanpod_api_impl(func), addr, user_data=func)
+    ta_info = json.load(open(f"{ta_path[:-3]}.json", 'r'))
+    if 'inline' in ta_info:
+        for fname, info in ta_info['inline'].items():
+            addr = info['addr']
+            hook_type = info['type']
+            if hook_type == "gp_api":
+                ql.log.info(f'hooking inline api function {fname}, {hex(addr)}')
+                if ta_elf.pie:
+                    ql.hook_address(get_api_impl(fname), ta_base+addr, user_data=fname)
+                else:
+                    ql.hook_address(get_api_impl(fname), addr, user_data=fname)
 
+def setup_tls(ql: Qiling, ta_path, ta_elf:ELF):
+    TLS_MEM_BASE = 0xeee000
+    THREAD_STACK_BASE = 0xf00000 
+    THREAD_STACK_SIZE = 0x10000
+    CANARY = 0xcafecafecafecafe
+    ql.mem.map(TLS_MEM_BASE, 0x1000, UC_PROT_READ | UC_PROT_WRITE, info="[fuchsia] tls")
+    ql.mem.map(THREAD_STACK_BASE, THREAD_STACK_SIZE, UC_PROT_READ | UC_PROT_WRITE, info="[fuchsia] thread-stack")
+    THREAD_STACK_ADDR = THREAD_STACK_BASE + THREAD_STACK_SIZE - 0x10
+    TLS_ADDR = TLS_MEM_BASE + 0x10
+    def hook_mrs(ql: Qiling, port, size):
+        #TODO figure out register where to store tls address
+        ql.arch.regs.x23 = TLS_ADDR
+        return (0, TLS_ADDR)
+    ql.mem.write_ptr(TLS_ADDR-0x8, THREAD_STACK_ADDR)
+    ql.mem.write_ptr(TLS_ADDR-0x10, CANARY)
+    ql.hook_insn(hook_mrs, UC_ARM64_INS_MRS)
 
 def trace_block(ql: Qiling, address, size):
     ql.log.debug("basic block at 0x%x" % (address))
