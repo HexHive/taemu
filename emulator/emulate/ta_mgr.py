@@ -85,6 +85,10 @@ def start(ql: Qiling, ta_name: str, tee: str):
             print(f"TA info error")
             exit(-1)
 
+        if len(TA_CloseSessionEntryPoint_end) == 0 or len(TA_DestroyEntryPoint_end) == 0 or len(TA_InvokeCommandEntryPoint_end) == 0 or len(TA_OpenSessionEntryPoint_end) == 0 or len(TA_CreateEntryPoint_end) == 0:
+            print(f"one or more TA_*_end entries is empty!")
+            exit(-1)
+
         if ta_elf.pie:
             ta_base = ql.mem.get_lib_base(ta_name.split("/")[-1])
             TA_CreateEntryPoint_start = TA_CreateEntryPoint_start + ta_base
