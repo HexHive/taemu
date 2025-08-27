@@ -6,7 +6,8 @@ from .utils.object import *
 from .utils.bigint import *
 
 
-def TEE_BigIntInit(ql: Qiling, func_name):
+def TEE_BigIntInit(ql: Qiling, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'buf': POINTER, 'len': POINTER})
     buf = params['buf']
     length = params['len']
@@ -20,7 +21,8 @@ def TEE_BigIntInit(ql: Qiling, func_name):
     #ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def TEE_BigIntConvertFromOctetString(ql: Qiling, func_name):
+def TEE_BigIntConvertFromOctetString(ql: Qiling, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'dest': POINTER, 'buffer': POINTER, 'bufferLen': POINTER, 'sign': INT})
     dest = params['dest']
     buffer = params['buffer']
@@ -48,7 +50,8 @@ def TEE_BigIntConvertFromOctetString(ql: Qiling, func_name):
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr 
 
-def TEE_BigIntConvertToOctetString(ql: Qiling, func_name):
+def TEE_BigIntConvertToOctetString(ql: Qiling, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({
         'buffer': POINTER,
         'bufferLen': POINTER,
@@ -93,7 +96,8 @@ def TEE_BigIntConvertToOctetString(ql: Qiling, func_name):
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def TEE_BigIntConvertFromS32(ql: Qiling, func_name):
+def TEE_BigIntConvertFromS32(ql: Qiling, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'dest': POINTER, 'shortVal': INT})
     dest = params['dest']
     shortVal = params['shortVal']
@@ -108,7 +112,8 @@ def TEE_BigIntConvertFromS32(ql: Qiling, func_name):
     ql.os.fcall.cc.setReturnValue(dest)
     ql.arch.regs.arch_pc = ql.arch.regs.lr 
 
-def TEE_BigIntAdd(ql: Qiling, func_name):
+def TEE_BigIntAdd(ql: Qiling, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({"dest": POINTER, "op1": POINTER, "op2": POINTER})
     dest = params["dest"]
     op1 = params["op1"]
@@ -133,7 +138,8 @@ def TEE_BigIntAdd(ql: Qiling, func_name):
 
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def TEE_BigIntSub(ql: Qiling, func_name):
+def TEE_BigIntSub(ql: Qiling, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({"dest": POINTER, "op1": POINTER, "op2": POINTER})
     dest = params["dest"]
     op1 = params["op1"]
@@ -157,7 +163,8 @@ def TEE_BigIntSub(ql: Qiling, func_name):
 
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def TEE_BigIntNeg(ql: Qiling, func_name):
+def TEE_BigIntNeg(ql: Qiling, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({"dest": POINTER, "op": POINTER})
     dest = params["dest"]
     op = params["op"]
@@ -178,7 +185,8 @@ def TEE_BigIntNeg(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_BigIntMul(ql: Qiling, func_name):
+def TEE_BigIntMul(ql: Qiling, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({"dest": POINTER, "op1": POINTER, "op2": POINTER})
     dest = params["dest"]
     op1 = params["op1"]
@@ -202,7 +210,8 @@ def TEE_BigIntMul(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_BigIntCmp(ql: Qiling, func_name):
+def TEE_BigIntCmp(ql: Qiling, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'op1': POINTER, 'op2': POINTER})
     v1 = bigint_to_int(ql, params['op1'])
     v2 = bigint_to_int(ql, params['op2'])
@@ -212,7 +221,8 @@ def TEE_BigIntCmp(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_BigIntCmpS32(ql: Qiling, func_name):
+def TEE_BigIntCmpS32(ql: Qiling, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'op': POINTER, 'shortVal': INT})
     v1 = bigint_to_int(ql, params['op'])
     v2 = params['shortVal']
@@ -222,7 +232,8 @@ def TEE_BigIntCmpS32(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_BigIntShiftRight(ql: Qiling, func_name):
+def TEE_BigIntShiftRight(ql: Qiling, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'dest': POINTER, 'op': POINTER, 'bits': INT})
     val = bigint_to_int(ql, params['op'])
     result = val >> params['bits'] if val >= 0 else -((-val) >> params['bits'])
@@ -231,7 +242,8 @@ def TEE_BigIntShiftRight(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_BigIntGetBit(ql: Qiling, func_name):
+def TEE_BigIntGetBit(ql: Qiling, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'src': POINTER, 'bitIndex': INT})
     val = abs(bigint_to_int(ql, params['src']))
     bit = (val >> params['bitIndex']) & 1
@@ -240,7 +252,8 @@ def TEE_BigIntGetBit(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_BigIntGetBitCount(ql: Qiling, func_name):
+def TEE_BigIntGetBitCount(ql: Qiling, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'src': POINTER})
     val = abs(bigint_to_int(ql, params['src']))
     count = val.bit_length()
@@ -249,7 +262,8 @@ def TEE_BigIntGetBitCount(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_BigIntSetBit(ql: Qiling, func_name):
+def TEE_BigIntSetBit(ql: Qiling, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'op': POINTER, 'bitIndex': INT, 'value': INT})
     val = bigint_to_int(ql, params['op'])
     mask = 1 << params['bitIndex']
@@ -264,7 +278,8 @@ def TEE_BigIntSetBit(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_BigIntAssign(ql: Qiling, func_name):
+def TEE_BigIntAssign(ql: Qiling, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'dest': POINTER, 'src': POINTER})
     val = bigint_to_int(ql, params['src'])
     if not int_to_bigint(ql, params['dest'], val):
@@ -275,7 +290,8 @@ def TEE_BigIntAssign(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_BigIntAbs(ql: Qiling, func_name):
+def TEE_BigIntAbs(ql: Qiling, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'dest': POINTER, 'src': POINTER})
     val = abs(bigint_to_int(ql, params['src']))
     if not int_to_bigint(ql, params['dest'], val):
@@ -286,7 +302,8 @@ def TEE_BigIntAbs(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_BigIntSquare(ql: Qiling, func_name):
+def TEE_BigIntSquare(ql: Qiling, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({"dest": POINTER, "op": POINTER})
     dest = params["dest"]
     op   = params["op"]
@@ -311,7 +328,8 @@ def TEE_BigIntSquare(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_BigIntDiv(ql: Qiling, func_name):
+def TEE_BigIntDiv(ql: Qiling, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({
         "dest_q": POINTER,
         "dest_r": POINTER,
@@ -367,7 +385,8 @@ def TEE_BigIntDiv(ql: Qiling, func_name):
 
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def TEE_BigIntMod(ql, func_name):
+def TEE_BigIntMod(ql, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'dest': POINTER, 'op': POINTER, 'n': POINTER})
     dest, op, n = params['dest'], params['op'], params['n']
 
@@ -391,7 +410,8 @@ def TEE_BigIntMod(ql, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_BigIntAddMod(ql, func_name):
+def TEE_BigIntAddMod(ql, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'dest': POINTER, 'op1': POINTER, 'op2': POINTER, 'n': POINTER})
     dest, op1, op2, n = params['dest'], params['op1'], params['op2'], params['n']
 
@@ -416,7 +436,8 @@ def TEE_BigIntAddMod(ql, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_BigIntSubMod(ql, func_name):
+def TEE_BigIntSubMod(ql, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'dest': POINTER, 'op1': POINTER, 'op2': POINTER, 'n': POINTER})
     dest, op1, op2, n = params['dest'], params['op1'], params['op2'], params['n']
 
@@ -441,7 +462,8 @@ def TEE_BigIntSubMod(ql, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_BigIntMulMod(ql, func_name):
+def TEE_BigIntMulMod(ql, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'dest': POINTER, 'op1': POINTER, 'op2': POINTER, 'n': POINTER})
     dest, op1, op2, n = params['dest'], params['op1'], params['op2'], params['n']
 
@@ -466,7 +488,8 @@ def TEE_BigIntMulMod(ql, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_BigIntSquareMod(ql, func_name):
+def TEE_BigIntSquareMod(ql, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'dest': POINTER, 'op': POINTER, 'n': POINTER})
     dest, op, n = params['dest'], params['op'], params['n']
 
@@ -490,7 +513,8 @@ def TEE_BigIntSquareMod(ql, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_BigIntInvMod(ql, func_name):
+def TEE_BigIntInvMod(ql, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'dest': POINTER, 'op': POINTER, 'n': POINTER})
     dest, op, n = params['dest'], params['op'], params['n']
 
@@ -517,7 +541,8 @@ def TEE_BigIntInvMod(ql, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_BigIntExpMod(ql, func_name):
+def TEE_BigIntExpMod(ql, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'dest': POINTER, 'op1': POINTER, 'op2': POINTER, 'n': POINTER, 'context': POINTER})
     dest, op1, op2, n = params['dest'], params['op1'], params['op2'], params['n']
 

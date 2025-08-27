@@ -4,7 +4,8 @@ from .utils.err import *
 
 TEE_PROPSET_TEE_IMPLEMENTATION = 0xFFFFFFFD
 
-def TEE_GetPropertyAsUUID(ql: Qiling, func_name):
+def TEE_GetPropertyAsUUID(ql: Qiling, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params(
         {   
             "propsetOrEnumerator": UINT,

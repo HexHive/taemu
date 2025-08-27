@@ -7,7 +7,7 @@ from .utils.err import *
 from pwn import *
 
 
-def TEE_GetObjectBufferAttribute(ql:Qiling, func_name):
+def TEE_GetObjectBufferAttribute(ql:Qiling, hook_data):
     params = ql.os.resolve_fcall_params({'object': UINT, 'attributeID': UINT, 'buffer': POINTER, 'size': POINTER})
     para_object = params['object']
     para_attributeID = params['attributeID']

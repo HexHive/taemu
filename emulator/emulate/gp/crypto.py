@@ -7,7 +7,7 @@ from .utils.object import *
 OPERATION_ID = 0
 id2opration = {}
 
-def TEE_AllocateOperation(ql:Qiling, func_name):
+def TEE_AllocateOperation(ql:Qiling, hook_data):
     global OPERATION_ID, id2opration
     params = ql.os.resolve_fcall_params({'operation': POINTER, "algorithm": UINT, "mode": UINT, "maxKeySize": UINT})
     param_operation = params['operation']
@@ -61,7 +61,7 @@ def TEE_AllocateOperation(ql:Qiling, func_name):
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def TEE_DigestUpdate(ql:Qiling, func_name):
+def TEE_DigestUpdate(ql:Qiling, hook_data):
     global OPERATION_ID, id2opration
     params = ql.os.resolve_fcall_params({'operation': UINT, "chunk": POINTER, "chunkSize": UINT})
     param_operation = params['operation']
@@ -85,7 +85,7 @@ def TEE_DigestUpdate(ql:Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_DigestDoFinal(ql:Qiling, func_name):
+def TEE_DigestDoFinal(ql:Qiling, hook_data):
     global OPERATION_ID, id2opration
     params = ql.os.resolve_fcall_params({'operation': UINT, "chunk": POINTER, "chunkLen": UINT, "hash": POINTER, "hashLen": POINTER})
     param_operation = params['operation']
@@ -121,7 +121,7 @@ def TEE_DigestDoFinal(ql:Qiling, func_name):
 
 
 
-def TEE_FreeOperation(ql:Qiling, func_name):
+def TEE_FreeOperation(ql:Qiling, hook_data):
     global OPERATION_ID, id2opration
     params = ql.os.resolve_fcall_params({'operation': UINT})
     param_operation = params['operation']
@@ -139,7 +139,7 @@ def TEE_FreeOperation(ql:Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_SetOperationKey(ql:Qiling, func_name):
+def TEE_SetOperationKey(ql:Qiling, hook_data):
     global OPERATION_ID, id2opration
     params = ql.os.resolve_fcall_params({'operation': UINT, 'key': UINT})
     param_operation = params['operation']
@@ -203,7 +203,7 @@ def TEE_SetOperationKey(ql:Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_AsymmetricDecrypt(ql:Qiling, func_name):
+def TEE_AsymmetricDecrypt(ql:Qiling, hook_data):
     global OPERATION_ID, id2opration
     params = ql.os.resolve_fcall_params({'operation': UINT, 'params': POINTER, 'paramCount': UINT, 'srcData': POINTER, 'srcLen': UINT, "destData": POINTER, 'destLen': UINT})
     param_operation = params['operation']
@@ -245,7 +245,7 @@ def TEE_AsymmetricDecrypt(ql:Qiling, func_name):
     
 
 
-def TEE_CipherInit(ql:Qiling, func_name):
+def TEE_CipherInit(ql:Qiling, hook_data):
     global OPERATION_ID, id2opration
     params = ql.os.resolve_fcall_params({'operation': UINT, 'IV': POINTER, 'IVLen': UINT})
     param_operation = params['operation']
@@ -282,7 +282,7 @@ def TEE_CipherInit(ql:Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
     
-def TEE_CipherDoFinal(ql:Qiling, func_name):
+def TEE_CipherDoFinal(ql:Qiling, hook_data):
     global OPERATION_ID, id2opration
     params = ql.os.resolve_fcall_params({'operation': UINT, 'srcData': POINTER, 'srcLen': UINT, 'dstData': POINTER, 'dstLen': POINTER})
     param_operation = params['operation']

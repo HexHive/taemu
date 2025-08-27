@@ -18,9 +18,10 @@ from unicorn import UC_PROT_READ, UC_PROT_WRITE
 from .custom.mitee_loader import mitee_read_relocs, mitee_relr_relocs
 
 
-def __get_os_module(osname: str):
-    return ql_get_module(f".os.{osname.lower()}.syscall")
-
+class HookData():
+    def __init__(self, emu, func_name):
+        self.emu = emu
+        self.func_name = func_name
 
 def get_api_impl(func_name):
     api_func = getattr(gp_api, func_name, None)
@@ -73,11 +74,9 @@ def fixup_got(ql: Qiling, ta_path, ta_elf:ELF, is_mitee=False):
             addend = rel.entry.get('r_addend', None)
             print(f"  relocation at 0x{reloc_addr:x}, type={r_type}, addend={addend}")
             ql.mem.write_ptr(ta_base + reloc_addr, ta_base + addend)
-    if is_mitee:
-        #TODO: handle relocations using readelf 
-        pass
 
-def hook_ta_dl(ql: Qiling, ta_path, ta_elf:ELF, is_mitee=False):
+
+def hook_ta_dl(ql: Qiling, ta_path, ta_elf:ELF, emu, is_mitee=False):
     counter = 0
     ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
     ta_elf.address = ta_base
@@ -85,17 +84,17 @@ def hook_ta_dl(ql: Qiling, ta_path, ta_elf:ELF, is_mitee=False):
     for func, addr in ta_elf.plt.items():
         ql.mem.write(ta_elf.got[func], (ql_resolve_mem+counter).to_bytes(ql.arch.pointersize, "little"))
         ql.log.info(f'hooking api function {func}, {hex(addr)}, {hex(ql_resolve_mem+counter)}')
-        ql.hook_address(get_api_impl(func), ql_resolve_mem+counter, user_data=func)
+        ql.hook_address(get_api_impl(func), ql_resolve_mem+counter, user_data=HookData(emu,func))
         counter += ql.arch.pointersize
     if is_mitee:
         to_hook = mitee_read_relocs(ta_path)
         for func, off in to_hook:
             ql.mem.write(ta_base + off, (ql_resolve_mem+counter).to_bytes(ql.arch.pointersize, "little"))
             ql.log.info(f'[mitee] hooking plt relocation function {func}, {hex(off)}, {hex(ql_resolve_mem+counter)}')
-            ql.hook_address(get_api_impl(func), ql_resolve_mem+counter, user_data=func)
+            ql.hook_address(get_api_impl(func), ql_resolve_mem+counter, user_data=HookData(emu,func))
             counter += ql.arch.pointersize
 
-def hook_ta_custom(ql: Qiling, ta_path, ta_elf:ELF):
+def hook_ta_custom(ql: Qiling, ta_path, ta_elf:ELF, emu):
     # inline hooks for TAs
     ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
     ta_elf.address = ta_base
@@ -107,11 +106,11 @@ def hook_ta_custom(ql: Qiling, ta_path, ta_elf:ELF):
             if hook_type == "gp_api":
                 ql.log.info(f'hooking inline api function {fname}, {hex(addr)}')
                 if ta_elf.pie:
-                    ql.hook_address(get_api_impl(fname), ta_base+addr, user_data=fname)
+                    ql.hook_address(get_api_impl(fname), ta_base+addr, user_data=HookData(emu,fname))
                 else:
-                    ql.hook_address(get_api_impl(fname), addr, user_data=fname)
+                    ql.hook_address(get_api_impl(fname), addr, user_data=HookData(emu,fname))
 
-def mitee_setup(ql: Qiling, ta_path, ta_elf:ELF):
+def mitee_setup(ql: Qiling, ta_path, ta_base):
     # 1: setup tls for mrs
     TLS_MEM_BASE = 0xeee000
     THREAD_STACK_BASE = 0xf00000 

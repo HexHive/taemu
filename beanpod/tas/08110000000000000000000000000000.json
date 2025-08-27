@@ -15,7 +15,7 @@
         38072
     ],
     "TA_CloseSessionEntryPoint_start": 38116,
-    "TA_CloseSessionEntryPoint_end": [],
+    "TA_CloseSessionEntryPoint_end": [38198],
     "TA_DestroyEntryPoint_start": 37848,
-    "TA_DestroyEntryPoint_end": []
+    "TA_DestroyEntryPoint_end": [37886]
 }

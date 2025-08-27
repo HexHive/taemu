@@ -15,7 +15,7 @@ SESSIONS = []
 SESSION_NUM = 0
 
 
-def TEE_OpenTASession(ql: Qiling, func_name, called_from_custom_lib: bool):
+def TEE_OpenTASession(ql: Qiling, hook_data, called_from_custom_lib: bool):
     global SESSIONS, SESSION_NUM
     params = ql.os.resolve_fcall_params(
         {
@@ -78,7 +78,7 @@ def TEE_OpenTASession(ql: Qiling, func_name, called_from_custom_lib: bool):
         ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_InvokeTACommand(ql: Qiling, func_name, called_from_custom_lib: bool):
+def TEE_InvokeTACommand(ql: Qiling, hook_data, called_from_custom_lib: bool):
     global SESSIONS, SESSION_NUM
     params = ql.os.resolve_fcall_params(
         {
@@ -158,7 +158,7 @@ def TEE_InvokeTACommand(ql: Qiling, func_name, called_from_custom_lib: bool):
         ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_CloseTASession(ql: Qiling, func_name, called_from_custom_lib: bool):
+def TEE_CloseTASession(ql: Qiling, hook_data, called_from_custom_lib: bool):
     global SESSIONS, SESSION_NUM
     params = ql.os.resolve_fcall_params({"session": UINT})
     para_session = params["session"]

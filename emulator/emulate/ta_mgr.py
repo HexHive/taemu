@@ -8,8 +8,26 @@ from ctypes import *
 from enum import Enum
 from .gp.utils.err import *
 from .gp.utils.param import *
+from .emulator_no_loader import fixup_got, mitee_setup, hook_ta_dl, hook_ta_custom
 
-TA_NAME = ""
+min_addr = 0xbbbbb000
+
+def parse_msg(msg):
+    f = int(msg[0])
+    l = int(msg[1])
+    data = msg[2:2+l]
+    return (f, l, data)
+
+def pivot(ql: Qiling, cur) -> None:
+    ql.log.info(f"[////{cur}////] reach end @{ql.arch.regs.read('PC'):#0x}")
+    ql.stop()
+
+def get_n_ptype(param_type: int, n: int):
+    if n >= 0 and n <= 3:
+        return (param_type >> (4 * n)) & 0xf
+    else:
+        print("Fatal error")
+        exit(-1)
 
 class FUNCS(Enum):
     func_TEEC_InitializeContext = 0
@@ -20,110 +38,292 @@ class FUNCS(Enum):
     func_TEEC_ReleaseSharedMemory = 5
     func_TEEC_FinalizeContext = 6
 
-def parse_msg(msg):
-    f = int(msg[0])
-    l = int(msg[1])
-    data = msg[2:2+l]
-    return (f, l, data)
+class ValueParam():
+    def __init__(self, a:int, b:int):
+        self.a = a
+        self.b = b
 
-def pivot(ql: Qiling, cur) -> None:
-    ql.log.info(f"[////{cur}////] reach end @{ql.arch.regs.read('PC'):#0x}")
+class MemRefParam():
+    def __init__(self, buf:bytes, size:int):
+        self.buf = buf
+        self.size = size
+
+class NoneParam():
+    def __init__(self):
+        pass
+
+class Session():
+    def __init__(self, session_id_mem, session_id, sessionContext):
+        self.session_id_mem = session_id_mem
+        self.session_id = session_id
+        self.sessionContext = sessionContext
+
+class TAEMU():
     
-    ql.stop()
-    # ql.arch.regs.write("PC", ret_addr)
+    def __init__(self, ql: Qiling, tee: str, ta_path: str, ta_elf: ELF):
+        self.ql = ql
+        self.tee = tee
+        self.ta_path = ta_path
+        self.ta_elf = ta_elf
+        self.ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
+        self.ta_elf.address = self.ta_base
+        self.exit_non_implemented = None
+        self.session_counter = 0
+        self.sessions = []
+        self._debugger = ql._debugger 
 
-
-def get_n_ptype(param_type: int, n: int):
-    if n >= 0 and n <= 3:
-        return (param_type >> (4 * n)) & 0xf
-    else:
-        print("Fatal error")
-        exit(-1)
-
-min_addr = 0xbbbbb000
-
-def start(ql: Qiling, ta_name: str, tee: str):
-    global TA_NAME
-
-    bufc2py = {}
-
-    TA_NAME = ta_name
-
-    libc = CDLL("")
-
-    # int shmget(key_t key, size_t size, int shmflg);
-    shmget = libc.shmget
-    shmget.restype = c_int
-    shmget.argtypes = (c_int, c_size_t, c_int)
-
-
-    # void* shmat(int shmid, const void *shmaddr, int shmflg);
-    shmat = libc.shmat
-    shmat.restype = c_void_p
-    shmat.argtypes = (c_int, c_void_p, c_int)
-
-
-    # int shmdt(const void *shmaddr);
-    shmdt = libc.shmdt
-    shmdt.restype = c_int
-    shmdt.argtypes = (c_void_p,)
-
-    try:
-        f = open(f"{ta_name[:-3]}.json", 'r')
-        ta_elf = ELF(ta_name, checksec=True)
+        f = open(f"{self.ta_path[:-3]}.json", 'r')
         ta_info = json.load(f)
+        self.ta_info = ta_info
+        
         if all(i in ta_info for i in ["TA_InvokeCommandEntryPoint_start", "TA_InvokeCommandEntryPoint_end", "TA_CreateEntryPoint_start", "TA_CreateEntryPoint_end", "TA_OpenSessionEntryPoint_start", "TA_OpenSessionEntryPoint_end", "TA_CloseSessionEntryPoint_start", "TA_CloseSessionEntryPoint_end", "TA_DestroyEntryPoint_start", "TA_DestroyEntryPoint_end"]):
-            TA_CreateEntryPoint_start = ta_info["TA_CreateEntryPoint_start"]
-            TA_CreateEntryPoint_end = ta_info["TA_CreateEntryPoint_end"]
-            TA_OpenSessionEntryPoint_start = ta_info["TA_OpenSessionEntryPoint_start"]
-            TA_OpenSessionEntryPoint_end = ta_info["TA_OpenSessionEntryPoint_end"]
-            TA_InvokeCommandEntryPoint_start = ta_info["TA_InvokeCommandEntryPoint_start"]
-            TA_InvokeCommandEntryPoint_end = ta_info["TA_InvokeCommandEntryPoint_end"]
-            TA_CloseSessionEntryPoint_start = ta_info['TA_CloseSessionEntryPoint_start']
-            TA_CloseSessionEntryPoint_end = ta_info['TA_CloseSessionEntryPoint_end']
-            TA_DestroyEntryPoint_start = ta_info['TA_DestroyEntryPoint_start']
-            TA_DestroyEntryPoint_end = ta_info['TA_DestroyEntryPoint_end']
+            self.TA_CreateEntryPoint_start = ta_info["TA_CreateEntryPoint_start"]
+            self.TA_CreateEntryPoint_end = ta_info["TA_CreateEntryPoint_end"]
+            self.TA_OpenSessionEntryPoint_start = ta_info["TA_OpenSessionEntryPoint_start"]
+            self.TA_OpenSessionEntryPoint_end = ta_info["TA_OpenSessionEntryPoint_end"]
+            self.TA_InvokeCommandEntryPoint_start = ta_info["TA_InvokeCommandEntryPoint_start"]
+            self.TA_InvokeCommandEntryPoint_end = ta_info["TA_InvokeCommandEntryPoint_end"]
+            self.TA_CloseSessionEntryPoint_start = ta_info['TA_CloseSessionEntryPoint_start']
+            self.TA_CloseSessionEntryPoint_end = ta_info['TA_CloseSessionEntryPoint_end']
+            self.TA_DestroyEntryPoint_start = ta_info['TA_DestroyEntryPoint_start']
+            self.TA_DestroyEntryPoint_end = ta_info['TA_DestroyEntryPoint_end']
         else:
             print(f"TA info error")
             exit(-1)
 
-        if len(TA_CloseSessionEntryPoint_end) == 0 or len(TA_DestroyEntryPoint_end) == 0 or len(TA_InvokeCommandEntryPoint_end) == 0 or len(TA_OpenSessionEntryPoint_end) == 0 or len(TA_CreateEntryPoint_end) == 0:
+        if len(self.TA_CloseSessionEntryPoint_end) == 0 or len(self.TA_DestroyEntryPoint_end) == 0 or len(self.TA_InvokeCommandEntryPoint_end) == 0 or len(self.TA_OpenSessionEntryPoint_end) == 0 or len(self.TA_CreateEntryPoint_end) == 0:
             print(f"one or more TA_*_end entries is empty!")
             exit(-1)
 
-        if ta_elf.pie:
-            ta_base = ql.mem.get_lib_base(ta_name.split("/")[-1])
-            TA_CreateEntryPoint_start = TA_CreateEntryPoint_start + ta_base
-            TA_CreateEntryPoint_end = [end + ta_base for end in TA_CreateEntryPoint_end] 
-            TA_OpenSessionEntryPoint_start = TA_OpenSessionEntryPoint_start + ta_base
-            TA_OpenSessionEntryPoint_end = [end + ta_base for end in TA_OpenSessionEntryPoint_end]
-            TA_InvokeCommandEntryPoint_start = TA_InvokeCommandEntryPoint_start + ta_base
-            TA_InvokeCommandEntryPoint_end = [end + ta_base for end in TA_InvokeCommandEntryPoint_end ]
-            TA_CloseSessionEntryPoint_start = TA_CloseSessionEntryPoint_start + ta_base
-            TA_CloseSessionEntryPoint_end = [end + ta_base for end in TA_CloseSessionEntryPoint_end]
-            TA_DestroyEntryPoint_start = TA_DestroyEntryPoint_start + ta_base
-            TA_DestroyEntryPoint_end = [end + ta_base for end in TA_DestroyEntryPoint_end]
+        if self.ta_elf.pie:
+            self.TA_CreateEntryPoint_start = self.TA_CreateEntryPoint_start + self.ta_base
+            self.TA_CreateEntryPoint_end = [end + self.ta_base for end in self.TA_CreateEntryPoint_end] 
+            self.TA_OpenSessionEntryPoint_start = self.TA_OpenSessionEntryPoint_start + self.ta_base
+            self.TA_OpenSessionEntryPoint_end = [end + self.ta_base for end in self.TA_OpenSessionEntryPoint_end]
+            self.TA_InvokeCommandEntryPoint_start = self.TA_InvokeCommandEntryPoint_start + self.ta_base
+            self.TA_InvokeCommandEntryPoint_end = [end + self.ta_base for end in self.TA_InvokeCommandEntryPoint_end ]
+            self.TA_CloseSessionEntryPoint_start = self.TA_CloseSessionEntryPoint_start + self.ta_base
+            self.TA_CloseSessionEntryPoint_end = [end + self.ta_base for end in self.TA_CloseSessionEntryPoint_end]
+            self.TA_DestroyEntryPoint_start = self.TA_DestroyEntryPoint_start + self.ta_base
+            self.TA_DestroyEntryPoint_end = [end + self.ta_base for end in self.TA_DestroyEntryPoint_end]
         
-        f.close()
+        f.close() 
 
-        ql.log.info(f"[////TA_CreateEntryPoint////] start @{TA_CreateEntryPoint_start:#0x}")
-        # TA_CreateEntryPoint_start
-        entrypoint = TA_CreateEntryPoint_start
+    def setup(self):
+        # fix relocations and other miscellanous setup
+        fixup_got(self.ql, self.ta_path, self.ta_elf, self.ta_base)
+        if self.tee == "mitee":
+            # handle tpidr_el0 and fix relocations
+            mitee_setup(self.ql, self.ta_path, self.ta_base)
+
+    def hook(self):
+        # setup api hooks
+        hook_ta_dl(self.ql, self.ta_path, self.ta_elf, self, is_mitee=self.tee=="mitee")
+        hook_ta_custom(self.ql, self.ta_path, self.ta_elf, self)
+        self.ql.do_lib_patch()
+
+    def CreateEntryPoint(self):
+        self.ql.log.info(f"[////TA_CreateEntryPoint////] start @{self.TA_CreateEntryPoint_start:#0x}")
+        entrypoint = self.TA_CreateEntryPoint_start
 
         # stop at TA_CreateEntryPoint_end
-        for e in TA_CreateEntryPoint_end:
-            ql.hook_address(pivot, e, user_data="TA_CreateEntryPoint")
+        for e in self.TA_CreateEntryPoint_end:
+            self.ql.hook_address(pivot, e, user_data="TA_CreateEntryPoint")
 
-        _debugger = ql._debugger
+        _debugger = self.ql._debugger
         #ql.debugger = False
-        # run
-        ql.run(begin=entrypoint)
+        self.ql.run(begin=entrypoint)
 
-        ret = ql.os.fcall.cc.getReturnValue()
+        ret = self.ql.os.fcall.cc.getReturnValue()
+        self.CreateEntryPoint_ret = ret
         if ret != TEE_SUCCESS:
-            ql.log.warning(f'[////TA_CreateEntryPoint////] return != TEE_SUCCESS {hex(ret)}')
-            return
+            self.ql.log.warning(f'[////TA_CreateEntryPoint////] return != TEE_SUCCESS {hex(ret)}')
+            return ret
+        return ret
 
+    def OpenSession(self):
+        if self.CreateEntryPoint_ret != TEE_SUCCESS:
+            self.ql.log.warning(f'Calling OpenSession without succesfull CreateEntryPoint!')
+            return TEE_ERROR_BAD_STATE 
+        #TODO: support parameters
+        session_opened = self.session_counter
+        self.session_counter += 1
+        session_id_mem = self.ql.mem.map_anywhere(
+            0x1000, minaddr=min_addr, perms=3, info="session_id"
+        )
+        sessionContext = self.ql.mem.map_anywhere(
+            0x1000, minaddr=min_addr, perms=3, info="session_context"
+        )
+        self.ql.mem.write_ptr(session_id_mem, session_opened)
+        new_session = Session(session_id_mem, session_opened, sessionContext)
+        self.sessions.append(new_session)
+
+        self.ql.log.info(f"[////TA_OpenSessionEntryPoint////] start @{self.TA_OpenSessionEntryPoint_start:#0x}")
+        for e in self.TA_OpenSessionEntryPoint_end:
+            self.ql.hook_address(pivot, e, user_data="TA_OpenSessionEntryPoint")
+
+        #ql._debugger = _debugger
+        self.ql.os.fcall.cc.setRawParam(2, sessionContext)
+        self.ql.run(begin=self.TA_OpenSessionEntryPoint_start)
+
+        ret = self.ql.os.fcall.cc.getReturnValue()
+        if ret != TEE_SUCCESS:
+            self.ql.log.warning(f'[////TA_OpenSessionEntryPoint////] return != TEE_SUCCESS {hex(ret)}')
+            return ret, None
+        return ret, new_session
+
+    def InvokeCommand(self, sid, cmd, ptypes, params):
+        exit_hooks = []
+        self.ql.log.debug(f"TEEC_InvokeCommand {sid} {cmd} {ptypes:#0x}")
+        session = None
+        for s in self.sessions:
+            if sid == s.session_id:
+                session = s
+                break
+        if session is None:
+            self.ql.log.error(f"unknown session {sid}")
+            return TEE_ERROR_BAD_STATE
+
+        self.ql.os.fcall.cc.setRawParam(0, session.session_id_mem)
+        self.ql.os.fcall.cc.setRawParam(1, cmd)
+        self.ql.os.fcall.cc.setRawParam(2, ptypes)
+        params_mem = self.ql.mem.map_anywhere(
+            0x1000, minaddr=min_addr, perms=3, info="TEE_Params"
+        )  
+        self.ql.os.fcall.cc.setRawParam(3, params_mem)
+
+        assert(len(params) == 4)
+        params_mem_write = params_mem
+        for i, param in enumerate(params):
+            if isinstance(param, ValueParam):
+                a = param.a
+                b = param.b
+                self.ql.log.debug(f"value p {a} {b}")
+
+                self.ql.mem.write(params_mem_write, a.to_bytes(4, "little"))
+                params_mem_write += 4
+                self.ql.mem.write(params_mem_write, b.to_bytes(4, "little"))
+                params_mem_write += 4
+                if self.tee != "beanpod":
+                    # 32 bit
+                    params_mem_write += 8
+            # tmp mem
+            elif isinstance(param, MemRefParam):
+                buf = param.buf
+                size = param.size
+                self.ql.log.debug(f"mem p {size:#0x}")
+                pybuf = self.ql.mem.map_anywhere(
+                    size, minaddr=min_addr, perms=3, info=f"shared_memory_{i}"
+                ) 
+                breakpoint()
+                self.ql.mem.write(pybuf, buf)
+                self.ql.mem.write_ptr(params_mem_write, pybuf)
+                params_mem_write += self.ql.arch.pointersize
+                self.ql.mem.write_ptr(params_mem_write, size)
+                params_mem_write += self.ql.arch.pointersize 
+            elif isinstance(param, NoneParam):
+                params_mem_write += self.ql.arch.pointersize * 2
+            else:
+                self.ql.log.error(f"unknown ptype {param}")
+                return TEE_ERROR_BAD_PARAMETERS 
+        
+        self.ql.log.info(f"[////TA_InvokeCommandEntryPoint////] start @{self.TA_InvokeCommandEntryPoint_start:#0x}")
+        # stop at TA_InvokeCommandEntryPoint_end
+        for e in self.TA_InvokeCommandEntryPoint_end:
+            exit_hooks.append(self.ql.hook_address(pivot, e, user_data="TA_InvokeCommandEntryPoint"))
+
+        breakpoint()
+        # run
+        self.ql._debugger = self._debugger
+        self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)
+        ret = self.ql.os.fcall.cc.getReturnValue()
+
+        params_mem_read = params_mem
+        # sync output
+        for i, param in enumerate(params):
+            if isinstance(param, ValueParam):
+                param.a = int.from_bytes(self.ql.mem.read(params_mem_read, 4), "little")
+                params_mem_read += 4
+                param.b = int.from_bytes(self.ql.mem.read(params_mem_read, 4), "little")
+                params_mem_read += 4
+                if self.tee != "beanpod":
+                    # 32 bit
+                    params_mem_read += 8
+            elif isinstance(param, MemRefParam):
+                pybuf = self.ql.mem.read_ptr(params_mem_read)
+                param.buf = self.ql.mem.read(pybuf, param.size)
+                self.ql.mem.unmap(pybuf, (param.size + 0xFFF) & ~0xFFF )
+                params_mem_read += self.ql.arch.pointersize * 2
+            elif isinstance(param, NoneParam):
+                params_mem_read += self.ql.arch.pointersize * 2
+            else:
+                self.ql.log.error(f"unknown ptype {t}")
+                return TEE_ERROR_BAD_PARAMETERS  
+        
+        for e in exit_hooks:
+            self.ql.hook_del(e)
+            exit_hooks = [] 
+        self.ql.mem.unmap(params_mem & 0xfffffffffffff000, 0x1000)
+
+        return ret
+
+    def CloseSession(self, sid):
+        self.ql.log.debug(f"TA_CloseSessionEntryPoint {sid}")
+        session = None
+        idx = 0
+        for i, s in enumerate(self.sessions):
+            if sid == s.session_id:
+                session = s
+                idx = i
+                break
+        if session is None:
+            self.ql.log.error(f"unknown session {sid}")
+            return TEE_ERROR_BAD_STATE 
+        self.ql.log.info(f"[////CloseSessionEntryPoint////] start @{self.TA_CloseSessionEntryPoint_start:#0x}")
+        for e in self.TA_CloseSessionEntryPoint_end:
+            self.ql.hook_address(pivot, e, user_data="TA_CloseSessionEntryPoint_end")
+
+        self.ql._debugger = self._debugger
+
+        self.ql.os.fcall.cc.setRawParam(0, session.sessionContext)
+        self.ql.run(begin=self.TA_CloseSessionEntryPoint_start) 
+
+        self.ql.mem.unmap(session.session_id_mem, 0x1000)
+        self.ql.mem.unmap(session.sessionContext, 0x1000)
+        self.sessions.pop(idx)
+
+    def DestroyEntryPoint(self):
+        self.ql.log.info(f"[////TA_DestroyEntryPoint////] start @{self.TA_DestroyEntryPoint_start:#0x}") 
+        for e in self.TA_CloseSessionEntryPoint_end:
+            self.ql.hook_address(pivot, e, user_data="TA_CloseSessionEntryPoint_end")
+
+        self.ql._debugger = self._debugger
+
+        self.ql.run(begin=self.TA_DestroyEntryPoint_start) 
+
+        self.CreateEntryPoint_ret = None
+
+    def start_interactive(self):
+        bufc2py = {}
+        libc = CDLL("")
+        # int shmget(key_t key, size_t size, int shmflg);
+        shmget = libc.shmget
+        shmget.restype = c_int
+        shmget.argtypes = (c_int, c_size_t, c_int)
+        # void* shmat(int shmid, const void *shmaddr, int shmflg);
+        shmat = libc.shmat
+        shmat.restype = c_void_p
+        shmat.argtypes = (c_int, c_void_p, c_int)
+        # int shmdt(const void *shmaddr);
+        shmdt = libc.shmdt
+        shmdt.restype = c_int
+        shmdt.argtypes = (c_void_p,)
+
+        ret = self.CreateEntryPoint()
+        if( ret != TEE_SUCCESS ):
+            self.ql.log.warning(f'CreateEntryPoint ret != TEE_SUCCESS {hex(ret)}')
+            return
+        
         # block here after TA_CreateEntryPoint, now we start socket, waiting to connect
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -131,70 +331,41 @@ def start(ql: Qiling, ta_name: str, tee: str):
         sock.listen()
 
         (client_socket, address) = sock.accept()
-        ql.log.debug(f"CA connected from {address}")
-
-        exit_hooks = []
-
-        session_opened = 0
-
-        sessionContext = ql.mem.map_anywhere(
-                    0x1000, minaddr=min_addr, perms=3, info="session_context"
-                )
+        self.ql.log.debug(f"CA connected from {address}") 
 
         while True:
             data = client_socket.recv(1024)
-            ql.log.debug(f"Recv {data}")
+            self.ql.log.debug(f"Recv {data}")
             if len(data) == 0:
                 return
             (f, l, d) = parse_msg(data)
 
             if f == FUNCS.func_TEEC_InitializeContext.value and l == 5 and d == b'start':
-                ql.log.debug(f"TEEC_InitializeContext")
+                self.ql.log.debug(f"TEEC_InitializeContext")
                 client_socket.send(b"ok")
             elif f == FUNCS.func_TEEC_OpenSession.value and l == 0x10:
                 uuid = (p32(u32(d[:4]), endian='big') + p16(u16(d[4:6]), endian='big') + p16(u16(d[6:8]), endian='big') + d[8:]).hex()
-                ql.log.debug(f"TEEC_OpenSession from uuid {uuid}")
-                if "-" in ta_name:
-                    if (uuid != ta_name.replace("-","").split("/")[-1][:-3]):
-                        ql.log.error(f"Inconsistent TA name!")
+                self.ql.log.debug(f"TEEC_OpenSession from uuid {uuid}")
+                if "-" in self.ta_path:
+                    if (uuid != self.ta_path.replace("-","").split("/")[-1][:-3]):
+                        self.ql.log.error(f"Inconsistent TA name!")
                         sock.close()
-                        exit(-1)
+                        return
                 else:
-                    if (uuid != ta_name.split("/")[-1][:-3]):
-                        ql.log.error(f"Inconsistent TA name!")
+                    if (uuid != self.ta_path.split("/")[-1][:-3]):
+                        self.ql.log.error(f"Inconsistent TA name!")
                         sock.close()
                         exit(-1)
-                if (session_opened != 0):
-                    ql.log.error(f"Open session with one TA mutiple times not supported")
-                    sock.close()
-                    exit(-1)
-                session_opened = 1
-                # setup params of InvokeCommand
-                session_id_mem = ql.mem.map_anywhere(
-                    0x1000, minaddr=min_addr, perms=3, info="session_id"
-                )
-                ql.mem.write_ptr(session_id_mem, session_opened)
-                client_socket.send(b"ok" + p32(session_opened))
-
-                ql.log.info(f"[////TA_OpenSessionEntryPoint////] start @{TA_OpenSessionEntryPoint_start:#0x}")
-                # stop at TA_OpenSessionEntryPoint_end
-                for e in TA_OpenSessionEntryPoint_end:
-                    ql.hook_address(pivot, e, user_data="TA_OpenSessionEntryPoint")
-
-                #ql._debugger = _debugger
-                ql.os.fcall.cc.setRawParam(2, sessionContext)
-                ql.run(begin=TA_OpenSessionEntryPoint_start)
-
-                ret = ql.os.fcall.cc.getReturnValue()
+                ret, new_session = self.OpenSession()
                 if ret != TEE_SUCCESS:
-                    ql.log.warning(f'[////TA_OpenSessionEntryPoint////] return != TEE_SUCCESS {hex(ret)}')
-                    return
-
+                    self.ql.log.warning(f'[////TA_OpenSessionEntryPoint////] return != TEE_SUCCESS {hex(ret)}')
+                    return 
+                client_socket.send(b"ok" + p32(new_session.session_id))
             elif f == FUNCS.func_TEEC_RegisterSharedMemory.value and l == 16:
                 shm_key = u32(d[:4])
                 size = u32(d[4:8])
                 buf = u64(d[8:])
-                ql.log.info(f"TEEC_RegisterSharedMemory {shm_key:#0x} {buf:#0x} {size:#0x}")
+                self.ql.log.info(f"TEEC_RegisterSharedMemory {shm_key:#0x} {buf:#0x} {size:#0x}")
 
                 class SHM(Structure):   
                     _fields_ = [
@@ -203,6 +374,7 @@ def start(ql: Qiling, ta_name: str, tee: str):
 
                     @classmethod
                     def from_key(cls, key):
+                        breakpoint()
                         shm_id = shmget(key, sizeof(SHM), 0o666)
                         if shm_id < 0:
                             return
@@ -219,93 +391,53 @@ def start(ql: Qiling, ta_name: str, tee: str):
                         shmdt(ptr)
                
                 shm = SHM.from_key(shm_key)
-
-                pybuf = ql.mem.map_anywhere(
-                    size, minaddr=min_addr, perms=3, info=f"shared_memory_{shm_key}"
-                )
-
-                bufc2py[buf] = (size, shm, pybuf)
+                bufc2py[buf] = (size, shm)
 
                 client_socket.send(b"ok")
             elif f == FUNCS.func_TEEC_InvokeCommand.value and l == 108:
                 sid = u32(d[:4])
                 cmd = u32(d[4:8])
                 ptypes = u32(d[8:12])
-                pcnt = 0
-                ql.log.debug(f"TEEC_InvokeCommand {sid} {cmd} {ptypes:#0x}")
-                if sid != session_opened:
-                    ql.log.error(f"unknown session {sid}")
-                    sock.close()
-                    exit(-1)
-
-                ql.os.fcall.cc.setRawParam(0, session_id_mem)
-                ql.os.fcall.cc.setRawParam(1, cmd)
-                ql.os.fcall.cc.setRawParam(2, ptypes)
-                #ql.arch.regs.r0 = session_id_mem
-                #ql.arch.regs.r1 = cmd
-                #ql.arch.regs.r2 = ptypes
-                # setup TEE_Params
-                params_mem = ql.mem.map_anywhere(
-                    0x1000, minaddr=min_addr, perms=3, info="TEE_Params"
-                )  
-                #ql.arch.regs.r3 = params_mem  
-                ql.os.fcall.cc.setRawParam(3, params_mem)
-
+                self.ql.log.debug(f"TEEC_InvokeCommand {sid} {cmd} {ptypes:#0x}")
+                
+                command_params = []
                 params = d[12:]
+                pcnt = 0
                 while pcnt < 4:
                     t = get_n_ptype(ptypes, pcnt)
                     # value type
                     if t >= 1 and t <= 3:
                         a = u32(params[pcnt*24:pcnt*24+4])
                         b = u32(params[pcnt*24+4:pcnt*24+8])
-                        ql.log.debug(f"value p {a} {b}")
-
-                        ql.mem.write(params_mem, a.to_bytes(4, "little"))
-                        params_mem += 4
-                        ql.mem.write(params_mem, b.to_bytes(4, "little"))
-                        params_mem += 4
-                        if tee != "beanpod":
-                            # 32 bit
-                            params_mem += 8
+                        command_params.append(ValueParam(a,b))
+                        self.ql.log.debug(f"value p {a} {b}")
                     # tmp mem
                     elif t >= 5 and t <= 7:
                         buf = u64(params[pcnt*24:pcnt*24+8])
                         size = u64(params[pcnt*24+8:pcnt*24+16])
-                        ql.log.debug(f"mem p {buf:#0x} {size:#0x}")
+                        self.ql.log.debug(f"mem p {buf:#0x} {size:#0x}")
                         if buf not in bufc2py:
-                            ql.log.error(f"unknown buf {buf:#0x} in {bufc2py}")
+                            self.ql.log.error(f"unknown buf {buf:#0x} in {bufc2py}")
                             sock.close()
-                            exit(-1)
-                        print(bufc2py)
-                        (shm_size, shm, pybuf) = bufc2py[buf]
+                            return 
+                        (shm_size, shm) = bufc2py[buf]
                         if size > shm_size:
-                            ql.log.error(f"size larger than shm: {size:#0x} v.s. {shm_size}")
+                            self.ql.log.error(f"size larger than shm: {size:#0x} v.s. {shm_size}")
                             sock.close()
-                            exit(-1)
+                            return 
                         # get shared content
-                        ql.log.debug(f"SHM IN content: {shm.to_bytes()}")
-                        ql.mem.write(pybuf, shm.to_bytes())
-                        ql.mem.write_ptr(params_mem, pybuf)
-                        params_mem += ql.arch.pointersize
-                        ql.mem.write_ptr(params_mem, size)
-                        params_mem += ql.arch.pointersize 
+                        self.ql.log.debug(f"SHM IN content: {shm.to_bytes()}")
+                        breakpoint()
+                        command_params.append(MemRefParam(shm.to_bytes(), size))
                     elif t == 0:
-                        pass
+                        command_params.append(NoneParam())
                     else:
-                        ql.log.error(f"unknown ptype {t}")
+                        self.ql.log.error(f"unknown ptype {t}")
                         sock.close()
-                        exit(-1)
+                        return
                     pcnt += 1
-                
-                ql.log.info(f"[////TA_InvokeCommandEntryPoint////] start @{TA_InvokeCommandEntryPoint_start:#0x}")
-                # stop at TA_InvokeCommandEntryPoint_end
-                for e in TA_InvokeCommandEntryPoint_end:
-                    exit_hooks.append(ql.hook_address(pivot, e, user_data="TA_InvokeCommandEntryPoint"))
 
-                # run
-                ql._debugger = _debugger
-                ql.run(begin=TA_InvokeCommandEntryPoint_start)
-                ret = ql.os.fcall.cc.getReturnValue()
+                self.InvokeCommand(sid, cmd, ptypes, command_params) 
 
                 # sync shm
                 pcnt = 0
@@ -314,75 +446,51 @@ def start(ql: Qiling, ta_name: str, tee: str):
                     # value type
                     if t >= 1 and t <= 3:
                         #@TODO: send back a and b
-                        ql.log.debug("value type output not implemneted")
+                        self.ql.log.debug("value type output not implemneted")
                     elif t >= 5 and t <= 7:
                         # copy back memory to shm
+                        memref = command_params[pcnt]
                         buf = u64(params[pcnt*24:pcnt*24+8])
                         size = u64(params[pcnt*24+8:pcnt*24+16])
-                        (shm_size, shm, pybuf) = bufc2py[buf]
-                        data = bytes(ql.mem.read(pybuf, size))
-                        ql.log.debug(f"buf: {buf:#0x}, size: {size:#0x}")
+                        (shm_size, shm) = bufc2py[buf]
+                        data = bytes(memref.buf)
+                        self.ql.log.debug(f"buf: {buf:#0x}, size: {size:#0x}")
                         data = data.ljust(shm_size, b'\x00')
                         shm.msg = (c_byte * shm_size)(*data)
-                        ql.log.debug(f"SHM OUT content: {shm.to_bytes()}")
+                        self.ql.log.debug(f"SHM OUT content: {shm.to_bytes()}")
                     elif t == 0:
                         pass
                     else:
-                        ql.log.error(f"unknown ptype {t}")
+                        self.ql.log.error(f"unknown ptype {t}")
                         sock.close()
-                        exit(-1)
+                        return
                     pcnt += 1
-                for e in exit_hooks:
-                    ql.hook_del(e)
-                exit_hooks = []
-                ql.mem.unmap(params_mem & 0xfffff000, 0x1000)
 
                 client_socket.send(b"ok"+p32(ret))
             elif f == FUNCS.func_TEEC_ReleaseSharedMemory.value and l == 8:
                 buf = u64(d)
-                ql.log.debug(f"func_TEEC_ReleaseSharedMemory: {buf:#0x}")
+                self.ql.log.debug(f"func_TEEC_ReleaseSharedMemory: {buf:#0x}")
                 if buf not in bufc2py:
-                    ql.log.error(f"unknown buf {buf:#0x} in {bufc2py}")
+                    self.ql.log.error(f"unknown buf {buf:#0x} in {bufc2py}")
                     sock.close()
-                    exit(-1)
-                (shm_size, shm, pybuf) = bufc2py[buf]
-                ql.mem.unmap(pybuf, shm_size)
+                    return
+                (shm_size, shm) = bufc2py[buf]
                 del(shm)
                 del bufc2py[buf]
                 client_socket.send(b"ok")
             elif f == FUNCS.func_TEEC_CloseSession.value and l == 4:
                 sid = u32(d)
-                ql.log.debug(f"func_TEEC_CloseSession: {sid}")
-                if sid != session_opened:
-                    ql.log.error(f"unknown session id {sid}")
-                    sock.close()
-                    exit(-1)
-                session_opened = 0
+                self.ql.log.debug(f"func_TEEC_CloseSession: {sid}")
 
-                ql.log.info(f"[////TA_CloseSessionEntryPoint////] start @{TA_CloseSessionEntryPoint_start:#0x}")
+                self.CloseSession(sid)
+
                 client_socket.send(b"ok")
             elif f == FUNCS.func_TEEC_FinalizeContext.value and l == 4 and d == b'quit':
-                ql.log.debug(f"func_TEEC_FinalizeContext")
+                self.ql.log.debug(f"func_TEEC_FinalizeContext")
                 break
             else:
-                ql.log.error(f"Recved unknown msg {f, l, d}")
+                self.ql.log.error(f"Recved unknown msg {f, l, d}")
                 sock.close()
-                exit(-1)
-
-        ql.log.info(f"[////TA_DestroyEntryPoint////] start @{TA_DestroyEntryPoint_start:#0x}")
-
-    except FileNotFoundError:
-        print(f"unknown TA: {ta_name}")
-        exit(-1)
-    # except Exception as e:
-    #     print(e)
-    sock.close()
-    
-
-
-def exit_handler(ql: Qiling, ret_addr):
-    # just a graceful return from the main function
-    ql.log.info(f"hit return point at {hex(ret_addr)}, exiting")
-    ql.emu_stop()
-
+                return
+        self.DestroyEntryPoint()
 

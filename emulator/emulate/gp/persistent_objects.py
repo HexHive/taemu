@@ -8,7 +8,7 @@ from .utils.err import *
 from .transient_objects import handle2obj
 
 
-def TEE_CreatePersistentObject(ql:Qiling, func_name):
+def TEE_CreatePersistentObject(ql:Qiling, hook_data):
     global handler_cnt
     params = ql.os.resolve_fcall_params({'storageID': UINT, 'objectID': POINTER, 'objectIDLen': UINT,
                                         'flags': UINT, 'attributes': POINTER, 'initialData': POINTER, 'initialDataLen': UINT, "object": POINTER})
@@ -55,7 +55,8 @@ def TEE_CreatePersistentObject(ql:Qiling, func_name):
 
 
 
-def TEE_OpenPersistentObject(ql:Qiling, func_name):
+def TEE_OpenPersistentObject(ql:Qiling, hook_data):
+    func_name = hook_data.func_name 
     global handler_cnt
     params = ql.os.resolve_fcall_params({'storageID': UINT, 'objectID': POINTER, 'objectIDLen': UINT,
                                          'flags': UINT, "object": POINTER})
@@ -89,7 +90,8 @@ def TEE_OpenPersistentObject(ql:Qiling, func_name):
 
 
 
-def TEE_WriteObjectData(ql:Qiling, func_name):
+def TEE_WriteObjectData(ql:Qiling, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'object': UINT, 'buffer': POINTER, 'size': UINT})
     para_object = params['object']
     para_buffer = params['buffer']
@@ -114,7 +116,8 @@ def TEE_WriteObjectData(ql:Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_CloseObject(ql:Qiling, func_name):
+def TEE_CloseObject(ql:Qiling, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({"object": UINT})
     para_object = params['object']
 
@@ -146,7 +149,8 @@ def TEE_CloseObject(ql:Qiling, func_name):
     
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def TEE_CloseAndDeletePersistentObject(ql:Qiling, func_name):
+def TEE_CloseAndDeletePersistentObject(ql:Qiling, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({"object": UINT})
     para_object = params['object']
 
@@ -162,7 +166,8 @@ def TEE_CloseAndDeletePersistentObject(ql:Qiling, func_name):
     
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def TEE_ReadObjectData(ql:Qiling, func_name):
+def TEE_ReadObjectData(ql:Qiling, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'object': UINT, 'buffer': POINTER, 'size': UINT, "count": POINTER})
     para_object = params['object']
     para_buffer = params['buffer']
@@ -182,7 +187,8 @@ def TEE_ReadObjectData(ql:Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_GetObjectInfo(ql:Qiling, func_name):
+def TEE_GetObjectInfo(ql:Qiling, hook_data):
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({"object": UINT, "objectInfo": POINTER})
     para_object = params['object']
     para_objectInfo = params['objectInfo']

@@ -6,7 +6,10 @@ from .utils.err import *
 from .utils.object import *
 from .utils.attribute import *
 
-def TEE_AllocateTransientObject(ql:Qiling, func_name):
+
+def TEE_AllocateTransientObject(ql:Qiling, hook_data):
+    emu = hook_data.emu
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'objectType': UINT, 'maxObjectSize': UINT, 'object': POINTER})
     objectType = params['objectType']
     maxObjectSize = params['maxObjectSize']
@@ -33,7 +36,9 @@ def TEE_AllocateTransientObject(ql:Qiling, func_name):
         ql.emu_stop()
 
 
-def TEE_GenerateKey(ql:Qiling, func_name):
+def TEE_GenerateKey(ql:Qiling, hook_data):
+    emu = hook_data.emu
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'object': POINTER, 'keySize': UINT, 'params': POINTER, 'paramCount': UINT})
     para_object = params['object']
     para_keySize = params['keySize']
@@ -52,7 +57,9 @@ def TEE_GenerateKey(ql:Qiling, func_name):
 
 
 
-def TEE_PopulateTransientObject(ql:Qiling, func_name):
+def TEE_PopulateTransientObject(ql:Qiling, hook_data):
+    emu = hook_data.emu
+    func_name = hook_data.func_name 
     params = ql.os.resolve_fcall_params({'object': POINTER, 'attrs': POINTER, 'attrCount': UINT})
     para_object = params['object']
     para_attrs = params['attrs']
@@ -75,7 +82,9 @@ def TEE_PopulateTransientObject(ql:Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_ResetTransientObject(ql:Qiling, func_name):
+def TEE_ResetTransientObject(ql:Qiling, hook_data):
+    emu = hook_data.emu
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'object': POINTER})
     para_object = params['object']
     ql.log.info(f'TEE_ResetTransientObject: ')
@@ -89,7 +98,9 @@ def TEE_ResetTransientObject(ql:Qiling, func_name):
     obj.initialized = False
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def TEE_FreeTransientObject(ql:Qiling, func_name):
+def TEE_FreeTransientObject(ql:Qiling, hook_data):
+    emu = hook_data.emu
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'object': POINTER})
     para_object = params['object']
     if para_object not in handle2obj:
@@ -103,7 +114,9 @@ def TEE_FreeTransientObject(ql:Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_InitRefAttribute(ql:Qiling, func_name):
+def TEE_InitRefAttribute(ql:Qiling, hook_data):
+    emu = hook_data.emu
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'attr': POINTER, "attributeID": UINT, "buffer": POINTER, "length": UINT})
     para_attr = params['attr']
     para_attributeID = params['attributeID']
@@ -121,7 +134,9 @@ def TEE_InitRefAttribute(ql:Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_InitValueAttribute(ql:Qiling, func_name):
+def TEE_InitValueAttribute(ql:Qiling, hook_data):
+    emu = hook_data.emu
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'attr': POINTER, "attributeID": UINT, "a": POINTER, "b": length})
     para_attr = params['attr']
     para_attributeID = params['attributeID']
@@ -138,7 +153,9 @@ def TEE_InitValueAttribute(ql:Qiling, func_name):
     ql.mem.write(para_attr + 8, para_b, 4)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def TEE_CopyObjectAttributes1(ql:Qiling, func_name):
+def TEE_CopyObjectAttributes1(ql:Qiling, hook_data):
+    emu = hook_data.emu
+    func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({'destObject': UINT, "srcObject": UINT})
     para_destObject = params['destObject']
     para_srcObject = params['srcObject']

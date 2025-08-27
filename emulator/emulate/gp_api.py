@@ -46,70 +46,70 @@ def GP_params_setup(
             params_mem += 4
 
 
-def default_func(ql: Qiling, func_name):
-    ql.log.info(f"{func_name} called, not implemented!")
+def default_func(ql: Qiling, hook_data):
+    ql.log.info(f"{hook_data.func_name} called, not implemented!")
     ql.emu_stop()
 
-def stack_chk_fail(ql: Qiling, func_name):
+def stack_chk_fail(ql: Qiling, hook_data):
     ql.log.critical(f"stack_chk_fail ***stack smashing detected***")
     ql.arch.regs.arch_pc = 0xdeadbeef
 
-def malloc(ql:Qiling, func_name, called_from_custom_lib):
-    TEE_Malloc(ql, func_name)
+def malloc(ql:Qiling, hook_data, called_from_custom_lib):
+    TEE_Malloc(ql, hook_data)
 
-def calloc(ql:Qiling, func_name):
-    calloc_core(ql, func_name)
+def calloc(ql:Qiling, hook_data):
+    calloc_core(ql, hook_data)
 
-def TEE_Malloc(ql: Qiling, func_name):
-    malloc_core(ql, func_name, False)    
+def TEE_Malloc(ql: Qiling, hook_data):
+    malloc_core(ql, hook_data, False)    
 
-def TEE_Free(ql: Qiling, func_name):
-    free_core(ql, func_name, False)
+def TEE_Free(ql: Qiling, hook_data):
+    free_core(ql, hook_data, False)
 
-def free(ql: Qiling, func_name):
-    free_core(ql, func_name, False)
+def free(ql: Qiling, hook_data):
+    free_core(ql, hook_data, False)
 
-def memcmp(ql: Qiling, func_name):
-    TEE_MemCompare(ql, func_name)
+def memcmp(ql: Qiling, hook_data):
+    TEE_MemCompare(ql, hook_data)
 
 
-def TEE_LogPrintf(ql: Qiling, func_name):
+def TEE_LogPrintf(ql: Qiling, hook_data):
     format_param = ql.os.resolve_fcall_params({"format": STRING})["format"]
     final_params = {"format": STRING}
-    params = parse_fmt_str(ql, format_param, final_params, func_name)
+    params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
     string_params = [params[f"{i}"] for i in range(0, len(params))]
     format_param = format_param.replace("%p", "0x%x")
     format_param = format_param.replace("%llu", "%u")
     format_param = format_param.replace("%zu", "%u")
     out_str = format_param % tuple(string_params)
-    ql.log.info(f"{func_name}: {out_str}")
+    ql.log.info(f"{hook_data.func_name}: {out_str}")
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def fprintf(ql: Qiling, func_name):
-    TEE_LogvPrintf(ql, func_name)
+def fprintf(ql: Qiling, hook_data):
+    TEE_LogvPrintf(ql, hook_data)
 
-def vfprintf(ql: Qiling, func_name):
-    TEE_LogvPrintf(ql, func_name)
+def vfprintf(ql: Qiling, hook_data):
+    TEE_LogvPrintf(ql, hook_data)
 
-def puts(ql: Qiling, func_name):
-    TEE_LogPrintf(ql, func_name)
+def puts(ql: Qiling, hook_data):
+    TEE_LogPrintf(ql, hook_data)
 
-def printf(ql: Qiling, func_name):
-    TEE_LogPrintf(ql, func_name)
+def printf(ql: Qiling, hook_data):
+    TEE_LogPrintf(ql, hook_data)
 
-def TEE_LogvPrintf(ql: Qiling, func_name):
+def TEE_LogvPrintf(ql: Qiling, hook_data):
     p = ql.os.resolve_fcall_params({"log_level": INT, "format": STRING})
     log_level = p["log_level"]
     format_param = p["format"]
     final_params = {"log_level": INT, "format": STRING}
-    params = parse_fmt_str(ql, format_param, final_params, func_name)
+    params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
     string_params = [params[f"{i}"] for i in range(0, len(params) - 1)]
     out_str = format_param % tuple(string_params)
-    ql.log.info(f"{func_name}: {log_level}, {out_str}")
+    ql.log.info(f"{hook_data.func_name}: {log_level}, {out_str}")
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def log_msg(ql: Qiling, func_name):
+def log_msg(ql: Qiling, hook_data):
     p = ql.os.resolve_fcall_params(
         {"log_level": INT, "log_level_2": INT, "format": STRING}
     )
@@ -117,7 +117,7 @@ def log_msg(ql: Qiling, func_name):
     log_level_2 = p["log_level_2"]
     format_param = p["format"]
     final_params = {"log_level": INT, "log_level_2": INT, "format": STRING}
-    final_params = parse_fmt_str(format_param, final_params)
+    final_params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
     params = ql.os.resolve_fcall_params(final_params)
     del params["format"]
     string_params = [params[f"{i}"] for i in range(0, len(params) - 2)]
@@ -127,7 +127,7 @@ def log_msg(ql: Qiling, func_name):
     ql.log.info(f"log_msg: {log_level}, {log_level_2},{out_str}")
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def snprintf(ql: Qiling, func_name):
+def snprintf(ql: Qiling, hook_data):
     params_initial = ql.os.resolve_fcall_params(
         {"s": POINTER, "n": INT, "format": STRING, "arg": POINTER}
     )
@@ -137,22 +137,22 @@ def snprintf(ql: Qiling, func_name):
     arg = params_initial["arg"]
     params = parse_fmt_str(
         ql, format_param, {"s": INT, "n": INT, "format": STRING}, 
-        func_name, arg=arg
+        hook_data.func_name, arg=arg
     )
     string_params = [params[f"{i}"] for i in range(0, len(params))]
     out_str = format_param % tuple(string_params)
     full_len = len(out_str)
     out_str = out_str[: n - 1]
     out_str = out_str.encode() + b"\x00"
-    ql.log.info(f'{func_name}: len: {hex(n)} "{out_str}" written to {hex(s)}')
+    ql.log.info(f'{hook_data.func_name}: len: {hex(n)} "{out_str}" written to {hex(s)}')
     ql.mem.write(s, out_str)
     ql.os.fcall.cc.setReturnValue(full_len)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def vsnprintf(ql: Qiling, func_name):
-    snprintf(ql, func_name)
+def vsnprintf(ql: Qiling, hook_data):
+    snprintf(ql, hook_data)
 
-def strlen(ql: Qiling, func_name):
+def strlen(ql: Qiling, hook_data):
     ptr = ql.os.resolve_fcall_params({"ptr": POINTER})["ptr"]
     ql.log.info(f'strlen {hex(ptr)}')#, "{string}"=> {hex(out)}')
     string = read_c_str(ql, ptr)
@@ -160,22 +160,22 @@ def strlen(ql: Qiling, func_name):
     ql.os.fcall.cc.setReturnValue(out)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def strcpy(ql: Qiling, func_name):
+def strcpy(ql: Qiling, hook_data):
     params = ql.os.resolve_fcall_params({"dst": POINTER, "src": POINTER})
     dst = params['dst']
     src = params['src']
-    ql.log.info(f'{func_name} {hex(src)}->{hex(dst)}')
+    ql.log.info(f'{hook_data.func_name} {hex(src)}->{hex(dst)}')
     s = read_c_str(ql, src)
     ql.mem.write(dst, s + b"\x00")
     ql.os.fcall.cc.setReturnValue(dst)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def strncpy(ql: Qiling, func_name):
+def strncpy(ql: Qiling, hook_data):
     params = ql.os.resolve_fcall_params({"dst": POINTER, "src": POINTER, 'num': POINTER})
     dst = params['dst']
     src = params['src']
     num = params['num']
-    ql.log.info(f'{func_name} {hex(src)}->{hex(dst)} ({num})')
+    ql.log.info(f'{hook_data.func_name} {hex(src)}->{hex(dst)} ({num})')
     s = read_c_str(ql, src)
     if len(s) >= num:
         ql.mem.write(dst, s[:num])
@@ -184,13 +184,13 @@ def strncpy(ql: Qiling, func_name):
     ql.os.fcall.cc.setReturnValue(dst)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def TEE_MemMove(ql: Qiling, func_name):
-    memmove(ql, func_name)
+def TEE_MemMove(ql: Qiling, hook_data):
+    memmove(ql, hook_data)
 
-def memmove(ql: Qiling, func_name):
+def memmove(ql: Qiling, hook_data):
     params = ql.os.resolve_fcall_params({"dest": POINTER, "src": POINTER, "size": POINTER})
     ql.log.info(
-        f'{func_name} {params["size"]:#0x} from {hex(params["src"])} to {hex(params["dest"])}'
+        f'{hook_data.func_name} {params["size"]:#0x} from {hex(params["src"])} to {hex(params["dest"])}'
     )
     data = ql.mem.read(params["src"], params["size"])
     ql.mem.write(params["dest"], bytes(data))
@@ -198,23 +198,23 @@ def memmove(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def memcpy(ql: Qiling, func_name):
-    memmove(ql, func_name)
+def memcpy(ql: Qiling, hook_data):
+    memmove(ql, hook_data)
 
 
-def TEE_MemFill(ql: Qiling, func_name):
-    memfill(ql, func_name)
+def TEE_MemFill(ql: Qiling, hook_data):
+    memfill(ql, hook_data)
 
 
-def memfill(ql: Qiling, func_name):
-    memset_core(ql, func_name, False)
+def memfill(ql: Qiling, hook_data):
+    memset_core(ql, hook_data, False)
 
 
-def memset(ql: Qiling, func_name):
-    memfill(ql, func_name)
+def memset(ql: Qiling, hook_data):
+    memfill(ql, hook_data)
 
 
-def TEE_MemCompare(ql: Qiling, func_name):
+def TEE_MemCompare(ql: Qiling, hook_data):
     params = ql.os.resolve_fcall_params({"dest": POINTER, "src": POINTER, "size": POINTER})
     buffer_1 = params["dest"]
     buffer_2 = params["src"]
@@ -223,7 +223,7 @@ def TEE_MemCompare(ql: Qiling, func_name):
     ret = 0
     content_1 = ql.mem.read(buffer_1, size)
     content_2 = ql.mem.read(buffer_2, size)
-    ql.log.info(f"{func_name} compare {content_1} with {content_2}")
+    ql.log.info(f"{hook_data.func_name} compare {content_1} with {content_2}")
     for i in range(size):
         if content_1[i] > content_2[i]:
             ret = 1
@@ -236,7 +236,7 @@ def TEE_MemCompare(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_GenerateRandom(ql: Qiling, func_name):
+def TEE_GenerateRandom(ql: Qiling, hook_data):
     params = ql.os.resolve_fcall_params(
         {"randomBuffer": POINTER, "randomBufferLen": INT}
     )
@@ -245,7 +245,7 @@ def TEE_GenerateRandom(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_CheckMemoryAccessRights(ql: Qiling, func_name):
+def TEE_CheckMemoryAccessRights(ql: Qiling, hook_data):
     params = ql.os.resolve_fcall_params(
         {"accessFlags": INT, "buffer": POINTER, "size": INT}
     )
@@ -281,22 +281,22 @@ def TEE_CheckMemoryAccessRights(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_RpmbOpenSession(ql: Qiling, func_name):
-    rpmb.TEE_RpmbOpenSession(ql, func_name)
+def TEE_RpmbOpenSession(ql: Qiling, hook_data):
+    rpmb.TEE_RpmbOpenSession(ql, hook_data)
 
 
-def TEE_RpmbCloseSession(ql: Qiling, func_name):
-    rpmb.TEE_RpmbCloseSession(ql, func_name)
+def TEE_RpmbCloseSession(ql: Qiling, hook_data):
+    rpmb.TEE_RpmbCloseSession(ql, hook_data)
 
 
-def TEE_RpmbReadData(ql: Qiling, func_name):
-    rpmb.TEE_RpmbReadData(ql, func_name)
+def TEE_RpmbReadData(ql: Qiling, hook_data):
+    rpmb.TEE_RpmbReadData(ql, hook_data)
 
 
-def TEE_RpmbWriteData(ql: Qiling, func_name):
-    rpmb.TEE_RpmbWriteData(ql, func_name)
+def TEE_RpmbWriteData(ql: Qiling, hook_data):
+    rpmb.TEE_RpmbWriteData(ql, hook_data)
 
-def TEE_GetCallerInfo(ql: Qiling, func_name):
+def TEE_GetCallerInfo(ql: Qiling, hook_data):
     p = ql.os.resolve_fcall_params({"caller_info": POINTER})
     param_ci = p['caller_info']
     # write tee_secure_info
