@@ -114,8 +114,6 @@ def TEE_DigestDoFinal(ql:Qiling, hook_data):
     else:
         ret = TEE_ERROR_SHORT_BUFFER
 
-    ql.emu_stop()
-
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 

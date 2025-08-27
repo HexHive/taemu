@@ -47,6 +47,26 @@ class MemRefParam():
     def __init__(self, buf:bytes, size:int):
         self.buf = buf
         self.size = size
+        self.is_shared = False
+        self.shm = None
+        self.shm_pybuf = None
+    
+    
+def shared_read_callback(ql: Qiling, user_data, access: int, address: int, size: int, value: int):
+    breakpoint()
+    # refetch data from the shared memory
+    memref = user_data
+    assert(memref.shm is not None)
+    #TODO make more efficient
+    ql.mem.write(memref.shm_pybuf, memref.shm.to_bytes())
+
+def shared_write_callback(ql: Qiling, user_data, access: int, address: int, size: int, value: int): 
+    # write data back to memory
+    memref = user_data
+    assert(memref.shm is not None)
+    #TODO make this more efficient
+    curr_data = ql.mem.read(memref.shm_pybuf, memref.size)
+    memref.shm.from_bytes(curr_data)
 
 class NoneParam():
     def __init__(self):
@@ -58,6 +78,10 @@ class Session():
         self.session_id = session_id
         self.sessionContext = sessionContext
 
+def get_ta_uuid(ta_name):
+    ta_name = ta_name.replace('-', '')
+    return bytes.fromhex(ta_name)
+
 class TAEMU():
     
     def __init__(self, ql: Qiling, tee: str, ta_path: str, ta_elf: ELF):
@@ -66,6 +90,7 @@ class TAEMU():
         self.ta_path = ta_path
         self.ta_elf = ta_elf
         self.ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
+        self.taUUID = get_ta_uuid(ta_path.split("/")[-1][:-3])
         self.ta_elf.address = self.ta_base
         self.exit_non_implemented = None
         self.session_counter = 0
@@ -130,8 +155,8 @@ class TAEMU():
         for e in self.TA_CreateEntryPoint_end:
             self.ql.hook_address(pivot, e, user_data="TA_CreateEntryPoint")
 
-        _debugger = self.ql._debugger
-        #ql.debugger = False
+        #_debugger = self.ql._debugger
+        self.ql.debugger = False
         self.ql.run(begin=entrypoint)
 
         ret = self.ql.os.fcall.cc.getReturnValue()
@@ -215,7 +240,14 @@ class TAEMU():
                 pybuf = self.ql.mem.map_anywhere(
                     size, minaddr=min_addr, perms=3, info=f"shared_memory_{i}"
                 ) 
-                self.ql.mem.write(pybuf, buf)
+                if param.is_shared:
+                    breakpoint()
+                    param.shm_pybuf = pybuf
+                    self.ql.mem.write(pybuf, buf)
+                    self.ql.hook_mem_write(shared_write_callback, user_data=param, begin=pybuf, end=pybuf+size)
+                    self.ql.hook_mem_read(shared_read_callback, user_data=param, begin=pybuf, end=pybuf+size)
+                else:
+                    self.ql.mem.write(pybuf, buf)
                 self.ql.mem.write_ptr(params_mem_write, pybuf)
                 params_mem_write += self.ql.arch.pointersize
                 self.ql.mem.write_ptr(params_mem_write, size)
@@ -292,7 +324,7 @@ class TAEMU():
 
     def DestroyEntryPoint(self):
         self.ql.log.info(f"[////TA_DestroyEntryPoint////] start @{self.TA_DestroyEntryPoint_start:#0x}") 
-        for e in self.TA_CloseSessionEntryPoint_end:
+        for e in self.TA_DestroyEntryPoint_end:
             self.ql.hook_address(pivot, e, user_data="TA_CloseSessionEntryPoint_end")
 
         self.ql._debugger = self._debugger
@@ -383,6 +415,9 @@ class TAEMU():
                     def to_bytes(self):
                         return bytes(self.msg)
 
+                    def from_bytes(self, data):
+                        memmove(addressof(self.msg), data, len(data))
+
                     def __del__(self):
                         ptr = cast(addressof(self), c_void_p)
                         shmdt(ptr)
@@ -424,7 +459,14 @@ class TAEMU():
                             return 
                         # get shared content
                         self.ql.log.debug(f"SHM IN content: {shm.to_bytes()}")
-                        command_params.append(MemRefParam(shm.to_bytes(), size))
+                        if self.tee == "mitee" or self.tee == "teegris":
+                            # shared memory
+                            memref = MemRefParam(shm.to_bytes(), size)
+                            memref.is_shared = True
+                            memref.shm = shm
+                            command_params.append(memref)
+                        else:
+                            command_params.append(MemRefParam(shm.to_bytes(), size))
                     elif t == 0:
                         command_params.append(NoneParam())
                     else:
@@ -433,7 +475,8 @@ class TAEMU():
                         return
                     pcnt += 1
 
-                self.InvokeCommand(sid, cmd, ptypes, command_params) 
+                ret = self.InvokeCommand(sid, cmd, ptypes, command_params) 
+                self.ql.log.info(f'InvokeCommand returned: {hex(ret)}')
 
                 # sync shm
                 pcnt = 0

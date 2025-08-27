@@ -162,7 +162,7 @@
         139900
     ],
     "TA_CloseSessionEntryPoint_start": 140320,
-    "TA_CloseSessionEntryPoint_end": [],
+    "TA_CloseSessionEntryPoint_end": [140572],
     "TA_InvokeCommandEntryPoint_start": 140600,
     "TA_InvokeCommandEntryPoint_end": [
         140864

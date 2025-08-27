@@ -15,7 +15,7 @@ TEE_HANDLE_NULL = 0
 handler2perobj = {}
 handler_cnt = 1
 
-FILE_PREFIX = "emulate/files/"
+FILE_PREFIX = "./emulate/files/"
 
 def memory_alignment_round_up(addr, roundup):
     return addr - (addr % roundup) + roundup
@@ -31,6 +31,7 @@ class perObject:
             self.file = None
             return
         else:      
+            if not os.path.exists(f"{FILE_PREFIX}{self.storageID}"): os.mkdir(f"{FILE_PREFIX}{self.storageID}")
             if flag & TEE_DATA_FLAG_ACCESS_WRITE != 0:
                 self.file = open(self.file_name, 'wb')
             else:
@@ -39,7 +40,7 @@ class perObject:
         self.handler = handler
 
     def write(self, data, ql:Qiling):
-        ql.log.info(f"\twrite: {data}")
+        ql.log.info(f"\twrite to object: {data.hex()[:8]}{len(data)}")
         self.file.write(data)
 
     def read(self, size, ql:Qiling):

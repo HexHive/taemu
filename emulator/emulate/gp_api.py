@@ -69,6 +69,7 @@ def TEE_Free(ql: Qiling, hook_data):
 def free(ql: Qiling, hook_data):
     free_core(ql, hook_data, False)
 
+
 def memcmp(ql: Qiling, hook_data):
     TEE_MemCompare(ql, hook_data)
 
@@ -149,6 +150,26 @@ def snprintf(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(full_len)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+def sprintf(ql: Qiling, hook_data):
+    params_initial = ql.os.resolve_fcall_params(
+        {"s": POINTER, "format": STRING, "arg": POINTER}
+    )
+    format_param = params_initial["format"]
+    s = params_initial["s"]
+    arg = params_initial["arg"]
+    params = parse_fmt_str(
+        ql, format_param, {"s": INT, "format": STRING}, 
+        hook_data.func_name, arg=arg
+    )
+    string_params = [params[f"{i}"] for i in range(0, len(params))]
+    out_str = format_param % tuple(string_params)
+    full_len = len(out_str)
+    out_str = out_str.encode() + b"\x00"
+    ql.log.info(f'{hook_data.func_name}: "{out_str}" written to {hex(s)}')
+    ql.mem.write(s, out_str)
+    ql.os.fcall.cc.setReturnValue(full_len)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr 
+
 def vsnprintf(ql: Qiling, hook_data):
     snprintf(ql, hook_data)
 
@@ -223,7 +244,7 @@ def TEE_MemCompare(ql: Qiling, hook_data):
     ret = 0
     content_1 = ql.mem.read(buffer_1, size)
     content_2 = ql.mem.read(buffer_2, size)
-    ql.log.info(f"{hook_data.func_name} compare {content_1} with {content_2}")
+    ql.log.info(f"{hook_data.func_name} compare {hex(buffer_1)} with {hex(buffer_2)}")
     for i in range(size):
         if content_1[i] > content_2[i]:
             ret = 1

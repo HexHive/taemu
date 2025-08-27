@@ -54,6 +54,9 @@ def parse_fmt_str(ql, format_param, final_params, func_name, arg=None):
             del params["format"]
             del params["s"]
             del params["n"]
+        elif func_name == "sprintf":
+            del params["format"]
+            del params["s"]
         else:
             ql.log.error(f"unkown printf format resolving function: {func_name}")
             ql.emu.stop()

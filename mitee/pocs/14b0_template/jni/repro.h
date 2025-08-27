@@ -478,12 +478,60 @@ void release_param(TEEC_SharedMemory* p)
     free(mem_area);
 }
 
+void teegris_hex2bytes(char* in, unsigned char* out){
+    int idx = 0;
+    for (size_t count = 0; count < 36; count++) {
+        if(*in == '-'){
+			in += 1;
+			continue;
+		}
+        sscanf(in, "%2hhx", &out[idx]);
+        in += 2;
+		idx += 1;
+    }
+    return;
+}
+
 void hex2bytes(char* in, unsigned char* out){
     for (size_t count = 0; count < 32; count++) {
         sscanf(in, "%2hhx", &out[count]);
         in += 2;
     }
     return;
+}
+
+TEEC_UUID* beanpod_uuid(const char* ta){
+    unsigned char hex_b[0x40] = {0};
+    hex2bytes(ta,hex_b);
+    TEEC_UUID *uuid = (TEEC_UUID *)malloc(sizeof(TEEC_UUID));
+    uint32_t timeLow;
+    uuid->timeLow = (uint32_t)hex_b[0] << 24 |
+      (uint32_t)hex_b[1] << 16 |
+      (uint32_t)hex_b[2] << 8  |
+      (uint32_t)hex_b[3];
+    uuid->timeMid = (uint16_t)hex_b[4] << 8 | (uint16_t)hex_b[5];
+    uuid->timeHiAndVersion = (uint16_t)hex_b[6] << 8 | (uint16_t)hex_b[7];
+    for(int i = 0; i<8; i++){
+        uuid->clockSeqAndNode[i] = (uint8_t)hex_b[8+i];
+    }
+    return uuid;
+}
+
+TEEC_UUID* teegris_uuid(const char* ta){
+    unsigned char hex_b[0x40] = {0};
+    teegris_hex2bytes(ta,hex_b);
+    TEEC_UUID *uuid = (TEEC_UUID *)malloc(sizeof(TEEC_UUID));
+    uint32_t timeLow;
+    uuid->timeLow = (uint32_t)hex_b[0] << 24 |
+      (uint32_t)hex_b[1] << 16 |
+      (uint32_t)hex_b[2] << 8  |
+      (uint32_t)hex_b[3];
+    uuid->timeMid = (uint16_t)hex_b[4] << 8 | (uint16_t)hex_b[5];
+    uuid->timeHiAndVersion = (uint16_t)hex_b[6] << 8 | (uint16_t)hex_b[7];
+    for(int i = 0; i<8; i++){
+        uuid->clockSeqAndNode[i] = (uint8_t)hex_b[8+i];
+    }
+    return uuid;
 }
 
 void DumpHex(const void* data, size_t size, void* sa) {

@@ -10,23 +10,23 @@ from unicorn import UC_PROT_READ, UC_PROT_WRITE
 
 from .gp_api import TEE_LogvPrintf, TEE_LogPrintf
 
-def TEES_GetIrsFlagValue(ql: Qiling, func_name):
+def TEES_GetIrsFlagValue(ql: Qiling, hook_data):
     ql.log.info(
-        f'{func_name} returning 0'
+        f'{hook_data.func_name} returning 0'
     )
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def TEES_IsREESharedMemory(ql: Qiling, func_name):
+def TEES_IsREESharedMemory(ql: Qiling, hook_data):
     ql.log.info(
-        f'{func_name} returning 0'
+        f'{hook_data.func_name} returning 0'
     )
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def TEES_CheckSecureObjectCreator(ql: Qiling, func_name):
+def TEES_CheckSecureObjectCreator(ql: Qiling, hook_data):
     ql.log.info(
-        f'{func_name} returning 1'
+        f'{hook_data.func_name} returning 1'
     )
     ql.os.fcall.cc.setReturnValue(1)
     ql.arch.regs.arch_pc = ql.arch.regs.lr 
@@ -34,12 +34,12 @@ def TEES_CheckSecureObjectCreator(ql: Qiling, func_name):
 fd_counter = 5
 fds = {}
 
-def open(ql: Qiling, func_name):
+def open(ql: Qiling, hook_data):
     global fds, fd_counter
     p = ql.os.resolve_fcall_params({"path": STRING,})
     path = p["path"]
     ql.log.info(
-        f'{func_name} called for {path} returning fd {fd_counter}'
+        f'{hook_data.func_name} called for {path} returning fd {fd_counter}'
     )
     ql.os.fcall.cc.setReturnValue(fd_counter) 
     fd_counter+=1

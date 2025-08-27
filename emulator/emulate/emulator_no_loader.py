@@ -12,6 +12,7 @@ from elftools.elf.relocation import RelocationSection
 from . import gp_api 
 from . import beanpod_api
 from . import teegris_api
+from . import mitee_api
 from .gp import bigint_ops, crypto, general_objects, persistent_objects, properties, session, transient_objects
 from unicorn.arm64_const import UC_ARM64_INS_MRS
 from unicorn import UC_PROT_READ, UC_PROT_WRITE
@@ -37,6 +38,9 @@ def get_api_impl(func_name):
     if api_func is not None:
         return api_func
     api_func = getattr(teegris_api, func_name, None)
+    if api_func is not None:
+        return api_func
+    api_func = getattr(mitee_api, func_name, None)
     if api_func is not None:
         return api_func
     if api_func == "__stack_chk_fail":

@@ -22,7 +22,7 @@ def TEE_CreatePersistentObject(ql:Qiling, hook_data):
     para_object = params['object']
 
     ql.log.info(f'TEE_CreatePersistentObject: ')
-    if para_storageID == TEE_STORAGE_PRIVATE:
+    if para_storageID == TEE_STORAGE_PRIVATE or MITEE_FILE_STORAGE:
 
         if para_objectIDLen > TEE_OBJECT_ID_MAX_LEN:
             ql.log.error(f"TEE_CreatePersistentObject: objectID too long {hex(para_objectIDLen)}")
