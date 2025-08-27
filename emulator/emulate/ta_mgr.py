@@ -215,7 +215,6 @@ class TAEMU():
                 pybuf = self.ql.mem.map_anywhere(
                     size, minaddr=min_addr, perms=3, info=f"shared_memory_{i}"
                 ) 
-                breakpoint()
                 self.ql.mem.write(pybuf, buf)
                 self.ql.mem.write_ptr(params_mem_write, pybuf)
                 params_mem_write += self.ql.arch.pointersize
@@ -232,7 +231,6 @@ class TAEMU():
         for e in self.TA_InvokeCommandEntryPoint_end:
             exit_hooks.append(self.ql.hook_address(pivot, e, user_data="TA_InvokeCommandEntryPoint"))
 
-        breakpoint()
         # run
         self.ql._debugger = self._debugger
         self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)
@@ -374,7 +372,6 @@ class TAEMU():
 
                     @classmethod
                     def from_key(cls, key):
-                        breakpoint()
                         shm_id = shmget(key, sizeof(SHM), 0o666)
                         if shm_id < 0:
                             return
@@ -427,7 +424,6 @@ class TAEMU():
                             return 
                         # get shared content
                         self.ql.log.debug(f"SHM IN content: {shm.to_bytes()}")
-                        breakpoint()
                         command_params.append(MemRefParam(shm.to_bytes(), size))
                     elif t == 0:
                         command_params.append(NoneParam())
