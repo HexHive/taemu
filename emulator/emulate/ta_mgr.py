@@ -6,6 +6,8 @@ import json
 import socket
 from ctypes import *
 from enum import Enum
+from .gp.utils.err import *
+from .gp.utils.param import *
 
 TA_NAME = ""
 
@@ -117,6 +119,11 @@ def start(ql: Qiling, ta_name: str, tee: str):
         # run
         ql.run(begin=entrypoint)
 
+        ret = ql.os.fcall.cc.getReturnValue()
+        if ret != TEE_SUCCESS:
+            ql.log.warning(f'[////TA_CreateEntryPoint////] return != TEE_SUCCESS {hex(ret)}')
+            return
+
         # block here after TA_CreateEntryPoint, now we start socket, waiting to connect
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -177,6 +184,11 @@ def start(ql: Qiling, ta_name: str, tee: str):
                 #ql._debugger = _debugger
                 ql.os.fcall.cc.setRawParam(2, sessionContext)
                 ql.run(begin=TA_OpenSessionEntryPoint_start)
+
+                ret = ql.os.fcall.cc.getReturnValue()
+                if ret != TEE_SUCCESS:
+                    ql.log.warning(f'[////TA_OpenSessionEntryPoint////] return != TEE_SUCCESS {hex(ret)}')
+                    return
 
             elif f == FUNCS.func_TEEC_RegisterSharedMemory.value and l == 16:
                 shm_key = u32(d[:4])

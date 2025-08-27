@@ -125,7 +125,7 @@ if __name__ == "__main__":
     hook_ta_dl(ql, ta_path, ta_elf, is_mitee=TEE=="mitee")
     hook_ta_custom(ql, ta_path, ta_elf)
     if TEE == "mitee":
-        # handle tpidr_el0
+        # handle tpidr_el0 and fix relocations
         mitee_setup(ql, ta_path, ta_elf)
     ql.do_lib_patch()
     ql.log.info(f"[{ta_name}] emulation start")

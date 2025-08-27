@@ -15,7 +15,7 @@ from . import teegris_api
 from .gp import bigint_ops, crypto, general_objects, persistent_objects, properties, session, transient_objects
 from unicorn.arm64_const import UC_ARM64_INS_MRS
 from unicorn import UC_PROT_READ, UC_PROT_WRITE
-from .custom.mitee_loader import mitee_read_relocs
+from .custom.mitee_loader import mitee_read_relocs, mitee_relr_relocs
 
 
 def __get_os_module(osname: str):
@@ -112,6 +112,7 @@ def hook_ta_custom(ql: Qiling, ta_path, ta_elf:ELF):
                     ql.hook_address(get_api_impl(fname), addr, user_data=fname)
 
 def mitee_setup(ql: Qiling, ta_path, ta_elf:ELF):
+    # 1: setup tls for mrs
     TLS_MEM_BASE = 0xeee000
     THREAD_STACK_BASE = 0xf00000 
     THREAD_STACK_SIZE = 0x10000
@@ -121,7 +122,6 @@ def mitee_setup(ql: Qiling, ta_path, ta_elf:ELF):
     THREAD_STACK_ADDR = THREAD_STACK_BASE + THREAD_STACK_SIZE - 0x10
     TLS_ADDR = TLS_MEM_BASE + 0x10
     def hook_mrs(ql: Qiling, port, size):
-        #TODO figure out register where to store tls address
         code_bytes = ql.mem.read(ql.arch.regs.arch_pc, 4)
         for ins in ql.arch.disassembler.disasm(code_bytes, ql.arch.regs.arch_pc):
             assert(ins.mnemonic  == "mrs")
@@ -131,6 +131,13 @@ def mitee_setup(ql: Qiling, ta_path, ta_elf:ELF):
     ql.mem.write_ptr(TLS_ADDR-0x8, THREAD_STACK_ADDR)
     ql.mem.write_ptr(TLS_ADDR-0x10, CANARY)
     ql.hook_insn(hook_mrs, UC_ARM64_INS_MRS)
+    # 2: fixup data relocations
+    reloc_offsets = mitee_relr_relocs(ta_path)
+    ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
+    for off in reloc_offsets:
+        reloc_off = ql.mem.read_ptr(ta_base+off)
+        ql.log.info(f'[mitee] fixing relcation at {hex(off)} for {hex(reloc_off)}')
+        ql.mem.write_ptr(ta_base+off, ta_base+reloc_off)
 
 def trace_block(ql: Qiling, address, size):
     ql.log.debug("basic block at 0x%x" % (address))

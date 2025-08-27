@@ -160,6 +160,29 @@ def strlen(ql: Qiling, func_name):
     ql.os.fcall.cc.setReturnValue(out)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+def strcpy(ql: Qiling, func_name):
+    params = ql.os.resolve_fcall_params({"dst": POINTER, "src": POINTER})
+    dst = params['dst']
+    src = params['src']
+    ql.log.info(f'{func_name} {hex(src)}->{hex(dst)}')
+    s = read_c_str(ql, src)
+    ql.mem.write(dst, s + b"\x00")
+    ql.os.fcall.cc.setReturnValue(dst)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def strncpy(ql: Qiling, func_name):
+    params = ql.os.resolve_fcall_params({"dst": POINTER, "src": POINTER, 'num': POINTER})
+    dst = params['dst']
+    src = params['src']
+    num = params['num']
+    ql.log.info(f'{func_name} {hex(src)}->{hex(dst)} ({num})')
+    s = read_c_str(ql, src)
+    if len(s) >= num:
+        ql.mem.write(dst, s[:num])
+    else:
+        ql.mem.write(dst, s+b"\x00")
+    ql.os.fcall.cc.setReturnValue(dst)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def TEE_MemMove(ql: Qiling, func_name):
     memmove(ql, func_name)
