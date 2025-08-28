@@ -219,7 +219,6 @@ def TEE_AsymmetricDecrypt(ql:Qiling, hook_data):
         ql.emu_stop()
     op = id2opration[param_operation]
     if not op.initialized or op.mode != TEE_MODE_DECRYPT:
-        breakpoint()
         ql.log.error(f"TEE_AsymmetricDecrypt: op mode error or not initialized")
         ql.emu_stop()
     

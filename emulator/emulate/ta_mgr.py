@@ -53,7 +53,6 @@ class MemRefParam():
     
     
 def shared_read_callback(ql: Qiling, user_data, access: int, address: int, size: int, value: int):
-    breakpoint()
     # refetch data from the shared memory
     memref = user_data
     assert(memref.shm is not None)
@@ -93,6 +92,7 @@ class TAEMU():
         self.taUUID = get_ta_uuid(ta_path.split("/")[-1][:-3])
         self.ta_elf.address = self.ta_base
         self.exit_non_implemented = None
+        self.curr_params = None
         self.session_counter = 0
         self.sessions = []
         self._debugger = ql._debugger 
@@ -146,6 +146,27 @@ class TAEMU():
         hook_ta_dl(self.ql, self.ta_path, self.ta_elf, self, is_mitee=self.tee=="mitee")
         hook_ta_custom(self.ql, self.ta_path, self.ta_elf, self)
         self.ql.do_lib_patch()
+
+    def get_shm(self, pointer):
+        assert(self.curr_params is not None)
+        for p in self.curr_params:
+            if isinstance(p, MemRefParam):
+                if pointer >= p.shm_pybuf and pointer <= p.shm_pybuf + p.size and p.is_shared:
+                    return p
+        return None
+
+    def update_shm(self, pointer):
+        param = self.get_shm(pointer)
+        if param is None:
+            return
+        self.ql.mem.write(param.shm_pybuf, param.shm.to_bytes()) 
+    
+    def writeback_shm(self, pointer):
+        param = self.get_shm(pointer)
+        if param is None:
+            return
+        curr_data = self.ql.mem.read(param.shm_pybuf, param.size)
+        param.shm.from_bytes(curr_data) 
 
     def CreateEntryPoint(self):
         self.ql.log.info(f"[////TA_CreateEntryPoint////] start @{self.TA_CreateEntryPoint_start:#0x}")
@@ -218,6 +239,7 @@ class TAEMU():
         self.ql.os.fcall.cc.setRawParam(3, params_mem)
 
         assert(len(params) == 4)
+        self.curr_params = params
         params_mem_write = params_mem
         for i, param in enumerate(params):
             if isinstance(param, ValueParam):
@@ -241,7 +263,6 @@ class TAEMU():
                     size, minaddr=min_addr, perms=3, info=f"shared_memory_{i}"
                 ) 
                 if param.is_shared:
-                    breakpoint()
                     param.shm_pybuf = pybuf
                     self.ql.mem.write(pybuf, buf)
                     self.ql.hook_mem_write(shared_write_callback, user_data=param, begin=pybuf, end=pybuf+size)
@@ -293,6 +314,7 @@ class TAEMU():
         for e in exit_hooks:
             self.ql.hook_del(e)
             exit_hooks = [] 
+        self.curr_params = None
         self.ql.mem.unmap(params_mem & 0xfffffffffffff000, 0x1000)
 
         return ret

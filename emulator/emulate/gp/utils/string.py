@@ -8,13 +8,18 @@ HEAP = {"allocated": {}, "freed": {}}
 
 HEAP_MEM=0xaaaaa000
 
-def memset_core(ql, hook_data, called_from_custom_lib):
+def memset_core(ql, hook_data, called_from_api_emu):
     func_name = hook_data.func_name
+    emu = hook_data.emu
     params = ql.os.resolve_fcall_params({"dest": POINTER, "x": BYTE, "size": POINTER})
     ql.log.info(
         f'{func_name} {params["size"]:#0x} bytes of {hex(params["x"])} fill to {hex(params["dest"])}'
     )
-    if not called_from_custom_lib:
+    ql.mem.write(params["dest"], params["size"]*params["x"].to_bytes(1, "little"))
+
+    emu.writeback_shm(params["dest"])
+
+    if not called_from_api_emu:
         ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def malloc_core(ql: Qiling, hook_data, called_from_custom_lib):

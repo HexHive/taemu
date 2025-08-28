@@ -135,7 +135,6 @@ class RSA_KEYPAIR_Obj(Object):
                     self.rsa_optional_param['iq'] = ql.mem.read(attr.buffer, attr.length)
                     self.attrs[attr.attributeID] = (attr.buffer, attr.length)
                 else:
-                    breakpoint()
                     ql.log.info(f"\tretrieve_rsa_params: attr {hex(attr.attributeID)} not supoorted")
                     return TEE_ERROR_BAD_PARAMETERS
 

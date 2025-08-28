@@ -175,9 +175,10 @@ def vsnprintf(ql: Qiling, hook_data):
 
 def strlen(ql: Qiling, hook_data):
     ptr = ql.os.resolve_fcall_params({"ptr": POINTER})["ptr"]
-    ql.log.info(f'strlen {hex(ptr)}')#, "{string}"=> {hex(out)}')
+    hook_data.emu.update_shm(ptr)
     string = read_c_str(ql, ptr)
     out = len(string)
+    ql.log.info(f'strlen {hex(ptr)}: {out}')#, "{string}"=> {hex(out)}')
     ql.os.fcall.cc.setReturnValue(out)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
@@ -186,8 +187,10 @@ def strcpy(ql: Qiling, hook_data):
     dst = params['dst']
     src = params['src']
     ql.log.info(f'{hook_data.func_name} {hex(src)}->{hex(dst)}')
+    hook_data.emu.update_shm(src)
     s = read_c_str(ql, src)
     ql.mem.write(dst, s + b"\x00")
+    hook_data.emu.writeback_shm(dst)
     ql.os.fcall.cc.setReturnValue(dst)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
@@ -197,11 +200,13 @@ def strncpy(ql: Qiling, hook_data):
     src = params['src']
     num = params['num']
     ql.log.info(f'{hook_data.func_name} {hex(src)}->{hex(dst)} ({num})')
+    hook_data.emu.update_shm(src)
     s = read_c_str(ql, src)
     if len(s) >= num:
         ql.mem.write(dst, s[:num])
     else:
         ql.mem.write(dst, s+b"\x00")
+    hook_data.emu.writeback_shm(dst)
     ql.os.fcall.cc.setReturnValue(dst)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
@@ -213,8 +218,10 @@ def memmove(ql: Qiling, hook_data):
     ql.log.info(
         f'{hook_data.func_name} {params["size"]:#0x} from {hex(params["src"])} to {hex(params["dest"])}'
     )
+    hook_data.emu.update_shm(params["src"])
     data = ql.mem.read(params["src"], params["size"])
     ql.mem.write(params["dest"], bytes(data))
+    hook_data.emu.writeback_shm(params["dest"])
     ql.os.fcall.cc.setReturnValue(params["dest"])
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
@@ -242,6 +249,8 @@ def TEE_MemCompare(ql: Qiling, hook_data):
     size = params["size"]
 
     ret = 0
+    hook_data.emu.update_shm(buffer_1)
+    hook_data.emu.update_shm(buffer_2)
     content_1 = ql.mem.read(buffer_1, size)
     content_2 = ql.mem.read(buffer_2, size)
     ql.log.info(f"{hook_data.func_name} compare {hex(buffer_1)} with {hex(buffer_2)}")

