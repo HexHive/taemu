@@ -21,6 +21,8 @@ TEEC_Result (*TEEC_InvokeCommand_impl)(TEEC_Session*,uint32_t,TEEC_Operation*,ui
 TEEC_Result (*TEEC_RegisterSharedMemory_impl)(TEEC_Context*, TEEC_SharedMemory*);
 void (*TEEC_ReleaseSharedMemory_impl)(TEEC_SharedMemory*);
 
+#define PAGE_SIZE 0x1000
+
 #if EMULATE
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -33,7 +35,6 @@ void (*TEEC_ReleaseSharedMemory_impl)(TEEC_SharedMemory*);
 #define SERVER_PORT 1337
 #define BUF_MAX_LEN 0x100
 #define MAX_SHM 0x10
-#define PAGE_SIZE 0x1000
 
 static int shm_key = 0x13337;
 
@@ -375,7 +376,7 @@ void load_functions()
 #else
     void *handle;
     char *error;
-    handle = dlopen("/vendor/lib/libTEECommon.so", RTLD_LAZY);
+    handle = dlopen("/vendor/lib64/libteecli.so", RTLD_LAZY);
     if (!handle) {
         fprintf(stderr, "Failed to dlopen the library%s\n", dlerror());
         exit(EXIT_FAILURE);
@@ -423,7 +424,6 @@ void load_functions()
         fprintf(stderr, "Failed dlsym for TEEC_ReleaseSharedMemory: %s\n", error);
         exit(EXIT_FAILURE);
     }
-
 #endif
 }
 

@@ -7,6 +7,19 @@ def memory_alignment_round_up(addr, roundup):
 ASAN_REDZONE_SIZE = 0x20
 HOOKS = {}
 
+def is_access_valid(ql, heap, address, size, func_name, is_write=False):
+    access = "write" if is_write else "read"
+    for redzone_start, redzone_size in heap["redzones"].items():
+        if address > redzone_start and address < redzone_start + redzone_size:
+            ql.log.critical(f'=================[pc: {ql.arch.regs.arch_pc:#0x}] [{func_name}] out-of-bound {access} on address {address:#x}, size {size:#x}!!')
+            ql.arch.regs.arch_pc = 0xdeadbeef
+            return False
+        if address+size > redzone_start and address <= redzone_start:
+            ql.log.critical(f'=================[pc: {ql.arch.regs.arch_pc:#0x}] [{func_name}] out-of-bound {access} on address {address:#x}, size {size:#x}!!')
+            ql.arch.regs.arch_pc = 0xdeadbeef
+            return False
+    return True
+
 def invalid_region_read(ql:Qiling, access: int, address: int, size: int, value: int) -> None:
     # only read accesses are expected here
     assert access == UC_MEM_READ

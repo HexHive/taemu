@@ -2,6 +2,7 @@ from pwn import *
 import json
 import importlib
 import pkgutil
+import inspect
 import subprocess
 import pathlib
 from qiling import Qiling
@@ -32,7 +33,7 @@ def get_api_impl(func_name):
     for _, modname, ispkg in pkgutil.iter_modules(package.__path__, package.__name__ + "."):
         if not ispkg:  # only import .py modules, skip subpackages if you want
             api_func = getattr(importlib.import_module(modname), func_name, None)
-            if api_func is not None:
+            if api_func is not None and not inspect.ismodule(api_func):
                 return api_func
     api_func = getattr(beanpod_api, func_name, None)
     if api_func is not None:

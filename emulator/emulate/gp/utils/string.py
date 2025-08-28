@@ -4,7 +4,6 @@ from unicorn.arm_const import *
 from .err import *
 from ... import asan
 
-HEAP = {"allocated": {}, "freed": {}}
 
 HEAP_MEM=0xaaaaa000
 
@@ -15,6 +14,9 @@ def memset_core(ql, hook_data, called_from_api_emu):
     ql.log.info(
         f'{func_name} {params["size"]:#0x} bytes of {hex(params["x"])} fill to {hex(params["dest"])}'
     )
+    if not asan.is_access_valid(ql, hook_data.emu.HEAP, params["dest"], params["size"], 
+                                hook_data.func_name, is_write=True):
+        return
     ql.mem.write(params["dest"], params["size"]*params["x"].to_bytes(1, "little"))
 
     emu.writeback_shm(params["dest"])
@@ -33,16 +35,18 @@ def malloc_core(ql: Qiling, hook_data, called_from_custom_lib):
     out = ql.mem.map_anywhere(real_size, minaddr=HEAP_MEM, perms=3, info="malloc_chunk")
     ret2user_out = out + asan.ASAN_REDZONE_SIZE
     ql.log.info(f"{func_name}: allocated {hex(size)} at {hex(ret2user_out)}")
-    HEAP["allocated"][ret2user_out] = size
-    if ret2user_out in HEAP["freed"]:
-        del HEAP["freed"][ret2user_out]
+    hook_data.emu.HEAP["allocated"][ret2user_out] = size
+    if ret2user_out in hook_data.emu.HEAP["freed"]:
+        del hook_data.emu.HEAP["freed"][ret2user_out]
 
     ql.log.info(f'redzone hook {hex(out)}')
     asan.asan_hook_redzone_mem_rw(out, asan.ASAN_REDZONE_SIZE, ql)
+    hook_data.emu.HEAP["redzones"][out] = asan.ASAN_REDZONE_SIZE
     ql.log.info(f'redzone hook {hex(ret2user_out + size)}')
     asan.asan_hook_redzone_mem_rw(
         ret2user_out + size, real_size - asan.ASAN_REDZONE_SIZE - size, ql
     )
+    hook_data.emu.HEAP["redzones"][ret2user_out + size] = real_size - asan.ASAN_REDZONE_SIZE -size
 
     ql.os.fcall.cc.setReturnValue(ret2user_out)
     if not called_from_custom_lib:
@@ -61,15 +65,17 @@ def calloc_core(ql:Qiling, hook_data):
     out = ql.mem.map_anywhere(real_size, minaddr=HEAP_MEM, info="malloc_chunk")
     ret2user_out = out + asan.ASAN_REDZONE_SIZE
 
-    ql.log.info(f"{func_name}: allocated {hex(size)} at {hex(ret2user_out)}")
-    HEAP["allocated"][ret2user_out] = size
-    if ret2user_out in HEAP["freed"]:
-        del HEAP["freed"][ret2user_out]
+    ql.log.info(f"{hook_data.func_name}: allocated {hex(size)} at {hex(ret2user_out)}")
+    hook_data.emu.HEAP["allocated"][ret2user_out] = size
+    if ret2user_out in hook_data.emu.HEAP["freed"]:
+        del hook_data.emu.HEAP["freed"][ret2user_out]
 
     asan.asan_hook_redzone_mem_rw(out, asan.ASAN_REDZONE_SIZE, ql)
     asan.asan_hook_redzone_mem_rw(
         ret2user_out + size, real_size - asan.ASAN_REDZONE_SIZE - size, ql
     )
+    hook_data.emu.HEAP["redzones"][out] = asan.ASAN_REDZONE_SIZE
+    hook_data.emu.HEAP["redzones"][ret2user_out + size] = real_size - asan.ASAN_REDZONE_SIZE -size
 
     ql.os.fcall.cc.setReturnValue(ret2user_out)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -78,20 +84,22 @@ def calloc_core(ql:Qiling, hook_data):
 def free_core(ql:Qiling, hook_data, called_from_custom_lib):
     func_name = hook_data.func_name
     ptr = ql.os.resolve_fcall_params({"ptr": INT})["ptr"]
-    if ptr not in HEAP["allocated"]:
-        ql.log.critical(f"corrupted free at: {hex(ptr)}, {HEAP}")
+    if ptr not in hook_data.emu.HEAP["allocated"]:
+        ql.log.critical(f"corrupted free at: {hex(ptr)}, {hook_data.emu.HEAP}")
         ql.arch.regs.arch_pc = 0xdeadbeef
         return
-    size = HEAP["allocated"][ptr]
-    if ptr in HEAP["freed"]:
-        ql.log.critical(f"double free at: {hex(ptr)}, {HEAP}")
+    size = hook_data.emu.HEAP["allocated"][ptr]
+    if ptr in hook_data.emu.HEAP["freed"]:
+        ql.log.critical(f"double free at: {hex(ptr)}, {hook_data.emu.HEAP}")
         ql.arch.regs.arch_pc = 0xdeadbeef
         return
     ql.log.info(f"{func_name}: freeing memory at {hex(ptr)}")
     real_ptr = ptr - asan.ASAN_REDZONE_SIZE
     ql.mem.unmap(real_ptr, (size + 0x1000 - 1) & ~(0x1000 - 1))
-    HEAP["freed"][ptr] = size
-    del HEAP["allocated"][ptr]
+    del hook_data.emu.HEAP["redzones"][real_ptr]
+    del hook_data.emu.HEAP["redzones"][ptr + size]
+    hook_data.emu.HEAP["freed"][ptr] = size
+    del hook_data.emu.HEAP["allocated"][ptr]
 
     asan.asan_hook_free_mem_rw(real_ptr, size, ql)
 

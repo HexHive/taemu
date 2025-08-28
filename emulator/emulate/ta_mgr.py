@@ -91,6 +91,7 @@ class TAEMU():
         self.ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
         self.taUUID = get_ta_uuid(ta_path.split("/")[-1][:-3])
         self.ta_elf.address = self.ta_base
+        self.HEAP = {"allocated": {}, "freed": {}, "redzones": {}}
         self.exit_non_implemented = None
         self.curr_params = None
         self.session_counter = 0
@@ -151,7 +152,7 @@ class TAEMU():
         assert(self.curr_params is not None)
         for p in self.curr_params:
             if isinstance(p, MemRefParam):
-                if pointer >= p.shm_pybuf and pointer <= p.shm_pybuf + p.size and p.is_shared:
+                if p.is_shared and pointer >= p.shm_pybuf and pointer <= p.shm_pybuf + p.size:
                     return p
         return None
 
@@ -438,7 +439,7 @@ class TAEMU():
                         return bytes(self.msg)
 
                     def from_bytes(self, data):
-                        memmove(addressof(self.msg), data, len(data))
+                        memmove(addressof(self.msg), bytes(data), len(data))
 
                     def __del__(self):
                         ptr = cast(addressof(self), c_void_p)

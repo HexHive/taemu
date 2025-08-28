@@ -70,6 +70,7 @@ def free(ql: Qiling, hook_data):
     free_core(ql, hook_data, False)
 
 
+
 def memcmp(ql: Qiling, hook_data):
     TEE_MemCompare(ql, hook_data)
 
@@ -146,6 +147,7 @@ def snprintf(ql: Qiling, hook_data):
     out_str = out_str[: n - 1]
     out_str = out_str.encode() + b"\x00"
     ql.log.info(f'{hook_data.func_name}: len: {hex(n)} "{out_str}" written to {hex(s)}')
+    asan.is_access_valid(ql, hook_data.emu.HEAP, s, len(out_str)+1, hook_data.func_name, is_write=True)
     ql.mem.write(s, out_str)
     ql.os.fcall.cc.setReturnValue(full_len)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -166,6 +168,7 @@ def sprintf(ql: Qiling, hook_data):
     full_len = len(out_str)
     out_str = out_str.encode() + b"\x00"
     ql.log.info(f'{hook_data.func_name}: "{out_str}" written to {hex(s)}')
+    asan.is_access_valid(ql, hook_data.emu.HEAP, s, len(out_str)+1, hook_data.func_name, is_write=True)
     ql.mem.write(s, out_str)
     ql.os.fcall.cc.setReturnValue(full_len)
     ql.arch.regs.arch_pc = ql.arch.regs.lr 
@@ -189,6 +192,7 @@ def strcpy(ql: Qiling, hook_data):
     ql.log.info(f'{hook_data.func_name} {hex(src)}->{hex(dst)}')
     hook_data.emu.update_shm(src)
     s = read_c_str(ql, src)
+    asan.is_access_valid(ql, hook_data.emu.HEAP, dst, len(s)+1, hook_data.func_name, is_write=True)
     ql.mem.write(dst, s + b"\x00")
     hook_data.emu.writeback_shm(dst)
     ql.os.fcall.cc.setReturnValue(dst)
@@ -203,8 +207,10 @@ def strncpy(ql: Qiling, hook_data):
     hook_data.emu.update_shm(src)
     s = read_c_str(ql, src)
     if len(s) >= num:
+        asan.is_access_valid(ql, hook_data.emu.HEAP, dst, num, hook_data.func_name, is_write=True)
         ql.mem.write(dst, s[:num])
     else:
+        asan.is_access_valid(ql, hook_data.emu.HEAP, dst, len(s)+1, hook_data.func_name, is_write=True)
         ql.mem.write(dst, s+b"\x00")
     hook_data.emu.writeback_shm(dst)
     ql.os.fcall.cc.setReturnValue(dst)
@@ -218,6 +224,10 @@ def memmove(ql: Qiling, hook_data):
     ql.log.info(
         f'{hook_data.func_name} {params["size"]:#0x} from {hex(params["src"])} to {hex(params["dest"])}'
     )
+    if not asan.is_access_valid(ql, hook_data.emu.HEAP, params["dest"], params["size"], hook_data.func_name, is_write=True):
+        return
+    if not asan.is_access_valid(ql, hook_data.emu.HEAP, params["src"], params["size"], hook_data.func_name, is_write=False):
+        return
     hook_data.emu.update_shm(params["src"])
     data = ql.mem.read(params["src"], params["size"])
     ql.mem.write(params["dest"], bytes(data))
@@ -247,7 +257,12 @@ def TEE_MemCompare(ql: Qiling, hook_data):
     buffer_1 = params["dest"]
     buffer_2 = params["src"]
     size = params["size"]
-
+    if not asan.is_access_valid(ql, hook_data.emu.HEAP, buffer_1, size, 
+                                hook_data.func_name, is_write=False):
+        return
+    if not asan.is_access_valid(ql, hook_data.emu.HEAP, buffer_2, size, 
+                                hook_data.func_name, is_write=False):
+        return
     ret = 0
     hook_data.emu.update_shm(buffer_1)
     hook_data.emu.update_shm(buffer_2)
