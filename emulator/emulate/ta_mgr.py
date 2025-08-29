@@ -1,4 +1,7 @@
 from qiling import Qiling
+from qiling.extensions.afl import ql_afl_fuzz
+from qiling.extensions import pipe
+
 from pwn import *
 from . import gp_api
 from .gp.utils.param import TEE_Param_Memref, TEE_Param_value
@@ -347,13 +350,13 @@ class TAEMU():
         self.sessions.pop(idx)
 
     def DestroyEntryPoint(self):
-        self.ql.log.info(f"[////TA_DestroyEntryPoint////] start @{self.TA_DestroyEntryPoint_start:#0x}") 
+        self.ql.log.info(f"[////TA_DestroyEntryPoint////] start @{self.TA_DestroyEntryPoint_start:#0x}")
         for e in self.TA_DestroyEntryPoint_end:
             self.ql.hook_address(pivot, e, user_data="TA_CloseSessionEntryPoint_end")
 
         self.ql._debugger = self._debugger
 
-        self.ql.run(begin=self.TA_DestroyEntryPoint_start) 
+        self.ql.run(begin=self.TA_DestroyEntryPoint_start)
 
         self.CreateEntryPoint_ret = None
 
@@ -557,3 +560,74 @@ class TAEMU():
                 return
         self.DestroyEntryPoint()
 
+    def start_fuzz(self, input_file):
+
+        ret = self.CreateEntryPoint()
+        if( ret != TEE_SUCCESS ):
+            self.ql.log.warning(f'CreateEntryPoint ret != TEE_SUCCESS {hex(ret)}')
+            return
+
+        ret, new_session = self.OpenSession()
+        if ret != TEE_SUCCESS:
+            self.ql.log.warning(f'[////TA_OpenSessionEntryPoint////] return != TEE_SUCCESS {hex(ret)}')
+            return
+
+        exit_hooks = []
+        sid = new_session.session_id
+        cmd = 0
+        ptypes = 0
+        command_params = [ NoneParam() ] * 4
+        # ret = self.InvokeCommand(sid, cmd, ptypes, command_params)
+
+        for e in self.TA_InvokeCommandEntryPoint_end:
+            exit_hooks.append(e)
+        self.ql.log.debug(f"TEEC_InvokeCommand {sid} {cmd} {ptypes:#0x}")
+        session = None
+        for s in self.sessions:
+            if sid == s.session_id:
+                session = s
+                break
+        if session is None:
+            self.ql.log.error(f"unknown session {sid}")
+            return TEE_ERROR_BAD_STATE
+
+        self.ql.os.fcall.cc.setRawParam(0, session.session_id_mem)
+        self.ql.os.fcall.cc.setRawParam(1, cmd)
+        self.ql.os.fcall.cc.setRawParam(2, ptypes)
+        params_mem = self.ql.mem.map_anywhere(
+            0x1000, minaddr=min_addr, perms=3, info="TEE_Params"
+        )
+        self.ql.os.fcall.cc.setRawParam(3, params_mem)
+
+        assert(len(command_params) == 4)
+
+        def place_input_callback(ql: Qiling, input: bytes, _: int):
+            print(f"Placing input: {input}")
+
+            if len(input) < 4:
+                return False
+
+            cmd = u32(input[:4])
+            self.ql.os.fcall.cc.setRawParam(1, cmd)
+            print(f"cmdId: {cmd}")
+
+            return True
+
+        def start_afl(_ql: Qiling):
+            print("starting afl")
+            ql_afl_fuzz(_ql, input_file=input_file, place_input_callback=place_input_callback, exits=exit_hooks)
+
+        self.ql.hook_address(callback=start_afl, address=self.TA_InvokeCommandEntryPoint_start)
+
+        self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)
+        ret = self.ql.os.fcall.cc.getReturnValue()
+        self.ql.log.info(f'InvokeCommand returned: {hex(ret)}')
+
+        for e in exit_hooks:
+            self.ql.hook_del(e)
+        exit_hooks = []
+
+        self.CloseSession(sid)
+
+        self.DestroyEntryPoint()
+        return

@@ -37,6 +37,13 @@ def setup_args():
         help="Trace the target.",
     )
     parser.add_argument(
+        "-f",
+        "--fuzz",
+        required=False,
+        help="Fuzz the target with provided file.",
+        default="fuzz.txt"
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -123,6 +130,11 @@ if __name__ == "__main__":
     emu = TAEMU(ql, TEE, ta_path, ta_elf)
     emu.setup()
     emu.hook()
-    ql.log.info(f"[{ta_name}] emulation start")
-    emu.start_interactive()
-    ql.log.info(f"[{ta_name}] emulation end")
+    if args.fuzz:
+        ql.log.info(f"[{ta_name}] fuzz start")
+        emu.start_fuzz(args.fuzz)
+        ql.log.info(f"[{ta_name}] fuzz end")
+    else:
+        ql.log.info(f"[{ta_name}] emulation start")
+        emu.start_interactive()
+        ql.log.info(f"[{ta_name}] emulation end")
