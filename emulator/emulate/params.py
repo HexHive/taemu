@@ -42,7 +42,7 @@ class NoneParam():
         pass
 
 def setup_params_fuzz(ql: Qiling, cmd, ptypes, params):
-    setup_params(ql, None, cmd, ptypes, params, is_32bit=ql.arch.pointersize==4)
+    return setup_params(ql, None, cmd, ptypes, params, is_32bit=ql.arch.pointersize==4)
 
 def setup_params(ql: Qiling, session, cmd, ptypes, params, is_32bit=False):
     if session is not None:

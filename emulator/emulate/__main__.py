@@ -44,6 +44,12 @@ def setup_args():
         default=None
     )
     parser.add_argument(
+        "--fuzz_harness",
+        required=False,
+        help="path to fuzzing harness",
+        default=None,
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -132,7 +138,7 @@ if __name__ == "__main__":
     emu.hook()
     if args.fuzz:
         ql.log.info(f"[{ta_name}] fuzz start")
-        emu.start_fuzz(args.fuzz)
+        emu.start_fuzz(args.fuzz, args.fuzz_harness)
         ql.log.info(f"[{ta_name}] fuzz end")
     else:
         ql.log.info(f"[{ta_name}] emulation start")

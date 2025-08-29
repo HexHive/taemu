@@ -15,4 +15,10 @@ mkdir /tmp/in
 echo "foo" > /tmp/in/foo
 
 mkdir /tmp/out
-afl-fuzz -i /tmp/in -o /tmp/out -m none -U -- python3 -m emulate --fuzz @@ "rootfs/$(basename "$v0")"
+
+if [ -n "$2" ]; then
+    afl-fuzz -i /tmp/in -o /tmp/out -m none -U -- python3 -m emulate --fuzz @@ --fuzz_harness $2 "rootfs/$(basename "$v0")"
+else
+    afl-fuzz -i /tmp/in -o /tmp/out -m none -U -- python3 -m emulate --fuzz @@ "rootfs/$(basename "$v0")"
+fi
+

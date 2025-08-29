@@ -1,4 +1,5 @@
 from qiling import Qiling
+import importlib
 from qiling.extensions.afl import ql_afl_fuzz
 from qiling.extensions import pipe
 
@@ -485,7 +486,7 @@ class TAEMU():
                 return
         self.DestroyEntryPoint()
 
-    def start_fuzz(self, input_file):
+    def start_fuzz(self, input_file, fuzz_harness=None):
 
         ret = self.CreateEntryPoint()
         if( ret != TEE_SUCCESS ):
@@ -518,7 +519,7 @@ class TAEMU():
         
         self.ql.os.fcall.cc.setRawParam(0, session.session_id_mem)
 
-        def place_input_callback(ql: Qiling, input: bytes, _: int):
+        def default_place_input_callback(ql: Qiling, input: bytes, _: int):
             print(f"Placing input: {input}")
 
             if len(input) < 4:
@@ -533,6 +534,16 @@ class TAEMU():
                 return False
 
             return True
+
+        if fuzz_harness is None:
+            place_input_callback = default_place_input_callback
+        else:
+            # import shit$
+            spec = importlib.util.spec_from_file_location(os.path.basename(fuzz_harness)[:-3], os.path.abspath(fuzz_harness))
+            module = importlib.util.module_from_spec(spec)
+            module.__package__ = __package__
+            spec.loader.exec_module(module)
+            place_input_callback = getattr(module, "place_input_callback")
 
         def start_afl(_ql: Qiling):
             print("starting afl")

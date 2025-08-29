@@ -174,7 +174,6 @@ def TEE_ReadObjectData(ql:Qiling, hook_data):
     para_size = params['size']
     para_count = params['count']
 
-    breakpoint()
     ql.log.info(f'{func_name}: object handler {para_object}, size {para_size:#0x}')
 
     obj = handler2perobj[para_object]
