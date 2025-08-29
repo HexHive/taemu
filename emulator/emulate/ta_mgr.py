@@ -52,14 +52,14 @@ class MemRefParam():
         self.shm_pybuf = None
     
     
-def shared_read_callback(ql: Qiling, user_data, access: int, address: int, size: int, value: int):
+def shared_read_callback(ql: Qiling, access: int, address: int, size: int, value: int, user_data):
     # refetch data from the shared memory
     memref = user_data
     assert(memref.shm is not None)
     #TODO make more efficient
     ql.mem.write(memref.shm_pybuf, memref.shm.to_bytes())
 
-def shared_write_callback(ql: Qiling, user_data, access: int, address: int, size: int, value: int): 
+def shared_write_callback(ql: Qiling, access: int, address: int, size: int, value: int, user_data): 
     # write data back to memory
     memref = user_data
     assert(memref.shm is not None)
@@ -149,7 +149,8 @@ class TAEMU():
         self.ql.do_lib_patch()
 
     def get_shm(self, pointer):
-        assert(self.curr_params is not None)
+        if self.curr_params is None:
+            return None
         for p in self.curr_params:
             if isinstance(p, MemRefParam):
                 if p.is_shared and pointer >= p.shm_pybuf and pointer <= p.shm_pybuf + p.size:
@@ -212,7 +213,7 @@ class TAEMU():
         #ql._debugger = _debugger
         self.ql.os.fcall.cc.setRawParam(2, sessionContext)
         self.ql.run(begin=self.TA_OpenSessionEntryPoint_start)
-
+        
         ret = self.ql.os.fcall.cc.getReturnValue()
         if ret != TEE_SUCCESS:
             self.ql.log.warning(f'[////TA_OpenSessionEntryPoint////] return != TEE_SUCCESS {hex(ret)}')

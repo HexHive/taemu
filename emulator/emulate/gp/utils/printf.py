@@ -36,6 +36,8 @@ def parse_fmt_str(ql, format_param, final_params, func_name, arg=None):
         for i, fm in enumerate(format_dict):
             # read c string
             if fm == "s":
+                if(ql.mem.read_ptr(arg_ptr) == 0):
+                    arg_ptr += ql.arch.pointersize
                 params[f"{i}"] = read_c_str(ql, ql.mem.read_ptr(arg_ptr)).decode()
             else:
                 params[f"{i}"] = ql.mem.read_ptr(arg_ptr)

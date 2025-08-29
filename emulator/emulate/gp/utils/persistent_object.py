@@ -23,7 +23,10 @@ def memory_alignment_round_up(addr, roundup):
 class perObject:
     def __init__(self, flag, storageID, objectID, handler, iscreated, ql:Qiling) -> None:
         self.flag = flag
-        self.objectID = objectID.decode('utf-8')
+        if all(b < 128 and b > 0x20  for b in objectID):
+            self.objectID = objectID.decode('ascii')
+        else:
+            self.objectID = objectID.hex()
         self.storageID = storageID
         self.file_name = f"{FILE_PREFIX}{self.storageID}/{self.objectID}"
         ql.log.info(f"\tfile name: {self.file_name}")
@@ -41,10 +44,10 @@ class perObject:
 
     def write(self, data, ql:Qiling):
         ql.log.info(f"\twrite to object: {data.hex()[:8]}{len(data)}")
-        self.file.write(data)
+        open(self.file_name, 'wb').write(data)
 
     def read(self, size, ql:Qiling):
-        return self.file.read(size)
+        return open(self.file_name, 'rb').read(size)
     
     def file_size(self, ql:Qiling):
         return os.path.getsize(self.file_name)

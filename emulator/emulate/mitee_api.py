@@ -26,3 +26,14 @@ def consttime_memcmp(ql: Qiling, hook_data):
 def time(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(int(pytime.time()))
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+KMHMACKEY = 0x20*b"A"
+
+def TEE_KMGetHmacKey(ql: Qiling, hook_data):
+    params = ql.os.resolve_fcall_params({"buf": POINTER, "size": INT})
+    buf = params['buf']
+    size = params['size']
+    ql.mem.write(buf, KMHMACKEY)
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+

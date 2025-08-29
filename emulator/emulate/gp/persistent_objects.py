@@ -174,6 +174,7 @@ def TEE_ReadObjectData(ql:Qiling, hook_data):
     para_size = params['size']
     para_count = params['count']
 
+    breakpoint()
     ql.log.info(f'{func_name}: object handler {para_object}, size {para_size:#0x}')
 
     obj = handler2perobj[para_object]
@@ -181,7 +182,7 @@ def TEE_ReadObjectData(ql:Qiling, hook_data):
     # atomic?
     data = obj.read(para_size, ql)
     ql.mem.write(para_buffer, data)
-    ql.mem.write_ptr(para_count, len(data))
+    ql.mem.write(para_count, len(data).to_bytes(4, "little"))
 
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr

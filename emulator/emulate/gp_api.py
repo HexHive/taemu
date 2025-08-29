@@ -1,4 +1,5 @@
 from enum import Enum
+import time
 from qiling import Qiling
 from qiling.os.const import STRING, INT, BYTE, POINTER
 from .gp.utils.param import TEE_Param_Memref
@@ -54,7 +55,7 @@ def stack_chk_fail(ql: Qiling, hook_data):
     ql.log.critical(f"stack_chk_fail ***stack smashing detected***")
     ql.arch.regs.arch_pc = 0xdeadbeef
 
-def malloc(ql:Qiling, hook_data, called_from_custom_lib):
+def malloc(ql:Qiling, hook_data):
     TEE_Malloc(ql, hook_data)
 
 def calloc(ql:Qiling, hook_data):
@@ -69,11 +70,17 @@ def TEE_Free(ql: Qiling, hook_data):
 def free(ql: Qiling, hook_data):
     free_core(ql, hook_data, False)
 
-
-
 def memcmp(ql: Qiling, hook_data):
     TEE_MemCompare(ql, hook_data)
 
+def TEE_GetREETime(ql: Qiling, hook_data):
+    time_data = ql.os.resolve_fcall_params({"time": POINTER})["time"]
+    ql.mem.write(time_data, int(time.time()).to_bytes(4, "little"))
+    ql.mem.write(time_data+4, (0).to_bytes(4, "little"))
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def TEE_GetSystemTime(ql: Qiling, hook_data):
+    TEE_GetREETime(ql, hook_data)
 
 def TEE_LogPrintf(ql: Qiling, hook_data):
     format_param = ql.os.resolve_fcall_params({"format": STRING})["format"]
@@ -95,7 +102,11 @@ def vfprintf(ql: Qiling, hook_data):
     TEE_LogvPrintf(ql, hook_data)
 
 def puts(ql: Qiling, hook_data):
-    TEE_LogPrintf(ql, hook_data)
+    out = ql.os.resolve_fcall_params({"format": STRING})["format"]
+    ql.log.info(f"{hook_data.func_name}: {out}")
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
 
 def printf(ql: Qiling, hook_data):
     TEE_LogPrintf(ql, hook_data)

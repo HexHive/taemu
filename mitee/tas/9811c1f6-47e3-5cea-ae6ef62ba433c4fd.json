@@ -48,5 +48,7 @@
     "TA_CloseSessionEntryPoint_start": 288688,
     "TA_CloseSessionEntryPoint_end": [
         288724
-    ]
+    ],
+    "TA_CreateEntryPoint_start": 284952,
+    "TA_CreateEntryPoint_end": [285512]
 }
