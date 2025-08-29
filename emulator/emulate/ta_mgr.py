@@ -9,11 +9,10 @@ import json
 import socket
 from ctypes import *
 from enum import Enum
+from .params import *
 from .gp.utils.err import *
 from .gp.utils.param import *
 from .emulator_no_loader import fixup_got, mitee_setup, hook_ta_dl, hook_ta_custom
-
-min_addr = 0xbbbbb000
 
 def parse_msg(msg):
     f = int(msg[0])
@@ -41,38 +40,7 @@ class FUNCS(Enum):
     func_TEEC_ReleaseSharedMemory = 5
     func_TEEC_FinalizeContext = 6
 
-class ValueParam():
-    def __init__(self, a:int, b:int):
-        self.a = a
-        self.b = b
 
-class MemRefParam():
-    def __init__(self, buf:bytes, size:int):
-        self.buf = buf
-        self.size = size
-        self.is_shared = False
-        self.shm = None
-        self.shm_pybuf = None
-    
-    
-def shared_read_callback(ql: Qiling, access: int, address: int, size: int, value: int, user_data):
-    # refetch data from the shared memory
-    memref = user_data
-    assert(memref.shm is not None)
-    #TODO make more efficient
-    ql.mem.write(memref.shm_pybuf, memref.shm.to_bytes())
-
-def shared_write_callback(ql: Qiling, access: int, address: int, size: int, value: int, user_data): 
-    # write data back to memory
-    memref = user_data
-    assert(memref.shm is not None)
-    #TODO make this more efficient
-    curr_data = ql.mem.read(memref.shm_pybuf, memref.size)
-    memref.shm.from_bytes(curr_data)
-
-class NoneParam():
-    def __init__(self):
-        pass
 
 class Session():
     def __init__(self, session_id_mem, session_id, sessionContext):
@@ -235,55 +203,12 @@ class TAEMU():
             self.ql.log.error(f"unknown session {sid}")
             return TEE_ERROR_BAD_STATE
 
-        self.ql.os.fcall.cc.setRawParam(0, session.session_id_mem)
-        self.ql.os.fcall.cc.setRawParam(1, cmd)
-        self.ql.os.fcall.cc.setRawParam(2, ptypes)
-        params_mem = self.ql.mem.map_anywhere(
-            0x1000, minaddr=min_addr, perms=3, info="TEE_Params"
-        )  
-        self.ql.os.fcall.cc.setRawParam(3, params_mem)
-
-        assert(len(params) == 4)
+          
+        status, params_mem = setup_params(self.ql, session, cmd, ptypes, params, is_32bit=self.tee=="beanpod")
+        if status != TEE_SUCCESS:
+            return status
         self.curr_params = params
-        params_mem_write = params_mem
-        for i, param in enumerate(params):
-            if isinstance(param, ValueParam):
-                a = param.a
-                b = param.b
-                self.ql.log.debug(f"value p {a} {b}")
 
-                self.ql.mem.write(params_mem_write, a.to_bytes(4, "little"))
-                params_mem_write += 4
-                self.ql.mem.write(params_mem_write, b.to_bytes(4, "little"))
-                params_mem_write += 4
-                if self.tee != "beanpod":
-                    # 32 bit
-                    params_mem_write += 8
-            # tmp mem
-            elif isinstance(param, MemRefParam):
-                buf = param.buf
-                size = param.size
-                self.ql.log.debug(f"mem p {size:#0x}")
-                pybuf = self.ql.mem.map_anywhere(
-                    size, minaddr=min_addr, perms=3, info=f"shared_memory_{i}"
-                ) 
-                if param.is_shared:
-                    param.shm_pybuf = pybuf
-                    self.ql.mem.write(pybuf, buf)
-                    self.ql.hook_mem_write(shared_write_callback, user_data=param, begin=pybuf, end=pybuf+size)
-                    self.ql.hook_mem_read(shared_read_callback, user_data=param, begin=pybuf, end=pybuf+size)
-                else:
-                    self.ql.mem.write(pybuf, buf)
-                self.ql.mem.write_ptr(params_mem_write, pybuf)
-                params_mem_write += self.ql.arch.pointersize
-                self.ql.mem.write_ptr(params_mem_write, size)
-                params_mem_write += self.ql.arch.pointersize 
-            elif isinstance(param, NoneParam):
-                params_mem_write += self.ql.arch.pointersize * 2
-            else:
-                self.ql.log.error(f"unknown ptype {param}")
-                return TEE_ERROR_BAD_PARAMETERS 
-        
         self.ql.log.info(f"[////TA_InvokeCommandEntryPoint////] start @{self.TA_InvokeCommandEntryPoint_start:#0x}")
         # stop at TA_InvokeCommandEntryPoint_end
         for e in self.TA_InvokeCommandEntryPoint_end:
@@ -590,16 +515,8 @@ class TAEMU():
         if session is None:
             self.ql.log.error(f"unknown session {sid}")
             return TEE_ERROR_BAD_STATE
-
+        
         self.ql.os.fcall.cc.setRawParam(0, session.session_id_mem)
-        self.ql.os.fcall.cc.setRawParam(1, cmd)
-        self.ql.os.fcall.cc.setRawParam(2, ptypes)
-        params_mem = self.ql.mem.map_anywhere(
-            0x1000, minaddr=min_addr, perms=3, info="TEE_Params"
-        )
-        self.ql.os.fcall.cc.setRawParam(3, params_mem)
-
-        assert(len(command_params) == 4)
 
         def place_input_callback(ql: Qiling, input: bytes, _: int):
             print(f"Placing input: {input}")
@@ -607,9 +524,13 @@ class TAEMU():
             if len(input) < 4:
                 return False
 
+            ptypes = 0
+            command_params = [ NoneParam() ] * 4
             cmd = u32(input[:4])
-            self.ql.os.fcall.cc.setRawParam(1, cmd)
             print(f"cmdId: {cmd}")
+            ret, params_mem = setup_params_fuzz(ql, cmd, ptypes, command_params) # assume the session is already set
+            if ret != TEE_SUCCESS:
+                return False
 
             return True
 

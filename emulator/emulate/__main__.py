@@ -41,7 +41,7 @@ def setup_args():
         "--fuzz",
         required=False,
         help="Fuzz the target with provided file.",
-        default="fuzz.txt"
+        default=None
     )
     parser.add_argument(
         "-v",
