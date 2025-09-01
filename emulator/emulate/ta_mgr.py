@@ -67,6 +67,7 @@ class TAEMU():
         self.exit_non_implemented = None
         self.curr_params = None
         self.session_counter = 0
+        self.crash_on_not_implemented = False
         self.sessions = []
         self._debugger = ql._debugger 
 

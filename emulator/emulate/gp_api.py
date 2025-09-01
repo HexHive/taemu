@@ -6,6 +6,7 @@ from .gp.utils.param import TEE_Param_Memref
 from .gp.utils.err import *
 from .gp.utils.string import *
 from .gp.utils.printf import *
+from .common import CRASH_PC, NOTIMPL_PC
 
 from Crypto.Random import get_random_bytes
 
@@ -49,11 +50,14 @@ def GP_params_setup(
 
 def default_func(ql: Qiling, hook_data):
     ql.log.info(f"{hook_data.func_name} called, not implemented!")
-    ql.emu_stop()
+    if hook_data.emu.crash_on_not_implemented:
+        ql.arch.regs.arch_pc = NOTIMPL_PC
+    else:
+        ql.emu_stop()
 
 def stack_chk_fail(ql: Qiling, hook_data):
     ql.log.critical(f"stack_chk_fail ***stack smashing detected***")
-    ql.arch.regs.arch_pc = 0xdeadbeef
+    ql.arch.regs.arch_pc = CRASH_PC
 
 def malloc(ql:Qiling, hook_data):
     TEE_Malloc(ql, hook_data)

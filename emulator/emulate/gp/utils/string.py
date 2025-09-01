@@ -3,9 +3,7 @@ from qiling.os.const import STRING, INT, BYTE, POINTER
 from unicorn.arm_const import *
 from .err import *
 from ... import asan
-
-
-HEAP_MEM=0xaaaaa000
+from ...common import CRASH_PC, HEAP_MEM
 
 def memset_core(ql, hook_data, called_from_api_emu):
     func_name = hook_data.func_name
@@ -86,12 +84,12 @@ def free_core(ql:Qiling, hook_data, called_from_custom_lib):
     ptr = ql.os.resolve_fcall_params({"ptr": INT})["ptr"]
     if ptr not in hook_data.emu.HEAP["allocated"]:
         ql.log.critical(f"corrupted free at: {hex(ptr)}, {hook_data.emu.HEAP}")
-        ql.arch.regs.arch_pc = 0xdeadbeef
+        ql.arch.regs.arch_pc = CRASH_PC
         return
     size = hook_data.emu.HEAP["allocated"][ptr]
     if ptr in hook_data.emu.HEAP["freed"]:
         ql.log.critical(f"double free at: {hex(ptr)}, {hook_data.emu.HEAP}")
-        ql.arch.regs.arch_pc = 0xdeadbeef
+        ql.arch.regs.arch_pc = CRASH_PC
         return
     ql.log.info(f"{func_name}: freeing memory at {hex(ptr)}")
     real_ptr = ptr - asan.ASAN_REDZONE_SIZE

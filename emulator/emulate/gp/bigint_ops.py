@@ -4,6 +4,7 @@ from qiling.os.const import STRING, UINT, POINTER, INT
 from .utils.err import *
 from .utils.object import *
 from .utils.bigint import *
+from ..common import CRASH_PC
 
 
 def TEE_BigIntInit(ql: Qiling, hook_data):
@@ -14,7 +15,7 @@ def TEE_BigIntInit(ql: Qiling, hook_data):
     ql.log.info(f"{func_name}: buf:{hex(buf)}, length:{hex(length)}")
     if buf in BIGINTS:
         ql.log.critical(f"double initialization of bigint! {hex(buf)}")
-        ql.arch.regs.arch_pc = 0xdeadbeef
+        ql.arch.regs.arch_pc = CRASH_PC
         return
     BIGINTS[buf] = BigInt(buf, length, ql)
 
@@ -31,7 +32,7 @@ def TEE_BigIntConvertFromOctetString(ql: Qiling, hook_data):
     ql.log.info(f"{func_name}: {ql.mem.read(buffer, bufferLen)} => {hex(dest)}")
     if dest not in BIGINTS:
         ql.log.critical(f"bigint dest buffer not initialized! {hex(dest)}")
-        ql.arch.regs.arch_pc = 0xdeadbeef
+        ql.arch.regs.arch_pc = CRASH_PC
         return
     bigIntObj = BIGINTS[dest]
     hex_str = ql.mem.read(buffer, bufferLen).decode()
@@ -64,7 +65,7 @@ def TEE_BigIntConvertToOctetString(ql: Qiling, hook_data):
 
     if bigInt_ptr not in BIGINTS:
         ql.log.critical(f"{func_name}: bigint src not initialized! {hex(bigInt_ptr)}")
-        ql.arch.regs.arch_pc = 0xdeadbeef
+        ql.arch.regs.arch_pc = CRASH_PC
         return
 
     bigIntObj = BIGINTS[bigInt_ptr]
@@ -103,7 +104,7 @@ def TEE_BigIntConvertFromS32(ql: Qiling, hook_data):
     shortVal = params['shortVal']
     if dest not in BIGINTS:
         ql.log.critical(f"bigint dest buffer not initialized! {hex(dest)}")
-        ql.arch.regs.arch_pc = 0xdeadbeef
+        ql.arch.regs.arch_pc = CRASH_PC
         return 
     bigIntObj = BIGINTS[dest]
     shortVal_bytes = shortVal.to_bytes(bigIntObj.size*4, "little", signed=True)
@@ -122,7 +123,8 @@ def TEE_BigIntAdd(ql: Qiling, hook_data):
     # Ensure all operands are initialized
     dest_obj = require_bigint(dest)
     if dest_obj is None:
-        panic(ql, f"bigint dest buffer not initialized! {hex(dest)}")
+        ql.log.critical(f"bigint dest buffer not initialized! {hex(dest)}")
+        ql.arch.regs.arch_pc = CRASH_PC
         return
 
     v1, obj1 = read_bigint(ql, op1)
@@ -392,7 +394,7 @@ def TEE_BigIntMod(ql, hook_data):
 
     if not all(p in BIGINTS for p in (dest, op, n)):
         ql.log.critical(f"{func_name}: one or more bigint not initialized!")
-        ql.arch.regs.arch_pc = 0xdeadbeef
+        ql.arch.regs.arch_pc = CRASH_PC
         return
 
     op_val, _ = read_bigint(ql, op) 
@@ -417,7 +419,7 @@ def TEE_BigIntAddMod(ql, hook_data):
 
     if not all(p in BIGINTS for p in (dest, op1, op2, n)):
         ql.log.critical(f"{func_name}: one or more bigint not initialized!")
-        ql.arch.regs.arch_pc = 0xdeadbeef
+        ql.arch.regs.arch_pc = CRASH_PC
         return
 
     n_val, _ = read_bigint(ql, n) 
@@ -443,7 +445,7 @@ def TEE_BigIntSubMod(ql, hook_data):
 
     if not all(p in BIGINTS for p in (dest, op1, op2, n)):
         ql.log.critical(f"{func_name}: one or more bigint not initialized!")
-        ql.arch.regs.arch_pc = 0xdeadbeef
+        ql.arch.regs.arch_pc = CRASH_PC
         return
 
     n_val, _ = read_bigint(ql, n)
@@ -469,7 +471,7 @@ def TEE_BigIntMulMod(ql, hook_data):
 
     if not all(p in BIGINTS for p in (dest, op1, op2, n)):
         ql.log.critical(f"{func_name}: one or more bigint not initialized!")
-        ql.arch.regs.arch_pc = 0xdeadbeef
+        ql.arch.regs.arch_pc = CRASH_PC
         return
 
     n_val, _ = read_bigint(ql, n)
@@ -495,7 +497,7 @@ def TEE_BigIntSquareMod(ql, hook_data):
 
     if not all(p in BIGINTS for p in (dest, op, n)):
         ql.log.critical(f"{func_name}: one or more bigint not initialized!")
-        ql.arch.regs.arch_pc = 0xdeadbeef
+        ql.arch.regs.arch_pc = CRASH_PC
         return
 
     n_val, _ = read_bigint(ql, n)
@@ -520,7 +522,7 @@ def TEE_BigIntInvMod(ql, hook_data):
 
     if not all(p in BIGINTS for p in (dest, op, n)):
         ql.log.critical(f"{func_name}: one or more bigint not initialized!")
-        ql.arch.regs.arch_pc = 0xdeadbeef
+        ql.arch.regs.arch_pc = CRASH_PC
         return
 
     op_val, _ = read_bigint(ql, op)
@@ -548,7 +550,7 @@ def TEE_BigIntExpMod(ql, hook_data):
 
     if not all(p in BIGINTS for p in (dest, op1, op2, n)):
         ql.log.critical(f"{func_name}: one or more bigint not initialized!")
-        ql.arch.regs.arch_pc = 0xdeadbeef
+        ql.arch.regs.arch_pc = CRASH_PC
         return
     
     n_val, _ = read_bigint(ql, n)

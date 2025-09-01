@@ -3,6 +3,7 @@ from qiling import Qiling
 from qiling.os.const import STRING, UINT, POINTER
 from .err import *
 from .object import *
+from ...common import CRASH_PC
 
 BIGINTS = {}
 
@@ -14,7 +15,7 @@ class BigInt:
 
 def panic(ql: Qiling, msg: str):
     ql.log.critical(msg)
-    ql.arch.regs.arch_pc = 0xdeadbeef
+    ql.arch.regs.arch_pc = CRASH_PC
 
 
 def require_bigint(ptr: int):
@@ -56,7 +57,7 @@ def write_bigint(ql: Qiling, ptr: int, val: int, dest_obj: BigInt):
 def bigint_to_int(ql, ptr):
     if ptr not in BIGINTS:
         ql.log.critical(f"BigInt at {hex(ptr)} not initialized!")
-        ql.arch.regs.arch_pc = 0xdeadbeef
+        ql.arch.regs.arch_pc = CRASH_PC
         return 0
     bigIntObj = BIGINTS[ptr]
     raw_bytes = ql.mem.read(ptr, bigIntObj.size * 4)
