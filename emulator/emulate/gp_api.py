@@ -1,12 +1,13 @@
 from enum import Enum
-import time
+import time as pytime
 from qiling import Qiling
 from qiling.os.const import STRING, INT, BYTE, POINTER
 from .gp.utils.param import TEE_Param_Memref
 from .gp.utils.err import *
 from .gp.utils.string import *
 from .gp.utils.printf import *
-from .common import CRASH_PC, NOTIMPL_PC
+from .common import CRASH_PC, NOTIMPL_PC, crash
+import unicorn
 
 from Crypto.Random import get_random_bytes
 
@@ -57,7 +58,7 @@ def default_func(ql: Qiling, hook_data):
 
 def stack_chk_fail(ql: Qiling, hook_data):
     ql.log.critical(f"stack_chk_fail ***stack smashing detected***")
-    ql.arch.regs.arch_pc = CRASH_PC
+    crash(ql, hook_data.func_name)
 
 def malloc(ql:Qiling, hook_data):
     TEE_Malloc(ql, hook_data)
@@ -79,24 +80,32 @@ def memcmp(ql: Qiling, hook_data):
 
 def TEE_GetREETime(ql: Qiling, hook_data):
     time_data = ql.os.resolve_fcall_params({"time": POINTER})["time"]
-    ql.mem.write(time_data, int(time.time()).to_bytes(4, "little"))
-    ql.mem.write(time_data+4, (0).to_bytes(4, "little"))
+    try:
+        ql.mem.write(time_data, int(pytime.time()).to_bytes(4, "little"))
+        ql.mem.write(time_data+4, (0).to_bytes(4, "little"))
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def TEE_GetSystemTime(ql: Qiling, hook_data):
     TEE_GetREETime(ql, hook_data)
 
 def TEE_LogPrintf(ql: Qiling, hook_data):
-    format_param = ql.os.resolve_fcall_params({"format": STRING})["format"]
-    final_params = {"format": STRING}
-    params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
-    string_params = [params[f"{i}"] for i in range(0, len(params))]
-    format_param = format_param.replace("%p", "0x%x")
-    format_param = format_param.replace("%llu", "%u")
-    format_param = format_param.replace("%zu", "%u")
-    out_str = format_param % tuple(string_params)
-    ql.log.info(f"{hook_data.func_name}: {out_str}")
-    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    try:
+        format_param = ql.os.resolve_fcall_params({"format": STRING})["format"]
+        final_params = {"format": STRING}
+        params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
+        string_params = [params[f"{i}"] for i in range(0, len(params))]
+        format_param = format_param.replace("%p", "0x%x")
+        format_param = format_param.replace("%llu", "%u")
+        format_param = format_param.replace("%zu", "%u")
+        out_str = format_param % tuple(string_params)
+        ql.log.info(f"{hook_data.func_name}: {out_str}")
+        ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return 
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def fprintf(ql: Qiling, hook_data):
@@ -106,7 +115,11 @@ def vfprintf(ql: Qiling, hook_data):
     TEE_LogvPrintf(ql, hook_data)
 
 def puts(ql: Qiling, hook_data):
-    out = ql.os.resolve_fcall_params({"format": STRING})["format"]
+    try:
+        out = ql.os.resolve_fcall_params({"format": STRING})["format"]
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return 
     ql.log.info(f"{hook_data.func_name}: {out}")
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -116,54 +129,66 @@ def printf(ql: Qiling, hook_data):
     TEE_LogPrintf(ql, hook_data)
 
 def TEE_LogvPrintf(ql: Qiling, hook_data):
-    p = ql.os.resolve_fcall_params({"log_level": INT, "format": STRING})
-    log_level = p["log_level"]
-    format_param = p["format"]
-    final_params = {"log_level": INT, "format": STRING}
-    params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
-    string_params = [params[f"{i}"] for i in range(0, len(params) - 1)]
-    out_str = format_param % tuple(string_params)
-    ql.log.info(f"{hook_data.func_name}: {log_level}, {out_str}")
+    try:
+        p = ql.os.resolve_fcall_params({"log_level": INT, "format": STRING})
+        log_level = p["log_level"]
+        format_param = p["format"]
+        final_params = {"log_level": INT, "format": STRING}
+        params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
+        string_params = [params[f"{i}"] for i in range(0, len(params) - 1)]
+        out_str = format_param % tuple(string_params)
+        ql.log.info(f"{hook_data.func_name}: {log_level}, {out_str}")
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def log_msg(ql: Qiling, hook_data):
-    p = ql.os.resolve_fcall_params(
-        {"log_level": INT, "log_level_2": INT, "format": STRING}
-    )
-    log_level = p["log_level"]
-    log_level_2 = p["log_level_2"]
-    format_param = p["format"]
-    final_params = {"log_level": INT, "log_level_2": INT, "format": STRING}
-    final_params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
-    params = ql.os.resolve_fcall_params(final_params)
-    del params["format"]
-    string_params = [params[f"{i}"] for i in range(0, len(params) - 2)]
-    format_param = format_param.replace("%p", "0x%x")
-    format_param = format_param.replace("%llu", "%u")
-    out_str = format_param % tuple(string_params)
-    ql.log.info(f"log_msg: {log_level}, {log_level_2},{out_str}")
+    try:
+        p = ql.os.resolve_fcall_params(
+            {"log_level": INT, "log_level_2": INT, "format": STRING}
+        )
+        log_level = p["log_level"]
+        log_level_2 = p["log_level_2"]
+        format_param = p["format"]
+        final_params = {"log_level": INT, "log_level_2": INT, "format": STRING}
+        final_params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
+        params = ql.os.resolve_fcall_params(final_params)
+        del params["format"]
+        string_params = [params[f"{i}"] for i in range(0, len(params) - 2)]
+        format_param = format_param.replace("%p", "0x%x")
+        format_param = format_param.replace("%llu", "%u")
+        out_str = format_param % tuple(string_params)
+        ql.log.info(f"log_msg: {log_level}, {log_level_2},{out_str}")
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def snprintf(ql: Qiling, hook_data):
-    params_initial = ql.os.resolve_fcall_params(
-        {"s": POINTER, "n": INT, "format": STRING, "arg": POINTER}
-    )
-    format_param = params_initial["format"]
-    n = params_initial["n"]
-    s = params_initial["s"]
-    arg = params_initial["arg"]
-    params = parse_fmt_str(
-        ql, format_param, {"s": INT, "n": INT, "format": STRING}, 
-        hook_data.func_name, arg=arg
-    )
-    string_params = [params[f"{i}"] for i in range(0, len(params))]
-    out_str = format_param % tuple(string_params)
-    full_len = len(out_str)
-    out_str = out_str[: n - 1]
-    out_str = out_str.encode() + b"\x00"
-    ql.log.info(f'{hook_data.func_name}: len: {hex(n)} "{out_str}" written to {hex(s)}')
-    asan.is_access_valid(ql, hook_data.emu.HEAP, s, len(out_str)+1, hook_data.func_name, is_write=True)
-    ql.mem.write(s, out_str)
+    try:
+        params_initial = ql.os.resolve_fcall_params(
+            {"s": POINTER, "n": INT, "format": STRING, "arg": POINTER}
+        )
+        format_param = params_initial["format"]
+        n = params_initial["n"]
+        s = params_initial["s"]
+        arg = params_initial["arg"]
+        params = parse_fmt_str(
+            ql, format_param, {"s": INT, "n": INT, "format": STRING}, 
+            hook_data.func_name, arg=arg
+        )
+        string_params = [params[f"{i}"] for i in range(0, len(params))]
+        out_str = format_param % tuple(string_params)
+        full_len = len(out_str)
+        out_str = out_str[: n - 1]
+        out_str = out_str.encode() + b"\x00"
+        ql.log.info(f'{hook_data.func_name}: len: {hex(n)} "{out_str}" written to {hex(s)}')
+        asan.is_access_valid(ql, hook_data.emu.HEAP, s, len(out_str)+1, hook_data.func_name, is_write=True)
+        ql.mem.write(s, out_str)
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
     ql.os.fcall.cc.setReturnValue(full_len)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
@@ -174,17 +199,21 @@ def sprintf(ql: Qiling, hook_data):
     format_param = params_initial["format"]
     s = params_initial["s"]
     arg = params_initial["arg"]
-    params = parse_fmt_str(
-        ql, format_param, {"s": INT, "format": STRING}, 
-        hook_data.func_name, arg=arg
-    )
-    string_params = [params[f"{i}"] for i in range(0, len(params))]
-    out_str = format_param % tuple(string_params)
-    full_len = len(out_str)
-    out_str = out_str.encode() + b"\x00"
-    ql.log.info(f'{hook_data.func_name}: "{out_str}" written to {hex(s)}')
-    asan.is_access_valid(ql, hook_data.emu.HEAP, s, len(out_str)+1, hook_data.func_name, is_write=True)
-    ql.mem.write(s, out_str)
+    try:
+        params = parse_fmt_str(
+            ql, format_param, {"s": INT, "format": STRING}, 
+            hook_data.func_name, arg=arg
+        )
+        string_params = [params[f"{i}"] for i in range(0, len(params))]
+        out_str = format_param % tuple(string_params)
+        full_len = len(out_str)
+        out_str = out_str.encode() + b"\x00"
+        ql.log.info(f'{hook_data.func_name}: "{out_str}" written to {hex(s)}')
+        asan.is_access_valid(ql, hook_data.emu.HEAP, s, len(out_str)+1, hook_data.func_name, is_write=True)
+        ql.mem.write(s, out_str)
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
     ql.os.fcall.cc.setReturnValue(full_len)
     ql.arch.regs.arch_pc = ql.arch.regs.lr 
 
@@ -194,7 +223,11 @@ def vsnprintf(ql: Qiling, hook_data):
 def strlen(ql: Qiling, hook_data):
     ptr = ql.os.resolve_fcall_params({"ptr": POINTER})["ptr"]
     hook_data.emu.update_shm(ptr)
-    string = read_c_str(ql, ptr)
+    try:
+        string = read_c_str(ql, ptr)
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
     out = len(string)
     ql.log.info(f'strlen {hex(ptr)}: {out}')#, "{string}"=> {hex(out)}')
     ql.os.fcall.cc.setReturnValue(out)
@@ -206,9 +239,14 @@ def strcpy(ql: Qiling, hook_data):
     src = params['src']
     ql.log.info(f'{hook_data.func_name} {hex(src)}->{hex(dst)}')
     hook_data.emu.update_shm(src)
-    s = read_c_str(ql, src)
-    asan.is_access_valid(ql, hook_data.emu.HEAP, dst, len(s)+1, hook_data.func_name, is_write=True)
-    ql.mem.write(dst, s + b"\x00")
+    try:
+        s = read_c_str(ql, src)
+        if not asan.is_access_valid(ql, hook_data.emu.HEAP, dst, len(s)+1, hook_data.func_name, is_write=True):
+            return
+        ql.mem.write(dst, s + b"\x00")
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name) 
+        return
     hook_data.emu.writeback_shm(dst)
     ql.os.fcall.cc.setReturnValue(dst)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -220,13 +258,19 @@ def strncpy(ql: Qiling, hook_data):
     num = params['num']
     ql.log.info(f'{hook_data.func_name} {hex(src)}->{hex(dst)} ({num})')
     hook_data.emu.update_shm(src)
-    s = read_c_str(ql, src)
-    if len(s) >= num:
-        asan.is_access_valid(ql, hook_data.emu.HEAP, dst, num, hook_data.func_name, is_write=True)
-        ql.mem.write(dst, s[:num])
-    else:
-        asan.is_access_valid(ql, hook_data.emu.HEAP, dst, len(s)+1, hook_data.func_name, is_write=True)
-        ql.mem.write(dst, s+b"\x00")
+    try:
+        s = read_c_str(ql, src)
+        if len(s) >= num:
+            if not asan.is_access_valid(ql, hook_data.emu.HEAP, dst, num, hook_data.func_name, is_write=True):
+                return 
+            ql.mem.write(dst, s[:num])
+        else:
+            if not asan.is_access_valid(ql, hook_data.emu.HEAP, dst, len(s)+1, hook_data.func_name, is_write=True):
+                return
+            ql.mem.write(dst, s+b"\x00")
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name) 
+        return
     hook_data.emu.writeback_shm(dst)
     ql.os.fcall.cc.setReturnValue(dst)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -244,8 +288,12 @@ def memmove(ql: Qiling, hook_data):
     if not asan.is_access_valid(ql, hook_data.emu.HEAP, params["src"], params["size"], hook_data.func_name, is_write=False):
         return
     hook_data.emu.update_shm(params["src"])
-    data = ql.mem.read(params["src"], params["size"])
-    ql.mem.write(params["dest"], bytes(data))
+    try:
+        data = ql.mem.read(params["src"], params["size"])
+        ql.mem.write(params["dest"], bytes(data))
+    except unicorn.unicorn_py3.unicorn.UcError as e:
+        crash(ql, hook_data.func_name)
+        return 
     hook_data.emu.writeback_shm(params["dest"])
     ql.os.fcall.cc.setReturnValue(params["dest"])
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -281,8 +329,12 @@ def TEE_MemCompare(ql: Qiling, hook_data):
     ret = 0
     hook_data.emu.update_shm(buffer_1)
     hook_data.emu.update_shm(buffer_2)
-    content_1 = ql.mem.read(buffer_1, size)
-    content_2 = ql.mem.read(buffer_2, size)
+    try:
+        content_1 = ql.mem.read(buffer_1, size)
+        content_2 = ql.mem.read(buffer_2, size)
+    except unicorn.unicorn_py3.unicorn.UcError as e:
+        crash(ql, hook_data.func_name) 
+        return 
     ql.log.info(f"{hook_data.func_name} compare {hex(buffer_1)} with {hex(buffer_2)}")
     for i in range(size):
         if content_1[i] > content_2[i]:
@@ -301,7 +353,11 @@ def TEE_GenerateRandom(ql: Qiling, hook_data):
         {"randomBuffer": POINTER, "randomBufferLen": INT}
     )
     r = get_random_bytes(params["randomBufferLen"])
-    ql.mem.write(params["randomBuffer"], r)
+    try:
+        ql.mem.write(params["randomBuffer"], r)
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name) 
+        return
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 

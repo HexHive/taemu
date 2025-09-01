@@ -8,6 +8,7 @@ from Crypto.Random import get_random_bytes
 from .custom import rpmb
 from unicorn import UC_PROT_READ, UC_PROT_WRITE
 import time as pytime
+from .common import crash
 
 from .gp_api import TEE_LogvPrintf, TEE_LogPrintf, TEE_MemCompare
 
@@ -33,7 +34,11 @@ def TEE_KMGetHmacKey(ql: Qiling, hook_data):
     params = ql.os.resolve_fcall_params({"buf": POINTER, "size": INT})
     buf = params['buf']
     size = params['size']
-    ql.mem.write(buf, KMHMACKEY)
+    try:
+        ql.mem.write(buf, KMHMACKEY)
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 

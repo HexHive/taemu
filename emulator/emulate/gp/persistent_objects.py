@@ -6,6 +6,8 @@ from .utils.persistent_object import *
 from .utils.err import *
 
 from .transient_objects import handle2obj
+from ..common import crash
+import unicorn
 
 
 def TEE_CreatePersistentObject(ql:Qiling, hook_data):
@@ -27,7 +29,11 @@ def TEE_CreatePersistentObject(ql:Qiling, hook_data):
         if para_objectIDLen > TEE_OBJECT_ID_MAX_LEN:
             ql.log.error(f"TEE_CreatePersistentObject: objectID too long {hex(para_objectIDLen)}")
             ql.emu_stop()
-        objectID = bytes(ql.mem.read(para_objectID, para_objectIDLen))
+        try:
+            objectID = bytes(ql.mem.read(para_objectID, para_objectIDLen))
+        except unicorn.unicorn_py3.unicorn.UcError as e:
+            crash(ql, hook_data.func_name)
+            return
         ql.log.info(f"\tobjectID: {objectID}")
 
         # open a handler
@@ -44,7 +50,11 @@ def TEE_CreatePersistentObject(ql:Qiling, hook_data):
             obj.write(data, para_initialDataLen, ql)
 
         ql.log.info(f"\tobject handler: {obj.handler}") 
-        ql.mem.write_ptr(para_object, obj.handler) 
+        try:
+            ql.mem.write_ptr(para_object, obj.handler) 
+        except unicorn.unicorn_py3.unicorn.UcError as e:
+            crash(ql, hook_data.func_name)
+            return
         ret = TEE_SUCCESS
     else:
         ret = TEE_ERROR_ITEM_NOT_FOUND
@@ -76,12 +86,20 @@ def TEE_OpenPersistentObject(ql:Qiling, hook_data):
     if obj.file == None:
         ret = TEE_ERROR_ITEM_NOT_FOUND
         # fail, fill object with TEE_HANDLE_NULL.
-        ql.mem.write_ptr(para_object, TEE_HANDLE_NULL)
+        try:
+            ql.mem.write_ptr(para_object, TEE_HANDLE_NULL)
+        except unicorn.unicorn_py3.unicorn.UcError as e:
+            crash(ql, func_name)
+            return
     else:                
         handler_cnt += 1
         handler2perobj[obj.handler] = obj
         ret = TEE_SUCCESS
-        ql.mem.write_ptr(para_object, obj.handler)   
+        try:
+            ql.mem.write_ptr(para_object, obj.handler)   
+        except unicorn.unicorn_py3.unicorn.UcError as e:
+            crash(ql, func_name)
+            return
         ql.log.info(f"\tobject handler: {obj.handler}")  
 
     ql.log.info(f'\tret {hex(ret)}')
@@ -109,7 +127,11 @@ def TEE_WriteObjectData(ql:Qiling, hook_data):
         ql.emu_stop()
     
     # atomic?
-    data = bytes(ql.mem.read(para_buffer, para_size))
+    try:
+        data = bytes(ql.mem.read(para_buffer, para_size))
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, func_name)
+        return
     obj.write(data, ql)
 
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
@@ -180,8 +202,12 @@ def TEE_ReadObjectData(ql:Qiling, hook_data):
     
     # atomic?
     data = obj.read(para_size, ql)
-    ql.mem.write(para_buffer, data)
-    ql.mem.write(para_count, len(data).to_bytes(4, "little"))
+    try:
+        ql.mem.write(para_buffer, data)
+        ql.mem.write(para_count, len(data).to_bytes(4, "little"))
+    except unicorn.unicorn_py3.unicorn.UcError as e:
+        crash(ql, func_name)
+        return
 
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -210,9 +236,13 @@ def TEE_GetObjectInfo(ql:Qiling, hook_data):
     # 2238 } TEE_ObjectInfo;
 
     # @TODO: more info need to fill
-    ql.mem.write_ptr(para_objectInfo + 16, obj.file_size(ql))
-    ql.mem.write_ptr(para_objectInfo + 20, obj.file.tell())
-    ql.mem.write_ptr(para_objectInfo + 24, obj.flag)
+    try:
+        ql.mem.write_ptr(para_objectInfo + 16, obj.file_size(ql))
+        ql.mem.write_ptr(para_objectInfo + 20, obj.file.tell())
+        ql.mem.write_ptr(para_objectInfo + 24, obj.flag)
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, func_name)
+        return
 
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 

@@ -66,7 +66,7 @@ def setup_params(ql: Qiling, session, cmd, ptypes, params, is_32bit=False):
             params_mem_write += 4
             ql.mem.write(params_mem_write, b.to_bytes(4, "little"))
             params_mem_write += 4
-            if is_32bit:
+            if not is_32bit:
                 params_mem_write += 8
         # tmp mem
         elif isinstance(param, MemRefParam):

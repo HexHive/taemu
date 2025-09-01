@@ -3,6 +3,8 @@ from qiling import Qiling
 from qiling.os.const import STRING, UINT, POINTER
 from .utils.err import *
 from .utils.object import *
+from ..common import crash, crash_notimpl
+import unicorn
 
 OPERATION_ID = 0
 id2opration = {}
@@ -17,46 +19,50 @@ def TEE_AllocateOperation(ql:Qiling, hook_data):
 
     ql.log.info(f"TEE_AllocateOperation: ")
 
-    ret = TEE_SUCCESS
-    if param_algorithm == TEE_ALG_SHA256 and param_mode == TEE_MODE_DIGEST:
-        ql.log.info(f"\tTEE_ALG_SHA256")
-        op = Digest_Operation(OPERATION_ID, ql)
-        id2opration[OPERATION_ID] = op
-        ql.mem.write_ptr(param_operation, OPERATION_ID)
-        OPERATION_ID += 1      
-    elif param_algorithm == TEE_ALG_RSAES_PKCS1_V1_5:
-        ql.log.info(f"\tTEE_ALG_RSAES_PKCS1_V1_5")
-        op = RSAES_PKCS1_V1_5_Operation(OPERATION_ID, param_mode, param_maxKeySize, ql)
-        id2opration[OPERATION_ID] = op
-        ql.mem.write_ptr(param_operation, OPERATION_ID)
-        OPERATION_ID += 1
-    elif param_algorithm == TEE_ALG_AES_ECB_NOPAD:
-        ql.log.info(f"\tTEE_ALG_AES_ECB_NOPAD")
-        op = AES_ECB_NOPAD_Operation(OPERATION_ID, param_mode, ql)
-        id2opration[OPERATION_ID] = op
-        ql.mem.write_ptr(param_operation, OPERATION_ID)
-        OPERATION_ID += 1
-    elif param_algorithm == TEE_ALG_AES_CBC_NOPAD:
-        ql.log.info(f"\tTEE_ALG_AES_CBC_NOPAD")
-        op = AES_CBC_NOPAD_Operation(OPERATION_ID, param_mode, ql)
-        id2opration[OPERATION_ID] = op
-        ql.mem.write_ptr(param_operation, OPERATION_ID)
-        OPERATION_ID += 1
-    elif param_algorithm == TEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256:
-        ql.log.info(f"\tTEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256")
-        op = TEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256_Operation(OPERATION_ID, param_mode, param_maxKeySize, ql)
-        id2opration[OPERATION_ID] = op
-        ql.mem.write_ptr(param_operation, OPERATION_ID)
-        OPERATION_ID += 1
-    elif param_algorithm == TEEGRIS_LOG_ENC:
-        ql.log.info(f"\tTEEGRIS custom log encryption (noop)")
-        op = TEEGRIS_LOG_ENC_Operation(OPERATION_ID, param_mode, ql)
-        id2opration[OPERATION_ID] = op
-        ql.mem.write_ptr(param_operation, OPERATION_ID)
-        OPERATION_ID += 1 
-    else:
-        ql.log.info(f"\t mode {hex(param_mode)} or algo {hex(param_algorithm)} not valid")
-        ret = TEE_ERROR_NOT_SUPPORTED
+    try:
+        ret = TEE_SUCCESS
+        if param_algorithm == TEE_ALG_SHA256 and param_mode == TEE_MODE_DIGEST:
+            ql.log.info(f"\tTEE_ALG_SHA256")
+            op = Digest_Operation(OPERATION_ID, ql)
+            id2opration[OPERATION_ID] = op
+            ql.mem.write_ptr(param_operation, OPERATION_ID)
+            OPERATION_ID += 1      
+        elif param_algorithm == TEE_ALG_RSAES_PKCS1_V1_5:
+            ql.log.info(f"\tTEE_ALG_RSAES_PKCS1_V1_5")
+            op = RSAES_PKCS1_V1_5_Operation(OPERATION_ID, param_mode, param_maxKeySize, ql)
+            id2opration[OPERATION_ID] = op
+            ql.mem.write_ptr(param_operation, OPERATION_ID)
+            OPERATION_ID += 1
+        elif param_algorithm == TEE_ALG_AES_ECB_NOPAD:
+            ql.log.info(f"\tTEE_ALG_AES_ECB_NOPAD")
+            op = AES_ECB_NOPAD_Operation(OPERATION_ID, param_mode, ql)
+            id2opration[OPERATION_ID] = op
+            ql.mem.write_ptr(param_operation, OPERATION_ID)
+            OPERATION_ID += 1
+        elif param_algorithm == TEE_ALG_AES_CBC_NOPAD:
+            ql.log.info(f"\tTEE_ALG_AES_CBC_NOPAD")
+            op = AES_CBC_NOPAD_Operation(OPERATION_ID, param_mode, ql)
+            id2opration[OPERATION_ID] = op
+            ql.mem.write_ptr(param_operation, OPERATION_ID)
+            OPERATION_ID += 1
+        elif param_algorithm == TEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256:
+            ql.log.info(f"\tTEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256")
+            op = TEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256_Operation(OPERATION_ID, param_mode, param_maxKeySize, ql)
+            id2opration[OPERATION_ID] = op
+            ql.mem.write_ptr(param_operation, OPERATION_ID)
+            OPERATION_ID += 1
+        elif param_algorithm == TEEGRIS_LOG_ENC:
+            ql.log.info(f"\tTEEGRIS custom log encryption (noop)")
+            op = TEEGRIS_LOG_ENC_Operation(OPERATION_ID, param_mode, ql)
+            id2opration[OPERATION_ID] = op
+            ql.mem.write_ptr(param_operation, OPERATION_ID)
+            OPERATION_ID += 1 
+        else:
+            ql.log.info(f"\t mode {hex(param_mode)} or algo {hex(param_algorithm)} not valid")
+            ret = TEE_ERROR_NOT_SUPPORTED
+    except unicorn.unicorn_py3.unicorn.UcError as e:
+        crash(ql, hook_data.func_name)
+        return
 
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -70,18 +76,21 @@ def TEE_DigestUpdate(ql:Qiling, hook_data):
 
     ql.log.info(f"TEE_DigestUpdate: ")
 
-    if param_operation not in id2opration:
-        ql.log.error(f"TEE_DigestUpdate: Operation {hex(param_operation)} not in {id2opration}")
-        ql.emu_stop()
-    
-    op = id2opration[param_operation]
-    if type(op) != Digest_Operation:
-        ql.log.error(f"TEE_DigestUpdate: op is not a Digest_Operation")
-        ql.emu_stop()
+    try:
+        if param_operation not in id2opration:
+            ql.log.error(f"TEE_DigestUpdate: Operation {hex(param_operation)} not in {id2opration}")
+            ql.emu_stop()
+        
+        op = id2opration[param_operation]
+        if type(op) != Digest_Operation:
+            ql.log.error(f"TEE_DigestUpdate: op is not a Digest_Operation")
+            ql.emu_stop()
 
-    data = ql.mem.read(param_chunk, param_chunkSize)
-    op.digest_update(data)
-
+        data = ql.mem.read(param_chunk, param_chunkSize)
+        op.digest_update(data)
+    except unicorn.unicorn_py3.unicorn.UcError as e:
+        crash(ql, hook_data.func_name)
+        return
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
@@ -96,23 +105,27 @@ def TEE_DigestDoFinal(ql:Qiling, hook_data):
 
     ql.log.info(f"TEE_DigestDoFinal: ")
 
-    if param_operation not in id2opration:
-        ql.log.error(f"TEE_DigestDoFinal: Operation {hex(param_operation)} not in {id2opration}")
-        ql.emu_stop()
-    
-    op = id2opration[param_operation]
-    if type(op) != Digest_Operation:
-        ql.log.error(f"TEE_DigestDoFinal: op is not a Digest_Operation")
-        ql.emu_stop()
+    try:
+        if param_operation not in id2opration:
+            ql.log.error(f"TEE_DigestDoFinal: Operation {hex(param_operation)} not in {id2opration}")
+            ql.emu_stop()
         
-    data = ql.mem.read(param_chunk, param_chunkLen)
-    hash = op.finalize(data, param_hashLen, ql)
+        op = id2opration[param_operation]
+        if type(op) != Digest_Operation:
+            ql.log.error(f"TEE_DigestDoFinal: op is not a Digest_Operation")
+            ql.emu_stop()
+            
+        data = ql.mem.read(param_chunk, param_chunkLen)
+        hash = op.finalize(data, param_hashLen, ql)
 
-    if hash:    
-        ql.mem.write(param_hash, hash)
-        ret = TEE_SUCCESS
-    else:
-        ret = TEE_ERROR_SHORT_BUFFER
+        if hash:    
+            ql.mem.write(param_hash, hash)
+            ret = TEE_SUCCESS
+        else:
+            ret = TEE_ERROR_SHORT_BUFFER
+    except unicorn.unicorn_py3.unicorn.UcError as e:
+        crash(ql, hook_data.func_name)
+        return
 
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -145,57 +158,61 @@ def TEE_SetOperationKey(ql:Qiling, hook_data):
 
     ql.log.info(f"TEE_SetOperationKey: ")
 
-    if param_operation not in id2opration:
-        ql.log.error(f"TEE_SetOperationKey: Operation {hex(param_operation)} not in {id2opration}")
-        ql.emu_stop()
-    
-    if param_key not in handle2obj:
-        ql.log.error(f'TEE_SetOperationKey: called with {hex(param_key)} not in {handle2obj}')
-        ql.emu_stop()
-
-    op = id2opration[param_operation]
-    key = handle2obj[param_key]
-
-    if type(op) == RSAES_PKCS1_V1_5_Operation:
-        if op.initialized:
-            ql.log.error(f'TEE_SetOperationKey: op is not an un-initialized operation type of TEE_ALG_RSAES_PKCS1_V1_5')
+    try:
+        if param_operation not in id2opration:
+            ql.log.error(f"TEE_SetOperationKey: Operation {hex(param_operation)} not in {id2opration}")
+            ql.emu_stop()
+        
+        if param_key not in handle2obj:
+            ql.log.error(f'TEE_SetOperationKey: called with {hex(param_key)} not in {handle2obj}')
             ql.emu_stop()
 
-        if type(key) != RSA_KEYPAIR_Obj or not key.initialized:
-            ql.log.error(f'TEE_SetOperationKey: key is not a initialized object type of TEE_TYPE_RSA_KEYPAIR')
+        op = id2opration[param_operation]
+        key = handle2obj[param_key]
+
+        if type(op) == RSAES_PKCS1_V1_5_Operation:
+            if op.initialized:
+                ql.log.error(f'TEE_SetOperationKey: op is not an un-initialized operation type of TEE_ALG_RSAES_PKCS1_V1_5')
+                ql.emu_stop()
+
+            if type(key) != RSA_KEYPAIR_Obj or not key.initialized:
+                ql.log.error(f'TEE_SetOperationKey: key is not a initialized object type of TEE_TYPE_RSA_KEYPAIR')
+                ql.emu_stop()
+
+            op.initialize(key.rsa_param, ql)
+
+            ql.log.info(f"\top initialized")
+            ql.log.info(f"\tn: {op.key.n}")
+            ql.log.info(f"\td: {op.key.d}")
+            ql.log.info(f"\te: {op.key.e}")
+
+        elif type(op) == AES_ECB_NOPAD_Operation or type(op) == AES_CBC_NOPAD_Operation:
+            if op.initialized:
+                ql.log.error(f'TEE_SetOperationKey: op is not an un-initialized operation type {type(op)}')
+                ql.emu_stop()
+
+            if type(key) != AES_Obj or not key.initialized:
+                ql.log.error(f'TEE_SetOperationKey: key is not a initialized object type of TEE_TYPE_AES')
+                ql.emu_stop()
+
+            op.initialize(key.key, ql)
+
+            ql.log.info(f"\t{type(op)} op initialized")
+            ql.log.info(f"\tkey: {op.key}")   
+
+        elif type(op) == TEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256_Operation:
+            op.initialize(key.rsa_param, ql)
+            ql.log.info("\tALG_RSAES_PKCS1_OAEP_MGF1_SHA256 initialized with new keys, passing...")
+
+        elif type(op) == TEEGRIS_LOG_ENC_Operation:
+            op.initialize(key.key, ql)
+
+        else:
+            ql.log.error(f'TEE_SetOperationKey: unknown op type')
             ql.emu_stop()
-
-        op.initialize(key.rsa_param, ql)
-
-        ql.log.info(f"\top initialized")
-        ql.log.info(f"\tn: {op.key.n}")
-        ql.log.info(f"\td: {op.key.d}")
-        ql.log.info(f"\te: {op.key.e}")
-
-    elif type(op) == AES_ECB_NOPAD_Operation or type(op) == AES_CBC_NOPAD_Operation:
-        if op.initialized:
-            ql.log.error(f'TEE_SetOperationKey: op is not an un-initialized operation type {type(op)}')
-            ql.emu_stop()
-
-        if type(key) != AES_Obj or not key.initialized:
-            ql.log.error(f'TEE_SetOperationKey: key is not a initialized object type of TEE_TYPE_AES')
-            ql.emu_stop()
-
-        op.initialize(key.key, ql)
-
-        ql.log.info(f"\t{type(op)} op initialized")
-        ql.log.info(f"\tkey: {op.key}")   
-
-    elif type(op) == TEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256_Operation:
-        op.initialize(key.rsa_param, ql)
-        ql.log.info("\tALG_RSAES_PKCS1_OAEP_MGF1_SHA256 initialized with new keys, passing...")
-
-    elif type(op) == TEEGRIS_LOG_ENC_Operation:
-        op.initialize(key.key, ql)
-
-    else:
-        ql.log.error(f'TEE_SetOperationKey: unknown op type')
-        ql.emu_stop()
+    except unicorn.unicorn_py3.unicorn.UcError as e:
+        crash(ql, hook_data.func_name)
+        return
 
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -225,22 +242,28 @@ def TEE_AsymmetricDecrypt(ql:Qiling, hook_data):
     # @TODO: support params for TEE_ALG_RSAES_PKCS1_OAEP_MGF1_XXX
     if param_paramCount != 0:
         ql.log.error(f"TEE_AsymmetricDecrypt: only supported no params")
+        if hook_data.emu.crash_on_not_implemented:
+            crash_notimpl(ql, f"TEE_AsymmetricDecrypt: only supported no params")
+            return
         ql.emu_stop()
 
-    ct = ql.mem.read(param_srcData, param_srcLen)
-    pt = op.decrypt(ct, ql)
-    if len(pt) == 0:
-        ql.log.info("\tdecrypt error")
-        ret = TEE_ERROR_CIPHERTEXT_INVALID
-    else:
-        ql.mem.write(param_destData, pt)
-        ql.mem.write_ptr(param_destLen, len(pt))
-        ret = TEE_SUCCESS
+    try:
+        ct = ql.mem.read(param_srcData, param_srcLen)
+        pt = op.decrypt(ct, ql)
+        if len(pt) == 0:
+            ql.log.info("\tdecrypt error")
+            ret = TEE_ERROR_CIPHERTEXT_INVALID
+        else:
+            ql.mem.write(param_destData, pt)
+            ql.mem.write_ptr(param_destLen, len(pt))
+            ret = TEE_SUCCESS
+    except unicorn.unicorn_py3.unicorn.UcError as e:
+        crash(ql, hook_data.func_name)
+        return
 
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr  
     
-
 
 def TEE_CipherInit(ql:Qiling, hook_data):
     global OPERATION_ID, id2opration
@@ -254,27 +277,34 @@ def TEE_CipherInit(ql:Qiling, hook_data):
         ql.emu_stop()
 
     op = id2opration[param_operation]
-    
-    if type(op) == AES_ECB_NOPAD_Operation or type(op) == AES_CBC_NOPAD_Operation:
-        if op.initialized and not op.active:
-            op.activate(bytes(ql.mem.read(param_iv, param_ivLen)))
+
+    try: 
+        if type(op) == AES_ECB_NOPAD_Operation or type(op) == AES_CBC_NOPAD_Operation:
+            if op.initialized and not op.active:
+                op.activate(bytes(ql.mem.read(param_iv, param_ivLen)))
+            else:
+                ql.log.error(f"TEE_CipherInit: {type(op)} not initialized or already activated")
+                ql.emu_stop()
+
+            ql.log.info(f"TEE_CipherInit: {type(op)} op cypher init, iv: {op.iv}")
+
+        elif type(op) == TEEGRIS_LOG_ENC_Operation:
+            if op.initialized and not op.active:
+                op.activate(bytes(ql.mem.read(param_iv, param_ivLen)))
+            else:
+                ql.log.error(f"TEE_CipherInit: {type(op)} not initialized or already activated")
+                ql.emu_stop()
+            ql.log.info(f"TEE_CipherInit: {type(op)} op cypher init, iv: {op.iv}")
+
         else:
-            ql.log.error(f"TEE_CipherInit: {type(op)} not initialized or already activated")
+            ql.log.error(f"TEE_CipherInit: unknown op type")
+            if hook_data.emu.crash_on_not_implemented:
+                crash_notimpl(ql, f"TEE_CipherInit: unknown op type")
+                return
             ql.emu_stop()
-
-        ql.log.info(f"TEE_CipherInit: {type(op)} op cypher init, iv: {op.iv}")
-
-    elif type(op) == TEEGRIS_LOG_ENC_Operation:
-        if op.initialized and not op.active:
-            op.activate(bytes(ql.mem.read(param_iv, param_ivLen)))
-        else:
-            ql.log.error(f"TEE_CipherInit: {type(op)} not initialized or already activated")
-            ql.emu_stop()
-        ql.log.info(f"TEE_CipherInit: {type(op)} op cypher init, iv: {op.iv}")
-
-    else:
-        ql.log.error(f"TEE_CipherInit: unknown op type")
-        ql.emu_stop()
+    except unicorn.unicorn_py3.unicorn.UcError as e:
+        crash(ql, hook_data.func_name)
+        return
 
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
@@ -295,36 +325,43 @@ def TEE_CipherDoFinal(ql:Qiling, hook_data):
     op = id2opration[param_operation]
 
     ql.log.info(f"TEE_CipherDoFinal")
-    
-    if type(op) == AES_ECB_NOPAD_Operation or type(op) == AES_CBC_NOPAD_Operation:
-        if op.active:
-            srcContent = bytes(ql.mem.read(param_src, param_srcLen))
-            if op.mode == TEE_MODE_DECRYPT:
-                ql.log.info(f"\tct ({param_srcLen:#0x}): {srcContent}")
-            elif op.mode == TEE_MODE_ENCRYPT:
-                ql.log.info(f"\tpt ({param_srcLen:#0x}): {srcContent}")
-            dstContent = op.finalize(srcContent)
-            ql.mem.write(param_dst, dstContent)
-            ql.mem.write_ptr(param_dstLen, len(dstContent))
-            if op.mode == TEE_MODE_DECRYPT:
-                ql.log.info(f"\tpt ({len(dstContent):#0x}): {dstContent}")
-            elif op.mode == TEE_MODE_ENCRYPT:
-                ql.log.info(f"\tpt ({len(dstContent):#0x}): {dstContent}")
+
+    try: 
+        if type(op) == AES_ECB_NOPAD_Operation or type(op) == AES_CBC_NOPAD_Operation:
+            if op.active:
+                srcContent = bytes(ql.mem.read(param_src, param_srcLen))
+                if op.mode == TEE_MODE_DECRYPT:
+                    ql.log.info(f"\tct ({param_srcLen:#0x}): {srcContent}")
+                elif op.mode == TEE_MODE_ENCRYPT:
+                    ql.log.info(f"\tpt ({param_srcLen:#0x}): {srcContent}")
+                dstContent = op.finalize(srcContent)
+                ql.mem.write(param_dst, dstContent)
+                ql.mem.write_ptr(param_dstLen, len(dstContent))
+                if op.mode == TEE_MODE_DECRYPT:
+                    ql.log.info(f"\tpt ({len(dstContent):#0x}): {dstContent}")
+                elif op.mode == TEE_MODE_ENCRYPT:
+                    ql.log.info(f"\tpt ({len(dstContent):#0x}): {dstContent}")
+            else:
+                ql.log.error(f"TEE_CipherDoFinal: {type(op)} not activated")
+                ql.emu_stop()
+
+        elif type(op) == TEEGRIS_LOG_ENC_Operation:
+            if op.active:
+                srcContent = bytes(ql.mem.read(param_src, param_srcLen)) 
+                op.finalize(srcContent)
+                dstContent = op.finalize(srcContent)
+                ql.mem.write(param_dst, dstContent)
+                ql.mem.write_ptr(param_dstLen, len(dstContent)) 
         else:
-            ql.log.error(f"TEE_CipherDoFinal: {type(op)} not activated")
+            ql.log.error(f"TEE_CipherDoFinal: unknown op type")
+            if hook_data.emu.crash_on_not_implemented:
+                crash_notimpl(ql, f"TEE_CipherDoFinal: unknown op type")
+                return
             ql.emu_stop()
-
-    elif type(op) == TEEGRIS_LOG_ENC_Operation:
-        if op.active:
-            srcContent = bytes(ql.mem.read(param_src, param_srcLen)) 
-            op.finalize(srcContent)
-            dstContent = op.finalize(srcContent)
-            ql.mem.write(param_dst, dstContent)
-            ql.mem.write_ptr(param_dstLen, len(dstContent)) 
-
-    else:
-        ql.log.error(f"TEE_CipherDoFinal: unknown op type")
-        ql.emu_stop()
+    
+    except unicorn.unicorn_py3.unicorn.UcError as e:
+        crash(ql, hook_data.func_name)
+        return
 
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr

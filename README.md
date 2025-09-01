@@ -91,6 +91,10 @@ afterwards run the fuzzer with:
 
 `./fuzz.sh <tee>/harness/<harness-folder>`
 
+(fuzz and generate a crash if an api is not implemented:)
+
+`TAEMU_CRASH_NOTIMPL=1 ./fuzz.sh <tee>/harness/<harness-folder>`
+
 replay seeds with:
 
 `./fuzz.sh <tee>/harness/<harness-folder> <path-to-seed>`
@@ -101,3 +105,4 @@ for gdb:
 # TODO
 
 Bump afl++ / unicornAfl to version with cmplog support
+multiple command ids

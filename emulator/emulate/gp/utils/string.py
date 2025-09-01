@@ -3,7 +3,8 @@ from qiling.os.const import STRING, INT, BYTE, POINTER
 from unicorn.arm_const import *
 from .err import *
 from ... import asan
-from ...common import CRASH_PC, HEAP_MEM
+from ...common import CRASH_PC, HEAP_MEM, crash
+import unicorn
 
 def memset_core(ql, hook_data, called_from_api_emu):
     func_name = hook_data.func_name
@@ -15,8 +16,11 @@ def memset_core(ql, hook_data, called_from_api_emu):
     if not asan.is_access_valid(ql, hook_data.emu.HEAP, params["dest"], params["size"], 
                                 hook_data.func_name, is_write=True):
         return
-    ql.mem.write(params["dest"], params["size"]*params["x"].to_bytes(1, "little"))
-
+    try:
+        ql.mem.write(params["dest"], params["size"]*params["x"].to_bytes(1, "little"))
+    except unicorn.unicorn_py3.unicorn.UcError as e:
+        crash(ql, func_name)
+        return
     emu.writeback_shm(params["dest"])
 
     if not called_from_api_emu:
@@ -84,12 +88,12 @@ def free_core(ql:Qiling, hook_data, called_from_custom_lib):
     ptr = ql.os.resolve_fcall_params({"ptr": INT})["ptr"]
     if ptr not in hook_data.emu.HEAP["allocated"]:
         ql.log.critical(f"corrupted free at: {hex(ptr)}, {hook_data.emu.HEAP}")
-        ql.arch.regs.arch_pc = CRASH_PC
+        crash(ql, func_name)
         return
     size = hook_data.emu.HEAP["allocated"][ptr]
     if ptr in hook_data.emu.HEAP["freed"]:
         ql.log.critical(f"double free at: {hex(ptr)}, {hook_data.emu.HEAP}")
-        ql.arch.regs.arch_pc = CRASH_PC
+        crash(ql, func_name)
         return
     ql.log.info(f"{func_name}: freeing memory at {hex(ptr)}")
     real_ptr = ptr - asan.ASAN_REDZONE_SIZE

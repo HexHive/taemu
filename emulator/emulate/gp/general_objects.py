@@ -5,6 +5,8 @@ from .utils.object import *
 from .utils.attribute import *
 from .utils.err import *
 from pwn import *
+import unicorn
+from ..common import crash
 
 
 def TEE_GetObjectBufferAttribute(ql:Qiling, hook_data):
@@ -41,10 +43,14 @@ def TEE_GetObjectBufferAttribute(ql:Qiling, hook_data):
     else:
         ql.log.debug(f"\tattr.attributeID: {hex(para_attributeID)}")
         (buffer, size) = obj.attrs[para_attributeID]
-        data = bytes(ql.mem.read(buffer, size))
-        ql.log.info(f"\tdata: {data}")
-        ql.mem.write(para_buffer, data)
-        ql.mem.write_ptr(para_size, size)
+        try:
+            data = bytes(ql.mem.read(buffer, size))
+            ql.log.info(f"\tdata: {data}")
+            ql.mem.write(para_buffer, data)
+            ql.mem.write_ptr(para_size, size)
+        except unicorn.unicorn_py3.unicorn.UcError as e:
+            crash(ql, hook_data.func_name)
+            return
         ret = TEE_SUCCESS
 
     ql.log.info(f"\treturn {hex(ret)}")

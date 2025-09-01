@@ -5,7 +5,8 @@ from pwn import *
 from .utils.err import *
 from .utils.object import *
 from .utils.attribute import *
-
+from ..common import crash, crash_notimpl
+import unicorn
 
 def TEE_AllocateTransientObject(ql:Qiling, hook_data):
     emu = hook_data.emu
@@ -18,7 +19,11 @@ def TEE_AllocateTransientObject(ql:Qiling, hook_data):
     if objectType == ObjectTypes.TEE_TYPE_RSA_KEYPAIR.value: #TEE_TYPE_RSA_KEYPAIR
         new_obj = RSA_KEYPAIR_Obj(maxObjectSize, ql)
         handle2obj[new_obj.handle] = new_obj
-        ql.mem.write_ptr(para_object, new_obj.handle)
+        try:
+            ql.mem.write_ptr(para_object, new_obj.handle)
+        except unicorn.unicorn_py3.unicorn.UcError as e:
+            crash(ql, func_name)
+            return
         ql.log.info(f'\tallocated {ObjectTypes.TEE_TYPE_RSA_KEYPAIR.name} with {hex(maxObjectSize)} bytes at {hex(new_obj.handle)}, stored at {hex(para_object)}')
         # @TODO: error return value
         ql.os.fcall.cc.setReturnValue(0)
@@ -26,13 +31,20 @@ def TEE_AllocateTransientObject(ql:Qiling, hook_data):
     elif objectType == ObjectTypes.TEE_TYPE_AES.value:
         new_obj = AES_Obj(maxObjectSize, ql)
         handle2obj[new_obj.handle] = new_obj
-        ql.mem.write_ptr(para_object, new_obj.handle)
+        try:
+            ql.mem.write_ptr(para_object, new_obj.handle)
+        except unicorn.unicorn_py3.unicorn.UcError as e:
+            crash(ql, func_name)
+            return 
         ql.log.info(f'\tallocated {ObjectTypes.TEE_TYPE_AES.name} with {hex(maxObjectSize)} bytes at {hex(new_obj.handle)}, stored at {hex(para_object)}')
         # @TODO: error return value
         ql.os.fcall.cc.setReturnValue(0)
         ql.arch.regs.arch_pc = ql.arch.regs.lr
     else:
         ql.log.error(f'TEE_AllocateTransientObject unknown object type!! {hex(objectType)}')
+        if hook_data.emu.crash_on_not_implemented:
+            crash_notimpl(ql, f'TEE_AllocateTransientObject unknown object type!! {hex(objectType)}')
+            return
         ql.emu_stop()
 
 
@@ -90,7 +102,8 @@ def TEE_ResetTransientObject(ql:Qiling, hook_data):
     ql.log.info(f'TEE_ResetTransientObject: ')
     if para_object not in handle2obj:
         ql.log.error(f'TEE_ResetTransientObject: called with {hex(para_object)} not in {handle2obj}')
-        ql.emu_stop()
+        crash(ql, func_name)
+        return
     obj = handle2obj[para_object]
     # @TODO: In any case, the function resets the key usage of the container to 0xFFFFFFFFF
     for attr in obj.attrs:
@@ -105,7 +118,8 @@ def TEE_FreeTransientObject(ql:Qiling, hook_data):
     para_object = params['object']
     if para_object not in handle2obj:
         ql.log.error(f'TEE_FreeTransientObject: called with {hex(para_object)} not in {handle2obj}')
-        ql.emu_stop()
+        crash(ql, func_name)
+        return
     obj = handle2obj[para_object]
     for attr in obj.attrs:
         del(attr)
@@ -128,9 +142,13 @@ def TEE_InitRefAttribute(ql:Qiling, hook_data):
         ql.log.error(f'TEE_InitRefAttribute: attributeID {hex(para_attributeID)} not consistent')
         ql.emu_stop() 
 
-    ql.mem.write(para_attr, p32(para_attributeID))
-    ql.mem.write_ptr(para_attr + 4, para_buffer)
-    ql.mem.write_ptr(para_attr + ql.arch.pointersize, para_length)
+    try:
+        ql.mem.write(para_attr, p32(para_attributeID))
+        ql.mem.write_ptr(para_attr + 4, para_buffer)
+        ql.mem.write_ptr(para_attr + ql.arch.pointersize, para_length)
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, func_name)
+        return
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
@@ -148,9 +166,13 @@ def TEE_InitValueAttribute(ql:Qiling, hook_data):
         ql.log.error(f'TEE_InitRefAttribute: attributeID {hex(para_attributeID)} not consistent')
         ql.emu_stop() 
 
-    ql.mem.write(para_attr, p32(para_attributeID))
-    ql.mem.write_ptr(para_attr + 4, para_a, 4)
-    ql.mem.write(para_attr + 8, para_b, 4)
+    try:
+        ql.mem.write(para_attr, p32(para_attributeID))
+        ql.mem.write_ptr(para_attr + 4, para_a, 4)
+        ql.mem.write(para_attr + 8, para_b, 4)
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, func_name)
+        return
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def TEE_CopyObjectAttributes1(ql:Qiling, hook_data):

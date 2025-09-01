@@ -55,10 +55,6 @@ def write_bigint(ql: Qiling, ptr: int, val: int, dest_obj: BigInt):
     return True
 
 def bigint_to_int(ql, ptr):
-    if ptr not in BIGINTS:
-        ql.log.critical(f"BigInt at {hex(ptr)} not initialized!")
-        ql.arch.regs.arch_pc = CRASH_PC
-        return 0
     bigIntObj = BIGINTS[ptr]
     raw_bytes = ql.mem.read(ptr, bigIntObj.size * 4)
     return int.from_bytes(raw_bytes, "little", signed=True)

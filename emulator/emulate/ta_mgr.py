@@ -2,7 +2,7 @@ from qiling import Qiling
 import importlib
 from qiling.extensions.afl import ql_afl_fuzz
 from qiling.extensions import pipe
-
+import unicorn
 from pwn import *
 from . import gp_api
 from .gp.utils.param import TEE_Param_Memref, TEE_Param_value
@@ -14,6 +14,8 @@ from .params import *
 from .gp.utils.err import *
 from .gp.utils.param import *
 from .emulator_no_loader import fixup_got, mitee_setup, hook_ta_dl, hook_ta_custom
+from .common import CRASH_PC, NOTIMPL_PC
+
 
 def parse_msg(msg):
     f = int(msg[0])
@@ -68,6 +70,8 @@ class TAEMU():
         self.curr_params = None
         self.session_counter = 0
         self.crash_on_not_implemented = False
+        if "TAEMU_CRASH_NOTIMPL" in os.environ:
+            self.crash_on_not_implemented = True
         self.sessions = []
         self._debugger = ql._debugger 
 
@@ -518,8 +522,6 @@ class TAEMU():
         if session is None:
             self.ql.log.error(f"unknown session {sid}")
             return TEE_ERROR_BAD_STATE
-        
-        self.ql.os.fcall.cc.setRawParam(0, session.session_id_mem)
 
         def default_place_input_callback(ql: Qiling, input: bytes, _: int):
             print(f"Placing input: {input}")
@@ -546,10 +548,25 @@ class TAEMU():
             module.__package__ = __package__
             spec.loader.exec_module(module)
             place_input_callback = getattr(module, "place_input_callback")
+            if hasattr(module, "init_fuzz"):
+                init_fuzz = getattr(module, "init_fuzz")
+                init_fuzz(self, session)
+
+        def crash_validation(ql: Qiling, result: int, input_bytes: bytes, round: int) -> bool:
+            print("crash callback: ", result)
+            if ql.arch.regs.arch_pc == CRASH_PC or ql.arch.regs.arch_pc == NOTIMPL_PC: 
+                return True
+            if result == 6:
+                return True
+            #if ql.arch.regs.arch_pc not in exit_addr:
+                #return True
+            return False
 
         def start_afl(_ql: Qiling):
             print("starting afl")
-            ql_afl_fuzz(_ql, input_file=input_file, place_input_callback=place_input_callback, exits=exit_hooks)
+            ql_afl_fuzz(_ql, input_file=input_file, place_input_callback=place_input_callback, exits=exit_hooks, validate_crash_callback=crash_validation, always_validate=True)
+        
+        self.ql.os.fcall.cc.setRawParam(0, session.session_id_mem)
 
         if fuzz_replay:
             self.ql._debugger = self._debugger
@@ -558,6 +575,7 @@ class TAEMU():
                 exit_hooks.append(self.ql.hook_address(pivot, e, user_data="TA_InvokeCommandEntryPoint"))
         else:
             self.ql.hook_address(callback=start_afl, address=self.TA_InvokeCommandEntryPoint_start)
+
 
         self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)
         ret = self.ql.os.fcall.cc.getReturnValue()
