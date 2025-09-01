@@ -84,7 +84,14 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
     op.params[1].tmpref.size =  0x100; 
     op.params[0].value.a = 4;
     op.params[0].value.b = 4;
-   
+  
+	memset(mem_area2, 0x41, 0x90);
+        //((char*)mem_area2)[0x20] = 0;
+    
+    if (pthread_create(&tid, NULL, mod_thread, mem_area2) != 0) {
+        perror("pthread_create failed");
+        return;
+    } 
 #else
     void* mem_area1 = allocate_param_mem(context, 0x1000);
     void* mem_area2 = allocate_param_mem(context, 0x1000);

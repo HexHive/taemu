@@ -18,39 +18,22 @@ void (*TEEC_CloseSession_impl)(TEEC_Session*);
 TEEC_Result (*TEEC_InvokeCommand_impl)(TEEC_Session*,uint32_t,TEEC_Operation*,uint32_t*);
 TEEC_Result (*TEEC_RegisterSharedMemory_impl)(TEEC_Context*, TEEC_SharedMemory*);
 
-void cleanup_shm(){
-#if EMULATE
-        system("ipcrm -M 0x13337");
-        system("ipcrm -M 0x13338");
-        system("ipcrm -M 0x13339");
-        system("ipcrm -M 0x1333a");
-#endif
-}
-
 void send_req(TEEC_Context *context, TEEC_Session *session)
 {
     void* mem_area1 = allocate_param_mem(context, 0x1000);
-    void* mem_area2 = allocate_param_mem(context, 0x1000);
-    void* mem_area3 = allocate_param_mem(context, 0x3000);
     
     uint32_t err_origin;
     TEEC_Operation op;
     memset(&op, 0, sizeof(op));
-    op.paramTypes = TEEC_PARAM_TYPES(TEEC_VALUE_INOUT,TEEC_MEMREF_TEMP_INPUT,TEEC_MEMREF_TEMP_INPUT, TEEC_MEMREF_TEMP_OUTPUT);
+    op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INOUT,TEEC_NONE, TEEC_NONE, TEEC_NONE);
     
 	printf("params: 0x%lx\n", op.paramTypes);
-    op.params[3].tmpref.buffer = mem_area1;  
-    op.params[3].tmpref.size =  0x370; 
-    op.params[1].tmpref.buffer = mem_area2; 
-    op.params[1].tmpref.size =  0x100; 
-    op.params[2].tmpref.buffer = mem_area3; 
-    op.params[2].tmpref.size =  0x3000; 
-    op.params[0].value.a = 4;
-    op.params[0].value.b = 4;
+    op.params[0].tmpref.buffer = mem_area1; 
+    op.params[0].tmpref.size =  0x8; 
 
-	memset(mem_area3, 'A', 0x300);	
+	memset(mem_area1, 'A', 0x300);	
 
-    TEEC_Result res = TEEC_InvokeCommand_impl(session, 0x100c, &op, &err_origin);
+    TEEC_Result res = TEEC_InvokeCommand_impl(session, 0x105, &op, &err_origin);
 	printf("TEEC_Result: %x origin: err_origin: %x\n", res, err_origin);
 
 }
@@ -58,7 +41,7 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
 
 int main(int argc, char **argv)
 {
-    char* ta = "377ee4e8-af0e-474f-a9d636a9268fe85c";
+    char* ta = "f13010e0-2ae1-11e5-896a0002a5d5c51d";
     TEEC_UUID *uuid = teegris_uuid(ta);
 
     TEEC_Context context;
@@ -66,7 +49,6 @@ int main(int argc, char **argv)
     uint32_t err_origin;
     TEEC_Result res;
 
-	cleanup_shm();
     load_functions();
 
     // Initialize context
@@ -87,21 +69,6 @@ int main(int argc, char **argv)
 
     // write banner
     printf("[+] sending query...\n");
-    send_req(&context, &session);
-    send_req(&context, &session);
-    send_req(&context, &session);
-    send_req(&context, &session);
-    send_req(&context, &session);
-    send_req(&context, &session);
-    send_req(&context, &session);
-    send_req(&context, &session);
-    send_req(&context, &session);
-    send_req(&context, &session);
-    send_req(&context, &session);
-    send_req(&context, &session);
-    send_req(&context, &session);
-    send_req(&context, &session);
-    send_req(&context, &session);
     send_req(&context, &session);
     send_req(&context, &session);
     printf("[+] done...\n");

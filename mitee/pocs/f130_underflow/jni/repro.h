@@ -260,8 +260,6 @@ TEEC_Result TEEC_RegisterSharedMemory_emulate(TEEC_Context* context, TEEC_Shared
     uint32_t shm_size = (p->size % PAGE_SIZE == 0)?(p->size):(p->size - (p->size % PAGE_SIZE) + PAGE_SIZE);
     int shmid = shmget(shm_key, shm_size, 0666 | IPC_CREAT);
     if (shmid == -1) {
-		puts("fuck?");
-		perror("shmget");
         emu_err("shmget");
     }
 
@@ -455,7 +453,6 @@ void* allocate_param_mem(TEEC_Context* context, int mem_size)
     
     int shmid = shmget(shm_key, shm_size, 0666 | IPC_CREAT);
     if (shmid == -1) {
-		perror("shmget!");
         emu_err("shmget");
     }
     void* shared_memory = shmat(shmid, NULL, 0);

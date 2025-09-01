@@ -2,6 +2,7 @@
 
 export AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
 export AFL_SKIP_CPUFREQ=1
+export AFL_FORKSRV_INIT_TMOUT=99999
 
 rm rootfs/*ta
 rm rootfs/*json
@@ -39,9 +40,9 @@ if [ -z "$2" ]; then
     fi 
 
     if [ -d "$1" ]; then
-        afl-fuzz -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")"
+        afl-fuzz -t 2000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")"
     else 
-        afl-fuzz -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ "rootfs/$(basename "$ta")"
+        afl-fuzz -t 2000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ "rootfs/$(basename "$ta")"
     fi
 else 
     if [ -d "$1" ]; then

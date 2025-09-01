@@ -69,6 +69,7 @@ class TAEMU():
         self.exit_non_implemented = None
         self.curr_params = None
         self.session_counter = 0
+        self.init_fuzz = False
         self.crash_on_not_implemented = False
         if "TAEMU_CRASH_NOTIMPL" in os.environ:
             self.crash_on_not_implemented = True
@@ -238,7 +239,7 @@ class TAEMU():
                     params_mem_read += 8
             elif isinstance(param, MemRefParam):
                 pybuf = self.ql.mem.read_ptr(params_mem_read)
-                param.buf = self.ql.mem.read(pybuf, param.size)
+                param.buf = bytes(self.ql.mem.read(pybuf, param.size))
                 self.ql.mem.unmap(pybuf, (param.size + 0xFFF) & ~0xFFF )
                 params_mem_read += self.ql.arch.pointersize * 2
             elif isinstance(param, NoneParam):
@@ -539,6 +540,7 @@ class TAEMU():
 
             return True
 
+        init_fuzz = None
         if fuzz_harness is None:
             place_input_callback = default_place_input_callback
         else:
@@ -550,7 +552,6 @@ class TAEMU():
             place_input_callback = getattr(module, "place_input_callback")
             if hasattr(module, "init_fuzz"):
                 init_fuzz = getattr(module, "init_fuzz")
-                init_fuzz(self, session)
 
         def crash_validation(ql: Qiling, result: int, input_bytes: bytes, round: int) -> bool:
             print("crash callback: ", result)
@@ -563,9 +564,13 @@ class TAEMU():
             return False
 
         def start_afl(_ql: Qiling):
+            if fuzz_replay:
+                return
+            if self.init_fuzz:
+                return
             print("starting afl")
             ql_afl_fuzz(_ql, input_file=input_file, place_input_callback=place_input_callback, exits=exit_hooks, validate_crash_callback=crash_validation, always_validate=True)
-        
+
         self.ql.os.fcall.cc.setRawParam(0, session.session_id_mem)
 
         if fuzz_replay:
@@ -576,6 +581,10 @@ class TAEMU():
         else:
             self.ql.hook_address(callback=start_afl, address=self.TA_InvokeCommandEntryPoint_start)
 
+        if init_fuzz is not None:
+            self.init_fuzz = True
+            init_fuzz(self, sid)
+            self.init_fuzz = False
 
         self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)
         ret = self.ql.os.fcall.cc.getReturnValue()
