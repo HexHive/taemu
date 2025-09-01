@@ -77,3 +77,27 @@ interact with phone:
 adb push poc /data/local/tmp
 adb shell /data/local/tmp/poc
 ```
+
+## Fuzzing
+
+setup a folder with the following file in  `<tee>/harness/`
+
+`harness.py`: the callback to place fuzzing input, see `beanpod/harness/0811_test/harness.py` for an example.
+`in`: (optional) the input seed directory
+symbolic link to the target ta `ln -s ../../tas/<target-ta>.ta .`
+symbolic link to the target ta json `ln -s ../../tas/<target-ta>.json .`
+
+afterwards run the fuzzer with: 
+
+`./fuzz.sh <tee>/harness/<harness-folder>`
+
+replay seeds with:
+
+`./fuzz.sh <tee>/harness/<harness-folder> <path-to-seed>`
+
+for gdb:
+`./fuzz.sh <tee>/harness/<harness-folder> <path-to-seed> -g`
+
+# TODO
+
+Bump afl++ / unicornAfl to version with cmplog support

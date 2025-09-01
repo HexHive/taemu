@@ -266,7 +266,7 @@ class TAEMU():
         for e in self.TA_CloseSessionEntryPoint_end:
             self.ql.hook_address(pivot, e, user_data="TA_CloseSessionEntryPoint_end")
 
-        self.ql._debugger = self._debugger
+        #self.ql._debugger = self._debugger
 
         self.ql.os.fcall.cc.setRawParam(0, session.sessionContext)
         self.ql.run(begin=self.TA_CloseSessionEntryPoint_start) 
@@ -280,7 +280,7 @@ class TAEMU():
         for e in self.TA_DestroyEntryPoint_end:
             self.ql.hook_address(pivot, e, user_data="TA_CloseSessionEntryPoint_end")
 
-        self.ql._debugger = self._debugger
+        #self.ql._debugger = self._debugger
 
         self.ql.run(begin=self.TA_DestroyEntryPoint_start)
 
@@ -486,7 +486,7 @@ class TAEMU():
                 return
         self.DestroyEntryPoint()
 
-    def start_fuzz(self, input_file, fuzz_harness=None):
+    def start_fuzz(self, input_file, fuzz_harness=None, fuzz_replay=False):
 
         ret = self.CreateEntryPoint()
         if( ret != TEE_SUCCESS ):
@@ -498,6 +498,7 @@ class TAEMU():
             self.ql.log.warning(f'[////TA_OpenSessionEntryPoint////] return != TEE_SUCCESS {hex(ret)}')
             return
 
+        exit_addr = []
         exit_hooks = []
         sid = new_session.session_id
         cmd = 0
@@ -506,7 +507,7 @@ class TAEMU():
         # ret = self.InvokeCommand(sid, cmd, ptypes, command_params)
 
         for e in self.TA_InvokeCommandEntryPoint_end:
-            exit_hooks.append(e)
+            exit_addr.append(e)
         self.ql.log.debug(f"TEEC_InvokeCommand {sid} {cmd} {ptypes:#0x}")
         session = None
         for s in self.sessions:
@@ -538,7 +539,7 @@ class TAEMU():
         if fuzz_harness is None:
             place_input_callback = default_place_input_callback
         else:
-            # import shit$
+            # import shit
             spec = importlib.util.spec_from_file_location(os.path.basename(fuzz_harness)[:-3], os.path.abspath(fuzz_harness))
             module = importlib.util.module_from_spec(spec)
             module.__package__ = __package__
@@ -549,7 +550,13 @@ class TAEMU():
             print("starting afl")
             ql_afl_fuzz(_ql, input_file=input_file, place_input_callback=place_input_callback, exits=exit_hooks)
 
-        self.ql.hook_address(callback=start_afl, address=self.TA_InvokeCommandEntryPoint_start)
+        if fuzz_replay:
+            self.ql._debugger = self._debugger
+            place_input_callback(self.ql, open(input_file, 'rb').read(), -1)
+            for e in exit_addr:
+                exit_hooks.append(self.ql.hook_address(pivot, e, user_data="TA_InvokeCommandEntryPoint"))
+        else:
+            self.ql.hook_address(callback=start_afl, address=self.TA_InvokeCommandEntryPoint_start)
 
         self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)
         ret = self.ql.os.fcall.cc.getReturnValue()
@@ -558,7 +565,7 @@ class TAEMU():
         for e in exit_hooks:
             self.ql.hook_del(e)
         exit_hooks = []
-
+        self.ql.debugger = False
         self.CloseSession(sid)
 
         self.DestroyEntryPoint()

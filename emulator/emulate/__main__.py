@@ -50,6 +50,12 @@ def setup_args():
         default=None,
     )
     parser.add_argument(
+        "--fuzz_replay",
+        required=False,
+        help="path to fuzz replay seed",
+        default=None,
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -140,6 +146,10 @@ if __name__ == "__main__":
         ql.log.info(f"[{ta_name}] fuzz start")
         emu.start_fuzz(args.fuzz, args.fuzz_harness)
         ql.log.info(f"[{ta_name}] fuzz end")
+    if args.fuzz_replay:
+        ql.log.info(f"[{ta_name}] fuzz replay start")
+        emu.start_fuzz(args.fuzz_replay, args.fuzz_harness, fuzz_replay=True)
+        ql.log.info(f"[{ta_name}] fuzz replay end")
     else:
         ql.log.info(f"[{ta_name}] emulation start")
         emu.start_interactive()
