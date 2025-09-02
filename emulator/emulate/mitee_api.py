@@ -10,7 +10,7 @@ from unicorn import UC_PROT_READ, UC_PROT_WRITE
 import time as pytime
 from .common import crash
 
-from .gp_api import TEE_LogvPrintf, TEE_LogPrintf, TEE_MemCompare
+from .gp_api import TEE_LogvPrintf, TEE_LogPrintf, TEE_MemCompare, malloc, free
 
 def zx_check_memory_access_rights(ql: Qiling, hook_data):
     ql.log.info(
@@ -42,3 +42,13 @@ def TEE_KMGetHmacKey(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+def OPENSSL_memory_alloc(ql: Qiling, hook_data):
+    malloc(ql, hook_data)
+
+def OPENSSL_memory_free(ql: Qiling, hook_data):
+    free(ql, hook_data)
+
+def localtime(ql: Qiling, hook_data):
+    t = ql.mem.map_anywhere(9*4)
+    ql.os.fcall.cc.setReturnValue(t)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr

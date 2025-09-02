@@ -50,7 +50,7 @@ def GP_params_setup(
 
 
 def default_func(ql: Qiling, hook_data):
-    ql.log.info(f"{hook_data.func_name} called, not implemented!")
+    ql.log.info(f"{hook_data.func_name} called, not implemented! lr: {hex(ql.arch.regs.lr)}")
     if hook_data.emu.crash_on_not_implemented:
         ql.arch.regs.arch_pc = NOTIMPL_PC
     else:
@@ -347,6 +347,39 @@ def TEE_MemCompare(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+def strcmp(ql: Qiling, hook_data):
+    params = ql.os.resolve_fcall_params({"str1": POINTER, "str2": POINTER})
+    str1 = params["str1"]
+    str2 = params["str2"]
+
+    hook_data.emu.update_shm(str1)
+    hook_data.emu.update_shm(str2)
+    try:
+        content_1 = read_c_str(ql, str1) 
+        content_2 = read_c_str(ql, str2)
+    except unicorn.unicorn_py3.unicorn.UcError as e:
+        crash(ql, hook_data.func_name) 
+        return
+
+    if not asan.is_access_valid(ql, hook_data.emu.HEAP, str1, len(content_1), 
+                                hook_data.func_name, is_write=False):
+        return
+    if not asan.is_access_valid(ql, hook_data.emu.HEAP, str2, len(content_2), 
+                                hook_data.func_name, is_write=False):
+        return
+    ret = 0
+    
+    ql.log.info(f"{hook_data.func_name} compare {hex(str1)} with {hex(str2)}")
+    for i in range(0, len(content_1)):
+        if content_1[i] > content_2[i]:
+            ret = 1
+            break
+        elif content_1[i] < content_2[i]:
+            ret = -1
+            break
+
+    ql.os.fcall.cc.setReturnValue(ret)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def TEE_GenerateRandom(ql: Qiling, hook_data):
     params = ql.os.resolve_fcall_params(

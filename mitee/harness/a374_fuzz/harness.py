@@ -4,17 +4,17 @@ from pwn import *
 from qiling import Qiling
 
 def place_input_callback(ql: Qiling, input: bytes, _: int):
-	print(f"377e stack ov custom harness!!!! Placing input: {input}")
+	print(f"e97c custom harness!!!! Placing input: {input}")
 
-	if len(input) < 4:
+	if len(input) < 0x1c:
 		return False
 
 	ptypes = 0
 	command_params = []
-	command_params.append(ValueParam(len(input),len(input)))
 	command_params.append(MemRefParam(input,len(input)))
-	command_params.append(MemRefParam(bytes(40),40))
+	command_params.append(ValueParam(0x1234,0x1234))
 	command_params.append(MemRefParam(bytes(0x1000),0x1000))
-	ptypes= 0x6553
-	ret, params_mem = setup_params_fuzz(ql, 0x100c, ptypes, command_params) # assume the session is already set
+	command_params.append(NoneParam())
+	ptypes= 0x537
+	ret, params_mem = setup_params_fuzz(ql, 0x1, ptypes, command_params) # assume the session is already set
 	return True
