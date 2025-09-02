@@ -1,47 +1,36 @@
-# 4 byte heap buffer overflow in the keyinstall (08110000000000000000000000000000) trusted application
+# Double Fetch leading to stack overflow in the 377ee4e8-af0e-474f-a9d636a9268fe85c mitee trusted application
 
-command id 0x1 in the TA triggers the `query_drmkey_impl` function, which parses the user's input buffer, iterates over the keyblocks and writes 
-the read keyIds to the output buffer.
+Command id 0x100b of the TA exposes the `has_auth_already` function, whose second argument is params[1].memref.buf.
 
-The output buffer is allocated in `TA_InvokeCommandEntryPoint` like this: 
-```
-output_buffer = TEE_Malloc(params[1].size, 0);
-```
-
-The output buffer and `params[1].size` is then passed to the `query_drmkey_impl` function.
-
-The function reads from the input buffer in a loop and for each iteration the `keyid` is written to the output buffer. 
-There is a check prevent oob writes in the output buffer, however it allows an oob write of 4 bytes.
+The function then call `combine_file_name` with a stack buffer as the first argument and the attacker controlled buffer as the second:
 
 ```
-  if (out_buf_size < iteration_index << 2) {
-    msee_ta_printf_va("[KI_TA] ERROR:");
-    msee_ta_printf_va("Corruption error: Exceeded keytype size");
-    msee_ta_printf_va("\n");
-    return 0xffff0000;
-  }
-  *(int *)(out_buf + iteration_index * 4) = keyid;
+has_auth_already(void* memref_buf0, void* memref_buf1) {
+	char file_name[0x80];
+	unsigned int out_len= 0x80;
+	...
+	combine_file_name(..., memref_buf1, file_name, &out_len);
+	...
+}
 ```
 
-Note that if the `iteration_index*4` is exactly equal to `out_buf_size` then the check passes but the keyid will be written 
-at `out_buf + out_buf_size` which leads to a heap overflow of 4 bytes out of bounds.
+The `combine_file_name` function has a double fetch vulnerability. It first obtains the length of string from the shared memory with `strlen` checks if the length is ok and the recalculates `strlen` again which is then used in `memmove` to the stack buffer.
+This is unsafe as the `memref_buf1` is shared between the CA and TA. A malicious CA can modify the buffer inbetween the first and second strlen such that the check for the first strlen passes but then the second strlen results in a length long enough for a stack buffer overflow.
 
-To fix the bug the check should be small equal: 
-``` 
-if (out_buf_size <= iteration_index << 2) {
+```
+combine_file_name(char* sth, char* memref_buf1, char* file_name, unsigned int* max_len){
+	if(strlen(memref_buf1)+strlen(sth) > *max_len){ //first fetch start of double fetch race window
+		printf("[%s:%s][%s:%d]short path_name\n","SoterApp","ERROR","combine_file_name",0xb);
+		return 0xffff0006;
+	}	
+	int sth_len = strlen(sth);
+	memmove(file_name, sth, sth_len);
+	int buf1_len = strlen(memref_buf1); // second fetch, attacker can change contents of memref_buf1 inbetween first and second strlen call
+	memmove(file_name+sth_len, memref_buf1, buf1_len); //stack buffer overflow
+	...
+}
 ```
 
-The attached poc simply allocates a chunk of size 4 and writes to offset 4 in this chunk (oob write). 
+## Impact
 
-## Reproduce
-
-The TA is from the Redmi 13 (OS2.0.201.0.VNTMIXM_15.0). 
-compile and run the poc:
-```
-$(Android-NDK)/29.0.13599879/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android34-clang -ggdb -O0 ta_client.c -o ta_client
-adb push ta_client /data/local/tmp
-adb shell
-su
-/data/local/tmp/ta_client
-```
-
+An attacker that can interact with `/dev/teei0` can trigger a stack buffer overflow, in combination with a stack canary leak this can be used to achieve arbitrary code execution

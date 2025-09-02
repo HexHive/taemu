@@ -120,7 +120,7 @@ def mitee_setup(ql: Qiling, ta_path, ta_base):
     TLS_MEM_BASE = 0xeee000
     THREAD_STACK_BASE = 0xf00000 
     THREAD_STACK_SIZE = 0x10000
-    CANARY = 0xcafecafecafecafe
+    CANARY = 0xcacacacacacacaca
     ql.mem.map(TLS_MEM_BASE, 0x1000, UC_PROT_READ | UC_PROT_WRITE, info="[fuchsia] tls")
     ql.mem.map(THREAD_STACK_BASE, THREAD_STACK_SIZE, UC_PROT_READ | UC_PROT_WRITE, info="[fuchsia] thread-stack")
     THREAD_STACK_ADDR = THREAD_STACK_BASE + THREAD_STACK_SIZE - 0x10

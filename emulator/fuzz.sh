@@ -3,6 +3,7 @@
 export AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
 export AFL_SKIP_CPUFREQ=1
 export AFL_FORKSRV_INIT_TMOUT=99999
+export AFL_AUTORESUME=1
 
 rm rootfs/*ta
 rm rootfs/*json
@@ -19,7 +20,7 @@ if [ -d "$1" ]; then
     harness="$1/harness.py"
     ta=$(ls -1 "$1"/*.ta 2>/dev/null | head -n 1)
     fuzz_in="$1/in"
-    fuzz_out="$1/out_$(date +%s)"
+    fuzz_out="$1/out"
 else
     ta="$1"
     fuzz_in="/tmp/in"
@@ -37,6 +38,10 @@ if [ -z "$2" ]; then
     if [ ! -e "$fuzz_in" ]; then
         mkdir $fuzz_in
         echo "foo" > "$fuzz_in/foo"
+    fi 
+
+	if [ ! -e "$fuzz_out" ]; then
+        mkdir $fuzz_out
     fi 
 
     if [ -d "$1" ]; then

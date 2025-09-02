@@ -29,7 +29,7 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
     
 	printf("params: 0x%lx\n", op.paramTypes);
     op.params[0].tmpref.buffer = mem_area1; 
-    op.params[0].tmpref.size =  0x8; 
+    op.params[0].tmpref.size =  0x1; 
 
 	memset(mem_area1, 'A', 0x300);	
 
