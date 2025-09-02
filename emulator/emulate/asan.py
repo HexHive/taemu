@@ -12,11 +12,11 @@ def is_access_valid(ql, heap, address, size, func_name, is_write=False):
     access = "write" if is_write else "read"
     for redzone_start, redzone_size in heap["redzones"].items():
         if address > redzone_start and address < redzone_start + redzone_size:
-            ql.log.critical(f'=================[pc: {ql.arch.regs.arch_pc:#0x}] [{func_name}] out-of-bound {access} on address {address:#x}, size {size:#x}!!')
+            ql.log.critical(f'=================[lr: {ql.arch.regs.lr:#0x}] [{func_name}] out-of-bound {access} on address {address:#x}, size {size:#x}!!')
             ql.arch.regs.arch_pc = CRASH_PC
             return False
         if address+size > redzone_start and address <= redzone_start:
-            ql.log.critical(f'=================[pc: {ql.arch.regs.arch_pc:#0x}] [{func_name}] out-of-bound {access} on address {address:#x}, size {size:#x}!!')
+            ql.log.critical(f'=================[lr: {ql.arch.regs.lr:#0x}] [{func_name}] out-of-bound {access} on address {address:#x}, size {size:#x}!!')
             ql.arch.regs.arch_pc = CRASH_PC
             return False
     return True
@@ -25,7 +25,7 @@ def invalid_region_read(ql:Qiling, access: int, address: int, size: int, value: 
     # only read accesses are expected here
     assert access == UC_MEM_READ
 
-    ql.log.critical(f'=================[pc: {ql.arch.regs.arch_pc:#0x}]out-of-bound read on address {address:#x}, size {size:#x}!!')
+    ql.log.critical(f'=================[lr: {ql.arch.regs.lr:#0x}]out-of-bound read on address {address:#x}, size {size:#x}!!')
     ql.arch.regs.arch_pc = CRASH_PC
     #ql.emu_stop()
 
@@ -33,13 +33,13 @@ def invalid_region_write(ql:Qiling, access: int, address: int, size: int, value:
     # only read accesses are expected here
     assert access == UC_MEM_WRITE
 
-    ql.log.critical(f'=================[pc: {ql.arch.regs.arch_pc:#0x}]out-of-bound write on address {address:#x}, size {size:#x}!!')
+    ql.log.critical(f'=================[lr: {ql.arch.regs.lr:#0x}]out-of-bound write on address {address:#x}, size {size:#x}!!')
     ql.arch.regs.arch_pc = CRASH_PC
     #ql.emu_stop()
 
 def unmmaped_region_access(ql:Qiling, access: int, address: int, size: int, value: int) -> None:
 
-    ql.log.critical(f'=================[pc: {ql.arch.regs.arch_pc:#0x}]uaf on address {address:#x}, size {size:#x}!!')
+    ql.log.critical(f'=================[lr: {ql.arch.regs.lr:#0x}]uaf on address {address:#x}, size {size:#x}!!')
     ql.arch.regs.arch_pc = CRASH_PC
     #ql.emu_stop()
 

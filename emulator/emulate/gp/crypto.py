@@ -74,7 +74,7 @@ def TEE_DigestUpdate(ql:Qiling, hook_data):
     param_chunk = params['chunk']
     param_chunkSize = params['chunkSize']
 
-    ql.log.info(f"TEE_DigestUpdate: ")
+    ql.log.info(f"TEE_DigestUpdate: {hex(param_chunk)} {hex(param_chunkSize)}")
 
     try:
         if param_operation not in id2opration:
