@@ -1,32 +1,20 @@
-# Stack Buffer Overflow in the soter (377ee4e8-af0e-474f-a9d636a9268fe85c) mitee trusted application
+# Parameter Buffer underflow in the f13010e0-2ae1-11e5-896a0002a5d5c51d mitee trusted application
 
 ## Details
 
-Command id 0x100a in the TA triggers the `remove_auth_key` function, which copies data to a stack buffer using the 
-attacker controlled buffer and size. This directly leads to a stack overflow if the attacker invokes the TA with 
-a buffer of size > 0x108.
-
-The relevant pseudocode of the vulnerable function:
-
-`TA_InvokeCommand`
+In command id 0x105 of the TA, if a buffer (`params[0].memref`) with size < 4 is passed, this leads to a parameter buffer underflow.
 
 ```
-switch(cmd){
-	case 0x100a:
-		remove_auth_key(params[0].value.a, params[1].memref.buffer, params[1].memref.size);
+int out = commnd_dispatch(params[0].memref.buf,params[0].memref.size + -4);
+char* oob = (char *)(params[0].memref.buf + params[0].memref.size - 4); // points behind params[0].memref.buf if the size is < 4
+*oob = (char)out;
 ```
 
-`remove_auth_key:`
+This will always write 0xf6 somewhere behind the parameter buffer.
 
-```
-remove_auth_key(int a, void* b1, size_t s1){
-	char stack_buf[0x108]
-	...
-	printf("[%s:%s][%s:%d]==func enter==\n","SoterApp",&DAT_0010319c,"remove_auth_key",0x50a);
-	...
-	memmove(stack_buf, b1, s1); 
-}
-```
+## Impact
+
+Denial of service, a CA can crash the trusted application
 
 ## Reproduce
 
