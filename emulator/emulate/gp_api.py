@@ -50,7 +50,7 @@ def GP_params_setup(
 
 
 def default_func(ql: Qiling, hook_data):
-    ql.log.info(f"{hook_data.func_name} called, not implemented! lr: {hex(ql.arch.regs.lr)}")
+    ql.log.critical(f"{hook_data.func_name} called, not implemented! lr: {hex(ql.arch.regs.lr)}")
     if hook_data.emu.crash_on_not_implemented:
         ql.arch.regs.arch_pc = NOTIMPL_PC
     else:
@@ -182,9 +182,10 @@ def snprintf(ql: Qiling, hook_data):
         out_str = format_param % tuple(string_params)
         full_len = len(out_str)
         out_str = out_str[: n - 1]
-        out_str = out_str.encode() + b"\x00"
-        ql.log.info(f'{hook_data.func_name}: len: {hex(n)} "{out_str}" written to {hex(s)}')
-        asan.is_access_valid(ql, hook_data.emu.HEAP, s, len(out_str)+1, hook_data.func_name, is_write=True)
+        out_str = out_str.encode("latin-1") + b"\x00"
+        ql.log.info(f'{hook_data.func_name}: len: {hex(n)} "{out_str}" written to {hex(s)}, lr: {hex(ql.arch.regs.lr)}')
+        if not asan.is_access_valid(ql, hook_data.emu.HEAP, s, len(out_str), hook_data.func_name, is_write=True):
+            return
         ql.mem.write(s, out_str)
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, hook_data.func_name)
@@ -207,9 +208,10 @@ def sprintf(ql: Qiling, hook_data):
         string_params = [params[f"{i}"] for i in range(0, len(params))]
         out_str = format_param % tuple(string_params)
         full_len = len(out_str)
-        out_str = out_str.encode() + b"\x00"
+        out_str = out_str.encode('latin-1') + b"\x00"
         ql.log.info(f'{hook_data.func_name}: "{out_str}" written to {hex(s)}')
-        asan.is_access_valid(ql, hook_data.emu.HEAP, s, len(out_str)+1, hook_data.func_name, is_write=True)
+        if not asan.is_access_valid(ql, hook_data.emu.HEAP, s, len(out_str), hook_data.func_name, is_write=True):
+            return
         ql.mem.write(s, out_str)
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, hook_data.func_name)

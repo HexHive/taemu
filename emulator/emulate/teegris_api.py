@@ -46,3 +46,6 @@ def open(ql: Qiling, hook_data):
     fds[fd_counter] = path
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+def teegris_log_encrypt(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr

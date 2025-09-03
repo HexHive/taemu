@@ -1,4 +1,10 @@
 {
+	"inline": {
+		"teegris_log_encrypt": {
+			"addr": 150984,
+			"type": "stub"
+		}
+	},
     "TA_CreateEntryPoint_start": 105640,
     "TA_CreateEntryPoint_end": [105712],
     "TA_OpenSessionEntryPoint_start": 105796,

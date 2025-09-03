@@ -5,8 +5,8 @@ export AFL_SKIP_CPUFREQ=1
 export AFL_FORKSRV_INIT_TMOUT=99999
 export AFL_AUTORESUME=1
 
-rm rootfs/*ta
-rm rootfs/*json
+#rm rootfs/*ta
+#rm rootfs/*json
 
 if [ -z "$1" ]; then 
     echo "usage fuzzing ./fuzz.sh <path to ta>"

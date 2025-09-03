@@ -1,7 +1,7 @@
 #!/bin/bash
 
-rm rootfs/*ta
-rm rootfs/*json
+#rm rootfs/*ta
+#rm rootfs/*json
 
 v0="$1"
 v1="${v0::-3}" 
