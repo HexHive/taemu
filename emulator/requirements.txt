@@ -1,2 +1,4 @@
 pwntools
 pycryptodome
+colorama
+hexdump
