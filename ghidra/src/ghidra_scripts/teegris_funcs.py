@@ -76,7 +76,7 @@ def beanpod_find_GP():
     for func in funcs:
         ghidra_func = getGlobalFunctions(func)[0]
         returns = find_returns(ghidra_func)
-        out[f'{func}_start'] = ghidra_func.getEntryPoint().getOffset()
+        out[f'{func}_start'] = ghidra_func.getEntryPoint().getOffset()-0x100000
         out[f'{func}_end'] = returns 
 
     return out

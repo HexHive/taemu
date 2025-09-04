@@ -6,7 +6,7 @@ from .utils.persistent_object import *
 from .utils.err import *
 
 from .transient_objects import handle2obj
-from ..common import crash
+from ..common import crash, crash_notimpl
 import unicorn
 
 
@@ -137,6 +137,24 @@ def TEE_WriteObjectData(ql:Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+def TEE_SeekObjectData(ql: Qiling, hook_data):
+    func_name = hook_data.func_name
+    params = ql.os.resolve_fcall_params({'object': UINT, 'offset': UINT, 'whence': UINT})
+    para_object = params['object']
+    offset = params['offset']
+    whence = params['whence']
+
+    if offset == 0 and whence == 0:
+        ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+        ql.arch.regs.arch_pc = ql.arch.regs.lr
+        return
+    else: 
+        ql.log.warning(f'TEE_SeekObjectData not properly implemetned')
+        if hook_data.emu.crash_on_not_implemented:
+            crash_notimpl(ql, f'TEE_SeekObjectDat')
+            return
+        ql.emu_stop()
+
 
 def TEE_CloseObject(ql:Qiling, hook_data):
     func_name = hook_data.func_name
@@ -170,6 +188,9 @@ def TEE_CloseObject(ql:Qiling, hook_data):
     del(obj)
     
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def TEE_CloseAndDeletePersistentObject1(ql: Qiling, hook_data):
+    TEE_CloseAndDeletePersistentObject(ql, hook_data)
 
 def TEE_CloseAndDeletePersistentObject(ql:Qiling, hook_data):
     func_name = hook_data.func_name

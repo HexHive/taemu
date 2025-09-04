@@ -26,6 +26,12 @@ class HookData():
         self.func_name = func_name
 
 def get_api_impl(func_name):
+    if func_name == "write":
+        func_name = "_write"
+    if func_name == "open":
+        func_name = "_open"
+    if func_name == "close":
+        func_name = "_close"
     api_func = getattr(gp_api, func_name, None)
     if api_func is not None:
         return api_func
