@@ -93,6 +93,8 @@ if __name__ == "__main__":
         TEE = "beanpod"
     elif b"ld.so.1" in open(ta_path, "rb").read():
         TEE = "mitee"
+    elif b"ta_head" in open(ta_path, "rb").read():
+        TEE = "t6"
     if TEE == "":
         TEE = args.tee
 
@@ -127,6 +129,17 @@ if __name__ == "__main__":
             archtype=QL_ARCH.ARM64,
             verbose=v,
             env={"LD_LIBRARY_PATH": "/"},
+            profile="tee.ql"
+        )
+    elif TEE == "t6":
+        ql = Qiling(
+            [ta_path],
+            rootfs=os.path.join(DIR, "../rootfs/"),
+            ostype=QL_OS.LINUX,
+            archtype=QL_ARCH.ARM,
+            verbose=v,
+            thumb=True,
+            #env={"LD_LIBRARY_PATH": "rom"},
             profile="tee.ql"
         )
     else:

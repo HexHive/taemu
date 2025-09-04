@@ -14,6 +14,7 @@ from . import gp_api
 from . import beanpod_api
 from . import teegris_api
 from . import mitee_api
+from . import t6_api
 from .gp import bigint_ops, crypto, general_objects, persistent_objects, properties, session, transient_objects
 from unicorn.arm64_const import UC_ARM64_INS_MRS
 from unicorn import UC_PROT_READ, UC_PROT_WRITE
@@ -48,6 +49,9 @@ def get_api_impl(func_name):
     if api_func is not None:
         return api_func
     api_func = getattr(mitee_api, func_name, None)
+    if api_func is not None:
+        return api_func
+    api_func = getattr(t6_api, func_name, None)
     if api_func is not None:
         return api_func
     if func_name == "__stack_chk_fail":
@@ -111,6 +115,18 @@ def hook_ta_custom(ql: Qiling, ta_path, ta_elf:ELF, emu):
     ta_elf.address = ta_base
     ta_info = json.load(open(f"{ta_path[:-3]}.json", 'r'))
     if 'inline' in ta_info:
+        addr_map = defaultdict(list)
+        for func_name, info in ta_info['inline'].items():
+            addr_map[info["addr"]].append(func_name)
+        # Print functions that share the same addr
+        shared_funcs = False
+        for addr, funcs in addr_map.items():
+            if len(funcs) > 1:
+                print(f"Address {addr} is shared by: {', '.join(funcs)}")
+                shared_funcs = True
+        if shared_funcs:
+            print(f'fix the json, probably due to faulty decompilation')
+            exit(-1)
         for fname, info in ta_info['inline'].items():
             addr = info['addr']
             hook_type = info['type']

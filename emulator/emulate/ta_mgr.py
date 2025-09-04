@@ -376,6 +376,10 @@ class TAEMU:
 
     def CloseSession(self, sid):
         self.ql.log.debug(f"TA_CloseSessionEntryPoint {sid}")
+        if self.tee == "t6":
+            self.ql.log.warning(f"t6 CloseSessionEntryPoint not supported by emulator")
+            return
+
         session = None
         idx = 0
         for i, s in enumerate(self.sessions):
@@ -407,6 +411,9 @@ class TAEMU:
         self.log.info(
             f"[TA_DestroyEntryPoint] start @{self.TA_DestroyEntryPoint_start:#0x}"
         )
+        if self.tee == "t6":
+            self.ql.log.warning(f"t6 TA_DestroyEntryPoint not supported by emulator")
+            return
         for e in self.TA_DestroyEntryPoint_end:
             self.ql.hook_address(
                 pivot, e, user_data="TA_CloseSessionEntryPoint_end"

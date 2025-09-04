@@ -17,13 +17,19 @@ handler_cnt = 1
 
 FILE_PREFIX = "./emulate/files/"
 
+filepaths2tranobjs = {}
+
 def memory_alignment_round_up(addr, roundup):
     return addr - (addr % roundup) + roundup
 
 class perObject:
-    def __init__(self, flag, storageID, objectID, handler, iscreated, ql:Qiling) -> None:
+    def __init__(self, flag, storageID, objectID, handler, iscreated, para_attributes, ql:Qiling) -> None:
+        self.para_attributes = para_attributes
+        #TODO move handle objects into emulator...
         self.flag = flag
-        if all(b < 128 and b > 0x20  for b in objectID):
+        if objectID.endswith(b'\x00') and all(b < 128 and b > 0x20  for b in objectID):
+            self.objectID = objectID[:-1].decode('ascii')
+        elif all(b < 128 and b > 0x20  for b in objectID):
             self.objectID = objectID.decode('ascii')
         else:
             self.objectID = objectID.hex()
@@ -35,8 +41,10 @@ class perObject:
             return
         else:      
             if not os.path.exists(f"{FILE_PREFIX}{self.storageID}"): os.mkdir(f"{FILE_PREFIX}{self.storageID}")
+            if not os.path.exists(self.file_name):
+                open(self.file_name, 'w')
             if flag & TEE_DATA_FLAG_ACCESS_WRITE != 0:
-                self.file = open(self.file_name, 'wb')
+                self.file = open(self.file_name, 'rb+')
             else:
                 self.file = open(self.file_name, 'rb')
             ql.log.info(f"\topen file at {FILE_PREFIX+self.objectID}")
@@ -44,16 +52,22 @@ class perObject:
 
     def write(self, data, ql:Qiling):
         ql.log.info(f"\twrite to object: {data.hex()[:8]}{len(data)}")
-        open(self.file_name, 'wb').write(data)
+        self.file.write(data)
+        #open(self.file_name, 'wb').write(data)
 
     def read(self, size, ql:Qiling):
+        return self.file.read(size)
         return open(self.file_name, 'rb').read(size)
-    
+
+    def seek(self, offset, whence):
+        self.file.seek(offset, whence)
+
     def file_size(self, ql:Qiling):
         return os.path.getsize(self.file_name)
     
     def file_close(self, ql:Qiling):
         self.file.close()
+        pass
 
     def file_close_and_delete(self, ql:Qiling):
         self.file.close()

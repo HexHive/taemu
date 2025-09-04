@@ -1,4 +1,5 @@
 from enum import Enum
+import os
 from qiling import Qiling
 from Crypto.PublicKey import RSA  # provided by pycryptodome
 from Crypto.Util.number import size
@@ -11,6 +12,7 @@ class ObjectTypes(Enum):
     TEE_TYPE_RSA_KEYPAIR = 0xa1000030 
     TEE_TYPE_DATA = 0xA00000BF
     TEE_TYPE_AES = 0xA0000010
+    TEE_TYPE_HMAC_SHA256 = 0xA0000004
 
 handle2obj = {}
 
@@ -80,6 +82,48 @@ class AES_Obj(Object):
 
         self.initialized = True
         return TEE_SUCCESS
+
+class SHA256HMAC_Obj(Object):
+
+    class __AttributeTypes__(Enum):
+        TEE_ATTR_SECRET_VALUE = 0xC0000000
+
+    def __init__(self, size, ql):
+        super().__init__(size, ql)
+        self.obj_type = ObjectTypes.TEE_TYPE_HMAC_SHA256
+        self.key = None
+
+    def populate(self, attrs, attrsCount, ql:Qiling) -> int:
+        # The values of all attributes are copied into the object so that the attrs array and all the memory buffers it points to may be freed after this routine returns without affecting the object. Page 136. 2553
+
+        if attrsCount * 12 > self.maxSize:
+            ql.log.error(f'populate: attributes array too large: {hex(attrsCount * 0xc)} > {self.maxSize}')
+            ql.emu_stop()
+
+        parsed_attrs = self.parse_params(attrs, attrsCount, ql)
+
+        if len(parsed_attrs) != 1 or type(parsed_attrs[0])!=TEE_Ref_Attribute:
+            ql.log.error(f'populate: attrs error in AES_Obj')
+            ql.emu_stop()
+
+        self.key = bytes(ql.mem.read(parsed_attrs[0].buffer, parsed_attrs[0].length))
+        # ret = self.retrieve_rsa_params(parsed_attrs, ql)
+
+        # if ret != TEE_SUCCESS:
+        #     return ret
+
+        self.initialized = True
+        return TEE_SUCCESS
+    
+    def generateKey(self, keySize, params, paramCount, ql:Qiling) -> int:
+        key_buffer = ql.mem.map_anywhere(0x1000, minaddr=ATTRIBUTE_MEM, perms=3, info='TEE_Ref_Attribute') 
+        key = os.urandom(32)  # TEE_TYPE_HMAC_SHA256 allows keys up to 512 bits, but 256 bits is common
+
+        ql.mem.write(key_buffer, key)     
+        self.attrs[self.__AttributeTypes__.TEE_ATTR_SECRET_VALUE.value] = (key_buffer, 32) 
+
+        return TEE_SUCCESS
+    
 
 class RSA_KEYPAIR_Obj(Object):
 

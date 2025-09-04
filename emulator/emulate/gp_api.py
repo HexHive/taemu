@@ -91,6 +91,17 @@ def TEE_GetREETime(ql: Qiling, hook_data):
 def TEE_GetSystemTime(ql: Qiling, hook_data):
     TEE_GetREETime(ql, hook_data)
 
+#def TEE_GetTAPersistentTime(ql: Qiling, hook_data):
+    #TEE_GetREETime(ql, hook_data)
+
+#def TEE_SetTAPersistentTime(ql: Qiling, hook_data):
+    #ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    #ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def TEE_Wait(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
 def TEE_LogPrintf(ql: Qiling, hook_data):
     try:
         format_param = ql.os.resolve_fcall_params({"format": STRING})["format"]

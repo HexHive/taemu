@@ -40,6 +40,17 @@ def TEE_AllocateTransientObject(ql:Qiling, hook_data):
         # @TODO: error return value
         ql.os.fcall.cc.setReturnValue(0)
         ql.arch.regs.arch_pc = ql.arch.regs.lr
+    elif objectType == ObjectTypes.TEE_TYPE_HMAC_SHA256.value:
+        new_obj = SHA256HMAC_Obj(maxObjectSize, ql)
+        handle2obj[new_obj.handle] = new_obj
+        try:
+            ql.mem.write_ptr(para_object, new_obj.handle)
+        except unicorn.unicorn_py3.unicorn.UcError as e:
+            crash(ql, func_name)
+            return 
+        ql.log.info(f'\tallocated {ObjectTypes.TEE_TYPE_HMAC_SHA256.name} with {hex(maxObjectSize)} bytes at {hex(new_obj.handle)}, stored at {hex(para_object)}')
+        ql.os.fcall.cc.setReturnValue(0)
+        ql.arch.regs.arch_pc = ql.arch.regs.lr
     else:
         ql.log.error(f'TEE_AllocateTransientObject unknown object type!! {hex(objectType)}')
         if hook_data.emu.crash_on_not_implemented:
@@ -59,6 +70,7 @@ def TEE_GenerateKey(ql:Qiling, hook_data):
 
     ql.log.info(f'TEE_GenerateKey: ')
     if para_object not in handle2obj:
+        crash('asdfas')
         ql.log.error(f'TEE_GenerateKey: called with {hex(para_object)} not in {handle2obj}')
         ql.emu_stop()
     obj = handle2obj[para_object]

@@ -37,17 +37,13 @@ def TEE_CreatePersistentObject(ql:Qiling, hook_data):
         ql.log.info(f"\tobjectID: {objectID}")
 
         # open a handler
-        obj = perObject(para_flags, para_storageID, objectID, handler_cnt, True, ql)
+        obj = perObject(para_flags, para_storageID, objectID, handler_cnt, True, para_attributes, ql)
         handler_cnt += 1
         handler2perobj[obj.handler] = obj
 
-        if para_attributes != 0:
-            ql.log.error("Not implemented yet. Need refaction, as in, perObj and tranObj are both Obj")
-            ql.emu_stop()
-
         if para_initialDataLen != 0:
             data = ql.mem.read(para_initialData, para_initialDataLen)
-            obj.write(data, para_initialDataLen, ql)
+            obj.write(data, ql)
 
         ql.log.info(f"\tobject handler: {obj.handler}") 
         try:
@@ -144,6 +140,13 @@ def TEE_SeekObjectData(ql: Qiling, hook_data):
     offset = params['offset']
     whence = params['whence']
 
+    if para_object not in handler2perobj:
+        ql.log.error(f"{func_name}: {para_object} not in {handler2perobj}")
+        ql.emu_stop()
+
+    obj = handler2perobj[para_object]
+    obj.seek(offset, whence)
+
     if offset == 0 and whence == 0:
         ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
         ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -169,7 +172,6 @@ def TEE_CloseObject(ql:Qiling, hook_data):
         return 
 
     if para_object not in handler2perobj:
-
         if para_object in handle2obj:
             obj = handle2obj[para_object]
             for attr in obj.attrs:
