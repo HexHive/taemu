@@ -2,6 +2,8 @@ from qiling import Qiling
 from qiling.os.const import STRING, UINT, POINTER
 from .data import *
 import os
+from .object import filepaths2tranobjs, handle2obj
+from ...common import NOTIMPL_PC
 
 PERSISTENT_OBJECT_MEM = 0xaa00000
 
@@ -17,7 +19,7 @@ handler_cnt = 1
 
 FILE_PREFIX = "./emulate/files/"
 
-filepaths2tranobjs = {}
+
 
 def memory_alignment_round_up(addr, roundup):
     return addr - (addr % roundup) + roundup
@@ -25,7 +27,16 @@ def memory_alignment_round_up(addr, roundup):
 class perObject:
     def __init__(self, flag, storageID, objectID, handler, iscreated, para_attributes, ql:Qiling) -> None:
         self.para_attributes = para_attributes
-        #TODO move handle objects into emulator...
+        if self.para_attributes is not None:
+            for handle, obj in handle2obj:
+                if handle == self.para_attributes:
+                    self.connected_trans_obj = obj
+                    self.connected_trans_obj.persistent = True
+            if self.connected_trans_obj is None:
+                ql.log.warning(f'connected object {hex(self.para_attributes)} not found!!')
+                ql.emu.stop()
+        else:
+            self.connected_trans_obj = None
         self.flag = flag
         if objectID.endswith(b'\x00') and all(b < 128 and b > 0x20  for b in objectID):
             self.objectID = objectID[:-1].decode('ascii')
@@ -35,6 +46,10 @@ class perObject:
             self.objectID = objectID.hex()
         self.storageID = storageID
         self.file_name = f"{FILE_PREFIX}{self.storageID}/{self.objectID}"
+        if self.file_name in filepaths2tranobjs:
+            self.connected_trans_obj = filepaths2tranobjs[self.file_name]
+        if self.connected_trans_obj is not None:
+            filepaths2tranobjs[self.file_name] = self.connected_trans_obj
         ql.log.info(f"\tfile name: {self.file_name}")
         if not iscreated and not os.path.exists(self.file_name):
             self.file = None
@@ -52,10 +67,18 @@ class perObject:
 
     def write(self, data, ql:Qiling):
         ql.log.info(f"\twrite to object: {data.hex()[:8]}{len(data)}")
+        if self.connected_trans_obj is not None:
+            ql.log.warning(f'write on persistent object with connected transient object not implemented!!')
+            ql.arch.regs.arch_pc = NOTIMPL_PC
+            ql.emu.stop()
         self.file.write(data)
         #open(self.file_name, 'wb').write(data)
 
     def read(self, size, ql:Qiling):
+        if self.connected_trans_obj is not None:
+            ql.log.warning(f'read on persistent object with connected transient object not implemented!!')
+            ql.arch.regs.arch_pc = NOTIMPL_PC
+            ql.emu.stop()
         return self.file.read(size)
         return open(self.file_name, 'rb').read(size)
 
@@ -66,9 +89,17 @@ class perObject:
         return os.path.getsize(self.file_name)
     
     def file_close(self, ql:Qiling):
+        if self.connected_trans_obj is not None:
+            ql.log.warning(f'close on persistent object with connected transient object not implemented!!')
+            ql.arch.regs.arch_pc = NOTIMPL_PC
+            ql.emu.stop()
         self.file.close()
         pass
 
     def file_close_and_delete(self, ql:Qiling):
+        if self.connected_trans_obj is not None:
+            ql.log.warning(f'close_delete on persistent object with connected transient object not implemented!!')
+            ql.arch.regs.arch_pc = NOTIMPL_PC
+            ql.emu.stop()
         self.file.close()
         os.remove(self.file_name)

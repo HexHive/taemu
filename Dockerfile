@@ -3,6 +3,8 @@ FROM ubuntu:jammy
 RUN rm -f /etc/apt/apt.conf.d/docker-clean && \
     echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 
+#RUN sed -i 's/htt[p|ps]:\/\/archive.ubuntu.com\/ubuntu\//mirror:\/\/mirrors.ubuntu.com\/mirrors.txt/g' /etc/apt/sources.list
+
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && \
@@ -43,8 +45,6 @@ ENV PYTHONPATH=$PATH:/opt/afl
 ################################################################################
 # Debug tools (gef, ...)
 ################################################################################
-
-RUN wget -q https://raw.githubusercontent.com/bata24/gef/dev/install-uv.sh -O- | sh
 
 WORKDIR /srv/
 RUN useradd -u 1000 ctf

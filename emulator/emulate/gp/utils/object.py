@@ -15,7 +15,7 @@ class ObjectTypes(Enum):
     TEE_TYPE_HMAC_SHA256 = 0xA0000004
 
 handle2obj = {}
-
+filepaths2tranobjs = {}
 
 class Object:
     # @TODO: meaning of size, does it both include key size and attr size?? 
@@ -25,6 +25,7 @@ class Object:
         OBJECT_MEM += size - (size % 0x1000) + 0x1000
         self.maxSize = size
         self.initialized = False
+        self.persistent = False # track if this object is connected to a persistent object
         self.attrs = {}
 
     def parse_params(self, params, paramCount, ql:Qiling):
