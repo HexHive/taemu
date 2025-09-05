@@ -1,3 +1,5 @@
+import hmac
+import hashlib
 from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA  # provided by pycryptodome
 from Crypto.Cipher import PKCS1_v1_5
@@ -197,4 +199,16 @@ class TEE_ALG_HMAC_SHA256_Operation(Operation):
     def __init__(self, operaitonID, mode, ql):
         super().__init__(operaitonID, ql)
         self.mode = mode
+        self.initialized = False
+        self.active = False
         self.key = None
+
+    def initialize(self, key, ql):
+        self.initialized = True
+        self.key = key
+
+    def activate(self):
+        self.activated = True
+
+    def compute(self, message):
+        return hmac.new(self.key, message, hashlib.sha256).digest() 

@@ -214,7 +214,8 @@ def TEE_SetOperationKey(ql:Qiling, hook_data):
             op.initialize(key.key, ql)
 
         elif type(op) == TEE_ALG_HMAC_SHA256_Operation:
-            breakpoint() 
+            op.initialize(key.key, ql)
+            
         else:
             ql.log.error(f'TEE_SetOperationKey: unknown op type')
             if hook_data.emu.crash_on_not_implemented:
@@ -319,6 +320,7 @@ def TEE_CipherInit(ql:Qiling, hook_data):
 
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+ 
     
 def TEE_CipherDoFinal(ql:Qiling, hook_data):
     global OPERATION_ID, id2opration
@@ -376,3 +378,79 @@ def TEE_CipherDoFinal(ql:Qiling, hook_data):
 
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def TEE_MACInit(ql:Qiling, hook_data):
+    global OPERATION_ID, id2opration
+    params = ql.os.resolve_fcall_params({'operation': UINT, 'iv': POINTER, 'ivLen': POINTER})
+    param_operation = params['operation']
+    iv = params['iv']
+    ivLen = params['ivLen']
+
+    if param_operation not in id2opration:
+        ql.log.error(f"TEE_CipherDoFinal: Operation {hex(param_operation)} not in {id2opration}")
+        ql.emu_stop()
+
+    op = id2opration[param_operation]
+
+    ql.log.info(f"TEE_MACInit")
+
+    try:
+        if type(op) == TEE_ALG_HMAC_SHA256_Operation:
+            if op.initialized:
+                op.activate()
+            else:
+               ql.log.error(f"TEE_CipherDoFinal: {type(op)} not activated")
+               ql.emu_stop() 
+        else:
+            ql.log.error(f"TEE_CipherDoFinal: unknown op type")
+            if hook_data.emu.crash_on_not_implemented:
+                crash_notimpl(ql, f"TEE_CipherDoFinal: unknown op type")
+                return
+            ql.emu_stop() 
+    except unicorn.unicorn_py3.unicorn.UcError as e:
+        crash(ql, hook_data.func_name)
+        return
+
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def TEE_MACComputeFinal(ql:Qiling, hook_data):
+    global OPERATION_ID, id2opration
+    params = ql.os.resolve_fcall_params({'operation': UINT, 'message': POINTER, 'messageLen': POINTER, 'mac': POINTER, 'macLen': POINTER})
+    param_operation = params['operation']
+    message = params['message']
+    messageLen = params['messageLen']
+    mac = params['mac']
+    macLen = params['macLen']
+
+    if param_operation not in id2opration:
+        ql.log.error(f"TEE_CipherDoFinal: Operation {hex(param_operation)} not in {id2opration}")
+        ql.emu_stop()
+
+    op = id2opration[param_operation]
+
+    ql.log.info(f"TEE_MACComputeFinal")
+
+    try:
+        if type(op) == TEE_ALG_HMAC_SHA256_Operation:
+            if op.activated:
+                result = op.compute(ql.mem.read(message, messageLen))
+                ql.mem.write(mac, result)
+                ql.mem.write(macLen, len(result).to_bytes(ql.arch.pointersize, "little"))
+            else:
+               ql.log.error(f"TEE_CipherDoFinal: {type(op)} not activated")
+               ql.emu_stop() 
+        else:
+            ql.log.error(f"TEE_CipherDoFinal: unknown op type")
+            if hook_data.emu.crash_on_not_implemented:
+                crash_notimpl(ql, f"TEE_CipherDoFinal: unknown op type")
+                return
+            ql.emu_stop() 
+    except unicorn.unicorn_py3.unicorn.UcError as e:
+        crash(ql, hook_data.func_name)
+        return
+
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+    

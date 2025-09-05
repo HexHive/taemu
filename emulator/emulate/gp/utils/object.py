@@ -122,6 +122,7 @@ class SHA256HMAC_Obj(Object):
 
         ql.mem.write(key_buffer, key)     
         self.attrs[self.__AttributeTypes__.TEE_ATTR_SECRET_VALUE.value] = (key_buffer, 32) 
+        self.key = key
 
         return TEE_SUCCESS
     
