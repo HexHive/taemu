@@ -57,6 +57,12 @@ def TEE_AllocateOperation(ql:Qiling, hook_data):
             id2opration[OPERATION_ID] = op
             ql.mem.write_ptr(param_operation, OPERATION_ID)
             OPERATION_ID += 1 
+        elif param_algorithm == TEE_ALG_HMAC_SHA256:
+            ql.log.info(f'\tTEE_ALG_HMAC_SHA256')
+            op = TEE_ALG_HMAC_SHA256_Operation(OPERATION_ID, param_mode, ql)
+            id2opration[OPERATION_ID] = op
+            ql.mem.write_ptr(param_operation, OPERATION_ID)
+            OPERATION_ID += 1
         else:
             ql.log.info(f"\t mode {hex(param_mode)} or algo {hex(param_algorithm)} not valid")
             ret = TEE_ERROR_NOT_SUPPORTED
@@ -207,8 +213,13 @@ def TEE_SetOperationKey(ql:Qiling, hook_data):
         elif type(op) == TEEGRIS_LOG_ENC_Operation:
             op.initialize(key.key, ql)
 
+        elif type(op) == TEE_ALG_HMAC_SHA256_Operation:
+            breakpoint() 
         else:
             ql.log.error(f'TEE_SetOperationKey: unknown op type')
+            if hook_data.emu.crash_on_not_implemented:
+                crash_notimpl(f'TEE_SetOperationKey: unknown op type {op}')
+                return 
             ql.emu_stop()
     except unicorn.unicorn_py3.unicorn.UcError as e:
         crash(ql, hook_data.func_name)

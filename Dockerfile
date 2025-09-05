@@ -46,5 +46,7 @@ ENV PYTHONPATH=$PATH:/opt/afl
 # Debug tools (gef, ...)
 ################################################################################
 
+RUN wget -q https://raw.githubusercontent.com/bata24/gef/dev/install-uv.sh -O- | sh
+
 WORKDIR /srv/
 RUN useradd -u 1000 ctf

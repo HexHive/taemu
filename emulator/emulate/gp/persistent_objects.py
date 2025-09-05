@@ -78,7 +78,7 @@ def TEE_OpenPersistentObject(ql:Qiling, hook_data):
     ql.log.info(f"\tobjectID {objectID}")
 
     # open a handler
-    obj = perObject(para_flags, para_storageID, objectID, handler_cnt, False, ql)
+    obj = perObject(para_flags, para_storageID, objectID, handler_cnt, False, 0x0, ql)
     if obj.file == None:
         ret = TEE_ERROR_ITEM_NOT_FOUND
         # fail, fill object with TEE_HANDLE_NULL.

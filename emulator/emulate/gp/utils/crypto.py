@@ -13,7 +13,7 @@ TEE_ALG_SHA256          =   0x50000004
 TEE_ALG_RSAES_PKCS1_V1_5    =   0x60000130
 TEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256 = 0x60410230
 TEEGRIS_LOG_ENC = 0xf0100003
-
+TEE_ALG_HMAC_SHA256     =   0x30000004
 
 
 # 6.1.1 Possible TEE_OperationMode Values
@@ -193,4 +193,8 @@ class TEEGRIS_LOG_ENC_Operation(Operation):
         self.initialized = True
         self.key = key
     
-
+class TEE_ALG_HMAC_SHA256_Operation(Operation):
+    def __init__(self, operaitonID, mode, ql):
+        super().__init__(operaitonID, ql)
+        self.mode = mode
+        self.key = None
