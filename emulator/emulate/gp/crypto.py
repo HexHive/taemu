@@ -215,7 +215,7 @@ def TEE_SetOperationKey(ql:Qiling, hook_data):
 
         elif type(op) == TEE_ALG_HMAC_SHA256_Operation:
             op.initialize(key.key, ql)
-            
+
         else:
             ql.log.error(f'TEE_SetOperationKey: unknown op type')
             if hook_data.emu.crash_on_not_implemented:

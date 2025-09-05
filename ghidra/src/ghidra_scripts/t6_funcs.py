@@ -87,17 +87,19 @@ def t6_find_GP():
 				gp_function = functionManager.getFunctionContaining(
 					ref
 				)
-				print(f"adding function {symbol} at {hex(gp_function.getEntryPoint().getOffset())}")
-				out["inline"][symbol] = {"addr": gp_function.getEntryPoint().getOffset(), "type": "gp_api"}
+				if gp_function is not None:
+					print(f"adding function {symbol} at {hex(gp_function.getEntryPoint().getOffset())}")
+					out["inline"][symbol] = {"addr": gp_function.getEntryPoint().getOffset(), "type": "gp_api"}
 			if symbol.startswith("TA_"):
 				print("found GP lifecycle function", string, ref)
 				gp_function = functionManager.getFunctionContaining(
 					ref
 				)
-				print(f"adding function {symbol} at {hex(gp_function.getEntryPoint().getOffset())}")
-				out[f'{symbol}_start'] = gp_function.getEntryPoint().getOffset()
-				returns = find_returns(gp_function, is_thumb=True)
-				out[f'{symbol}_end'] = returns
+				if gp_function is not None:
+					print(f"adding function {symbol} at {hex(gp_function.getEntryPoint().getOffset())}")
+					out[f'{symbol}_start'] = gp_function.getEntryPoint().getOffset()
+					returns = find_returns(gp_function, is_thumb=True)
+					out[f'{symbol}_end'] = returns
 	
 	out["TA_CloseSessionEntryPoint_start"] = -1,
 	out["TA_CloseSessionEntryPoint_end"] =  [-1]

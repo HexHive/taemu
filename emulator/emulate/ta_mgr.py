@@ -759,11 +759,6 @@ class TAEMU:
 
         if fuzz_replay:
             self.ql._debugger = self._debugger
-            if not place_input_callback(
-                self.ql, open(input_file, "rb").read(), -1
-            ):
-                print(f"place_input returend -1, returning")
-                return
             for e in exit_addr:
                 exit_hooks.append(
                     self.ql.hook_address(
@@ -780,6 +775,12 @@ class TAEMU:
             self.init_fuzz = True
             init_fuzz(self, sid)
             self.init_fuzz = False
+
+        if fuzz_replay:
+            if not place_input_callback(
+                self.ql, open(input_file, "rb").read(), -1):
+                    print(f"place_input returend -1, returning")
+                    return
 
         self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)
         ret = self.ql.os.fcall.cc.getReturnValue()

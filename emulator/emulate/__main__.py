@@ -132,13 +132,17 @@ if __name__ == "__main__":
             profile="tee.ql"
         )
     elif TEE == "t6":
+        if ta_elf.header['e_flags'] & 0x200 == 0:
+            is_thumb = False
+        else:
+            is_thumb = True
         ql = Qiling(
             [ta_path],
             rootfs=os.path.join(DIR, "../rootfs/"),
             ostype=QL_OS.LINUX,
             archtype=QL_ARCH.ARM,
             verbose=v,
-            thumb=True,
+            thumb=is_thumb,
             #env={"LD_LIBRARY_PATH": "rom"},
             profile="tee.ql"
         )
