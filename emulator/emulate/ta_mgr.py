@@ -85,6 +85,7 @@ class TAEMU:
         self.log = EmuLog(ql)
         self.tee = tee
         self.ta_path = ta_path
+        self.ta_name = ta_path.split("/")[-1].split(".ta")[0]
         self.ta_elf = ta_elf
         self.ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
         self.taUUID = get_ta_uuid(ta_path.split("/")[-1][:-3])

@@ -7,9 +7,8 @@ from ..gp.utils.string import *
 from Crypto.Random import get_random_bytes
 from unicorn import UC_PROT_READ, UC_PROT_WRITE
 
-def get_good_response_payload(ql: Qiling, lr):
-    global TA_NAME
-    ta_name = TA_NAME
+def get_good_response_payload(ql: Qiling, lr, ta_name, session):
+    #TODO: flawed logic do it target oriented (TODO)
     if ta_name == "3d08821c33a611e6a1fa089e01c83aa2.ta":
         ql.log.info(f"get good payload at: {lr:#0x}")
         if lr == 0xAAB4:
@@ -19,7 +18,7 @@ def get_good_response_payload(ql: Qiling, lr):
             return tee_params
         else:
             print(f"unknown lr: {lr:#0x}")
-            exit(-1)
+            return None
     elif ta_name == "14498ace2a8f11e880c8509a4c146f4c.ta":
         ql.log.info(f"get good payload at: {lr:#0x}")
         if lr == 0x10A14:
@@ -53,7 +52,8 @@ def get_good_response_payload(ql: Qiling, lr):
             return tee_params
         else:
             print(f"unknown lr: {lr:#0x}")
-            exit(-1)
+            return None
     else:
-        print(f"unknown TA: {ta_name}")
-        exit(-1)
+
+        print(f"unknown TA: {session.target_ta}")
+        return None

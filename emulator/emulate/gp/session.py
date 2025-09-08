@@ -2,7 +2,7 @@ from qiling import Qiling
 from qiling.os.const import STRING, UINT, POINTER
 from .utils.err import *
 from .utils.param import *
-
+from ..common import crash_notimpl
 from ..custom.session_payload import get_good_response_payload
 
 
@@ -11,11 +11,15 @@ from ..custom.session_payload import get_good_response_payload
 
 TEE_TIMEOUT_INFINITE = 0xFFFFFFFF
 
-SESSIONS = []
+SESSIONS = {}
 SESSION_NUM = 0
 
+class Session:
+    def __init__(self, session_num, target_ta):
+        self.session_num = session_num
+        self.target_ta = target_ta
 
-def TEE_OpenTASession(ql: Qiling, hook_data, called_from_custom_lib: bool):
+def TEE_OpenTASession(ql: Qiling, hook_data):
     global SESSIONS, SESSION_NUM
     params = ql.os.resolve_fcall_params(
         {
@@ -65,7 +69,7 @@ def TEE_OpenTASession(ql: Qiling, hook_data, called_from_custom_lib: bool):
             )
 
     ql.mem.write_ptr(para_session, SESSION_NUM)
-    SESSIONS.append(SESSION_NUM)
+    SESSIONS[SESSION_NUM] = Session(SESSION_NUM, ql.mem.read(para_destination, 0x10))
     SESSION_NUM += 1
 
     if para_returnOrigin != 0:
@@ -74,11 +78,10 @@ def TEE_OpenTASession(ql: Qiling, hook_data, called_from_custom_lib: bool):
     # @TODO: open a session for real
 
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
-    if not called_from_custom_lib:
-        ql.arch.regs.arch_pc = ql.arch.regs.lr
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_InvokeTACommand(ql: Qiling, hook_data, called_from_custom_lib: bool):
+def TEE_InvokeTACommand(ql: Qiling, hook_data):
     global SESSIONS, SESSION_NUM
     params = ql.os.resolve_fcall_params(
         {
@@ -106,6 +109,8 @@ def TEE_InvokeTACommand(ql: Qiling, hook_data, called_from_custom_lib: bool):
             f"TEE_InvokeTACommand: not valid session {hex(para_session)}"
         )
         ql.emu_stop()
+
+    session = SESSIONS[para_session]
 
     # check TEE_OpenTASession in libuTbta.so, para_cancellationRequestTimeout is not used at all
     if para_cancellationRequestTimeout == TEE_TIMEOUT_INFINITE:
@@ -143,19 +148,26 @@ def TEE_InvokeTACommand(ql: Qiling, hook_data, called_from_custom_lib: bool):
     # in order to make emulation continue, we might need to manually forge value in params
     # new_params = get_good_response_payload(ql, "3d08821c33a611e6a1fa089e01c83aa2.ta", ql.arch.regs.lr)
     new_params = get_good_response_payload(
-        ql, ql.arch.regs.lr
+        ql, ql.arch.regs.lr, hook_data.emu.ta_name, session
     )
-    for i in range(4):
-        if type(new_params[i]) == TEE_Param_Memref:
-            ql.mem.write(buffer[i], new_params[i].data)
-            ql.mem.write_ptr(para_params + i * 8 + 4, new_params[i].len)
-        elif type(new_params[i]) == TEE_Param_value:
-            ql.mem.write_ptr(a[i], new_params[i].a)
-            ql.mem.write_ptr(b[i], new_params[i].b)
+    if new_params is not None:
+        for i in range(4):
+            if type(new_params[i]) == TEE_Param_Memref:
+                ql.mem.write(buffer[i], new_params[i].data)
+                ql.mem.write_ptr(para_params + i * 8 + 4, new_params[i].len)
+            elif type(new_params[i]) == TEE_Param_value:
+                ql.mem.write_ptr(a[i], new_params[i].a)
+                ql.mem.write_ptr(b[i], new_params[i].b)
 
-    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
-    if not called_from_custom_lib:
+        ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
         ql.arch.regs.arch_pc = ql.arch.regs.lr
+    else:
+        if hook_data.emu.crash_on_not_implemented:
+            crash_notimpl(ql, f'TEE_InvokeTACommand unknown target TA')
+            return
+        ql.os.fcall.cc.setReturnValue(TEE_ERROR_BUSY)
+        ql.arch.regs.arch_pc = ql.arch.regs.lr
+
 
 
 def TEE_CloseTASession(ql: Qiling, hook_data, called_from_custom_lib: bool):

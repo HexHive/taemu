@@ -6,7 +6,8 @@ from .gp.utils.param import TEE_Param_Memref
 from .gp.utils.err import *
 from .gp.utils.string import *
 from .gp.utils.printf import *
-from .common import CRASH_PC, NOTIMPL_PC, crash
+from .gp.utils.const import *
+from .common import CRASH_PC, NOTIMPL_PC, crash, crash_notimpl
 import unicorn
 
 from Crypto.Random import get_random_bytes
@@ -116,7 +117,13 @@ def TEE_LogPrintf(ql: Qiling, hook_data):
         format_param = format_param.replace("%p", "0x%x")
         format_param = format_param.replace("%llu", "%u")
         format_param = format_param.replace("%zu", "%u")
-        out_str = format_param % tuple(string_params)
+        try:
+            out_str = format_param % tuple(string_params)
+        except ValueError:
+            ql.log.error(f"format string not supported: {format_param}")
+            if hook_data.emu.crash_on_not_implemented:
+                crash_notimpl(ql, f'format string not supported: {format_param}')
+                return
         ql.log.info(f"{hook_data.func_name}: {out_str}")
         ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     except unicorn.unicorn_py3.unicorn.UcError:
@@ -156,12 +163,41 @@ def TEE_LogvPrintf(ql: Qiling, hook_data):
         final_params = {"log_level": INT, "format": STRING}
         params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
         string_params = [params[f"{i}"] for i in range(0, len(params) - 1)]
-        out_str = format_param % tuple(string_params)
+        format_param = format_param.replace("%p", "0x%x")
+        format_param = format_param.replace("%llu", "%u")
+        format_param = format_param.replace("%zu", "%u")
+        try:
+            out_str = format_param % tuple(string_params)
+        except ValueError:
+            ql.log.error(f"format string not supported: {format_param}")
+            if hook_data.emu.crash_on_not_implemented:
+                crash_notimpl(ql, f'format string not supported: {format_param}')
+                return 
         ql.log.info(f"{hook_data.func_name}: {log_level}, {out_str}")
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, hook_data.func_name)
         return
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def TEE_GetPropertyAsIdentity(ql: Qiling, hook_data):
+    try:
+        p = ql.os.resolve_fcall_params({"propsetOrEnumerator": POINTER, "name": STRING, "value": POINTER})
+        propset = p["propsetOrEnumerator"]
+        name = p["name"]
+        value = p["value"]
+        if propset == TEE_PROPSET_CURRENT_CLIENT and name == "gpd.client.identity":
+            ql.mem.write(value, TEE_LOGIN_PUBLIC.to_bytes(4, "little"))
+            ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+            ql.arch.regs.arch_pc = ql.arch.regs.lr
+            return
+        else:
+            if hook_data.emu.crash_on_not_implemented:
+                crash_notimpl(ql, f'unknown property.. {name} {hex(propset)}')
+                return
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return 
+             
 
 
 def log_msg(ql: Qiling, hook_data):
@@ -177,7 +213,14 @@ def log_msg(ql: Qiling, hook_data):
         string_params = [params[f"{i}"] for i in range(0, len(params) - 2)]
         format_param = format_param.replace("%p", "0x%x")
         format_param = format_param.replace("%llu", "%u")
-        out_str = format_param % tuple(string_params)
+        format_param = format_param.replace("%zu", "%u")
+        try:
+            out_str = format_param % tuple(string_params)
+        except ValueError:
+            ql.log.error(f"format string not supported: {format_param}")
+            if hook_data.emu.crash_on_not_implemented:
+                crash_notimpl(ql, f'format string not supported: {format_param}')
+                return
         ql.log.info(f"log_msg: {log_level}, {log_level_2},{out_str}")
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, hook_data.func_name)
@@ -194,7 +237,16 @@ def snprintf(ql: Qiling, hook_data):
         arg = params_initial["arg"]
         params = parse_fmt_str(ql, format_param, {"s": INT, "n": INT, "format": STRING}, hook_data.func_name, arg=arg)
         string_params = [params[f"{i}"] for i in range(0, len(params))]
-        out_str = format_param % tuple(string_params)
+        format_param = format_param.replace("%p", "0x%x")
+        format_param = format_param.replace("%llu", "%u")
+        format_param = format_param.replace("%zu", "%u")
+        try:
+            out_str = format_param % tuple(string_params)
+        except ValueError:
+            ql.log.error(f"format string not supported: {format_param}")
+            if hook_data.emu.crash_on_not_implemented:
+                crash_notimpl(ql, f'format string not supported: {format_param}')
+                return 
         full_len = len(out_str)
         out_str = out_str[: n - 1]
         out_str = out_str.encode("latin-1") + b"\x00"
@@ -218,7 +270,16 @@ def sprintf(ql: Qiling, hook_data):
     try:
         params = parse_fmt_str(ql, format_param, {"s": INT, "format": STRING}, hook_data.func_name, arg=arg)
         string_params = [params[f"{i}"] for i in range(0, len(params))]
-        out_str = format_param % tuple(string_params)
+        format_param = format_param.replace("%p", "0x%x")
+        format_param = format_param.replace("%llu", "%u")
+        format_param = format_param.replace("%zu", "%u")
+        try:
+            out_str = format_param % tuple(string_params)
+        except ValueError:
+            ql.log.error(f"format string not supported: {format_param}")
+            if hook_data.emu.crash_on_not_implemented:
+                crash_notimpl(ql, f'format string not supported: {format_param}')
+                return 
         full_len = len(out_str)
         out_str = out_str.encode("latin-1") + b"\x00"
         ql.log.info(f'{hook_data.func_name}: "{out_str}" written to {hex(s)}')

@@ -122,3 +122,11 @@ def EC_POINT_free(ql: Qiling, hook_data):
         if hook_data.emu.crash_on_not_implemented:
             crash_notimpl(ql, f'EVP free on actual EVP key..')
             return
+
+def TEES_RPMBCheckEnable(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def TEES_RPMBRead(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
