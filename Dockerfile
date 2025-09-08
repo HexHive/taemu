@@ -48,5 +48,10 @@ ENV PYTHONPATH=$PATH:/opt/afl
 
 RUN wget -q https://raw.githubusercontent.com/bata24/gef/dev/install-uv.sh -O- | sh
 
+WORKDIR /opt/src
+
+# clone and make drcov-merge
+RUN git clone https://github.com/vanhauser-thc/drcov-merge.git && cd drcov-merge && make && mv drcov-merge /opt/afl
+
 WORKDIR /srv/
 RUN useradd -u 1000 ctf
