@@ -135,3 +135,26 @@ def hdm_ICCC_check(ql: Qiling, hook_data):
     ql.log.info(f'hooking hdm ICCC Check, returning expected value')
     ql.os.fcall.cc.setReturnValue(0x19)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def mpos_ICCC_check(ql: Qiling, hook_data):
+    ql.log.info(f'hooking hdm ICCC Check, returning expected value')
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def nanosleep(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def TA_Communication_mpos_check_iccc(ql: Qiling, hook_data):
+    p = ql.os.resolve_fcall_params({"result": POINTER})["result"]
+    ql.mem.write(p, (0).to_bytes(4, "little"))
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def TEES_TUIOpenSession(ql, hook_data):
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def TEES_TUIDrawImage(ql, hook_data):
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr

@@ -10,4 +10,4 @@ for file in "$base_dir"/out/*/queue/*; do
 done
 
 rm "$base_dir"/drcov.log
-/opt/afl/drcov-merge "$base_dir"/drcov.log "$base_dir"/out/cov/*
+/opt/afl/drcov-merge -u "$base_dir"/drcov.log "$base_dir"/out/cov/*

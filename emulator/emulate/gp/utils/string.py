@@ -101,7 +101,10 @@ def free_core(ql:Qiling, hook_data, called_from_custom_lib):
         return
     ql.log.info(f"{func_name}: freeing memory at {hex(ptr)}")
     real_ptr = ptr - asan.ASAN_REDZONE_SIZE
-    ql.mem.unmap(real_ptr, (size + 0x1000 - 1) & ~(0x1000 - 1))
+    if size == 0: 
+        ql.mem.unmap(real_ptr, (1 + 0x1000 - 1) & ~(0x1000 - 1))
+    else:
+        ql.mem.unmap(real_ptr, (size + 0x1000 - 1) & ~(0x1000 - 1))
     del hook_data.emu.HEAP["redzones"][real_ptr]
     del hook_data.emu.HEAP["redzones"][ptr + size]
     hook_data.emu.HEAP["freed"][ptr] = size

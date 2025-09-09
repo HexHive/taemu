@@ -302,6 +302,22 @@ def strlen(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(out)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+def strnlen(ql: Qiling, hook_data):
+    params = ql.os.resolve_fcall_params({"ptr": POINTER, "len": POINTER})
+    ptr = params["ptr"]
+    length = params["len"]
+    hook_data.emu.update_shm(ptr)
+    try:
+        string = read_c_str(ql, ptr)
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
+    out = len(string)
+    if out > length:
+        out = length
+    ql.log.info(f"strlen {hex(ptr)}: {out}")  # , "{string}"=> {hex(out)}')
+    ql.os.fcall.cc.setReturnValue(out)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def strcpy(ql: Qiling, hook_data):
     params = ql.os.resolve_fcall_params({"dst": POINTER, "src": POINTER})
@@ -442,7 +458,7 @@ def strcmp(ql: Qiling, hook_data):
     ret = 0
 
     ql.log.info(f"{hook_data.func_name} compare {hex(str1)} with {hex(str2)}")
-    for i in range(0, len(content_1)):
+    for i in range(0, min(len(content_1), len(content_2))):
         if content_1[i] > content_2[i]:
             ret = 1
             break
@@ -453,6 +469,40 @@ def strcmp(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+def strncmp(ql: Qiling, hook_data):
+    params = ql.os.resolve_fcall_params({"str1": POINTER, "str2": POINTER, "size": POINTER})
+    str1 = params["str1"]
+    str2 = params["str2"]
+    size = params["size"]
+
+    hook_data.emu.update_shm(str1)
+    hook_data.emu.update_shm(str2)
+    try:
+        content_1 = read_c_str(ql, str1)
+        content_2 = read_c_str(ql, str2)
+    except unicorn.unicorn_py3.unicorn.UcError as e:
+        crash(ql, hook_data.func_name)
+        return
+
+    if not asan.is_access_valid(ql, hook_data.emu.HEAP, str1, len(content_1), hook_data.func_name, is_write=False):
+        return
+    if not asan.is_access_valid(ql, hook_data.emu.HEAP, str2, len(content_2), hook_data.func_name, is_write=False):
+        return
+    ret = 0
+
+    ql.log.info(f"{hook_data.func_name} compare {hex(str1)} with {hex(str2)}")
+    for i in range(0, min(len(content_1), len(content_2))):
+        if content_1[i] > content_2[i]:
+            ret = 1
+            break
+        elif content_1[i] < content_2[i]:
+            ret = -1
+            break
+        if i == size:
+            break
+
+    ql.os.fcall.cc.setReturnValue(ret)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def TEE_GenerateRandom(ql: Qiling, hook_data):
     params = ql.os.resolve_fcall_params({"randomBuffer": POINTER, "randomBufferLen": INT})

@@ -1,4 +1,10 @@
 {
+	"inline": {
+		"TA_Communication_mpos_check_iccc": {
+			"addr": 94024,
+			"type": "stub"
+		}
+	},
     "TA_InvokeCommandEntryPoint_start": 87388,
     "TA_InvokeCommandEntryPoint_end": [
         88052
@@ -12,7 +18,7 @@
         87248
     ],
     "TA_CloseSessionEntryPoint_start": 87256,
-    "TA_CloseSessionEntryPoint_end": [],
+    "TA_CloseSessionEntryPoint_end": [87380],
     "TA_DestroyEntryPoint_start": 86984,
-    "TA_DestroyEntryPoint_end": []
+    "TA_DestroyEntryPoint_end": [87108]
 }

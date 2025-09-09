@@ -53,5 +53,7 @@ WORKDIR /opt/src
 # clone and make drcov-merge
 RUN git clone https://github.com/vanhauser-thc/drcov-merge.git && cd drcov-merge && make && mv drcov-merge /opt/afl
 
+
+
 WORKDIR /srv/
 RUN useradd -u 1000 ctf
