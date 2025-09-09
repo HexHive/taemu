@@ -11,6 +11,14 @@ def read_c_str(ql, addr):
             addr += 1
     return read
 
+def fixup_format(format_param):
+    format_param = format_param.replace("%p", "0x%x")
+    format_param = format_param.replace("%llu", "%u")
+    format_param = format_param.replace("%zu", "%u")
+    format_param = format_param.replace("%#zx", "%#x")
+    return format_param
+
+
 def parse_fmt_str(ql, format_param, final_params, func_name, arg=None):
     format_dict = []
     i = 0

@@ -61,7 +61,7 @@ class perObject:
                 if flag & TEE_DATA_FLAG_ACCESS_WRITE != 0:
                     self.file = open(self.file_name, 'rb+')
                 else:
-                    self.file = open(self.file_name, 'rb')
+                    self.file = open(self.file_name, 'rb+')
                 ql.log.info(f"\topen file at {FILE_PREFIX+self.objectID}")
         self.handler = handler
 

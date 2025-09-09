@@ -236,6 +236,9 @@ def TEE_ReadObjectData(ql:Qiling, hook_data):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
+def TEE_GetObjectInfo1(ql: Qiling, hook_data):
+    TEE_GetObjectInfo(ql, hook_data)
+
 def TEE_GetObjectInfo(ql:Qiling, hook_data):
     func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params({"object": UINT, "objectInfo": POINTER})
@@ -266,7 +269,8 @@ def TEE_GetObjectInfo(ql:Qiling, hook_data):
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, func_name)
         return
-
+    
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 

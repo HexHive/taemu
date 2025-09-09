@@ -86,6 +86,10 @@ def calloc_core(ql:Qiling, hook_data):
 def free_core(ql:Qiling, hook_data, called_from_custom_lib):
     func_name = hook_data.func_name
     ptr = ql.os.resolve_fcall_params({"ptr": INT})["ptr"]
+    if ptr == 0:
+        if not called_from_custom_lib:
+            ql.arch.regs.arch_pc = ql.arch.regs.lr
+        return
     if ptr not in hook_data.emu.HEAP["allocated"]:
         ql.log.critical(f"corrupted free at: {hex(ptr)}, {hook_data.emu.HEAP}")
         crash(ql, func_name)

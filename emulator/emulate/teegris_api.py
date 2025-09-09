@@ -130,3 +130,8 @@ def TEES_RPMBCheckEnable(ql: Qiling, hook_data):
 def TEES_RPMBRead(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def hdm_ICCC_check(ql: Qiling, hook_data):
+    ql.log.info(f'hooking hdm ICCC Check, returning expected value')
+    ql.os.fcall.cc.setReturnValue(0x19)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr

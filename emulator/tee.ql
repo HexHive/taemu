@@ -6,7 +6,7 @@ entry_point = 0x1000000
 
 [OS64]
 stack_address = 0x7ffffffde000
-stack_size = 0x30000
+stack_size = 0x300000
 load_address = 0x555555554000
 interp_address = 0x7ffff7dd5000
 mmap_address = 0x7fffb7dd6000
@@ -15,7 +15,7 @@ vsyscall_address = 0xffffffffff600000
 
 [OS32]
 stack_address = 0x7ff0d000
-stack_size = 0x30000
+stack_size = 0x300000
 load_address = 0x56555000
 interp_address = 0x400000
 mmap_address = 0x90000000

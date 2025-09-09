@@ -12,7 +12,11 @@
         7401252
     ],
     "TA_CloseSessionEntryPoint_start": 7401260,
-    "TA_CloseSessionEntryPoint_end": [],
+    "TA_CloseSessionEntryPoint_end": [
+    	7401328
+    ],
     "TA_DestroyEntryPoint_start": 7401060,
-    "TA_DestroyEntryPoint_end": []
+    "TA_DestroyEntryPoint_end": [
+   	7401140 
+    ]
 }

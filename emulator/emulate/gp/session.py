@@ -170,7 +170,7 @@ def TEE_InvokeTACommand(ql: Qiling, hook_data):
 
 
 
-def TEE_CloseTASession(ql: Qiling, hook_data, called_from_custom_lib: bool):
+def TEE_CloseTASession(ql: Qiling, hook_data):
     global SESSIONS, SESSION_NUM
     params = ql.os.resolve_fcall_params({"session": UINT})
     para_session = params["session"]
@@ -183,7 +183,6 @@ def TEE_CloseTASession(ql: Qiling, hook_data, called_from_custom_lib: bool):
         )
         ql.emu_stop()
 
-    SESSIONS.remove(para_session)
+    del SESSIONS[para_session]
 
-    if not called_from_custom_lib:
-        ql.arch.regs.arch_pc = ql.arch.regs.lr
+    ql.arch.regs.arch_pc = ql.arch.regs.lr

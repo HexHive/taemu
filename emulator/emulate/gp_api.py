@@ -162,10 +162,8 @@ def TEE_LogvPrintf(ql: Qiling, hook_data):
         format_param = p["format"]
         final_params = {"log_level": INT, "format": STRING}
         params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
+        format_param = fixup_format(format_param)
         string_params = [params[f"{i}"] for i in range(0, len(params) - 1)]
-        format_param = format_param.replace("%p", "0x%x")
-        format_param = format_param.replace("%llu", "%u")
-        format_param = format_param.replace("%zu", "%u")
         try:
             out_str = format_param % tuple(string_params)
         except ValueError:
@@ -211,9 +209,7 @@ def log_msg(ql: Qiling, hook_data):
         params = ql.os.resolve_fcall_params(final_params)
         del params["format"]
         string_params = [params[f"{i}"] for i in range(0, len(params) - 2)]
-        format_param = format_param.replace("%p", "0x%x")
-        format_param = format_param.replace("%llu", "%u")
-        format_param = format_param.replace("%zu", "%u")
+        format_param = fixup_format(format_param)
         try:
             out_str = format_param % tuple(string_params)
         except ValueError:
@@ -237,9 +233,7 @@ def snprintf(ql: Qiling, hook_data):
         arg = params_initial["arg"]
         params = parse_fmt_str(ql, format_param, {"s": INT, "n": INT, "format": STRING}, hook_data.func_name, arg=arg)
         string_params = [params[f"{i}"] for i in range(0, len(params))]
-        format_param = format_param.replace("%p", "0x%x")
-        format_param = format_param.replace("%llu", "%u")
-        format_param = format_param.replace("%zu", "%u")
+        format_param = fixup_format(format_param)
         try:
             out_str = format_param % tuple(string_params)
         except ValueError:
@@ -270,9 +264,7 @@ def sprintf(ql: Qiling, hook_data):
     try:
         params = parse_fmt_str(ql, format_param, {"s": INT, "format": STRING}, hook_data.func_name, arg=arg)
         string_params = [params[f"{i}"] for i in range(0, len(params))]
-        format_param = format_param.replace("%p", "0x%x")
-        format_param = format_param.replace("%llu", "%u")
-        format_param = format_param.replace("%zu", "%u")
+        format_param = fixup_format(format_param)
         try:
             out_str = format_param % tuple(string_params)
         except ValueError:
