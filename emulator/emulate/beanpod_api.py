@@ -20,5 +20,8 @@ def mdrv_open(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(0x123)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+def mdrv_close(ql: Qiling, hook_data):
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
 def msee_ta_printf_va(ql: Qiling, hook_data):
     TEE_LogPrintf(ql, hook_data)
