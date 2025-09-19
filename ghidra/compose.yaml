@@ -11,10 +11,13 @@ services:
       - ../beanpod/tas:/beanpod_tas/:rw
       - ../teegris/tas:/teegris_tas/:rw
       - ../t6/tas:/t6_tas/:rw
+      - ../qsee/tas:/qsee_tas/:rw
+      - ../kinibi/tas:/kinibi_tas/:rw
       - ./docker/mitee-entrypoint.sh:/mitee-entrypoint.sh
       - ./docker/beanpod-entrypoint.sh:/beanpod-entrypoint.sh
       - ./docker/teegris-entrypoint.sh:/teegris-entrypoint.sh
       - ./docker/t6-entrypoint.sh:/t6-entrypoint.sh
+      - ./docker/bbs-entrypoint.sh:/bbs-entrypoint.sh
     deploy:
       replicas: 0 # Don't start ghidrathon by default
   tipi:
