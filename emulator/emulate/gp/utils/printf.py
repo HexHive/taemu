@@ -58,7 +58,7 @@ def parse_fmt_str(ql, format_param, final_params, func_name, arg=None):
             else:
                 final_params[f"{i}"] = INT
         params = ql.os.resolve_fcall_params(final_params)
-        if func_name == "TEE_Logprintf" or func_name == "printf" or func_name == "msee_ta_printf_va":
+        if func_name == "TEE_Logprintf" or func_name == "printf" or func_name == "msee_ta_printf_va" :
             del params["format"]
         elif func_name == "snprintf":
             del params["format"]
@@ -67,8 +67,11 @@ def parse_fmt_str(ql, format_param, final_params, func_name, arg=None):
         elif func_name == "sprintf":
             del params["format"]
             del params["s"]
+        elif func_name == "ut_pf_log_msg" or func_name == "TEE_LogvPrintf":
+            del params["format"]
+            del params["log_level"]
         else:
             ql.log.error(f"unkown printf format resolving function: {func_name}")
-            ql.emu.stop()
+            ql.emu_stop()
     return params 
 

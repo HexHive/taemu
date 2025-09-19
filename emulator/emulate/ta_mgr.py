@@ -264,7 +264,7 @@ class TAEMU:
             cmd,
             ptypes,
             params,
-            is_32bit=self.tee == "beanpod",
+            is_32bit= self.ql.arch.pointersize==4,
         )
         if status != TEE_SUCCESS:
             return status

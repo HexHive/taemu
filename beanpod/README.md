@@ -2,6 +2,4 @@
 
 moon_global_images_OS2.0.201.0.VNTMIXM_15.0
 
-## Bugs
-
-Heap overflow in the keyinstall TA `pocs/0811_heap_ov`.
+df1edda8627911e980ae507b9d9a7e7d.ta (from the infinix)

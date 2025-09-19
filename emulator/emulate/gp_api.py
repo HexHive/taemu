@@ -163,10 +163,10 @@ def TEE_LogvPrintf(ql: Qiling, hook_data):
         final_params = {"log_level": INT, "format": STRING}
         params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
         format_param = fixup_format(format_param)
-        string_params = [params[f"{i}"] for i in range(0, len(params) - 1)]
+        string_params = [params[f"{i}"] for i in range(0, len(params))]
         try:
             out_str = format_param % tuple(string_params)
-        except ValueError:
+        except TypeError:
             ql.log.error(f"format string not supported: {format_param}")
             if hook_data.emu.crash_on_not_implemented:
                 crash_notimpl(ql, f'format string not supported: {format_param}')
@@ -212,7 +212,7 @@ def log_msg(ql: Qiling, hook_data):
         format_param = fixup_format(format_param)
         try:
             out_str = format_param % tuple(string_params)
-        except ValueError:
+        except TypeError:
             ql.log.error(f"format string not supported: {format_param}")
             if hook_data.emu.crash_on_not_implemented:
                 crash_notimpl(ql, f'format string not supported: {format_param}')
@@ -236,7 +236,7 @@ def snprintf(ql: Qiling, hook_data):
         format_param = fixup_format(format_param)
         try:
             out_str = format_param % tuple(string_params)
-        except ValueError:
+        except TypeError:
             ql.log.error(f"format string not supported: {format_param}")
             if hook_data.emu.crash_on_not_implemented:
                 crash_notimpl(ql, f'format string not supported: {format_param}')
@@ -267,7 +267,7 @@ def sprintf(ql: Qiling, hook_data):
         format_param = fixup_format(format_param)
         try:
             out_str = format_param % tuple(string_params)
-        except ValueError:
+        except TypeError:
             ql.log.error(f"format string not supported: {format_param}")
             if hook_data.emu.crash_on_not_implemented:
                 crash_notimpl(ql, f'format string not supported: {format_param}')
