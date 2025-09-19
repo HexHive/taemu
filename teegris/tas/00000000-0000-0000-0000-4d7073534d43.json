@@ -2,7 +2,7 @@
     "inline": {
    	"TA_Communication_mpos_check_iccc": {
 		"addr": 96852,
-		"type": "stub"	
+		"type": "tee"	
 	} 
     },
     "TA_InvokeCommandEntryPoint_start": 86472,

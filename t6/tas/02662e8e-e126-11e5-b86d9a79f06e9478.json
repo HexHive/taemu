@@ -2,7 +2,7 @@
     "inline": {
 		"GetBootSeed":{
 			"addr": 2121184,
-			"type": "stub"
+			"type": "tee"
 		},
         "TEE_SetTAPersistentTime": {
             "addr": 2104664,

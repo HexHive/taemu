@@ -2,7 +2,7 @@
 	"inline": {
 		"hdm_ICCC_check": {
 			"addr": 60280,
-			"type": "stub"
+			"type": "tee"
 		}
 	},
     "TA_InvokeCommandEntryPoint_start": 71428,

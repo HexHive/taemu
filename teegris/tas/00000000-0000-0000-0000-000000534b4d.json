@@ -2,7 +2,7 @@
 	"inline": {
 		"teegris_log_encrypt": {
 			"addr": 150984,
-			"type": "stub"
+			"type": "tee"
 		}
 	},
     "TA_CreateEntryPoint_start": 105640,

@@ -2,7 +2,7 @@
     "inline": {
         "TEE_GetBootSeed": {
             "addr": 2662236,
-            "type": "gp_api"
+            "type": "tee"
         },
         "TEE_AllocateTransientObject": {
             "addr": 2684076,
@@ -190,7 +190,7 @@
         },
 		"puts": {
 			"addr": 2707308,
-			"type": "gp_api"
+			"type": "libc"
 		}
     },
 	"TA_CreateEntryPoint_start": 2653428,

@@ -57,18 +57,6 @@
             "type": "gp_api"
         }
     },
-    "TA_GetAuthTokenKey_start": 812688,
-    "TA_GetAuthTokenKey_end": [
-        813220
-    ],
-    "TA_ReadAuthTokenKey_start": 740136,
-    "TA_ReadAuthTokenKey_end": [
-        740596
-    ],
-    "TA_GetDeviceInfo_start": 813328,
-    "TA_GetDeviceInfo_end": [
-        813912
-    ],
     "TA_DestroyEntryPoint_start": 809376,
     "TA_DestroyEntryPoint_end": [
         809412

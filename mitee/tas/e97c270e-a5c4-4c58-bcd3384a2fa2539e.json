@@ -1,6 +1,6 @@
 {
     "inline": {
-        "TEE_GetObjectBufferAttribute coef failed with result 0x%x": {
+        "TEE_GetObjectBufferAttribute": {
             "addr": 526136,
             "type": "gp_api"
         },
@@ -8,7 +8,7 @@
             "addr": 830912,
             "type": "gp_api"
         },
-        "TEE_GetObjectBufferAttribute public failed with result 0x%x": {
+        "TEE_GetObjectBufferAttribute": {
             "addr": 526136,
             "type": "gp_api"
         },
@@ -16,15 +16,15 @@
             "addr": 820336,
             "type": "gp_api"
         },
-        "TEE_GetTAPersistentTime() returned error 0x%x": {
+        "TEE_GetTAPersistentTime": {
             "addr": 494760,
             "type": "gp_api"
         },
-        "TEE_AllocateOperation failed with result 0x%x": {
+        "TEE_AllocateOperation": {
             "addr": 508456,
             "type": "gp_api"
         },
-        "TEE_WriteObjectData failed 0x%08x": {
+        "TEE_WriteObjectData": {
             "addr": 514360,
             "type": "gp_api"
         },
@@ -36,7 +36,7 @@
             "addr": 820880,
             "type": "gp_api"
         },
-        "TEE_CreatePersistentObject failed 0x%08x": {
+        "TEE_CreatePersistentObject": {
             "addr": 514360,
             "type": "gp_api"
         },
@@ -48,7 +48,7 @@
             "addr": 827944,
             "type": "gp_api"
         },
-        "TEE_AsymmetricDecrypt failed with result 0x%x": {
+        "TEE_AsymmetricDecrypt": {
             "addr": 506712,
             "type": "gp_api"
         },
@@ -56,11 +56,11 @@
             "addr": 819728,
             "type": "gp_api"
         },
-        "TEE_AllocateOperation failed with result 0x%x, %d": {
+        "TEE_AllocateOperation": {
             "addr": 509384,
             "type": "gp_api"
         },
-        "TEE_AllocateTransientObject failed with result 0x%x": {
+        "TEE_AllocateTransientObject": {
             "addr": 526136,
             "type": "gp_api"
         },
@@ -80,11 +80,11 @@
             "addr": 832528,
             "type": "gp_api"
         },
-        "TEE_CipherDoFinal failed with 0x%x\\n": {
+        "TEE_CipherDoFinal": {
             "addr": 497984,
             "type": "gp_api"
         },
-        "TEE_GetObjectBufferAttribute private failed with result 0x%x": {
+        "TEE_GetObjectBufferAttribute": {
             "addr": 526136,
             "type": "gp_api"
         },
@@ -92,7 +92,7 @@
             "addr": 826448,
             "type": "gp_api"
         },
-        "TEE_GetObjectBufferAttribute exp1 failed with result 0x%x": {
+        "TEE_GetObjectBufferAttribute": {
             "addr": 526136,
             "type": "gp_api"
         },
@@ -112,7 +112,7 @@
             "addr": 826704,
             "type": "gp_api"
         },
-        "TEE_PopulateTransientObject() failed with result 0x%x": {
+        "TEE_PopulateTransientObject": {
             "addr": 505400,
             "type": "gp_api"
         },
@@ -120,7 +120,7 @@
             "addr": 830224,
             "type": "gp_api"
         },
-        "TEE_DigestDoFinal() failed with result 0x%x": {
+        "TEE_DigestDoFinal": {
             "addr": 500040,
             "type": "gp_api"
         },
@@ -136,15 +136,15 @@
             "addr": 833376,
             "type": "gp_api"
         },
-        "TEE_SetOperationKey() failed with result 0x%x": {
+        "TEE_SetOperationKey": {
             "addr": 508456,
             "type": "gp_api"
         },
-        "TEE_DigestDoFinal failed with result 0x%x": {
+        "TEE_DigestDoFinal": {
             "addr": 508456,
             "type": "gp_api"
         },
-        "TEE_GetObjectInfo1 failed with error 0x%x": {
+        "TEE_GetObjectInfo1": {
             "addr": 508456,
             "type": "gp_api"
         },
@@ -164,11 +164,11 @@
             "addr": 822784,
             "type": "gp_api"
         },
-        "TEE_AllocateTransientObject() failed with result 0x%x": {
+        "TEE_AllocateTransientObject": {
             "addr": 505400,
             "type": "gp_api"
         },
-        "TEE_GetObjectBufferAttribute prime2 failed with result 0x%x": {
+        "TEE_GetObjectBufferAttribute": {
             "addr": 526136,
             "type": "gp_api"
         },
@@ -180,7 +180,7 @@
             "addr": 822176,
             "type": "gp_api"
         },
-        "TEE_AllocateTransientObject() failed with result 0x%x\\n": {
+        "TEE_AllocateTransientObject": {
             "addr": 505400,
             "type": "gp_api"
         },
@@ -192,11 +192,11 @@
             "addr": 822456,
             "type": "gp_api"
         },
-        "TEE_ReadObjectData failed 0x%08x, read %u over %u": {
+        "TEE_ReadObjectData": {
             "addr": 513864,
             "type": "gp_api"
         },
-        "TEE_GetObjectBufferAttribute prime1 failed with result 0x%x": {
+        "TEE_GetObjectBufferAttribute": {
             "addr": 526136,
             "type": "gp_api"
         },
@@ -208,11 +208,11 @@
             "addr": 823536,
             "type": "gp_api"
         },
-        "TEE_AsymmetricDecrypt() failed with result 0x%x": {
+        "TEE_AsymmetricDecrypt": {
             "addr": 507776,
             "type": "gp_api"
         },
-        "TEE_SetOperationKey failed with result 0x%x": {
+        "TEE_SetOperationKey": {
             "addr": 509384,
             "type": "gp_api"
         },
@@ -228,7 +228,7 @@
             "addr": 830552,
             "type": "gp_api"
         },
-        "TEE_AsymmetricSignDigest failed with result 0x%x": {
+        "TEE_AsymmetricSignDigest": {
             "addr": 508456,
             "type": "gp_api"
         },
@@ -248,23 +248,23 @@
             "addr": 823712,
             "type": "gp_api"
         },
-        "TEE_AllocateOperation() failed with result 0x%x": {
+        "TEE_AllocateOperation": {
             "addr": 508456,
             "type": "gp_api"
         },
-        "TEE_MACComputeFinal() failed with result 0x%x": {
+        "TEE_MACComputeFinal": {
             "addr": 502984,
             "type": "gp_api"
         },
-        "TEE_CipherUpdate() failed with result 0x%x": {
+        "TEE_CipherUpdate": {
             "addr": 498576,
             "type": "gp_api"
         },
-        "TEE_GetObjectBufferAttribute failed with result 0x%x": {
+        "TEE_GetObjectBufferAttribute": {
             "addr": 526136,
             "type": "gp_api"
         },
-        "TEE_GetObjectBufferAttribute exp2 failed with result 0x%x": {
+        "TEE_GetObjectBufferAttribute": {
             "addr": 526136,
             "type": "gp_api"
         },
@@ -272,7 +272,7 @@
             "addr": 831888,
             "type": "gp_api"
         },
-        "TEE_GenerateKey failed with result 0x%x": {
+        "TEE_GenerateKey": {
             "addr": 526136,
             "type": "gp_api"
         },

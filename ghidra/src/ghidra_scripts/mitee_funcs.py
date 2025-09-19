@@ -78,14 +78,17 @@ def mitee_find_GP():
 			symbol = string.toString().split("ds \"")[-1]
 			symbol = symbol[:-1]
 			if symbol.startswith("TEE_"):
-				if symbol.endswith("1"):
+                if symbol.endswith("1") or symbol.endswith("(") or symbol.endswith(":"):
 					symbol = symbol[:-1]
+                api_type = "gp_api"
+                if symbol.startswith("TEE_SE"):
+                    api_type = "tee"
 				print("found GP function", string, ref)
 				gp_function = functionManager.getFunctionContaining(
 					ref
 				)
 				print(f"adding function {symbol} at {hex(gp_function.getEntryPoint().getOffset())}")
-				out["inline"][symbol] = {"addr": gp_function.getEntryPoint().getOffset()-0x100000, "type": "gp_api"}
+				out["inline"][symbol] = {"addr": gp_function.getEntryPoint().getOffset()-0x100000, "type": api_type}
 			if symbol.startswith("TA_"):
 				print("found GP lifecycle function", string, ref)
 				gp_function = functionManager.getFunctionContaining(

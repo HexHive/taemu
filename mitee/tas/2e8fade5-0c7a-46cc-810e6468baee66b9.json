@@ -6,19 +6,19 @@
         },
         "TEE_SEReaderGetProperties": {
             "addr": 179032,
-            "type": "gp_api"
+            "type": "tee"
         },
         "TEE_SESecureChannelClose": {
             "addr": 184384,
-            "type": "gp_api"
+            "type": "tee"
         },
         "TEE_SESessionOpenBasicChannel": {
             "addr": 181376,
-            "type": "gp_api"
+            "type": "tee"
         },
         "TEE_SEChannelGetNumber_ext": {
             "addr": 185456,
-            "type": "gp_api"
+            "type": "tee"
         },
         "TEE_Malloc": {
             "addr": 146112,
@@ -26,19 +26,19 @@
         },
         "TEE_SEServiceClose": {
             "addr": 177888,
-            "type": "gp_api"
+            "type": "tee"
         },
         "TEE_SEReaderGetName": {
             "addr": 179424,
-            "type": "gp_api"
+            "type": "tee"
         },
         "TEE_SEReaderOpenSession": {
             "addr": 180024,
-            "type": "gp_api"
+            "type": "tee"
         },
         "TEE_SEChannelGetSelectResponse": {
             "addr": 182824,
-            "type": "gp_api"
+            "type": "tee"
         },
         "TEE_GetObjectBufferAttribute": {
             "addr": 146600,
@@ -46,7 +46,7 @@
         },
         "TEE_SESessionGetATR": {
             "addr": 180448,
-            "type": "gp_api"
+            "type": "tee"
         },
         "TEE_CloseTASession": {
             "addr": 145280,
@@ -58,7 +58,7 @@
         },
         "TEE_SESecureChannelOpen": {
             "addr": 183424,
-            "type": "gp_api"
+            "type": "tee"
         },
         "TEE_ReadObjectData": {
             "addr": 148816,
@@ -66,7 +66,7 @@
         },
         "TEE_SESessionIfsReq_ext": {
             "addr": 186920,
-            "type": "gp_api"
+            "type": "tee"
         },
         "TEE_CloseAndDeletePersistentObject": {
             "addr": 148608,
@@ -74,11 +74,11 @@
         },
         "TEE_SESessionHardReset_ext": {
             "addr": 186392,
-            "type": "gp_api"
+            "type": "tee"
         },
         "TEE_SESessionOpenLogicalChannel": {
             "addr": 181912,
-            "type": "gp_api"
+            "type": "tee"
         },
         "TEE_CreatePersistentObject": {
             "addr": 148256,
@@ -86,11 +86,11 @@
         },
         "TEE_SEChannelClose": {
             "addr": 182448,
-            "type": "gp_api"
+            "type": "tee"
         },
         "TEE_SESessionInterfaceReset_ext": {
             "addr": 185864,
-            "type": "gp_api"
+            "type": "tee"
         },
         "TEE_GenerateKey": {
             "addr": 147648,
@@ -98,7 +98,7 @@
         },
         "TEE_SESessionClose": {
             "addr": 181000,
-            "type": "gp_api"
+            "type": "tee"
         },
         "TEE_AllocateTransientObject": {
             "addr": 147000,
@@ -114,11 +114,11 @@
         },
         "TEE_SESecureChannelGetSecurityLevel": {
             "addr": 184000,
-            "type": "gp_api"
+            "type": "tee"
         },
         "TEE_SEChannelTransmit_ext": {
             "addr": 184760,
-            "type": "gp_api"
+            "type": "tee"
         },
         "TEE_CloseObject": {
             "addr": 146920,
@@ -138,17 +138,13 @@
         },
         "TEE_SEServiceOpen": {
             "addr": 177376,
-            "type": "gp_api"
+            "type": "tee"
         },
         "TEE_SEServiceGetReaders": {
             "addr": 178264,
-            "type": "gp_api"
+            "type": "tee"
         }
     },
-    "TA_GetAuthTokenKey_start": 141600,
-    "TA_GetAuthTokenKey_end": [
-        142352
-    ],
     "TA_DestroyEntryPoint_start": 139904,
     "TA_DestroyEntryPoint_end": [
         140020

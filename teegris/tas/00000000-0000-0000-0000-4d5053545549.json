@@ -2,7 +2,7 @@
     "inline": {
 	"mpos_ICCC_check": {
 		"addr": 38148,
-		"type": "stub"
+		"type": "tee"
 	}	
     },
     "TA_InvokeCommandEntryPoint_start": 96172,
