@@ -176,9 +176,7 @@
     "TA_OpenSessionEntryPoint_end": [
         2101158
     ],
-    "TA_CloseSessionEntryPoint_start": [
-        -1
-    ],
+    "TA_CloseSessionEntryPoint_start": -1,
     "TA_CloseSessionEntryPoint_end": [
         -1
     ],

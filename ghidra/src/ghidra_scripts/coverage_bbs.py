@@ -22,6 +22,7 @@ from typing import List, Dict
 from ghidra.program.database import ProgramDB
 from ghidra.program.database.function import FunctionDB
 from ghidra.app.decompiler import DecompileResults
+from ghidra.program.model.address import Address
 import logging
 
 from libc_funcs import libc_funcs
@@ -45,6 +46,12 @@ SIG_CHANGER = SignatureChanger(PROGRAM)
 # CODE
 ################################################################################
 
+def convert(inline_funcs):
+    out = {}
+    for f, entry in inline_funcs.items():
+        out[entry['addr']] = {'name': f, 'type': entry['type']}    
+    return out
+
 def is_libc(fname):
     return fname in libc_funcs
 
@@ -52,16 +59,29 @@ def is_gp(fname):
     return fname.startswith("TEE_") and not fname.startswith("TEE_SE")
 
 def get_inline(inline, addr):
-    for _, entry in inline.items():
-        if inline['addr'] == int(inline):
-            return entry
+    if addr.getOffset() in inline:    
+        return inline[addr.getOffset()]
     return None
+
+def isname(fname):
+    try:
+        a = int(fname.split("FUN_")[-1],16)
+        return False
+    except:
+        return True
 
 def is_api_call(target, tee, inline_funcs):
     program = getCurrentProgram()
     fm = program.getFunctionManager()
     f = fm.getFunctionAt(target)
+    print(target)
+    if f is None:
+        return True
     fname = f.getName()
+    if isname(fname) and tee == "beanpod":
+        return True
+    if isname(fname) and tee == "teegris":
+        return True
     if is_gp(fname):
         return True
     if is_libc(fname):
@@ -74,10 +94,14 @@ def is_api_call(target, tee, inline_funcs):
         return True
     return False            
     
-def api_type(target, tee, inline_funcs):
+def get_api_type(target, tee, inline_funcs):
     program = getCurrentProgram()
     fm = program.getFunctionManager()
     f = fm.getFunctionAt(target)
+    if f is None: 
+        # one cause t6 entry is disassembled as arm but should be thumb
+        return "tee"
+    fname = f.getName()
     if is_gp(fname):
         return "gp_api"
     if is_libc(fname):
@@ -86,7 +110,7 @@ def api_type(target, tee, inline_funcs):
         return "tee"
     if f.isExternal():
         return "tee"        
-    inline_entry = get_inline(inline, target)    
+    inline_entry = get_inline(inline_funcs, target)    
     if inline_entry is not None:
         return inline_entry["type"]
     return "tee"
@@ -103,10 +127,14 @@ def gen_cfg(func, func_cfgs, tee, inline_funcs):
     try:
         ghidra_func = getGlobalFunctions(func)[0]
     except:
-        #func_addr = addressFactory.getAddress(func)
-        ghidra_func = fm.getFunctionAt(func)
+        ghidra_func = fm.getFunctionAt(addressFactory.getAddress(func))
     if not ghidra_func:
-        return None, []
+        clearListing(addressFactory.getAddress(func))
+        disassemble(addressFactory.getAddress(func))
+        ghidra_func = createFunction(addressFactory.getAddress(func), None)
+        if not ghidra_func:
+            print("?????")
+            return None, []
     block_model = BasicBlockModel(program)
     blocks_iter = block_model.getCodeBlocksContaining(ghidra_func.getBody(), monitor)
 
@@ -134,21 +162,35 @@ def gen_cfg(func, func_cfgs, tee, inline_funcs):
                 for ref in instr.getReferencesFrom():
                     if ref.getReferenceType() == RefType.UNCONDITIONAL_CALL or ref.getReferenceType().isCall():
                         target = ref.getToAddress()
+                        print(instr.getAddress())
                         is_api = is_api_call(target, tee, inline_funcs)
+                        if is_api:
+                            api_type = get_api_type(target, tee, inline_funcs)
+                        else:
+                            api_type = None
                         f = getFunctionAt(target)
                         if f:
-                            calls.append({"func": f.getName(), "api": is_api})
+                            f_name = f.getName()
+                            if tee == "mitee" and f_name.startswith("xz_"):
+                                # ipc is essentially a system call
+                                svcs.append(str(instr.getAddress()))    
+                                continue
+                            if f_name.startswith("FUN_"):
+                                f_name = str(target)
+                            calls.append({"func": f_name, "api": is_api, "api_type": api_type})
                         else:
-                            calls.append({"func": str(target), "api": is_api})
-                        if not is_api and target not in func_cfgs and target not in funcs_todo:
-                            funcs_todo.append(target)
+                            calls.append({"func": str(target), "api": is_api, "api_type": api_type})
+                        if not is_api and str(target) not in func_cfgs and str(target) not in funcs_todo:
+                            funcs_todo.append(str(target))
                             
             # Detect svc instruction (ARM/Thumb)
             if instr.getMnemonicString().lower() == "svc":
                 svcs.append(str(instr.getAddress()))
+            if instr.getMnemonicString().lower() == "swi":
+                svcs.append(str(instr.getAddress()))
 
         bb_map[str(start)] = {
-            "name": str(func),
+            "name": bb_name,
             "start": str(start),
             "end": str(end),
             "calls": calls,
@@ -169,7 +211,7 @@ def gen_cfg(func, func_cfgs, tee, inline_funcs):
                 bb["edges"].append(bb_map[dest_addr]["name"])
 
     graph_json = {
-        "function": func,
+        "function": str(func),
         "nodes": list(bb_map.values())
     }    
     return graph_json, funcs_todo
@@ -187,6 +229,10 @@ def do_work(tee, ta_json):
     functionManager = program.getFunctionManager()
     functions = functionManager.getFunctions(True)
     addressFactory = program.getAddressFactory()
+    image_base = program.getImageBase()
+    if image_base == addressFactory.getAddress("0x100000"):
+        program.setImageBase(addressFactory.getAddress("0x0"), True)
+
     print(
         8 * "*"
         + "cfg bbs analyzing: "
@@ -197,22 +243,24 @@ def do_work(tee, ta_json):
     func_todo = []
     ta_info = json.load(open(ta_json))
     if "inline" in ta_info:
-        inline_funcs = ta_info["inline"]
+        inline_funcs = convert(ta_info["inline"])
     else:
         inline_funcs = {}
     for ta_f in ta_fw:
-        func_todo.append(addressFactory.getAddress(hex(ta_info[ta_f+'_start'])))
+        if ta_info[ta_f+'_start'] == -1: continue
+        func_todo.append((hex(ta_info[ta_f+'_start'])))
     while(len(func_todo) != 0):
         func_todo_tmp = []
         for f in func_todo:
             cfg, todo = gen_cfg(f, func_cfgs, tee, inline_funcs)
             if cfg is None:
                 continue
+            print(str(f), todo)
             func_cfgs[str(f)] = cfg
             for f_todo in todo:
-                if f_todo not in func_todo:
+                if f_todo not in func_todo and f_todo not in func_cfgs:
                     func_todo_tmp.append(f_todo)
-        func_todo = func_todo_tmp
+        func_todo = list(set(func_todo_tmp))
 
     return func_cfgs
     
@@ -237,6 +285,7 @@ def main():
         os.system(f'chmod 777 {out_dir}')
         
     out = do_work(args.tee, ta_json)
+    print(out)
     open(out_path, "w").write(json.dumps(out, indent=4))
     os.system(f'chmod 666 {out_path}')
     return
