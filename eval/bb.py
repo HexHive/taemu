@@ -22,6 +22,24 @@ def label(addr):
     else:
         return addr
 
+class Call:
+    def __init__(self, json_data):
+        self.func = json_data["func"]
+        self.is_api = json_data["api"]
+        self.api_type = json_data["api_type"]
+
+    def __hash__(self):
+        return hash(f'{self.func}_{self.is_api}_{self.api_type}')
+    
+    def __str__(self):
+        return f'{self.func}_{self.is_api}_{self.api_type}'
+    
+    def __repr__(self):
+        return f'{self.func}_{self.is_api}_{self.api_type}'
+    
+    def __eq__(self, other):
+        return self.__hash__() == other.__hash__()
+
 root = '0'*8
 
 def cfg_ta(ta_path):
@@ -63,7 +81,7 @@ def cfg_ta(ta_path):
                         cfg.add_node(fcall_lbl)
                     cfg.add_edge(bb_l, fcall_lbl)
                 else:
-                    node["api_calls"].append(call)    
+                    node["api_calls"].append(Call(call))    
         # add intraprocedural edges    
         for bb in nodes:
             bb_l = label(bb['start'])
@@ -71,16 +89,97 @@ def cfg_ta(ta_path):
                 cfg.add_edge(bb_l, bbname2bbll[edge])
     return cfg    
 
+def get_apis(cfg):
+    out = set() 
+    for node, data in cfg.nodes(data=True):
+        print(data)
+        if "api_calls" in data:
+            for call in data["api_calls"]:
+                print(call)
+                out.add(call)
+    return out
+
+def trim_cfg(cfg, implemented_apis):
+    to_remove = []
+    for node, data in cfg.nodes(data=True):
+        if "api_calls" in data:
+            for call in data["api_calls"]:
+                if call not in implemented_apis:
+                    to_remove.append(node)
+    return nx.restricted_view(cfg, to_remove, [])
+
+def reachable_nodes(cfg, implemented_apis):
+    trimmed_cfg = trim_cfg(cfg, implemented_apis)
+    return len(nx.descendants(trimmed_cfg, root)) 
+
+def find_best_add(cfg, all_apis, implemented_apis, filterf):
+    max_api = None
+    max_nr = 0
+    for api in all_apis:
+        if not filterf(api): continue
+        if api in implemented_apis: continue
+        reach = reachable_nodes(cfg, implemented_apis + [api])
+        if reach > max_nr:
+            max_nr = reach
+            max_api = api
+    return max_api 
+
 def analyze_ta(ta_path):
     cfg = cfg_ta(ta_path)
+    print("=== OS interactions: ===")
     for node, data in cfg.nodes(data=True):
         if "svc" in data and len(data["svc"]) > 0:
             # Find all simple paths from start_node to this node
             path = list(nx.shortest_path(cfg, source=root, target=node))       
             print(" -> ".join(path), "svc:", data["svc"])
+     
+    print(len(nx.descendants(cfg, root)))
+    nothing_cfg = trim_cfg(cfg, []) 
+    print(len(nx.descendants(nothing_cfg, root)))
     pos = graphviz_layout(cfg, prog="dot", args="-Grankdir=TB")
     nx.draw(cfg, pos, with_labels=True, node_color="lightblue", arrows=True)
     plt.show()    
+    
+    pos = graphviz_layout(nothing_cfg, prog="dot", args="-Grankdir=TB")
+    nx.draw(nothing_cfg, pos, with_labels=True, node_color="lightblue", arrows=True)
+    plt.show()    
+    generate_graph(cfg)
+
+
+def is_gp(call):
+    return call.api_type == "gp_api"
+
+def is_std(call):
+    return call.api_type == "tee_std"
+
+def is_tee(call):
+    return call.api_type == "tee"
+
+def generate_graph(cfg):
+    reachable = []
+    used_apis = get_apis(cfg)
+    print(used_apis)
+    implemented_apis = []
+    reachable.append(reachable_nodes(cfg, implemented_apis))
+    while 1:
+        max_api = find_best_add(cfg, used_apis, implemented_apis, is_gp)
+        if max_api is None: break
+        print("gp", max_api)
+        implemented_apis.append(max_api)
+        reachable.append(reachable_nodes(cfg, implemented_apis))
+    while 1:
+        max_api = find_best_add(cfg, used_apis, implemented_apis, is_std)
+        if max_api is None: break
+        print("gp_std", max_api)
+        implemented_apis.append(max_api)
+        reachable.append(reachable_nodes(cfg, implemented_apis))
+    while 1:
+        max_api = find_best_add(cfg, used_apis, implemented_apis, is_tee)
+        if max_api is None: break
+        print("tee", max_api)
+        implemented_apis.append(max_api)
+        reachable.append(reachable_nodes(cfg, implemented_apis))
+    print(reachable)
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

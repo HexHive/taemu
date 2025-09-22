@@ -70,12 +70,15 @@ def isname(fname):
     except:
         return True
 
-def is_api_call(target, tee, inline_funcs):
+def is_api_call(body, target, tee, inline_funcs):
     program = getCurrentProgram()
     fm = program.getFunctionManager()
-    f = fm.getFunctionAt(target)
-    print(target)
+    print("is_api_call?", target)
+    if body.contains(target):
+        return False
+    f = fm.getFunctionContaining(target)
     if f is None:
+        print("f is None..")
         return True
     fname = f.getName()
     if isname(fname) and tee == "beanpod":
@@ -91,6 +94,7 @@ def is_api_call(target, tee, inline_funcs):
     if f.isExternal():
         return True 
     if get_inline(inline_funcs, target) is not None:
+        print("inline found", target) 
         return True
     return False            
     
@@ -175,28 +179,33 @@ def gen_cfg(func, func_cfgs, tee, inline_funcs):
             if is_call(ghidra_func, instr):
             #if instr.getFlowType().isCall():
                 for ref in instr.getReferencesFrom():
-                    #if ref.getReferenceType() == RefType.UNCONDITIONAL_CALL or ref.getReferenceType().isCall():
-                    target = ref.getToAddress()
-                    if str(target).startswith("Stack"): continue
-                    is_api = is_api_call(target, tee, inline_funcs)
-                    if is_api:
-                        api_type = get_api_type(target, tee, inline_funcs)
-                    else:
-                        api_type = None
-                    f = getFunctionAt(target)
-                    if f:
-                        f_name = f.getName()
-                        if tee == "mitee" and f_name.startswith("xz_"):
-                            # ipc is essentially a system call
-                            svcs.append(str(instr.getAddress()))    
-                            continue
-                        if f_name.startswith("FUN_") or f_name.startswith("thunk_FUN_"):
-                            f_name = str(target)
-                        calls.append({"func": f_name, "api": is_api, "api_type": api_type})
-                    else:
-                        calls.append({"func": str(target), "api": is_api, "api_type": api_type})
-                    if not is_api and str(target) not in func_cfgs and str(target) not in funcs_todo:
-                        funcs_todo.append(str(target))
+                    refType = ref.getReferenceType()
+                    if refType.isRead() or refType.isData():
+                        continue
+                    if refType == RefType.UNCONDITIONAL_CALL or refType.isCall() or refType.isComputed() or refType.isConditional() or refType.isJump():
+                        target = ref.getToAddress()
+                        if str(target).startswith("Stack"): continue
+                        is_api = is_api_call(ghidra_func.getBody(), target, tee, inline_funcs)
+                        if is_api:
+                            api_type = get_api_type(target, tee, inline_funcs)
+                        else:
+                            api_type = None
+                        f = getFunctionAt(target)
+                        if f:
+                            f_name = f.getName()
+                            if tee == "mitee" and f_name.startswith("xz_"):
+                                # ipc is essentially a system call
+                                svcs.append(str(instr.getAddress()))    
+                                continue
+                            if f_name.startswith("FUN_") or f_name.startswith("thunk_FUN_"):
+                                f_name = str(target)
+                            if get_inline(inline_funcs, target) is not None:
+                                f_name = get_inline(inline_funcs, target)["name"]
+                            calls.append({"func": f_name, "api": is_api, "api_type": api_type})
+                        else:
+                            calls.append({"func": str(target), "api": is_api, "api_type": api_type})
+                        if not is_api and str(target) not in func_cfgs and str(target) not in funcs_todo:
+                            funcs_todo.append(str(target))
                             
             # Detect svc instruction (ARM/Thumb)
             if instr.getMnemonicString().lower() == "svc":
