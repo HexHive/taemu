@@ -15,8 +15,10 @@ def int2hex(nr):
     h = hex(nr)[2:]
     return '0' * (8-len(h)) + h
 
-def label(addr):
+def label(addr, no_uuid=False):
     global ta_uuid
+    if no_uuid:
+        return addr
     if do_ta_uuid:
         return f'{ta_uuid}_{addr}'
     else:
@@ -122,6 +124,58 @@ def find_best_add(cfg, all_apis, implemented_apis, filterf):
             max_api = api
     return max_api 
 
+
+def is_gp(call):
+    return call.api_type == "gp_api"
+
+def is_std(call):
+    return call.api_type == "tee_std"
+
+def is_tee(call):
+    return call.api_type == "tee"
+
+def generate_graph(cfg):
+    reachable = []
+    used_apis = get_apis(cfg)
+    max_nodes = reachable_nodes(cfg, used_apis)
+    print(used_apis)
+    implemented_apis = []
+    i = 0
+    reachable.append(reachable_nodes(cfg, implemented_apis))
+    i+= 1
+    all_gp_idx = 0
+    all_tee_std_idx = 0
+    all_tee_idx = 0
+    while 1:
+        max_api = find_best_add(cfg, used_apis, implemented_apis, is_gp)
+        if max_api is None: 
+            all_gp_idx = i-1
+            break
+        print("gp", max_api)
+        implemented_apis.append(max_api)
+        reachable.append(reachable_nodes(cfg, implemented_apis))
+        i += 1
+    while 1:
+        max_api = find_best_add(cfg, used_apis, implemented_apis, is_std)
+        if max_api is None: 
+            all_tee_std_idx = i-1
+            break
+        print("gp_std", max_api)
+        implemented_apis.append(max_api)
+        reachable.append(reachable_nodes(cfg, implemented_apis))
+        i += 1
+    while 1:
+        max_api = find_best_add(cfg, used_apis, implemented_apis, is_tee)
+        if max_api is None: 
+            all_tee_idx = i-1
+            break
+        print("tee", max_api)
+        implemented_apis.append(max_api)
+        reachable.append(reachable_nodes(cfg, implemented_apis))
+        i += 1
+    print(reachable)
+    return reachable, max_nodes, all_gp_idx, all_tee_std_idx, all_tee_idx
+
 def analyze_ta(ta_path):
     cfg = cfg_ta(ta_path)
     print("=== OS interactions: ===")
@@ -137,49 +191,61 @@ def analyze_ta(ta_path):
     pos = graphviz_layout(cfg, prog="dot", args="-Grankdir=TB")
     nx.draw(cfg, pos, with_labels=True, node_color="lightblue", arrows=True)
     plt.show()    
-    
     pos = graphviz_layout(nothing_cfg, prog="dot", args="-Grankdir=TB")
     nx.draw(nothing_cfg, pos, with_labels=True, node_color="lightblue", arrows=True)
     plt.show()    
     generate_graph(cfg)
 
+def get_root_node(ta_cfg):
+    for n in ta_cfg.nodes:
+        if n.endswith(root):   
+            return n
 
-def is_gp(call):
-    return call.api_type == "gp_api"
+def analyze_tee(tee_path):
+    global do_ta_uuid
+    do_ta_uuid = True
+    tee = os.path.basename(tee_path)
+    ta_cfgs = [] 
+    for ta in [ta for ta in os.listdir(os.path.join(tee_path, "tas")) if ta.endswith(".ta")]:
+        ta_path = os.path.join(tee_path, 'tas', ta)
+        if not os.path.exists(ta_path[:-3]+".json"): continue
+        ta_cfgs.append(cfg_ta(ta_path))
+    print(f'analyzing {tee}, nr cfgs: {len(ta_cfgs)}')
+    tee_cfg = nx.compose_all(ta_cfgs) 
+    tee_cfg.add_node(label(root, no_uuid=True))
+    for ta_cfg in ta_cfgs:
+        ta_root_node = get_root_node(ta_cfg)
+        tee_cfg.add_edge(label(root, no_uuid=True), ta_root_node)
+    #pos = graphviz_layout(tee_cfg, prog="dot", args="-Grankdir=TB")
+    #nx.draw(tee_cfg, pos, with_labels=True, node_color="lightblue", arrows=True)
+    #plt.show() 
+    reachable, max_nodes, all_gp_idx, all_tee_std_idx, all_tee_idx = generate_graph(tee_cfg)
 
-def is_std(call):
-    return call.api_type == "tee_std"
+    percentages = [r / max_nodes * 100 for r in reachable]
+    plt.plot(range(len(reachable)), percentages, marker="o", label="Reachable %")
 
-def is_tee(call):
-    return call.api_type == "tee"
+    if all_gp_idx != 0:
+        plt.axvline(all_gp_idx, color="red", linestyle="--", label="GP index")
+    if all_tee_std_idx != 0:
+        plt.axvline(all_tee_std_idx, color="blue", linestyle="--", label="TEE std index")
+    if all_tee_idx != 0:
+        plt.axvline(all_tee_idx, color="green", linestyle="--", label="TEE index")
 
-def generate_graph(cfg):
-    reachable = []
-    used_apis = get_apis(cfg)
-    print(used_apis)
-    implemented_apis = []
-    reachable.append(reachable_nodes(cfg, implemented_apis))
-    while 1:
-        max_api = find_best_add(cfg, used_apis, implemented_apis, is_gp)
-        if max_api is None: break
-        print("gp", max_api)
-        implemented_apis.append(max_api)
-        reachable.append(reachable_nodes(cfg, implemented_apis))
-    while 1:
-        max_api = find_best_add(cfg, used_apis, implemented_apis, is_std)
-        if max_api is None: break
-        print("gp_std", max_api)
-        implemented_apis.append(max_api)
-        reachable.append(reachable_nodes(cfg, implemented_apis))
-    while 1:
-        max_api = find_best_add(cfg, used_apis, implemented_apis, is_tee)
-        if max_api is None: break
-        print("tee", max_api)
-        implemented_apis.append(max_api)
-        reachable.append(reachable_nodes(cfg, implemented_apis))
-    print(reachable)
+    plt.xlabel("Steps")
+    plt.ylabel("Reachable (%)")
+    plt.title("Reachable Nodes as % of Max Nodes")
+    plt.legend()
+    plt.grid(True, linestyle="--", alpha=0.6)
+
+    plt.show() 
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("usage [path to ta], [path to tee folder], all")
-    analyze_ta(sys.argv[1])
+    inp_path = sys.argv[1]
+    if inp_path.endswith(".ta"): 
+        analyze_ta(sys.argv[1])
+    elif inp_path == "all":
+        analyze_all()
+    else:
+        analyze_tee(inp_path.strip('/'))

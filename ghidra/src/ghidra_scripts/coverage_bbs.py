@@ -77,6 +77,7 @@ def is_api_call(body, target, tee, inline_funcs):
     if body.contains(target):
         return False
     f = fm.getFunctionContaining(target)
+    
     if f is None:
         print("f is None..")
         return True
@@ -103,8 +104,14 @@ def get_api_type(target, tee, inline_funcs):
     fm = program.getFunctionManager()
     f = fm.getFunctionAt(target)
     if f is None: 
-        # one cause t6 entry is disassembled as arm but should be thumb
-        return "tee"
+        clearListing(target)
+        disassemble(target)
+        createFunction(target, None)
+        f = fm.getFunctionAt(target)
+        if f is None:
+            print('f is None')
+            # one cause t6 entry is disassembled as arm but should be thumb
+            return "tee"
     fname = f.getName()
     if is_gp(fname):
         return "gp_api"

@@ -13,7 +13,7 @@
             "type": "gp_api"
         },
         "TEE_Malloc": {
-            "addr": 5808128,
+            "addr": 5835968,
             "type": "gp_api"
         },
         "TEE_Realloc": {
@@ -21,7 +21,7 @@
             "type": "gp_api"
         },
         "TEE_Free": {
-            "addr": 5808384,
+            "addr": 5835980,
             "type": "gp_api"
         },
         "TEE_AllocateOperation": {
@@ -179,6 +179,14 @@
         "TEE_BigInt_Panic": {
             "addr": 5831612,
             "type": "gp_api"
+        },
+        "debug_log": {
+            "addr": 5843136,
+            "type": "tee"
+        },
+        "GetBootSeed": {
+            "addr": 5831268,
+            "type": "tee"
         }
     },
     "TA_CreateEntryPoint_start": 5804648,
@@ -186,10 +194,15 @@
         5804808
     ],
     "TA_OpenSessionEntryPoint_start": 5804944,
-    "TA_OpenSessionEntryPoint_end": [],
-    "TA_CloseSessionEntryPoint_start": [
-        -1
+    "TA_OpenSessionEntryPoint_end": [
+        5805012
     ],
+    "TA_InvokeCommandEntryPoint_start": 5805028,
+    "TA_InvokeCommandEntryPoint_end": [
+        5805132,
+        5805112
+    ],
+    "TA_CloseSessionEntryPoint_start": -1,
     "TA_CloseSessionEntryPoint_end": [
         -1
     ],

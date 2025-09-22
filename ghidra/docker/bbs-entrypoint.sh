@@ -11,7 +11,7 @@ echo $@
 TA=${1}
 TEE=${2}
 TA_PATH="/${TEE}_tas/$TA"
-TIMEOUT=600
+TIMEOUT=6000
 
 PROJECT="GhidraProject"
 
