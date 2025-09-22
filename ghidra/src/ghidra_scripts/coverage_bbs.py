@@ -114,7 +114,21 @@ def get_api_type(target, tee, inline_funcs):
     if inline_entry is not None:
         return inline_entry["type"]
     return "tee"
-    
+   
+def is_call(ghidra_func, instr):
+    ft = instr.getFlowType()
+    if ft.isCall():
+        return True
+    if ft.isConditional() or ft.isUnConditional() or ft.isJump():
+        for ref in instr.getReferencesFrom():
+            # conditional branch or similar is a ctually a function call
+            target = ref.getToAddress() 
+            print(target)
+            if str(target).startswith("Stack"): continue
+            if not ghidra_func.getBody().contains(target):
+                return True
+    return False
+ 
 ta_fw = ["TA_CreateEntryPoint", "TA_OpenSessionEntryPoint", "TA_InvokeCommandEntryPoint", "TA_CloseSessionEntryPoint", "TA_DestroyEntryPoint"]
 
 def gen_cfg(func, func_cfgs, tee, inline_funcs):
@@ -158,30 +172,31 @@ def gen_cfg(func, func_cfgs, tee, inline_funcs):
         while instr_iter.hasNext():
             instr = instr_iter.next()
             # Detect calls
-            if instr.getFlowType().isCall():
+            if is_call(ghidra_func, instr):
+            #if instr.getFlowType().isCall():
                 for ref in instr.getReferencesFrom():
-                    if ref.getReferenceType() == RefType.UNCONDITIONAL_CALL or ref.getReferenceType().isCall():
-                        target = ref.getToAddress()
-                        print(instr.getAddress())
-                        is_api = is_api_call(target, tee, inline_funcs)
-                        if is_api:
-                            api_type = get_api_type(target, tee, inline_funcs)
-                        else:
-                            api_type = None
-                        f = getFunctionAt(target)
-                        if f:
-                            f_name = f.getName()
-                            if tee == "mitee" and f_name.startswith("xz_"):
-                                # ipc is essentially a system call
-                                svcs.append(str(instr.getAddress()))    
-                                continue
-                            if f_name.startswith("FUN_"):
-                                f_name = str(target)
-                            calls.append({"func": f_name, "api": is_api, "api_type": api_type})
-                        else:
-                            calls.append({"func": str(target), "api": is_api, "api_type": api_type})
-                        if not is_api and str(target) not in func_cfgs and str(target) not in funcs_todo:
-                            funcs_todo.append(str(target))
+                    #if ref.getReferenceType() == RefType.UNCONDITIONAL_CALL or ref.getReferenceType().isCall():
+                    target = ref.getToAddress()
+                    if str(target).startswith("Stack"): continue
+                    is_api = is_api_call(target, tee, inline_funcs)
+                    if is_api:
+                        api_type = get_api_type(target, tee, inline_funcs)
+                    else:
+                        api_type = None
+                    f = getFunctionAt(target)
+                    if f:
+                        f_name = f.getName()
+                        if tee == "mitee" and f_name.startswith("xz_"):
+                            # ipc is essentially a system call
+                            svcs.append(str(instr.getAddress()))    
+                            continue
+                        if f_name.startswith("FUN_") or f_name.startswith("thunk_FUN_"):
+                            f_name = str(target)
+                        calls.append({"func": f_name, "api": is_api, "api_type": api_type})
+                    else:
+                        calls.append({"func": str(target), "api": is_api, "api_type": api_type})
+                    if not is_api and str(target) not in func_cfgs and str(target) not in funcs_todo:
+                        funcs_todo.append(str(target))
                             
             # Detect svc instruction (ARM/Thumb)
             if instr.getMnemonicString().lower() == "svc":

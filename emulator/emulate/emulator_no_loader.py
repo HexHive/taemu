@@ -130,7 +130,7 @@ def hook_ta_custom(ql: Qiling, ta_path, ta_elf:ELF, emu):
         for fname, info in ta_info['inline'].items():
             addr = info['addr']
             hook_type = info['type']
-            if hook_type == "gp_api" or hook_type == "tee":
+            if hook_type == "gp_api" or hook_type == "tee" or hook_type == "tee_std":
                 ql.log.info(f'hooking inline api function {fname}, {hex(addr)}')
                 if ta_elf.pie:
                     ql.hook_address(get_api_impl(fname), ta_base+addr, user_data=HookData(emu,fname))
