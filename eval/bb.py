@@ -92,7 +92,6 @@ def cfg_ta(ta_path):
 def get_apis(cfg):
     out = set() 
     for node, data in cfg.nodes(data=True):
-        print(data)
         if "api_calls" in data:
             for call in data["api_calls"]:
                 print(call)
