@@ -94,7 +94,6 @@ def get_apis(cfg):
     for node, data in cfg.nodes(data=True):
         if "api_calls" in data:
             for call in data["api_calls"]:
-                print(call)
                 out.add(call)
     return out
 

@@ -1,9 +1,9 @@
 {
     "inline": {
-		"GetBootSeed":{
-			"addr": 2121184,
-			"type": "tee"
-		},
+        "GetBootSeed":{
+                "addr": 2121184,
+                "type": "tee"
+        },
         "TEE_SetTAPersistentTime": {
             "addr": 2104664,
             "type": "gp_api"

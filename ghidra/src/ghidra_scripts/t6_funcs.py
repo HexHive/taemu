@@ -101,7 +101,7 @@ def t6_find_GP():
 					returns = find_returns(gp_function, is_thumb=True)
 					out[f'{symbol}_end'] = returns
 	
-	out["TA_CloseSessionEntryPoint_start"] = -1,
+	out["TA_CloseSessionEntryPoint_start"] = -1
 	out["TA_CloseSessionEntryPoint_end"] =  [-1]
 	out["TA_DestroyEntryPoint_start"] = -1
 	out["TA_DestroyEntryPoint_end"] = [-1]
