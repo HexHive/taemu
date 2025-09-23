@@ -259,164 +259,74 @@
             }
         ]
     },
-    "0020bf00": {
-        "function": "0020bf00",
+    "0021f9ac": {
+        "function": "0021f9ac",
         "nodes": [
             {
                 "name": "BB_0",
-                "start": "0020bf00",
-                "end": "0020bf0b",
+                "start": "0021f9ac",
+                "end": "0021f9bf",
                 "calls": [],
                 "svc": [],
                 "edges": [
+                    "BB_2",
                     "BB_1"
                 ]
             },
             {
                 "name": "BB_1",
-                "start": "0020bf0c",
-                "end": "0020bf1b",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_1",
-                    "BB_2"
-                ]
-            },
-            {
-                "name": "BB_2",
-                "start": "0020bf1c",
-                "end": "0020bf1f",
+                "start": "0021f9c0",
+                "end": "0021f9c3",
                 "calls": [],
                 "svc": [],
                 "edges": []
-            }
-        ]
-    },
-    "0021ce48": {
-        "function": "0021ce48",
-        "nodes": [
-            {
-                "name": "BB_0",
-                "start": "0021ce48",
-                "end": "0021ce5f",
-                "calls": [
-                    {
-                        "func": "00226b14",
-                        "api": false,
-                        "api_type": null
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_7",
-                    "BB_1"
-                ]
-            },
-            {
-                "name": "BB_1",
-                "start": "0021ce60",
-                "end": "0021ce75",
-                "calls": [
-                    {
-                        "func": "debug_log",
-                        "api": true,
-                        "api_type": "tee_std"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_2"
-                ]
             },
             {
                 "name": "BB_2",
-                "start": "0021ce76",
-                "end": "0021ce79",
-                "calls": [],
+                "start": "0021f9c4",
+                "end": "0021f9db",
+                "calls": [
+                    {
+                        "func": "TEE_GetPropertyAsString",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
                 "svc": [],
                 "edges": [
-                    "BB_4",
+                    "BB_5",
                     "BB_3"
                 ]
             },
             {
                 "name": "BB_3",
-                "start": "0021ce7a",
-                "end": "0021ce7d",
-                "calls": [
-                    {
-                        "func": "TEE_FreeOperation",
-                        "api": true,
-                        "api_type": "gp_api"
-                    }
-                ],
+                "start": "0021f9dc",
+                "end": "0021f9e1",
+                "calls": [],
                 "svc": [],
                 "edges": [
+                    "BB_6",
                     "BB_4"
                 ]
             },
             {
                 "name": "BB_4",
-                "start": "0021ce7e",
-                "end": "0021ce81",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_6",
-                    "BB_5"
-                ]
-            },
-            {
-                "name": "BB_5",
-                "start": "0021ce82",
-                "end": "0021ce85",
+                "start": "0021f9e2",
+                "end": "0021f9ff",
                 "calls": [
                     {
-                        "func": "TEE_FreeTransientObject",
+                        "func": "debug_log",
                         "api": true,
-                        "api_type": "gp_api"
+                        "api_type": "tee_std"
                     }
                 ],
-                "svc": [],
-                "edges": [
-                    "BB_6"
-                ]
-            },
-            {
-                "name": "BB_6",
-                "start": "0021ce86",
-                "end": "0021ce8b",
-                "calls": [],
                 "svc": [],
                 "edges": []
             },
             {
-                "name": "BB_7",
-                "start": "0021ce8c",
-                "end": "0021ceaf",
-                "calls": [
-                    {
-                        "func": "TEE_InitRefAttribute",
-                        "api": true,
-                        "api_type": "gp_api"
-                    },
-                    {
-                        "func": "TEE_AllocateTransientObject",
-                        "api": true,
-                        "api_type": "gp_api"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_9",
-                    "BB_8"
-                ]
-            },
-            {
-                "name": "BB_8",
-                "start": "0021ceb0",
-                "end": "0021cec7",
+                "name": "BB_5",
+                "start": "0021fa00",
+                "end": "0021fa19",
                 "calls": [
                     {
                         "func": "debug_log",
@@ -426,16 +336,16 @@
                 ],
                 "svc": [],
                 "edges": [
-                    "BB_2"
+                    "BB_1"
                 ]
             },
             {
-                "name": "BB_9",
-                "start": "0021cec8",
-                "end": "0021ced5",
+                "name": "BB_6",
+                "start": "0021fa1a",
+                "end": "0021fa2d",
                 "calls": [
                     {
-                        "func": "TEE_PopulateTransientObject",
+                        "func": "TEE_GetPropertyAsU32",
                         "api": true,
                         "api_type": "gp_api"
                     }
@@ -443,16 +353,16 @@
                 "svc": [],
                 "edges": [
                     "BB_12",
-                    "BB_10"
+                    "BB_7"
                 ]
             },
             {
-                "name": "BB_10",
-                "start": "0021ced6",
-                "end": "0021ceeb",
+                "name": "BB_7",
+                "start": "0021fa2e",
+                "end": "0021fa41",
                 "calls": [
                     {
-                        "func": "TEE_AllocateOperation",
+                        "func": "TEE_GetPropertyAsU32",
                         "api": true,
                         "api_type": "gp_api"
                     }
@@ -460,285 +370,35 @@
                 "svc": [],
                 "edges": [
                     "BB_13",
-                    "BB_11"
-                ]
-            },
-            {
-                "name": "BB_11",
-                "start": "0021ceec",
-                "end": "0021cf03",
-                "calls": [
-                    {
-                        "func": "debug_log",
-                        "api": true,
-                        "api_type": "tee_std"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_2"
-                ]
-            },
-            {
-                "name": "BB_12",
-                "start": "0021cf04",
-                "end": "0021cf1b",
-                "calls": [
-                    {
-                        "func": "debug_log",
-                        "api": true,
-                        "api_type": "tee_std"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_2"
-                ]
-            },
-            {
-                "name": "BB_13",
-                "start": "0021cf1c",
-                "end": "0021cf27",
-                "calls": [
-                    {
-                        "func": "TEE_SetOperationKey",
-                        "api": true,
-                        "api_type": "gp_api"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_17",
-                    "BB_14"
-                ]
-            },
-            {
-                "name": "BB_14",
-                "start": "0021cf28",
-                "end": "0021cf4d",
-                "calls": [
-                    {
-                        "func": "TEE_MACInit",
-                        "api": true,
-                        "api_type": "gp_api"
-                    },
-                    {
-                        "func": "TEE_MACComputeFinal",
-                        "api": true,
-                        "api_type": "gp_api"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_18",
-                    "BB_15"
-                ]
-            },
-            {
-                "name": "BB_15",
-                "start": "0021cf4e",
-                "end": "0021cf5b",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_2",
-                    "BB_16"
-                ]
-            },
-            {
-                "name": "BB_16",
-                "start": "0021cf5c",
-                "end": "0021cf75",
-                "calls": [
-                    {
-                        "func": "TEE_FreeOperation",
-                        "api": true,
-                        "api_type": "gp_api"
-                    },
-                    {
-                        "func": "TEE_FreeTransientObject",
-                        "api": true,
-                        "api_type": "gp_api"
-                    },
-                    {
-                        "func": "002268c0",
-                        "api": false,
-                        "api_type": null
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_6"
-                ]
-            },
-            {
-                "name": "BB_17",
-                "start": "0021cf76",
-                "end": "0021cf8d",
-                "calls": [
-                    {
-                        "func": "debug_log",
-                        "api": true,
-                        "api_type": "tee_std"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_2"
-                ]
-            },
-            {
-                "name": "BB_18",
-                "start": "0021cf8e",
-                "end": "0021cfa5",
-                "calls": [
-                    {
-                        "func": "debug_log",
-                        "api": true,
-                        "api_type": "tee_std"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_2"
-                ]
-            }
-        ]
-    },
-    "0020af4c": {
-        "function": "0020af4c",
-        "nodes": [
-            {
-                "name": "BB_0",
-                "start": "0020af4c",
-                "end": "0020af79",
-                "calls": [
-                    {
-                        "func": "TEE_AllocateTransientObject",
-                        "api": true,
-                        "api_type": "gp_api"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_9",
-                    "BB_1"
-                ]
-            },
-            {
-                "name": "BB_1",
-                "start": "0020af7a",
-                "end": "0020af8f",
-                "calls": [
-                    {
-                        "func": "debug_log",
-                        "api": true,
-                        "api_type": "tee_std"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_2"
-                ]
-            },
-            {
-                "name": "BB_2",
-                "start": "0020af90",
-                "end": "0020af97",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_4",
-                    "BB_3"
-                ]
-            },
-            {
-                "name": "BB_3",
-                "start": "0020af98",
-                "end": "0020af9b",
-                "calls": [
-                    {
-                        "func": "00226aa0",
-                        "api": false,
-                        "api_type": null
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_4"
-                ]
-            },
-            {
-                "name": "BB_4",
-                "start": "0020af9c",
-                "end": "0020afa3",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_6",
-                    "BB_5"
-                ]
-            },
-            {
-                "name": "BB_5",
-                "start": "0020afa4",
-                "end": "0020afa7",
-                "calls": [
-                    {
-                        "func": "00226aa0",
-                        "api": false,
-                        "api_type": null
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_6"
-                ]
-            },
-            {
-                "name": "BB_6",
-                "start": "0020afa8",
-                "end": "0020afb1",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_16",
-                    "BB_7"
-                ]
-            },
-            {
-                "name": "BB_7",
-                "start": "0020afb2",
-                "end": "0020afb7",
-                "calls": [
-                    {
-                        "func": "TEE_FreeTransientObject",
-                        "api": true,
-                        "api_type": "gp_api"
-                    }
-                ],
-                "svc": [],
-                "edges": [
                     "BB_8"
                 ]
             },
             {
                 "name": "BB_8",
-                "start": "0020afb8",
-                "end": "0020afbd",
-                "calls": [],
+                "start": "0021fa42",
+                "end": "0021fa55",
+                "calls": [
+                    {
+                        "func": "TEE_GetPropertyAsU32",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
                 "svc": [],
-                "edges": []
+                "edges": [
+                    "BB_14",
+                    "BB_9"
+                ]
             },
             {
                 "name": "BB_9",
-                "start": "0020afbe",
-                "end": "0020afcd",
+                "start": "0021fa56",
+                "end": "0021fa67",
                 "calls": [
                     {
-                        "func": "00226b14",
-                        "api": false,
-                        "api_type": null
+                        "func": "TEE_GetPropertyAsU32",
+                        "api": true,
+                        "api_type": "gp_api"
                     }
                 ],
                 "svc": [],
@@ -749,8 +409,29 @@
             },
             {
                 "name": "BB_10",
-                "start": "0020afce",
-                "end": "0020afe5",
+                "start": "0021fa68",
+                "end": "0021fa6b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_15",
+                    "BB_11"
+                ]
+            },
+            {
+                "name": "BB_11",
+                "start": "0021fa6c",
+                "end": "0021fa77",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_12",
+                "start": "0021fa78",
+                "end": "0021fa91",
                 "calls": [
                     {
                         "func": "debug_log",
@@ -760,103 +441,73 @@
                 ],
                 "svc": [],
                 "edges": [
-                    "BB_2"
+                    "BB_1"
                 ]
             },
             {
-                "name": "BB_11",
-                "start": "0020afe6",
-                "end": "0020b003",
+                "name": "BB_13",
+                "start": "0021fa92",
+                "end": "0021faab",
                 "calls": [
                     {
-                        "func": "TEE_InitRefAttribute",
+                        "func": "debug_log",
                         "api": true,
-                        "api_type": "gp_api"
-                    },
-                    {
-                        "func": "TEE_PopulateTransientObject",
-                        "api": true,
-                        "api_type": "gp_api"
+                        "api_type": "tee_std"
                     }
                 ],
                 "svc": [],
                 "edges": [
-                    "BB_17",
-                    "BB_12"
+                    "BB_1"
                 ]
             },
             {
-                "name": "BB_12",
-                "start": "0020b004",
-                "end": "0020b00f",
+                "name": "BB_14",
+                "start": "0021faac",
+                "end": "0021fac5",
                 "calls": [
                     {
-                        "func": "002269f0",
-                        "api": false,
-                        "api_type": null
+                        "func": "debug_log",
+                        "api": true,
+                        "api_type": "tee_std"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_15",
+                "start": "0021fac6",
+                "end": "0021fadb",
+                "calls": [
+                    {
+                        "func": "TEE_GetPropertyAsString",
+                        "api": true,
+                        "api_type": "gp_api"
                     }
                 ],
                 "svc": [],
                 "edges": [
                     "BB_18",
-                    "BB_13"
-                ]
-            },
-            {
-                "name": "BB_13",
-                "start": "0020b010",
-                "end": "0020b029",
-                "calls": [
-                    {
-                        "func": "002268c0",
-                        "api": false,
-                        "api_type": null
-                    },
-                    {
-                        "func": "002269f0",
-                        "api": false,
-                        "api_type": null
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_19",
-                    "BB_14"
-                ]
-            },
-            {
-                "name": "BB_14",
-                "start": "0020b02a",
-                "end": "0020b033",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_14",
-                    "BB_15"
-                ]
-            },
-            {
-                "name": "BB_15",
-                "start": "0020b034",
-                "end": "0020b037",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_8"
+                    "BB_16"
                 ]
             },
             {
                 "name": "BB_16",
-                "start": "0020b038",
-                "end": "0020b03f",
+                "start": "0021fadc",
+                "end": "0021fae1",
                 "calls": [],
                 "svc": [],
-                "edges": []
+                "edges": [
+                    "BB_19",
+                    "BB_17"
+                ]
             },
             {
                 "name": "BB_17",
-                "start": "0020b040",
-                "end": "0020b057",
+                "start": "0021fae2",
+                "end": "0021fafd",
                 "calls": [
                     {
                         "func": "debug_log",
@@ -866,13 +517,13 @@
                 ],
                 "svc": [],
                 "edges": [
-                    "BB_2"
+                    "BB_1"
                 ]
             },
             {
                 "name": "BB_18",
-                "start": "0020b058",
-                "end": "0020b075",
+                "start": "0021fafe",
+                "end": "0021fb17",
                 "calls": [
                     {
                         "func": "debug_log",
@@ -882,13 +533,78 @@
                 ],
                 "svc": [],
                 "edges": [
-                    "BB_2"
+                    "BB_1"
                 ]
             },
             {
                 "name": "BB_19",
-                "start": "0020b076",
-                "end": "0020b093",
+                "start": "0021fb18",
+                "end": "0021fb2f",
+                "calls": [
+                    {
+                        "func": "TEE_GetPropertyAsU32",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_22",
+                    "BB_20"
+                ]
+            },
+            {
+                "name": "BB_20",
+                "start": "0021fb30",
+                "end": "0021fb43",
+                "calls": [
+                    {
+                        "func": "TEE_GetPropertyAsU32",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_23",
+                    "BB_21"
+                ]
+            },
+            {
+                "name": "BB_21",
+                "start": "0021fb44",
+                "end": "0021fb85",
+                "calls": [
+                    {
+                        "func": "0021f950",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "0021f950",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "0021f950",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "0021f950",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_11"
+                ]
+            },
+            {
+                "name": "BB_22",
+                "start": "0021fb86",
+                "end": "0021fb9f",
                 "calls": [
                     {
                         "func": "debug_log",
@@ -898,7 +614,23 @@
                 ],
                 "svc": [],
                 "edges": [
-                    "BB_2"
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_23",
+                "start": "0021fba0",
+                "end": "0021fbb9",
+                "calls": [
+                    {
+                        "func": "debug_log",
+                        "api": true,
+                        "api_type": "tee_std"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_1"
                 ]
             }
         ]
@@ -1602,146 +1334,140 @@
             }
         ]
     },
-    "0021f9ac": {
-        "function": "0021f9ac",
+    "0020af4c": {
+        "function": "0020af4c",
         "nodes": [
             {
                 "name": "BB_0",
-                "start": "0021f9ac",
-                "end": "0021f9bf",
-                "calls": [],
+                "start": "0020af4c",
+                "end": "0020af79",
+                "calls": [
+                    {
+                        "func": "TEE_AllocateTransientObject",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
                 "svc": [],
                 "edges": [
-                    "BB_2",
+                    "BB_9",
                     "BB_1"
                 ]
             },
             {
                 "name": "BB_1",
-                "start": "0021f9c0",
-                "end": "0021f9c3",
-                "calls": [],
-                "svc": [],
-                "edges": []
-            },
-            {
-                "name": "BB_2",
-                "start": "0021f9c4",
-                "end": "0021f9db",
+                "start": "0020af7a",
+                "end": "0020af8f",
                 "calls": [
                     {
-                        "func": "TEE_GetPropertyAsString",
+                        "func": "debug_log",
                         "api": true,
-                        "api_type": "gp_api"
+                        "api_type": "tee_std"
                     }
                 ],
                 "svc": [],
                 "edges": [
-                    "BB_5",
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "0020af90",
+                "end": "0020af97",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_4",
                     "BB_3"
                 ]
             },
             {
                 "name": "BB_3",
-                "start": "0021f9dc",
-                "end": "0021f9e1",
-                "calls": [],
+                "start": "0020af98",
+                "end": "0020af9b",
+                "calls": [
+                    {
+                        "func": "00226aa0",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
                 "svc": [],
                 "edges": [
-                    "BB_6",
                     "BB_4"
                 ]
             },
             {
                 "name": "BB_4",
-                "start": "0021f9e2",
-                "end": "0021f9ff",
-                "calls": [
-                    {
-                        "func": "debug_log",
-                        "api": true,
-                        "api_type": "tee_std"
-                    }
-                ],
+                "start": "0020af9c",
+                "end": "0020afa3",
+                "calls": [],
                 "svc": [],
-                "edges": []
+                "edges": [
+                    "BB_6",
+                    "BB_5"
+                ]
             },
             {
                 "name": "BB_5",
-                "start": "0021fa00",
-                "end": "0021fa19",
+                "start": "0020afa4",
+                "end": "0020afa7",
                 "calls": [
                     {
-                        "func": "debug_log",
-                        "api": true,
-                        "api_type": "tee_std"
+                        "func": "00226aa0",
+                        "api": false,
+                        "api_type": null
                     }
                 ],
                 "svc": [],
                 "edges": [
-                    "BB_1"
+                    "BB_6"
                 ]
             },
             {
                 "name": "BB_6",
-                "start": "0021fa1a",
-                "end": "0021fa2d",
-                "calls": [
-                    {
-                        "func": "TEE_GetPropertyAsU32",
-                        "api": true,
-                        "api_type": "gp_api"
-                    }
-                ],
+                "start": "0020afa8",
+                "end": "0020afb1",
+                "calls": [],
                 "svc": [],
                 "edges": [
-                    "BB_12",
+                    "BB_16",
                     "BB_7"
                 ]
             },
             {
                 "name": "BB_7",
-                "start": "0021fa2e",
-                "end": "0021fa41",
+                "start": "0020afb2",
+                "end": "0020afb7",
                 "calls": [
                     {
-                        "func": "TEE_GetPropertyAsU32",
+                        "func": "TEE_FreeTransientObject",
                         "api": true,
                         "api_type": "gp_api"
                     }
                 ],
                 "svc": [],
                 "edges": [
-                    "BB_13",
                     "BB_8"
                 ]
             },
             {
                 "name": "BB_8",
-                "start": "0021fa42",
-                "end": "0021fa55",
-                "calls": [
-                    {
-                        "func": "TEE_GetPropertyAsU32",
-                        "api": true,
-                        "api_type": "gp_api"
-                    }
-                ],
+                "start": "0020afb8",
+                "end": "0020afbd",
+                "calls": [],
                 "svc": [],
-                "edges": [
-                    "BB_14",
-                    "BB_9"
-                ]
+                "edges": []
             },
             {
                 "name": "BB_9",
-                "start": "0021fa56",
-                "end": "0021fa67",
+                "start": "0020afbe",
+                "end": "0020afcd",
                 "calls": [
                     {
-                        "func": "TEE_GetPropertyAsU32",
-                        "api": true,
-                        "api_type": "gp_api"
+                        "func": "00226b14",
+                        "api": false,
+                        "api_type": null
                     }
                 ],
                 "svc": [],
@@ -1752,29 +1478,384 @@
             },
             {
                 "name": "BB_10",
-                "start": "0021fa68",
-                "end": "0021fa6b",
+                "start": "0020afce",
+                "end": "0020afe5",
+                "calls": [
+                    {
+                        "func": "debug_log",
+                        "api": true,
+                        "api_type": "tee_std"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_11",
+                "start": "0020afe6",
+                "end": "0020b003",
+                "calls": [
+                    {
+                        "func": "TEE_InitRefAttribute",
+                        "api": true,
+                        "api_type": "gp_api"
+                    },
+                    {
+                        "func": "TEE_PopulateTransientObject",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_17",
+                    "BB_12"
+                ]
+            },
+            {
+                "name": "BB_12",
+                "start": "0020b004",
+                "end": "0020b00f",
+                "calls": [
+                    {
+                        "func": "002269f0",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_18",
+                    "BB_13"
+                ]
+            },
+            {
+                "name": "BB_13",
+                "start": "0020b010",
+                "end": "0020b029",
+                "calls": [
+                    {
+                        "func": "002268c0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "002269f0",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_19",
+                    "BB_14"
+                ]
+            },
+            {
+                "name": "BB_14",
+                "start": "0020b02a",
+                "end": "0020b033",
                 "calls": [],
                 "svc": [],
                 "edges": [
-                    "BB_15",
+                    "BB_14",
+                    "BB_15"
+                ]
+            },
+            {
+                "name": "BB_15",
+                "start": "0020b034",
+                "end": "0020b037",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_8"
+                ]
+            },
+            {
+                "name": "BB_16",
+                "start": "0020b038",
+                "end": "0020b03f",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_17",
+                "start": "0020b040",
+                "end": "0020b057",
+                "calls": [
+                    {
+                        "func": "debug_log",
+                        "api": true,
+                        "api_type": "tee_std"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_18",
+                "start": "0020b058",
+                "end": "0020b075",
+                "calls": [
+                    {
+                        "func": "debug_log",
+                        "api": true,
+                        "api_type": "tee_std"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_19",
+                "start": "0020b076",
+                "end": "0020b093",
+                "calls": [
+                    {
+                        "func": "debug_log",
+                        "api": true,
+                        "api_type": "tee_std"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_2"
+                ]
+            }
+        ]
+    },
+    "0020bf00": {
+        "function": "0020bf00",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "0020bf00",
+                "end": "0020bf0b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "0020bf0c",
+                "end": "0020bf1b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_1",
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "0020bf1c",
+                "end": "0020bf1f",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "0021ce48": {
+        "function": "0021ce48",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "0021ce48",
+                "end": "0021ce5f",
+                "calls": [
+                    {
+                        "func": "00226b14",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_7",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "0021ce60",
+                "end": "0021ce75",
+                "calls": [
+                    {
+                        "func": "debug_log",
+                        "api": true,
+                        "api_type": "tee_std"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "0021ce76",
+                "end": "0021ce79",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_4",
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "0021ce7a",
+                "end": "0021ce7d",
+                "calls": [
+                    {
+                        "func": "TEE_FreeOperation",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_4"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "0021ce7e",
+                "end": "0021ce81",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_6",
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_5",
+                "start": "0021ce82",
+                "end": "0021ce85",
+                "calls": [
+                    {
+                        "func": "TEE_FreeTransientObject",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_6"
+                ]
+            },
+            {
+                "name": "BB_6",
+                "start": "0021ce86",
+                "end": "0021ce8b",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_7",
+                "start": "0021ce8c",
+                "end": "0021ceaf",
+                "calls": [
+                    {
+                        "func": "TEE_InitRefAttribute",
+                        "api": true,
+                        "api_type": "gp_api"
+                    },
+                    {
+                        "func": "TEE_AllocateTransientObject",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_9",
+                    "BB_8"
+                ]
+            },
+            {
+                "name": "BB_8",
+                "start": "0021ceb0",
+                "end": "0021cec7",
+                "calls": [
+                    {
+                        "func": "debug_log",
+                        "api": true,
+                        "api_type": "tee_std"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_9",
+                "start": "0021cec8",
+                "end": "0021ced5",
+                "calls": [
+                    {
+                        "func": "TEE_PopulateTransientObject",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_12",
+                    "BB_10"
+                ]
+            },
+            {
+                "name": "BB_10",
+                "start": "0021ced6",
+                "end": "0021ceeb",
+                "calls": [
+                    {
+                        "func": "TEE_AllocateOperation",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_13",
                     "BB_11"
                 ]
             },
             {
                 "name": "BB_11",
-                "start": "0021fa6c",
-                "end": "0021fa77",
-                "calls": [],
+                "start": "0021ceec",
+                "end": "0021cf03",
+                "calls": [
+                    {
+                        "func": "debug_log",
+                        "api": true,
+                        "api_type": "tee_std"
+                    }
+                ],
                 "svc": [],
                 "edges": [
-                    "BB_1"
+                    "BB_2"
                 ]
             },
             {
                 "name": "BB_12",
-                "start": "0021fa78",
-                "end": "0021fa91",
+                "start": "0021cf04",
+                "end": "0021cf1b",
                 "calls": [
                     {
                         "func": "debug_log",
@@ -1784,29 +1865,89 @@
                 ],
                 "svc": [],
                 "edges": [
-                    "BB_1"
+                    "BB_2"
                 ]
             },
             {
                 "name": "BB_13",
-                "start": "0021fa92",
-                "end": "0021faab",
+                "start": "0021cf1c",
+                "end": "0021cf27",
                 "calls": [
                     {
-                        "func": "debug_log",
+                        "func": "TEE_SetOperationKey",
                         "api": true,
-                        "api_type": "tee_std"
+                        "api_type": "gp_api"
                     }
                 ],
                 "svc": [],
                 "edges": [
-                    "BB_1"
+                    "BB_17",
+                    "BB_14"
                 ]
             },
             {
                 "name": "BB_14",
-                "start": "0021faac",
-                "end": "0021fac5",
+                "start": "0021cf28",
+                "end": "0021cf4d",
+                "calls": [
+                    {
+                        "func": "TEE_MACInit",
+                        "api": true,
+                        "api_type": "gp_api"
+                    },
+                    {
+                        "func": "TEE_MACComputeFinal",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_18",
+                    "BB_15"
+                ]
+            },
+            {
+                "name": "BB_15",
+                "start": "0021cf4e",
+                "end": "0021cf5b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_2",
+                    "BB_16"
+                ]
+            },
+            {
+                "name": "BB_16",
+                "start": "0021cf5c",
+                "end": "0021cf75",
+                "calls": [
+                    {
+                        "func": "TEE_FreeOperation",
+                        "api": true,
+                        "api_type": "gp_api"
+                    },
+                    {
+                        "func": "TEE_FreeTransientObject",
+                        "api": true,
+                        "api_type": "gp_api"
+                    },
+                    {
+                        "func": "002268c0",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_6"
+                ]
+            },
+            {
+                "name": "BB_17",
+                "start": "0021cf76",
+                "end": "0021cf8d",
                 "calls": [
                     {
                         "func": "debug_log",
@@ -1816,13 +1957,53 @@
                 ],
                 "svc": [],
                 "edges": [
-                    "BB_1"
+                    "BB_2"
                 ]
             },
             {
-                "name": "BB_15",
-                "start": "0021fac6",
-                "end": "0021fadb",
+                "name": "BB_18",
+                "start": "0021cf8e",
+                "end": "0021cfa5",
+                "calls": [
+                    {
+                        "func": "debug_log",
+                        "api": true,
+                        "api_type": "tee_std"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_2"
+                ]
+            }
+        ]
+    },
+    "00226aa0": {
+        "function": "00226aa0",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "00226aa0",
+                "end": "00226aa3",
+                "calls": [
+                    {
+                        "func": "0022aa04",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "0021f950": {
+        "function": "0021f950",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "0021f950",
+                "end": "0021f96b",
                 "calls": [
                     {
                         "func": "TEE_GetPropertyAsString",
@@ -1832,25 +2013,25 @@
                 ],
                 "svc": [],
                 "edges": [
-                    "BB_18",
-                    "BB_16"
+                    "BB_4",
+                    "BB_1"
                 ]
             },
             {
-                "name": "BB_16",
-                "start": "0021fadc",
-                "end": "0021fae1",
+                "name": "BB_1",
+                "start": "0021f96c",
+                "end": "0021f977",
                 "calls": [],
                 "svc": [],
                 "edges": [
-                    "BB_19",
-                    "BB_17"
+                    "BB_3",
+                    "BB_2"
                 ]
             },
             {
-                "name": "BB_17",
-                "start": "0021fae2",
-                "end": "0021fafd",
+                "name": "BB_2",
+                "start": "0021f978",
+                "end": "0021f98f",
                 "calls": [
                     {
                         "func": "debug_log",
@@ -1860,136 +2041,52 @@
                 ],
                 "svc": [],
                 "edges": [
-                    "BB_1"
+                    "BB_4"
                 ]
             },
             {
-                "name": "BB_18",
-                "start": "0021fafe",
-                "end": "0021fb17",
+                "name": "BB_3",
+                "start": "0021f990",
+                "end": "0021f99f",
                 "calls": [
                     {
-                        "func": "debug_log",
-                        "api": true,
-                        "api_type": "tee_std"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_1"
-                ]
-            },
-            {
-                "name": "BB_19",
-                "start": "0021fb18",
-                "end": "0021fb2f",
-                "calls": [
-                    {
-                        "func": "TEE_GetPropertyAsU32",
-                        "api": true,
-                        "api_type": "gp_api"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_22",
-                    "BB_20"
-                ]
-            },
-            {
-                "name": "BB_20",
-                "start": "0021fb30",
-                "end": "0021fb43",
-                "calls": [
-                    {
-                        "func": "TEE_GetPropertyAsU32",
-                        "api": true,
-                        "api_type": "gp_api"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_23",
-                    "BB_21"
-                ]
-            },
-            {
-                "name": "BB_21",
-                "start": "0021fb44",
-                "end": "0021fb85",
-                "calls": [
-                    {
-                        "func": "0021f950",
+                        "func": "0022c4f4",
                         "api": false,
                         "api_type": null
                     },
                     {
-                        "func": "0021f950",
-                        "api": false,
-                        "api_type": null
-                    },
-                    {
-                        "func": "0021f950",
-                        "api": false,
-                        "api_type": null
-                    },
-                    {
-                        "func": "0021f950",
+                        "func": "0021f844",
                         "api": false,
                         "api_type": null
                     }
                 ],
                 "svc": [],
                 "edges": [
-                    "BB_11"
+                    "BB_4"
                 ]
             },
             {
-                "name": "BB_22",
-                "start": "0021fb86",
-                "end": "0021fb9f",
-                "calls": [
-                    {
-                        "func": "debug_log",
-                        "api": true,
-                        "api_type": "tee_std"
-                    }
-                ],
+                "name": "BB_4",
+                "start": "0021f9a0",
+                "end": "0021f9a3",
+                "calls": [],
                 "svc": [],
-                "edges": [
-                    "BB_1"
-                ]
-            },
-            {
-                "name": "BB_23",
-                "start": "0021fba0",
-                "end": "0021fbb9",
-                "calls": [
-                    {
-                        "func": "debug_log",
-                        "api": true,
-                        "api_type": "tee_std"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_1"
-                ]
+                "edges": []
             }
         ]
     },
-    "002268c0": {
-        "function": "002268c0",
+    "002269f0": {
+        "function": "002269f0",
         "nodes": [
             {
                 "name": "BB_0",
-                "start": "002268c0",
-                "end": "002268c3",
+                "start": "002269f0",
+                "end": "002269f3",
                 "calls": [
                     {
-                        "func": "0022c348",
-                        "api": false,
-                        "api_type": null
+                        "func": "TEE_Malloc",
+                        "api": true,
+                        "api_type": "gp_api"
                     }
                 ],
                 "svc": [],
@@ -2159,18 +2256,18 @@
             }
         ]
     },
-    "002269f0": {
-        "function": "002269f0",
+    "002268c0": {
+        "function": "002268c0",
         "nodes": [
             {
                 "name": "BB_0",
-                "start": "002269f0",
-                "end": "002269f3",
+                "start": "002268c0",
+                "end": "002268c3",
                 "calls": [
                     {
-                        "func": "TEE_Malloc",
-                        "api": true,
-                        "api_type": "gp_api"
+                        "func": "0022c348",
+                        "api": false,
+                        "api_type": null
                     }
                 ],
                 "svc": [],
@@ -2197,474 +2294,224 @@
             }
         ]
     },
-    "00226aa0": {
-        "function": "00226aa0",
+    "0022c348": {
+        "function": "0022c348",
         "nodes": [
             {
                 "name": "BB_0",
-                "start": "00226aa0",
-                "end": "00226aa3",
-                "calls": [
-                    {
-                        "func": "0022aa04",
-                        "api": false,
-                        "api_type": null
-                    }
-                ],
-                "svc": [],
-                "edges": []
-            }
-        ]
-    },
-    "0021f950": {
-        "function": "0021f950",
-        "nodes": [
-            {
-                "name": "BB_0",
-                "start": "0021f950",
-                "end": "0021f96b",
-                "calls": [
-                    {
-                        "func": "TEE_GetPropertyAsString",
-                        "api": true,
-                        "api_type": "gp_api"
-                    }
-                ],
+                "start": "0022c348",
+                "end": "0022c34d",
+                "calls": [],
                 "svc": [],
                 "edges": [
-                    "BB_4",
+                    "BB_18",
                     "BB_1"
                 ]
             },
             {
                 "name": "BB_1",
-                "start": "0021f96c",
-                "end": "0021f977",
+                "start": "0022c34e",
+                "end": "0022c353",
                 "calls": [],
                 "svc": [],
                 "edges": [
-                    "BB_3",
+                    "BB_17",
                     "BB_2"
                 ]
             },
             {
                 "name": "BB_2",
-                "start": "0021f978",
-                "end": "0021f98f",
-                "calls": [
-                    {
-                        "func": "debug_log",
-                        "api": true,
-                        "api_type": "tee_std"
-                    }
-                ],
+                "start": "0022c354",
+                "end": "0022c359",
+                "calls": [],
                 "svc": [],
                 "edges": [
-                    "BB_4"
+                    "BB_5"
                 ]
             },
             {
                 "name": "BB_3",
-                "start": "0021f990",
-                "end": "0021f99f",
-                "calls": [
-                    {
-                        "func": "0022c4f4",
-                        "api": false,
-                        "api_type": null
-                    },
-                    {
-                        "func": "0021f844",
-                        "api": false,
-                        "api_type": null
-                    }
-                ],
+                "start": "0022c35a",
+                "end": "0022c35d",
+                "calls": [],
                 "svc": [],
                 "edges": [
+                    "BB_17",
                     "BB_4"
                 ]
             },
             {
                 "name": "BB_4",
-                "start": "0021f9a0",
-                "end": "0021f9a3",
-                "calls": [],
-                "svc": [],
-                "edges": []
-            }
-        ]
-    },
-    "0021fef8": {
-        "function": "0021fef8",
-        "nodes": [
-            {
-                "name": "BB_0",
-                "start": "0021fef8",
-                "end": "0021ff0f",
+                "start": "0022c35e",
+                "end": "0022c35f",
                 "calls": [],
                 "svc": [],
                 "edges": [
-                    "BB_12",
-                    "BB_1"
-                ]
-            },
-            {
-                "name": "BB_1",
-                "start": "0021ff10",
-                "end": "0021ff25",
-                "calls": [
-                    {
-                        "func": "0022c348",
-                        "api": false,
-                        "api_type": null
-                    },
-                    {
-                        "func": "init_ta_session",
-                        "api": true,
-                        "api_type": "tee"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_11",
-                    "BB_2"
-                ]
-            },
-            {
-                "name": "BB_2",
-                "start": "0021ff26",
-                "end": "0021ff49",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_3"
-                ]
-            },
-            {
-                "name": "BB_3",
-                "start": "0021ff4a",
-                "end": "0021ff67",
-                "calls": [
-                    {
-                        "func": "TEE_InvokeTACommand",
-                        "api": true,
-                        "api_type": "gp_api"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_15",
-                    "BB_4"
-                ]
-            },
-            {
-                "name": "BB_4",
-                "start": "0021ff68",
-                "end": "0021ff69",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_6",
                     "BB_5"
                 ]
             },
             {
                 "name": "BB_5",
-                "start": "0021ff6a",
-                "end": "0021ff6f",
+                "start": "0022c360",
+                "end": "0022c36d",
                 "calls": [],
                 "svc": [],
                 "edges": [
+                    "BB_3",
                     "BB_6"
                 ]
             },
             {
                 "name": "BB_6",
-                "start": "0021ff70",
-                "end": "0021ff83",
+                "start": "0022c36e",
+                "end": "0022c371",
                 "calls": [],
                 "svc": [],
                 "edges": [
-                    "BB_10",
+                    "BB_14",
                     "BB_7"
                 ]
             },
             {
                 "name": "BB_7",
-                "start": "0021ff84",
-                "end": "0021ff95",
-                "calls": [
-                    {
-                        "func": "0021fdb0",
-                        "api": false,
-                        "api_type": null
-                    }
-                ],
+                "start": "0022c372",
+                "end": "0022c37f",
+                "calls": [],
                 "svc": [],
                 "edges": [
-                    "BB_14",
+                    "BB_11",
                     "BB_8"
                 ]
             },
             {
                 "name": "BB_8",
-                "start": "0021ff96",
-                "end": "0021ffa1",
-                "calls": [
-                    {
-                        "func": "0021fdb0",
-                        "api": false,
-                        "api_type": null
-                    }
-                ],
+                "start": "0022c380",
+                "end": "0022c385",
+                "calls": [],
                 "svc": [],
                 "edges": [
-                    "BB_14",
                     "BB_9"
                 ]
             },
             {
                 "name": "BB_9",
-                "start": "0021ffa2",
-                "end": "0021ffaf",
-                "calls": [
-                    {
-                        "func": "0021fdb0",
-                        "api": false,
-                        "api_type": null
-                    }
-                ],
+                "start": "0022c386",
+                "end": "0022c39f",
+                "calls": [],
                 "svc": [],
                 "edges": [
-                    "BB_14",
+                    "BB_9",
                     "BB_10"
                 ]
             },
             {
                 "name": "BB_10",
-                "start": "0021ffb0",
-                "end": "0021ffb7",
-                "calls": [
-                    {
-                        "func": "TEE_CloseTASession",
-                        "api": true,
-                        "api_type": "gp_api"
-                    }
-                ],
+                "start": "0022c3a0",
+                "end": "0022c3b5",
+                "calls": [],
                 "svc": [],
                 "edges": [
+                    "BB_14",
                     "BB_11"
                 ]
             },
             {
                 "name": "BB_11",
-                "start": "0021ffb8",
-                "end": "0021ffbf",
+                "start": "0022c3b6",
+                "end": "0022c3b9",
                 "calls": [],
                 "svc": [],
-                "edges": []
+                "edges": [
+                    "BB_12"
+                ]
             },
             {
                 "name": "BB_12",
-                "start": "0021ffc0",
-                "end": "0021ffcb",
-                "calls": [
-                    {
-                        "func": "init_ta_session",
-                        "api": true,
-                        "api_type": "tee"
-                    }
-                ],
+                "start": "0022c3ba",
+                "end": "0022c3c3",
+                "calls": [],
                 "svc": [],
                 "edges": [
-                    "BB_11",
+                    "BB_12",
                     "BB_13"
                 ]
             },
             {
                 "name": "BB_13",
-                "start": "0021ffcc",
-                "end": "0021ffed",
+                "start": "0022c3c4",
+                "end": "0022c3d1",
                 "calls": [],
                 "svc": [],
                 "edges": [
-                    "BB_3"
+                    "BB_14"
                 ]
             },
             {
                 "name": "BB_14",
-                "start": "0021ffee",
-                "end": "00220013",
-                "calls": [
-                    {
-                        "func": "00226aa0",
-                        "api": false,
-                        "api_type": null
-                    },
-                    {
-                        "func": "00226aa0",
-                        "api": false,
-                        "api_type": null
-                    },
-                    {
-                        "func": "00226aa0",
-                        "api": false,
-                        "api_type": null
-                    },
-                    {
-                        "func": "TEE_CloseTASession",
-                        "api": true,
-                        "api_type": "gp_api"
-                    }
-                ],
+                "start": "0022c3d2",
+                "end": "0022c3d3",
+                "calls": [],
                 "svc": [],
-                "edges": []
+                "edges": [
+                    "BB_17",
+                    "BB_15"
+                ]
             },
             {
                 "name": "BB_15",
-                "start": "00220014",
-                "end": "00220039",
-                "calls": [
-                    {
-                        "func": "debug_log",
-                        "api": true,
-                        "api_type": "tee_std"
-                    },
-                    {
-                        "func": "TEE_CloseTASession",
-                        "api": true,
-                        "api_type": "gp_api"
-                    }
-                ],
+                "start": "0022c3d4",
+                "end": "0022c3d7",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_16"
+                ]
+            },
+            {
+                "name": "BB_16",
+                "start": "0022c3d8",
+                "end": "0022c3df",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_16",
+                    "BB_17"
+                ]
+            },
+            {
+                "name": "BB_17",
+                "start": "0022c3e0",
+                "end": "0022c3e3",
+                "calls": [],
                 "svc": [],
                 "edges": []
+            },
+            {
+                "name": "BB_18",
+                "start": "0022c3e4",
+                "end": "0022c3e9",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_6"
+                ]
             }
         ]
     },
-    "0022c4f4": {
-        "function": "0022c4f4",
+    "0022fb28": {
+        "function": "0022fb28",
         "nodes": [
             {
                 "name": "BB_0",
-                "start": "0022c4f4",
-                "end": "0022c4f7",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_10",
-                    "BB_1"
-                ]
-            },
-            {
-                "name": "BB_1",
-                "start": "0022c4f8",
-                "end": "0022c4fb",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_11",
-                    "BB_2"
-                ]
-            },
-            {
-                "name": "BB_2",
-                "start": "0022c4fc",
-                "end": "0022c4ff",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_4"
-                ]
-            },
-            {
-                "name": "BB_3",
-                "start": "0022c500",
-                "end": "0022c503",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_9",
-                    "BB_4"
-                ]
-            },
-            {
-                "name": "BB_4",
-                "start": "0022c504",
-                "end": "0022c50f",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_3",
-                    "BB_5"
-                ]
-            },
-            {
-                "name": "BB_5",
-                "start": "0022c510",
-                "end": "0022c51f",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_7",
-                    "BB_6"
-                ]
-            },
-            {
-                "name": "BB_6",
-                "start": "0022c520",
-                "end": "0022c531",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_6",
-                    "BB_7"
-                ]
-            },
-            {
-                "name": "BB_7",
-                "start": "0022c532",
-                "end": "0022c535",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_9",
-                    "BB_8"
-                ]
-            },
-            {
-                "name": "BB_8",
-                "start": "0022c536",
-                "end": "0022c53d",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_8",
-                    "BB_9"
-                ]
-            },
-            {
-                "name": "BB_9",
-                "start": "0022c53e",
-                "end": "0022c541",
-                "calls": [],
-                "svc": [],
-                "edges": []
-            },
-            {
-                "name": "BB_10",
-                "start": "0022c542",
-                "end": "0022c545",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_5"
-                ]
-            },
-            {
-                "name": "BB_11",
-                "start": "0022c546",
-                "end": "0022c549",
-                "calls": [],
+                "start": "0022fb28",
+                "end": "0022fb29",
+                "calls": [
+                    {
+                        "func": "0022fb2c",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
                 "svc": [],
                 "edges": []
             }
@@ -2919,18 +2766,375 @@
             }
         ]
     },
-    "0022fb28": {
-        "function": "0022fb28",
+    "0022c4f4": {
+        "function": "0022c4f4",
         "nodes": [
             {
                 "name": "BB_0",
-                "start": "0022fb28",
-                "end": "0022fb29",
+                "start": "0022c4f4",
+                "end": "0022c4f7",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_10",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "0022c4f8",
+                "end": "0022c4fb",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_11",
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "0022c4fc",
+                "end": "0022c4ff",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_4"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "0022c500",
+                "end": "0022c503",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_9",
+                    "BB_4"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "0022c504",
+                "end": "0022c50f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_3",
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_5",
+                "start": "0022c510",
+                "end": "0022c51f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_7",
+                    "BB_6"
+                ]
+            },
+            {
+                "name": "BB_6",
+                "start": "0022c520",
+                "end": "0022c531",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_6",
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_7",
+                "start": "0022c532",
+                "end": "0022c535",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_9",
+                    "BB_8"
+                ]
+            },
+            {
+                "name": "BB_8",
+                "start": "0022c536",
+                "end": "0022c53d",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_8",
+                    "BB_9"
+                ]
+            },
+            {
+                "name": "BB_9",
+                "start": "0022c53e",
+                "end": "0022c541",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_10",
+                "start": "0022c542",
+                "end": "0022c545",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_11",
+                "start": "0022c546",
+                "end": "0022c549",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "0021fef8": {
+        "function": "0021fef8",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "0021fef8",
+                "end": "0021ff0f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_12",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "0021ff10",
+                "end": "0021ff25",
                 "calls": [
                     {
-                        "func": "0022fb2c",
+                        "func": "0022c348",
                         "api": false,
                         "api_type": null
+                    },
+                    {
+                        "func": "init_ta_session",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_11",
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "0021ff26",
+                "end": "0021ff49",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "0021ff4a",
+                "end": "0021ff67",
+                "calls": [
+                    {
+                        "func": "TEE_InvokeTACommand",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_15",
+                    "BB_4"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "0021ff68",
+                "end": "0021ff69",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_6",
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_5",
+                "start": "0021ff6a",
+                "end": "0021ff6f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_6"
+                ]
+            },
+            {
+                "name": "BB_6",
+                "start": "0021ff70",
+                "end": "0021ff83",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_10",
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_7",
+                "start": "0021ff84",
+                "end": "0021ff95",
+                "calls": [
+                    {
+                        "func": "0021fdb0",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_14",
+                    "BB_8"
+                ]
+            },
+            {
+                "name": "BB_8",
+                "start": "0021ff96",
+                "end": "0021ffa1",
+                "calls": [
+                    {
+                        "func": "0021fdb0",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_14",
+                    "BB_9"
+                ]
+            },
+            {
+                "name": "BB_9",
+                "start": "0021ffa2",
+                "end": "0021ffaf",
+                "calls": [
+                    {
+                        "func": "0021fdb0",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_14",
+                    "BB_10"
+                ]
+            },
+            {
+                "name": "BB_10",
+                "start": "0021ffb0",
+                "end": "0021ffb7",
+                "calls": [
+                    {
+                        "func": "TEE_CloseTASession",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_11"
+                ]
+            },
+            {
+                "name": "BB_11",
+                "start": "0021ffb8",
+                "end": "0021ffbf",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_12",
+                "start": "0021ffc0",
+                "end": "0021ffcb",
+                "calls": [
+                    {
+                        "func": "init_ta_session",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_11",
+                    "BB_13"
+                ]
+            },
+            {
+                "name": "BB_13",
+                "start": "0021ffcc",
+                "end": "0021ffed",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_14",
+                "start": "0021ffee",
+                "end": "00220013",
+                "calls": [
+                    {
+                        "func": "00226aa0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "00226aa0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "00226aa0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "TEE_CloseTASession",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_15",
+                "start": "00220014",
+                "end": "00220039",
+                "calls": [
+                    {
+                        "func": "debug_log",
+                        "api": true,
+                        "api_type": "tee_std"
+                    },
+                    {
+                        "func": "TEE_CloseTASession",
+                        "api": true,
+                        "api_type": "gp_api"
                     }
                 ],
                 "svc": [],
@@ -3179,207 +3383,22 @@
             }
         ]
     },
-    "0022c348": {
-        "function": "0022c348",
+    "0022fb2c": {
+        "function": "0022fb2c",
         "nodes": [
             {
                 "name": "BB_0",
-                "start": "0022c348",
-                "end": "0022c34d",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_18",
-                    "BB_1"
-                ]
-            },
-            {
-                "name": "BB_1",
-                "start": "0022c34e",
-                "end": "0022c353",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_17",
-                    "BB_2"
-                ]
-            },
-            {
-                "name": "BB_2",
-                "start": "0022c354",
-                "end": "0022c359",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_5"
-                ]
-            },
-            {
-                "name": "BB_3",
-                "start": "0022c35a",
-                "end": "0022c35d",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_17",
-                    "BB_4"
-                ]
-            },
-            {
-                "name": "BB_4",
-                "start": "0022c35e",
-                "end": "0022c35f",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_5"
-                ]
-            },
-            {
-                "name": "BB_5",
-                "start": "0022c360",
-                "end": "0022c36d",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_3",
-                    "BB_6"
-                ]
-            },
-            {
-                "name": "BB_6",
-                "start": "0022c36e",
-                "end": "0022c371",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_14",
-                    "BB_7"
-                ]
-            },
-            {
-                "name": "BB_7",
-                "start": "0022c372",
-                "end": "0022c37f",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_11",
-                    "BB_8"
-                ]
-            },
-            {
-                "name": "BB_8",
-                "start": "0022c380",
-                "end": "0022c385",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_9"
-                ]
-            },
-            {
-                "name": "BB_9",
-                "start": "0022c386",
-                "end": "0022c39f",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_9",
-                    "BB_10"
-                ]
-            },
-            {
-                "name": "BB_10",
-                "start": "0022c3a0",
-                "end": "0022c3b5",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_14",
-                    "BB_11"
-                ]
-            },
-            {
-                "name": "BB_11",
-                "start": "0022c3b6",
-                "end": "0022c3b9",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_12"
-                ]
-            },
-            {
-                "name": "BB_12",
-                "start": "0022c3ba",
-                "end": "0022c3c3",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_12",
-                    "BB_13"
-                ]
-            },
-            {
-                "name": "BB_13",
-                "start": "0022c3c4",
-                "end": "0022c3d1",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_14"
-                ]
-            },
-            {
-                "name": "BB_14",
-                "start": "0022c3d2",
-                "end": "0022c3d3",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_17",
-                    "BB_15"
-                ]
-            },
-            {
-                "name": "BB_15",
-                "start": "0022c3d4",
-                "end": "0022c3d7",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_16"
-                ]
-            },
-            {
-                "name": "BB_16",
-                "start": "0022c3d8",
-                "end": "0022c3df",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_16",
-                    "BB_17"
-                ]
-            },
-            {
-                "name": "BB_17",
-                "start": "0022c3e0",
-                "end": "0022c3e3",
-                "calls": [],
+                "start": "0022fb2c",
+                "end": "0022fb2f",
+                "calls": [
+                    {
+                        "func": "GetBootSeed",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
                 "svc": [],
                 "edges": []
-            },
-            {
-                "name": "BB_18",
-                "start": "0022c3e4",
-                "end": "0022c3e9",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_6"
-                ]
             }
         ]
     },
@@ -3519,25 +3538,6 @@
                 "edges": [
                     "BB_4"
                 ]
-            }
-        ]
-    },
-    "0022fb2c": {
-        "function": "0022fb2c",
-        "nodes": [
-            {
-                "name": "BB_0",
-                "start": "0022fb2c",
-                "end": "0022fb2f",
-                "calls": [
-                    {
-                        "func": "GetBootSeed",
-                        "api": true,
-                        "api_type": "tee"
-                    }
-                ],
-                "svc": [],
-                "edges": []
             }
         ]
     },

@@ -1109,6 +1109,283 @@
             }
         ]
     },
+    "000172fc": {
+        "function": "000172fc",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "000172fc",
+                "end": "0001736b",
+                "calls": [
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_3",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "0001736c",
+                "end": "00017377",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_8",
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "00017378",
+                "end": "0001738f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_4"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "00017390",
+                "end": "000173a3",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_4"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "000173a4",
+                "end": "000173a7",
+                "calls": [
+                    {
+                        "func": "snprintf",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_5",
+                "start": "000173a8",
+                "end": "000173cb",
+                "calls": [
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_6"
+                ]
+            },
+            {
+                "name": "BB_6",
+                "start": "000173cc",
+                "end": "000173e3",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_17",
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_7",
+                "start": "000173e4",
+                "end": "000173fb",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_8",
+                "start": "000173fc",
+                "end": "00017417",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_10",
+                    "BB_9"
+                ]
+            },
+            {
+                "name": "BB_9",
+                "start": "00017418",
+                "end": "00017437",
+                "calls": [
+                    {
+                        "func": "snprintf",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_10",
+                "start": "00017438",
+                "end": "00017463",
+                "calls": [
+                    {
+                        "func": "TEE_MemMove",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_13",
+                    "BB_11"
+                ]
+            },
+            {
+                "name": "BB_11",
+                "start": "00017464",
+                "end": "00017473",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_14",
+                    "BB_12"
+                ]
+            },
+            {
+                "name": "BB_12",
+                "start": "00017474",
+                "end": "000174bb",
+                "calls": [
+                    {
+                        "func": "snprintf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_16"
+                ]
+            },
+            {
+                "name": "BB_13",
+                "start": "000174bc",
+                "end": "000174e3",
+                "calls": [
+                    {
+                        "func": "strlen",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "00013830",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_15"
+                ]
+            },
+            {
+                "name": "BB_14",
+                "start": "000174e4",
+                "end": "000174ef",
+                "calls": [
+                    {
+                        "func": "00013a64",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_15"
+                ]
+            },
+            {
+                "name": "BB_15",
+                "start": "000174f0",
+                "end": "000174f7",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_16"
+                ]
+            },
+            {
+                "name": "BB_16",
+                "start": "000174f8",
+                "end": "0001751f",
+                "calls": [
+                    {
+                        "func": "TEE_MemFill",
+                        "api": true,
+                        "api_type": "gp_api"
+                    },
+                    {
+                        "func": "TEE_MemFill",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_6"
+                ]
+            },
+            {
+                "name": "BB_17",
+                "start": "00017520",
+                "end": "00017523",
+                "calls": [
+                    {
+                        "func": "__stack_chk_fail",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
     "0000a73c": {
         "function": "0000a73c",
         "nodes": [
@@ -1725,283 +2002,6 @@
             }
         ]
     },
-    "000172fc": {
-        "function": "000172fc",
-        "nodes": [
-            {
-                "name": "BB_0",
-                "start": "000172fc",
-                "end": "0001736b",
-                "calls": [
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_3",
-                    "BB_1"
-                ]
-            },
-            {
-                "name": "BB_1",
-                "start": "0001736c",
-                "end": "00017377",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_8",
-                    "BB_2"
-                ]
-            },
-            {
-                "name": "BB_2",
-                "start": "00017378",
-                "end": "0001738f",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_4"
-                ]
-            },
-            {
-                "name": "BB_3",
-                "start": "00017390",
-                "end": "000173a3",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_4"
-                ]
-            },
-            {
-                "name": "BB_4",
-                "start": "000173a4",
-                "end": "000173a7",
-                "calls": [
-                    {
-                        "func": "snprintf",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_5"
-                ]
-            },
-            {
-                "name": "BB_5",
-                "start": "000173a8",
-                "end": "000173cb",
-                "calls": [
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_6"
-                ]
-            },
-            {
-                "name": "BB_6",
-                "start": "000173cc",
-                "end": "000173e3",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_17",
-                    "BB_7"
-                ]
-            },
-            {
-                "name": "BB_7",
-                "start": "000173e4",
-                "end": "000173fb",
-                "calls": [],
-                "svc": [],
-                "edges": []
-            },
-            {
-                "name": "BB_8",
-                "start": "000173fc",
-                "end": "00017417",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_10",
-                    "BB_9"
-                ]
-            },
-            {
-                "name": "BB_9",
-                "start": "00017418",
-                "end": "00017437",
-                "calls": [
-                    {
-                        "func": "snprintf",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_5"
-                ]
-            },
-            {
-                "name": "BB_10",
-                "start": "00017438",
-                "end": "00017463",
-                "calls": [
-                    {
-                        "func": "TEE_MemMove",
-                        "api": true,
-                        "api_type": "gp_api"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_13",
-                    "BB_11"
-                ]
-            },
-            {
-                "name": "BB_11",
-                "start": "00017464",
-                "end": "00017473",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_14",
-                    "BB_12"
-                ]
-            },
-            {
-                "name": "BB_12",
-                "start": "00017474",
-                "end": "000174bb",
-                "calls": [
-                    {
-                        "func": "snprintf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_16"
-                ]
-            },
-            {
-                "name": "BB_13",
-                "start": "000174bc",
-                "end": "000174e3",
-                "calls": [
-                    {
-                        "func": "strlen",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "00013830",
-                        "api": false,
-                        "api_type": null
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_15"
-                ]
-            },
-            {
-                "name": "BB_14",
-                "start": "000174e4",
-                "end": "000174ef",
-                "calls": [
-                    {
-                        "func": "00013a64",
-                        "api": false,
-                        "api_type": null
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_15"
-                ]
-            },
-            {
-                "name": "BB_15",
-                "start": "000174f0",
-                "end": "000174f7",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_16"
-                ]
-            },
-            {
-                "name": "BB_16",
-                "start": "000174f8",
-                "end": "0001751f",
-                "calls": [
-                    {
-                        "func": "TEE_MemFill",
-                        "api": true,
-                        "api_type": "gp_api"
-                    },
-                    {
-                        "func": "TEE_MemFill",
-                        "api": true,
-                        "api_type": "gp_api"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_6"
-                ]
-            },
-            {
-                "name": "BB_17",
-                "start": "00017520",
-                "end": "00017523",
-                "calls": [
-                    {
-                        "func": "__stack_chk_fail",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": []
-            }
-        ]
-    },
     "00013830": {
         "function": "00013830",
         "nodes": [
@@ -2182,156 +2182,613 @@
             }
         ]
     },
-    "00017004": {
-        "function": "00017004",
+    "00013de8": {
+        "function": "00013de8",
         "nodes": [
             {
                 "name": "BB_0",
-                "start": "00017004",
-                "end": "0001705b",
-                "calls": [
-                    {
-                        "func": "strlen",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "00016b54",
-                        "api": false,
-                        "api_type": null
-                    }
-                ],
+                "start": "00013de8",
+                "end": "00013e0b",
+                "calls": [],
                 "svc": [],
                 "edges": [
-                    "BB_2",
+                    "BB_55",
                     "BB_1"
                 ]
             },
             {
                 "name": "BB_1",
-                "start": "0001705c",
-                "end": "0001709f",
-                "calls": [
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
+                "start": "00013e0c",
+                "end": "00013e13",
+                "calls": [],
                 "svc": [],
                 "edges": [
+                    "BB_55",
                     "BB_2"
                 ]
             },
             {
                 "name": "BB_2",
-                "start": "000170a0",
-                "end": "000170b7",
+                "start": "00013e14",
+                "end": "00013e1b",
                 "calls": [],
                 "svc": [],
                 "edges": [
-                    "BB_4",
+                    "BB_55",
                     "BB_3"
                 ]
             },
             {
                 "name": "BB_3",
-                "start": "000170b8",
-                "end": "000170cf",
+                "start": "00013e1c",
+                "end": "00013e23",
                 "calls": [],
                 "svc": [],
-                "edges": []
+                "edges": [
+                    "BB_4"
+                ]
             },
             {
                 "name": "BB_4",
-                "start": "000170d0",
-                "end": "000170d3",
-                "calls": [
-                    {
-                        "func": "__stack_chk_fail",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": []
-            }
-        ]
-    },
-    "000170d4": {
-        "function": "000170d4",
-        "nodes": [
-            {
-                "name": "BB_0",
-                "start": "000170d4",
-                "end": "0001712b",
-                "calls": [
-                    {
-                        "func": "strlen",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "00016b54",
-                        "api": false,
-                        "api_type": null
-                    }
-                ],
+                "start": "00013e24",
+                "end": "00013e2b",
+                "calls": [],
                 "svc": [],
                 "edges": [
-                    "BB_2",
-                    "BB_1"
+                    "BB_11",
+                    "BB_5"
                 ]
             },
             {
-                "name": "BB_1",
-                "start": "0001712c",
-                "end": "0001716f",
-                "calls": [
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
+                "name": "BB_5",
+                "start": "00013e2c",
+                "end": "00013e33",
+                "calls": [],
                 "svc": [],
                 "edges": [
-                    "BB_2"
+                    "BB_8",
+                    "BB_6"
                 ]
             },
             {
-                "name": "BB_2",
-                "start": "00017170",
-                "end": "00017187",
+                "name": "BB_6",
+                "start": "00013e34",
+                "end": "00013e3f",
                 "calls": [],
                 "svc": [],
                 "edges": [
                     "BB_4",
-                    "BB_3"
+                    "BB_7"
                 ]
             },
             {
-                "name": "BB_3",
-                "start": "00017188",
-                "end": "0001719f",
+                "name": "BB_7",
+                "start": "00013e40",
+                "end": "00013e4b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_11"
+                ]
+            },
+            {
+                "name": "BB_8",
+                "start": "00013e4c",
+                "end": "00013e57",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_10",
+                    "BB_9"
+                ]
+            },
+            {
+                "name": "BB_9",
+                "start": "00013e58",
+                "end": "00013e6f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_11"
+                ]
+            },
+            {
+                "name": "BB_10",
+                "start": "00013e70",
+                "end": "00013e73",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_11"
+                ]
+            },
+            {
+                "name": "BB_11",
+                "start": "00013e74",
+                "end": "00013e7f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_54",
+                    "BB_12"
+                ]
+            },
+            {
+                "name": "BB_12",
+                "start": "00013e80",
+                "end": "00013e9b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_14",
+                    "BB_13"
+                ]
+            },
+            {
+                "name": "BB_13",
+                "start": "00013e9c",
+                "end": "00013ea3",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_55"
+                ]
+            },
+            {
+                "name": "BB_14",
+                "start": "00013ea4",
+                "end": "00013eab",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_16",
+                    "BB_15"
+                ]
+            },
+            {
+                "name": "BB_15",
+                "start": "00013eac",
+                "end": "00013ebb",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_55"
+                ]
+            },
+            {
+                "name": "BB_16",
+                "start": "00013ebc",
+                "end": "00013ed7",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_20"
+                ]
+            },
+            {
+                "name": "BB_17",
+                "start": "00013ed8",
+                "end": "00013edb",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_18"
+                ]
+            },
+            {
+                "name": "BB_18",
+                "start": "00013edc",
+                "end": "00013eeb",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_19"
+                ]
+            },
+            {
+                "name": "BB_19",
+                "start": "00013eec",
+                "end": "00013f03",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_15",
+                    "BB_20"
+                ]
+            },
+            {
+                "name": "BB_20",
+                "start": "00013f04",
+                "end": "00013f13",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_26",
+                    "BB_21"
+                ]
+            },
+            {
+                "name": "BB_21",
+                "start": "00013f14",
+                "end": "00013f1f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_24",
+                    "BB_22"
+                ]
+            },
+            {
+                "name": "BB_22",
+                "start": "00013f20",
+                "end": "00013f23",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_23"
+                ]
+            },
+            {
+                "name": "BB_23",
+                "start": "00013f24",
+                "end": "00013f3b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_23",
+                    "BB_24"
+                ]
+            },
+            {
+                "name": "BB_24",
+                "start": "00013f3c",
+                "end": "00013f43",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_54",
+                    "BB_25"
+                ]
+            },
+            {
+                "name": "BB_25",
+                "start": "00013f44",
+                "end": "00013f4b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_27"
+                ]
+            },
+            {
+                "name": "BB_26",
+                "start": "00013f4c",
+                "end": "00013f4f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_27"
+                ]
+            },
+            {
+                "name": "BB_27",
+                "start": "00013f50",
+                "end": "00013f5b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_30",
+                    "BB_28"
+                ]
+            },
+            {
+                "name": "BB_28",
+                "start": "00013f5c",
+                "end": "00013f63",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_31",
+                    "BB_29"
+                ]
+            },
+            {
+                "name": "BB_29",
+                "start": "00013f64",
+                "end": "00013f6f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_33"
+                ]
+            },
+            {
+                "name": "BB_30",
+                "start": "00013f70",
+                "end": "00013f7b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_35"
+                ]
+            },
+            {
+                "name": "BB_31",
+                "start": "00013f7c",
+                "end": "00013f7f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_32"
+                ]
+            },
+            {
+                "name": "BB_32",
+                "start": "00013f80",
+                "end": "00013f97",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_32",
+                    "BB_33"
+                ]
+            },
+            {
+                "name": "BB_33",
+                "start": "00013f98",
+                "end": "00013f9f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_54",
+                    "BB_34"
+                ]
+            },
+            {
+                "name": "BB_34",
+                "start": "00013fa0",
+                "end": "00013fa3",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_35"
+                ]
+            },
+            {
+                "name": "BB_35",
+                "start": "00013fa4",
+                "end": "00013faf",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_38",
+                    "BB_36"
+                ]
+            },
+            {
+                "name": "BB_36",
+                "start": "00013fb0",
+                "end": "00013fb7",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_39",
+                    "BB_37"
+                ]
+            },
+            {
+                "name": "BB_37",
+                "start": "00013fb8",
+                "end": "00013fc3",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_41"
+                ]
+            },
+            {
+                "name": "BB_38",
+                "start": "00013fc4",
+                "end": "00013fcf",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_43"
+                ]
+            },
+            {
+                "name": "BB_39",
+                "start": "00013fd0",
+                "end": "00013fd3",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_40"
+                ]
+            },
+            {
+                "name": "BB_40",
+                "start": "00013fd4",
+                "end": "00013feb",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_40",
+                    "BB_41"
+                ]
+            },
+            {
+                "name": "BB_41",
+                "start": "00013fec",
+                "end": "00013ff3",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_54",
+                    "BB_42"
+                ]
+            },
+            {
+                "name": "BB_42",
+                "start": "00013ff4",
+                "end": "00013ff7",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_43"
+                ]
+            },
+            {
+                "name": "BB_43",
+                "start": "00013ff8",
+                "end": "00014003",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_46",
+                    "BB_44"
+                ]
+            },
+            {
+                "name": "BB_44",
+                "start": "00014004",
+                "end": "0001400b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_48",
+                    "BB_45"
+                ]
+            },
+            {
+                "name": "BB_45",
+                "start": "0001400c",
+                "end": "00014017",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_50"
+                ]
+            },
+            {
+                "name": "BB_46",
+                "start": "00014018",
+                "end": "00014027",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_52",
+                    "BB_47"
+                ]
+            },
+            {
+                "name": "BB_47",
+                "start": "00014028",
+                "end": "0001402b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_18"
+                ]
+            },
+            {
+                "name": "BB_48",
+                "start": "0001402c",
+                "end": "0001402f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_49"
+                ]
+            },
+            {
+                "name": "BB_49",
+                "start": "00014030",
+                "end": "00014047",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_49",
+                    "BB_50"
+                ]
+            },
+            {
+                "name": "BB_50",
+                "start": "00014048",
+                "end": "0001404f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_54",
+                    "BB_51"
+                ]
+            },
+            {
+                "name": "BB_51",
+                "start": "00014050",
+                "end": "0001405b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_18",
+                    "BB_52"
+                ]
+            },
+            {
+                "name": "BB_52",
+                "start": "0001405c",
+                "end": "0001405f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_17",
+                    "BB_53"
+                ]
+            },
+            {
+                "name": "BB_53",
+                "start": "00014060",
+                "end": "0001406f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_19",
+                    "BB_54"
+                ]
+            },
+            {
+                "name": "BB_54",
+                "start": "00014070",
+                "end": "00014073",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_55"
+                ]
+            },
+            {
+                "name": "BB_55",
+                "start": "00014074",
+                "end": "0001408b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_57",
+                    "BB_56"
+                ]
+            },
+            {
+                "name": "BB_56",
+                "start": "0001408c",
+                "end": "0001409b",
                 "calls": [],
                 "svc": [],
                 "edges": []
             },
             {
-                "name": "BB_4",
-                "start": "000171a0",
-                "end": "000171a3",
+                "name": "BB_57",
+                "start": "0001409c",
+                "end": "0001409f",
                 "calls": [
                     {
                         "func": "__stack_chk_fail",
@@ -2722,285 +3179,23 @@
             }
         ]
     },
-    "00016b54": {
-        "function": "00016b54",
+    "00017004": {
+        "function": "00017004",
         "nodes": [
             {
                 "name": "BB_0",
-                "start": "00016b54",
-                "end": "00016be3",
+                "start": "00017004",
+                "end": "0001705b",
                 "calls": [
                     {
-                        "func": "printf",
+                        "func": "strlen",
                         "api": true,
                         "api_type": "libc"
                     },
                     {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "OpenSSL_add_all_algorithms",
-                        "api": true,
-                        "api_type": "tee"
-                    },
-                    {
-                        "func": "ERR_load_BIO_strings",
-                        "api": true,
-                        "api_type": "tee"
-                    },
-                    {
-                        "func": "BIO_new_mem_buf",
-                        "api": true,
-                        "api_type": "tee"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_5",
-                    "BB_1"
-                ]
-            },
-            {
-                "name": "BB_1",
-                "start": "00016be4",
-                "end": "00016bfb",
-                "calls": [
-                    {
-                        "func": "PEM_read_bio_X509",
-                        "api": true,
-                        "api_type": "tee"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_6",
-                    "BB_2"
-                ]
-            },
-            {
-                "name": "BB_2",
-                "start": "00016bfc",
-                "end": "00016c0f",
-                "calls": [
-                    {
-                        "func": "00016930",
+                        "func": "00016b54",
                         "api": false,
                         "api_type": null
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_7",
-                    "BB_3"
-                ]
-            },
-            {
-                "name": "BB_3",
-                "start": "00016c10",
-                "end": "00016c23",
-                "calls": [
-                    {
-                        "func": "X509_verify",
-                        "api": true,
-                        "api_type": "tee"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_8",
-                    "BB_4"
-                ]
-            },
-            {
-                "name": "BB_4",
-                "start": "00016c24",
-                "end": "00016c43",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_9"
-                ]
-            },
-            {
-                "name": "BB_5",
-                "start": "00016c44",
-                "end": "00016c87",
-                "calls": [
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_12"
-                ]
-            },
-            {
-                "name": "BB_6",
-                "start": "00016c88",
-                "end": "00016cc7",
-                "calls": [
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_11"
-                ]
-            },
-            {
-                "name": "BB_7",
-                "start": "00016cc8",
-                "end": "00016d07",
-                "calls": [
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_10"
-                ]
-            },
-            {
-                "name": "BB_8",
-                "start": "00016d08",
-                "end": "00016d27",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_9"
-                ]
-            },
-            {
-                "name": "BB_9",
-                "start": "00016d28",
-                "end": "00016d4f",
-                "calls": [
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "EVP_PKEY_free",
-                        "api": true,
-                        "api_type": "tee"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_10"
-                ]
-            },
-            {
-                "name": "BB_10",
-                "start": "00016d50",
-                "end": "00016d57",
-                "calls": [
-                    {
-                        "func": "X509_free",
-                        "api": true,
-                        "api_type": "tee"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_11"
-                ]
-            },
-            {
-                "name": "BB_11",
-                "start": "00016d58",
-                "end": "00016d5f",
-                "calls": [
-                    {
-                        "func": "BIO_free",
-                        "api": true,
-                        "api_type": "tee"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_12"
-                ]
-            },
-            {
-                "name": "BB_12",
-                "start": "00016d60",
-                "end": "00016d77",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_14",
-                    "BB_13"
-                ]
-            },
-            {
-                "name": "BB_13",
-                "start": "00016d78",
-                "end": "00016d93",
-                "calls": [],
-                "svc": [],
-                "edges": []
-            },
-            {
-                "name": "BB_14",
-                "start": "00016d94",
-                "end": "00016d97",
-                "calls": [
-                    {
-                        "func": "__stack_chk_fail",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": []
-            }
-        ]
-    },
-    "000137d0": {
-        "function": "000137d0",
-        "nodes": [
-            {
-                "name": "BB_0",
-                "start": "000137d0",
-                "end": "0001381f",
-                "calls": [
-                    {
-                        "func": "TEE_MemFill",
-                        "api": true,
-                        "api_type": "gp_api"
                     }
                 ],
                 "svc": [],
@@ -3011,16 +3206,48 @@
             },
             {
                 "name": "BB_1",
-                "start": "00013820",
-                "end": "0001382b",
+                "start": "0001705c",
+                "end": "0001709f",
+                "calls": [
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "000170a0",
+                "end": "000170b7",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_4",
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "000170b8",
+                "end": "000170cf",
                 "calls": [],
                 "svc": [],
                 "edges": []
             },
             {
-                "name": "BB_2",
-                "start": "0001382c",
-                "end": "0001382f",
+                "name": "BB_4",
+                "start": "000170d0",
+                "end": "000170d3",
                 "calls": [
                     {
                         "func": "__stack_chk_fail",
@@ -3736,121 +3963,217 @@
             }
         ]
     },
-    "00013de8": {
-        "function": "00013de8",
+    "00016b54": {
+        "function": "00016b54",
         "nodes": [
             {
                 "name": "BB_0",
-                "start": "00013de8",
-                "end": "00013e0b",
-                "calls": [],
+                "start": "00016b54",
+                "end": "00016be3",
+                "calls": [
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "OpenSSL_add_all_algorithms",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "ERR_load_BIO_strings",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "BIO_new_mem_buf",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
                 "svc": [],
                 "edges": [
-                    "BB_55",
+                    "BB_5",
                     "BB_1"
                 ]
             },
             {
                 "name": "BB_1",
-                "start": "00013e0c",
-                "end": "00013e13",
-                "calls": [],
+                "start": "00016be4",
+                "end": "00016bfb",
+                "calls": [
+                    {
+                        "func": "PEM_read_bio_X509",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
                 "svc": [],
                 "edges": [
-                    "BB_55",
+                    "BB_6",
                     "BB_2"
                 ]
             },
             {
                 "name": "BB_2",
-                "start": "00013e14",
-                "end": "00013e1b",
-                "calls": [],
+                "start": "00016bfc",
+                "end": "00016c0f",
+                "calls": [
+                    {
+                        "func": "00016930",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
                 "svc": [],
                 "edges": [
-                    "BB_55",
+                    "BB_7",
                     "BB_3"
                 ]
             },
             {
                 "name": "BB_3",
-                "start": "00013e1c",
-                "end": "00013e23",
-                "calls": [],
+                "start": "00016c10",
+                "end": "00016c23",
+                "calls": [
+                    {
+                        "func": "X509_verify",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
                 "svc": [],
                 "edges": [
+                    "BB_8",
                     "BB_4"
                 ]
             },
             {
                 "name": "BB_4",
-                "start": "00013e24",
-                "end": "00013e2b",
+                "start": "00016c24",
+                "end": "00016c43",
                 "calls": [],
                 "svc": [],
                 "edges": [
-                    "BB_11",
-                    "BB_5"
+                    "BB_9"
                 ]
             },
             {
                 "name": "BB_5",
-                "start": "00013e2c",
-                "end": "00013e33",
-                "calls": [],
+                "start": "00016c44",
+                "end": "00016c87",
+                "calls": [
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
                 "svc": [],
                 "edges": [
-                    "BB_8",
-                    "BB_6"
+                    "BB_12"
                 ]
             },
             {
                 "name": "BB_6",
-                "start": "00013e34",
-                "end": "00013e3f",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_4",
-                    "BB_7"
-                ]
-            },
-            {
-                "name": "BB_7",
-                "start": "00013e40",
-                "end": "00013e4b",
-                "calls": [],
+                "start": "00016c88",
+                "end": "00016cc7",
+                "calls": [
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
                 "svc": [],
                 "edges": [
                     "BB_11"
                 ]
             },
             {
+                "name": "BB_7",
+                "start": "00016cc8",
+                "end": "00016d07",
+                "calls": [
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_10"
+                ]
+            },
+            {
                 "name": "BB_8",
-                "start": "00013e4c",
-                "end": "00013e57",
+                "start": "00016d08",
+                "end": "00016d27",
                 "calls": [],
                 "svc": [],
                 "edges": [
-                    "BB_10",
                     "BB_9"
                 ]
             },
             {
                 "name": "BB_9",
-                "start": "00013e58",
-                "end": "00013e6f",
-                "calls": [],
+                "start": "00016d28",
+                "end": "00016d4f",
+                "calls": [
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "EVP_PKEY_free",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
                 "svc": [],
                 "edges": [
-                    "BB_11"
+                    "BB_10"
                 ]
             },
             {
                 "name": "BB_10",
-                "start": "00013e70",
-                "end": "00013e73",
-                "calls": [],
+                "start": "00016d50",
+                "end": "00016d57",
+                "calls": [
+                    {
+                        "func": "X509_free",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
                 "svc": [],
                 "edges": [
                     "BB_11"
@@ -3858,19 +4181,24 @@
             },
             {
                 "name": "BB_11",
-                "start": "00013e74",
-                "end": "00013e7f",
-                "calls": [],
+                "start": "00016d58",
+                "end": "00016d5f",
+                "calls": [
+                    {
+                        "func": "BIO_free",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
                 "svc": [],
                 "edges": [
-                    "BB_54",
                     "BB_12"
                 ]
             },
             {
                 "name": "BB_12",
-                "start": "00013e80",
-                "end": "00013e9b",
+                "start": "00016d60",
+                "end": "00016d77",
                 "calls": [],
                 "svc": [],
                 "edges": [
@@ -3880,469 +4208,829 @@
             },
             {
                 "name": "BB_13",
-                "start": "00013e9c",
-                "end": "00013ea3",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_55"
-                ]
-            },
-            {
-                "name": "BB_14",
-                "start": "00013ea4",
-                "end": "00013eab",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_16",
-                    "BB_15"
-                ]
-            },
-            {
-                "name": "BB_15",
-                "start": "00013eac",
-                "end": "00013ebb",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_55"
-                ]
-            },
-            {
-                "name": "BB_16",
-                "start": "00013ebc",
-                "end": "00013ed7",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_20"
-                ]
-            },
-            {
-                "name": "BB_17",
-                "start": "00013ed8",
-                "end": "00013edb",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_18"
-                ]
-            },
-            {
-                "name": "BB_18",
-                "start": "00013edc",
-                "end": "00013eeb",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_19"
-                ]
-            },
-            {
-                "name": "BB_19",
-                "start": "00013eec",
-                "end": "00013f03",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_15",
-                    "BB_20"
-                ]
-            },
-            {
-                "name": "BB_20",
-                "start": "00013f04",
-                "end": "00013f13",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_26",
-                    "BB_21"
-                ]
-            },
-            {
-                "name": "BB_21",
-                "start": "00013f14",
-                "end": "00013f1f",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_24",
-                    "BB_22"
-                ]
-            },
-            {
-                "name": "BB_22",
-                "start": "00013f20",
-                "end": "00013f23",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_23"
-                ]
-            },
-            {
-                "name": "BB_23",
-                "start": "00013f24",
-                "end": "00013f3b",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_23",
-                    "BB_24"
-                ]
-            },
-            {
-                "name": "BB_24",
-                "start": "00013f3c",
-                "end": "00013f43",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_54",
-                    "BB_25"
-                ]
-            },
-            {
-                "name": "BB_25",
-                "start": "00013f44",
-                "end": "00013f4b",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_27"
-                ]
-            },
-            {
-                "name": "BB_26",
-                "start": "00013f4c",
-                "end": "00013f4f",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_27"
-                ]
-            },
-            {
-                "name": "BB_27",
-                "start": "00013f50",
-                "end": "00013f5b",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_30",
-                    "BB_28"
-                ]
-            },
-            {
-                "name": "BB_28",
-                "start": "00013f5c",
-                "end": "00013f63",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_31",
-                    "BB_29"
-                ]
-            },
-            {
-                "name": "BB_29",
-                "start": "00013f64",
-                "end": "00013f6f",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_33"
-                ]
-            },
-            {
-                "name": "BB_30",
-                "start": "00013f70",
-                "end": "00013f7b",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_35"
-                ]
-            },
-            {
-                "name": "BB_31",
-                "start": "00013f7c",
-                "end": "00013f7f",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_32"
-                ]
-            },
-            {
-                "name": "BB_32",
-                "start": "00013f80",
-                "end": "00013f97",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_32",
-                    "BB_33"
-                ]
-            },
-            {
-                "name": "BB_33",
-                "start": "00013f98",
-                "end": "00013f9f",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_54",
-                    "BB_34"
-                ]
-            },
-            {
-                "name": "BB_34",
-                "start": "00013fa0",
-                "end": "00013fa3",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_35"
-                ]
-            },
-            {
-                "name": "BB_35",
-                "start": "00013fa4",
-                "end": "00013faf",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_38",
-                    "BB_36"
-                ]
-            },
-            {
-                "name": "BB_36",
-                "start": "00013fb0",
-                "end": "00013fb7",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_39",
-                    "BB_37"
-                ]
-            },
-            {
-                "name": "BB_37",
-                "start": "00013fb8",
-                "end": "00013fc3",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_41"
-                ]
-            },
-            {
-                "name": "BB_38",
-                "start": "00013fc4",
-                "end": "00013fcf",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_43"
-                ]
-            },
-            {
-                "name": "BB_39",
-                "start": "00013fd0",
-                "end": "00013fd3",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_40"
-                ]
-            },
-            {
-                "name": "BB_40",
-                "start": "00013fd4",
-                "end": "00013feb",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_40",
-                    "BB_41"
-                ]
-            },
-            {
-                "name": "BB_41",
-                "start": "00013fec",
-                "end": "00013ff3",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_54",
-                    "BB_42"
-                ]
-            },
-            {
-                "name": "BB_42",
-                "start": "00013ff4",
-                "end": "00013ff7",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_43"
-                ]
-            },
-            {
-                "name": "BB_43",
-                "start": "00013ff8",
-                "end": "00014003",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_46",
-                    "BB_44"
-                ]
-            },
-            {
-                "name": "BB_44",
-                "start": "00014004",
-                "end": "0001400b",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_48",
-                    "BB_45"
-                ]
-            },
-            {
-                "name": "BB_45",
-                "start": "0001400c",
-                "end": "00014017",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_50"
-                ]
-            },
-            {
-                "name": "BB_46",
-                "start": "00014018",
-                "end": "00014027",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_52",
-                    "BB_47"
-                ]
-            },
-            {
-                "name": "BB_47",
-                "start": "00014028",
-                "end": "0001402b",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_18"
-                ]
-            },
-            {
-                "name": "BB_48",
-                "start": "0001402c",
-                "end": "0001402f",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_49"
-                ]
-            },
-            {
-                "name": "BB_49",
-                "start": "00014030",
-                "end": "00014047",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_49",
-                    "BB_50"
-                ]
-            },
-            {
-                "name": "BB_50",
-                "start": "00014048",
-                "end": "0001404f",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_54",
-                    "BB_51"
-                ]
-            },
-            {
-                "name": "BB_51",
-                "start": "00014050",
-                "end": "0001405b",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_18",
-                    "BB_52"
-                ]
-            },
-            {
-                "name": "BB_52",
-                "start": "0001405c",
-                "end": "0001405f",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_17",
-                    "BB_53"
-                ]
-            },
-            {
-                "name": "BB_53",
-                "start": "00014060",
-                "end": "0001406f",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_19",
-                    "BB_54"
-                ]
-            },
-            {
-                "name": "BB_54",
-                "start": "00014070",
-                "end": "00014073",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_55"
-                ]
-            },
-            {
-                "name": "BB_55",
-                "start": "00014074",
-                "end": "0001408b",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_57",
-                    "BB_56"
-                ]
-            },
-            {
-                "name": "BB_56",
-                "start": "0001408c",
-                "end": "0001409b",
+                "start": "00016d78",
+                "end": "00016d93",
                 "calls": [],
                 "svc": [],
                 "edges": []
             },
             {
-                "name": "BB_57",
-                "start": "0001409c",
-                "end": "0001409f",
+                "name": "BB_14",
+                "start": "00016d94",
+                "end": "00016d97",
+                "calls": [
+                    {
+                        "func": "__stack_chk_fail",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "000170d4": {
+        "function": "000170d4",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "000170d4",
+                "end": "0001712b",
+                "calls": [
+                    {
+                        "func": "strlen",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "00016b54",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_2",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "0001712c",
+                "end": "0001716f",
+                "calls": [
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "00017170",
+                "end": "00017187",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_4",
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "00017188",
+                "end": "0001719f",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_4",
+                "start": "000171a0",
+                "end": "000171a3",
+                "calls": [
+                    {
+                        "func": "__stack_chk_fail",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "000137d0": {
+        "function": "000137d0",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "000137d0",
+                "end": "0001381f",
+                "calls": [
+                    {
+                        "func": "TEE_MemFill",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_2",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "00013820",
+                "end": "0001382b",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_2",
+                "start": "0001382c",
+                "end": "0001382f",
+                "calls": [
+                    {
+                        "func": "__stack_chk_fail",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "00013520": {
+        "function": "00013520",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "00013520",
+                "end": "000135e3",
+                "calls": [
+                    {
+                        "func": "snprintf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "000131bc",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_2",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "000135e4",
+                "end": "000135eb",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "000135ec",
+                "end": "00013657",
+                "calls": [
+                    {
+                        "func": "0001335c",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "0000fc58",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_4",
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "00013658",
+                "end": "0001365f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "00013660",
+                "end": "0001369f",
+                "calls": [
+                    {
+                        "func": "0000fc58",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_9",
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_5",
+                "start": "000136a0",
+                "end": "000136c3",
+                "calls": [
+                    {
+                        "func": "snprintf",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_6"
+                ]
+            },
+            {
+                "name": "BB_6",
+                "start": "000136c4",
+                "end": "000136e3",
+                "calls": [
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_7",
+                "start": "000136e4",
+                "end": "0001374b",
+                "calls": [
+                    {
+                        "func": "TEE_MemFill",
+                        "api": true,
+                        "api_type": "gp_api"
+                    },
+                    {
+                        "func": "TEE_MemFill",
+                        "api": true,
+                        "api_type": "gp_api"
+                    },
+                    {
+                        "func": "TEE_MemFill",
+                        "api": true,
+                        "api_type": "gp_api"
+                    },
+                    {
+                        "func": "TEE_MemFill",
+                        "api": true,
+                        "api_type": "gp_api"
+                    },
+                    {
+                        "func": "TEE_MemFill",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_10",
+                    "BB_8"
+                ]
+            },
+            {
+                "name": "BB_8",
+                "start": "0001374c",
+                "end": "0001376f",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_9",
+                "start": "00013770",
+                "end": "000137cb",
+                "calls": [
+                    {
+                        "func": "snprintf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "snprintf",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_6"
+                ]
+            },
+            {
+                "name": "BB_10",
+                "start": "000137cc",
+                "end": "000137cf",
+                "calls": [
+                    {
+                        "func": "__stack_chk_fail",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "00012994": {
+        "function": "00012994",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "00012994",
+                "end": "000129d3",
+                "calls": [
+                    {
+                        "func": "00016930",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_4",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "000129d4",
+                "end": "000129e3",
+                "calls": [
+                    {
+                        "func": "EVP_PKEY_id",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_5",
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "000129e4",
+                "end": "000129ef",
+                "calls": [
+                    {
+                        "func": "EVP_PKEY_get1_RSA",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_6",
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "000129f0",
+                "end": "00012a67",
+                "calls": [
+                    {
+                        "func": "RSA_public_encrypt",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "snprintf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "RSA_free",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "EVP_PKEY_free",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_9"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "00012a68",
+                "end": "00012aab",
+                "calls": [
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_8"
+                ]
+            },
+            {
+                "name": "BB_5",
+                "start": "00012aac",
+                "end": "00012acf",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_6",
+                "start": "00012ad0",
+                "end": "00012aef",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_7",
+                "start": "00012af0",
+                "end": "00012b13",
+                "calls": [
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "EVP_PKEY_free",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_8"
+                ]
+            },
+            {
+                "name": "BB_8",
+                "start": "00012b14",
+                "end": "00012b17",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_9"
+                ]
+            },
+            {
+                "name": "BB_9",
+                "start": "00012b18",
+                "end": "00012b2f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_11",
+                    "BB_10"
+                ]
+            },
+            {
+                "name": "BB_10",
+                "start": "00012b30",
+                "end": "00012b47",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_11",
+                "start": "00012b48",
+                "end": "00012b4b",
+                "calls": [
+                    {
+                        "func": "__stack_chk_fail",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "00014358": {
+        "function": "00014358",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "00014358",
+                "end": "0001438b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_2",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "0001438c",
+                "end": "000143af",
+                "calls": [
+                    {
+                        "func": "000143b4",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_2",
+                "start": "000143b0",
+                "end": "000143b3",
+                "calls": [
+                    {
+                        "func": "__stack_chk_fail",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "00016930": {
+        "function": "00016930",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "00016930",
+                "end": "0001695b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_6",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "0001695c",
+                "end": "0001695f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_6",
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "00016960",
+                "end": "0001696b",
+                "calls": [
+                    {
+                        "func": "BIO_new_mem_buf",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_7",
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "0001696c",
+                "end": "00016983",
+                "calls": [
+                    {
+                        "func": "PEM_read_bio_X509",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_12",
+                    "BB_4"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "00016984",
+                "end": "000169b7",
+                "calls": [
+                    {
+                        "func": "X509_get_pubkey",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "X509_free",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "BIO_free",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_13",
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_5",
+                "start": "000169b8",
+                "end": "000169bf",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_11"
+                ]
+            },
+            {
+                "name": "BB_6",
+                "start": "000169c0",
+                "end": "000169ef",
+                "calls": [
+                    {
+                        "func": "snprintf",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_8"
+                ]
+            },
+            {
+                "name": "BB_7",
+                "start": "000169f0",
+                "end": "00016a1f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_8"
+                ]
+            },
+            {
+                "name": "BB_8",
+                "start": "00016a20",
+                "end": "00016a2f",
+                "calls": [
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_9"
+                ]
+            },
+            {
+                "name": "BB_9",
+                "start": "00016a30",
+                "end": "00016a47",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_13",
+                    "BB_10"
+                ]
+            },
+            {
+                "name": "BB_10",
+                "start": "00016a48",
+                "end": "00016a4b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_11"
+                ]
+            },
+            {
+                "name": "BB_11",
+                "start": "00016a4c",
+                "end": "00016a5f",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_12",
+                "start": "00016a60",
+                "end": "00016aa7",
+                "calls": [
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "BIO_free",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_9"
+                ]
+            },
+            {
+                "name": "BB_13",
+                "start": "00016aa8",
+                "end": "00016aab",
                 "calls": [
                     {
                         "func": "__stack_chk_fail",
@@ -4696,1078 +5384,6 @@
                 "name": "BB_21",
                 "start": "00012990",
                 "end": "00012993",
-                "calls": [
-                    {
-                        "func": "__stack_chk_fail",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": []
-            }
-        ]
-    },
-    "00014358": {
-        "function": "00014358",
-        "nodes": [
-            {
-                "name": "BB_0",
-                "start": "00014358",
-                "end": "0001438b",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_2",
-                    "BB_1"
-                ]
-            },
-            {
-                "name": "BB_1",
-                "start": "0001438c",
-                "end": "000143af",
-                "calls": [
-                    {
-                        "func": "000143b4",
-                        "api": false,
-                        "api_type": null
-                    }
-                ],
-                "svc": [],
-                "edges": []
-            },
-            {
-                "name": "BB_2",
-                "start": "000143b0",
-                "end": "000143b3",
-                "calls": [
-                    {
-                        "func": "__stack_chk_fail",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": []
-            }
-        ]
-    },
-    "00013520": {
-        "function": "00013520",
-        "nodes": [
-            {
-                "name": "BB_0",
-                "start": "00013520",
-                "end": "000135e3",
-                "calls": [
-                    {
-                        "func": "snprintf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "000131bc",
-                        "api": false,
-                        "api_type": null
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_2",
-                    "BB_1"
-                ]
-            },
-            {
-                "name": "BB_1",
-                "start": "000135e4",
-                "end": "000135eb",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_7"
-                ]
-            },
-            {
-                "name": "BB_2",
-                "start": "000135ec",
-                "end": "00013657",
-                "calls": [
-                    {
-                        "func": "0001335c",
-                        "api": false,
-                        "api_type": null
-                    },
-                    {
-                        "func": "0000fc58",
-                        "api": false,
-                        "api_type": null
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_4",
-                    "BB_3"
-                ]
-            },
-            {
-                "name": "BB_3",
-                "start": "00013658",
-                "end": "0001365f",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_5"
-                ]
-            },
-            {
-                "name": "BB_4",
-                "start": "00013660",
-                "end": "0001369f",
-                "calls": [
-                    {
-                        "func": "0000fc58",
-                        "api": false,
-                        "api_type": null
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_9",
-                    "BB_5"
-                ]
-            },
-            {
-                "name": "BB_5",
-                "start": "000136a0",
-                "end": "000136c3",
-                "calls": [
-                    {
-                        "func": "snprintf",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_6"
-                ]
-            },
-            {
-                "name": "BB_6",
-                "start": "000136c4",
-                "end": "000136e3",
-                "calls": [
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_7"
-                ]
-            },
-            {
-                "name": "BB_7",
-                "start": "000136e4",
-                "end": "0001374b",
-                "calls": [
-                    {
-                        "func": "TEE_MemFill",
-                        "api": true,
-                        "api_type": "gp_api"
-                    },
-                    {
-                        "func": "TEE_MemFill",
-                        "api": true,
-                        "api_type": "gp_api"
-                    },
-                    {
-                        "func": "TEE_MemFill",
-                        "api": true,
-                        "api_type": "gp_api"
-                    },
-                    {
-                        "func": "TEE_MemFill",
-                        "api": true,
-                        "api_type": "gp_api"
-                    },
-                    {
-                        "func": "TEE_MemFill",
-                        "api": true,
-                        "api_type": "gp_api"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_10",
-                    "BB_8"
-                ]
-            },
-            {
-                "name": "BB_8",
-                "start": "0001374c",
-                "end": "0001376f",
-                "calls": [],
-                "svc": [],
-                "edges": []
-            },
-            {
-                "name": "BB_9",
-                "start": "00013770",
-                "end": "000137cb",
-                "calls": [
-                    {
-                        "func": "snprintf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "snprintf",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_6"
-                ]
-            },
-            {
-                "name": "BB_10",
-                "start": "000137cc",
-                "end": "000137cf",
-                "calls": [
-                    {
-                        "func": "__stack_chk_fail",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": []
-            }
-        ]
-    },
-    "00016930": {
-        "function": "00016930",
-        "nodes": [
-            {
-                "name": "BB_0",
-                "start": "00016930",
-                "end": "0001695b",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_6",
-                    "BB_1"
-                ]
-            },
-            {
-                "name": "BB_1",
-                "start": "0001695c",
-                "end": "0001695f",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_6",
-                    "BB_2"
-                ]
-            },
-            {
-                "name": "BB_2",
-                "start": "00016960",
-                "end": "0001696b",
-                "calls": [
-                    {
-                        "func": "BIO_new_mem_buf",
-                        "api": true,
-                        "api_type": "tee"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_7",
-                    "BB_3"
-                ]
-            },
-            {
-                "name": "BB_3",
-                "start": "0001696c",
-                "end": "00016983",
-                "calls": [
-                    {
-                        "func": "PEM_read_bio_X509",
-                        "api": true,
-                        "api_type": "tee"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_12",
-                    "BB_4"
-                ]
-            },
-            {
-                "name": "BB_4",
-                "start": "00016984",
-                "end": "000169b7",
-                "calls": [
-                    {
-                        "func": "X509_get_pubkey",
-                        "api": true,
-                        "api_type": "tee"
-                    },
-                    {
-                        "func": "X509_free",
-                        "api": true,
-                        "api_type": "tee"
-                    },
-                    {
-                        "func": "BIO_free",
-                        "api": true,
-                        "api_type": "tee"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_13",
-                    "BB_5"
-                ]
-            },
-            {
-                "name": "BB_5",
-                "start": "000169b8",
-                "end": "000169bf",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_11"
-                ]
-            },
-            {
-                "name": "BB_6",
-                "start": "000169c0",
-                "end": "000169ef",
-                "calls": [
-                    {
-                        "func": "snprintf",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_8"
-                ]
-            },
-            {
-                "name": "BB_7",
-                "start": "000169f0",
-                "end": "00016a1f",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_8"
-                ]
-            },
-            {
-                "name": "BB_8",
-                "start": "00016a20",
-                "end": "00016a2f",
-                "calls": [
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_9"
-                ]
-            },
-            {
-                "name": "BB_9",
-                "start": "00016a30",
-                "end": "00016a47",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_13",
-                    "BB_10"
-                ]
-            },
-            {
-                "name": "BB_10",
-                "start": "00016a48",
-                "end": "00016a4b",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_11"
-                ]
-            },
-            {
-                "name": "BB_11",
-                "start": "00016a4c",
-                "end": "00016a5f",
-                "calls": [],
-                "svc": [],
-                "edges": []
-            },
-            {
-                "name": "BB_12",
-                "start": "00016a60",
-                "end": "00016aa7",
-                "calls": [
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "BIO_free",
-                        "api": true,
-                        "api_type": "tee"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_9"
-                ]
-            },
-            {
-                "name": "BB_13",
-                "start": "00016aa8",
-                "end": "00016aab",
-                "calls": [
-                    {
-                        "func": "__stack_chk_fail",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": []
-            }
-        ]
-    },
-    "00012994": {
-        "function": "00012994",
-        "nodes": [
-            {
-                "name": "BB_0",
-                "start": "00012994",
-                "end": "000129d3",
-                "calls": [
-                    {
-                        "func": "00016930",
-                        "api": false,
-                        "api_type": null
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_4",
-                    "BB_1"
-                ]
-            },
-            {
-                "name": "BB_1",
-                "start": "000129d4",
-                "end": "000129e3",
-                "calls": [
-                    {
-                        "func": "EVP_PKEY_id",
-                        "api": true,
-                        "api_type": "tee"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_5",
-                    "BB_2"
-                ]
-            },
-            {
-                "name": "BB_2",
-                "start": "000129e4",
-                "end": "000129ef",
-                "calls": [
-                    {
-                        "func": "EVP_PKEY_get1_RSA",
-                        "api": true,
-                        "api_type": "tee"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_6",
-                    "BB_3"
-                ]
-            },
-            {
-                "name": "BB_3",
-                "start": "000129f0",
-                "end": "00012a67",
-                "calls": [
-                    {
-                        "func": "RSA_public_encrypt",
-                        "api": true,
-                        "api_type": "tee"
-                    },
-                    {
-                        "func": "snprintf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "RSA_free",
-                        "api": true,
-                        "api_type": "tee"
-                    },
-                    {
-                        "func": "EVP_PKEY_free",
-                        "api": true,
-                        "api_type": "tee"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_9"
-                ]
-            },
-            {
-                "name": "BB_4",
-                "start": "00012a68",
-                "end": "00012aab",
-                "calls": [
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_8"
-                ]
-            },
-            {
-                "name": "BB_5",
-                "start": "00012aac",
-                "end": "00012acf",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_7"
-                ]
-            },
-            {
-                "name": "BB_6",
-                "start": "00012ad0",
-                "end": "00012aef",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_7"
-                ]
-            },
-            {
-                "name": "BB_7",
-                "start": "00012af0",
-                "end": "00012b13",
-                "calls": [
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "EVP_PKEY_free",
-                        "api": true,
-                        "api_type": "tee"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_8"
-                ]
-            },
-            {
-                "name": "BB_8",
-                "start": "00012b14",
-                "end": "00012b17",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_9"
-                ]
-            },
-            {
-                "name": "BB_9",
-                "start": "00012b18",
-                "end": "00012b2f",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_11",
-                    "BB_10"
-                ]
-            },
-            {
-                "name": "BB_10",
-                "start": "00012b30",
-                "end": "00012b47",
-                "calls": [],
-                "svc": [],
-                "edges": []
-            },
-            {
-                "name": "BB_11",
-                "start": "00012b48",
-                "end": "00012b4b",
-                "calls": [
-                    {
-                        "func": "__stack_chk_fail",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": []
-            }
-        ]
-    },
-    "000131bc": {
-        "function": "000131bc",
-        "nodes": [
-            {
-                "name": "BB_0",
-                "start": "000131bc",
-                "end": "0001323b",
-                "calls": [
-                    {
-                        "func": "snprintf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_2",
-                    "BB_1"
-                ]
-            },
-            {
-                "name": "BB_1",
-                "start": "0001323c",
-                "end": "0001324b",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_11"
-                ]
-            },
-            {
-                "name": "BB_2",
-                "start": "0001324c",
-                "end": "0001325b",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_3"
-                ]
-            },
-            {
-                "name": "BB_3",
-                "start": "0001325c",
-                "end": "00013277",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_3",
-                    "BB_4"
-                ]
-            },
-            {
-                "name": "BB_4",
-                "start": "00013278",
-                "end": "00013283",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_6",
-                    "BB_5"
-                ]
-            },
-            {
-                "name": "BB_5",
-                "start": "00013284",
-                "end": "000132a3",
-                "calls": [
-                    {
-                        "func": "memset",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_7"
-                ]
-            },
-            {
-                "name": "BB_6",
-                "start": "000132a4",
-                "end": "000132ab",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_10",
-                    "BB_7"
-                ]
-            },
-            {
-                "name": "BB_7",
-                "start": "000132ac",
-                "end": "000132b7",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_8"
-                ]
-            },
-            {
-                "name": "BB_8",
-                "start": "000132b8",
-                "end": "000132db",
-                "calls": [
-                    {
-                        "func": "0000aca8",
-                        "api": false,
-                        "api_type": null
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_8",
-                    "BB_9"
-                ]
-            },
-            {
-                "name": "BB_9",
-                "start": "000132dc",
-                "end": "000132e3",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_11"
-                ]
-            },
-            {
-                "name": "BB_10",
-                "start": "000132e4",
-                "end": "000132ef",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_11"
-                ]
-            },
-            {
-                "name": "BB_11",
-                "start": "000132f0",
-                "end": "0001333f",
-                "calls": [
-                    {
-                        "func": "snprintf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    },
-                    {
-                        "func": "printf",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_13",
-                    "BB_12"
-                ]
-            },
-            {
-                "name": "BB_12",
-                "start": "00013340",
-                "end": "00013357",
-                "calls": [],
-                "svc": [],
-                "edges": []
-            },
-            {
-                "name": "BB_13",
-                "start": "00013358",
-                "end": "0001335b",
-                "calls": [
-                    {
-                        "func": "__stack_chk_fail",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": []
-            }
-        ]
-    },
-    "000143b4": {
-        "function": "000143b4",
-        "nodes": [
-            {
-                "name": "BB_0",
-                "start": "000143b4",
-                "end": "000143f3",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_2",
-                    "BB_1"
-                ]
-            },
-            {
-                "name": "BB_1",
-                "start": "000143f4",
-                "end": "0001441b",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_3",
-                    "BB_2"
-                ]
-            },
-            {
-                "name": "BB_2",
-                "start": "0001441c",
-                "end": "00014423",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_12"
-                ]
-            },
-            {
-                "name": "BB_3",
-                "start": "00014424",
-                "end": "0001444b",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_4"
-                ]
-            },
-            {
-                "name": "BB_4",
-                "start": "0001444c",
-                "end": "0001445b",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_8",
-                    "BB_5"
-                ]
-            },
-            {
-                "name": "BB_5",
-                "start": "0001445c",
-                "end": "00014467",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_9",
-                    "BB_6"
-                ]
-            },
-            {
-                "name": "BB_6",
-                "start": "00014468",
-                "end": "000144bb",
-                "calls": [
-                    {
-                        "func": "snprintf",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_4",
-                    "BB_7"
-                ]
-            },
-            {
-                "name": "BB_7",
-                "start": "000144bc",
-                "end": "000144bf",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_11"
-                ]
-            },
-            {
-                "name": "BB_8",
-                "start": "000144c0",
-                "end": "000144eb",
-                "calls": [
-                    {
-                        "func": "snprintf",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_10"
-                ]
-            },
-            {
-                "name": "BB_9",
-                "start": "000144ec",
-                "end": "0001451f",
-                "calls": [
-                    {
-                        "func": "snprintf",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_10"
-                ]
-            },
-            {
-                "name": "BB_10",
-                "start": "00014520",
-                "end": "00014523",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_11"
-                ]
-            },
-            {
-                "name": "BB_11",
-                "start": "00014524",
-                "end": "0001453b",
-                "calls": [
-                    {
-                        "func": "strlen",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_12"
-                ]
-            },
-            {
-                "name": "BB_12",
-                "start": "0001453c",
-                "end": "00014553",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_14",
-                    "BB_13"
-                ]
-            },
-            {
-                "name": "BB_13",
-                "start": "00014554",
-                "end": "00014573",
-                "calls": [],
-                "svc": [],
-                "edges": []
-            },
-            {
-                "name": "BB_14",
-                "start": "00014574",
-                "end": "00014577",
                 "calls": [
                     {
                         "func": "__stack_chk_fail",
@@ -6581,6 +6197,434 @@
             }
         ]
     },
+    "000143b4": {
+        "function": "000143b4",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "000143b4",
+                "end": "000143f3",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_2",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "000143f4",
+                "end": "0001441b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_3",
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "0001441c",
+                "end": "00014423",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_12"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "00014424",
+                "end": "0001444b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_4"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "0001444c",
+                "end": "0001445b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_8",
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_5",
+                "start": "0001445c",
+                "end": "00014467",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_9",
+                    "BB_6"
+                ]
+            },
+            {
+                "name": "BB_6",
+                "start": "00014468",
+                "end": "000144bb",
+                "calls": [
+                    {
+                        "func": "snprintf",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_4",
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_7",
+                "start": "000144bc",
+                "end": "000144bf",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_11"
+                ]
+            },
+            {
+                "name": "BB_8",
+                "start": "000144c0",
+                "end": "000144eb",
+                "calls": [
+                    {
+                        "func": "snprintf",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_10"
+                ]
+            },
+            {
+                "name": "BB_9",
+                "start": "000144ec",
+                "end": "0001451f",
+                "calls": [
+                    {
+                        "func": "snprintf",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_10"
+                ]
+            },
+            {
+                "name": "BB_10",
+                "start": "00014520",
+                "end": "00014523",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_11"
+                ]
+            },
+            {
+                "name": "BB_11",
+                "start": "00014524",
+                "end": "0001453b",
+                "calls": [
+                    {
+                        "func": "strlen",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_12"
+                ]
+            },
+            {
+                "name": "BB_12",
+                "start": "0001453c",
+                "end": "00014553",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_14",
+                    "BB_13"
+                ]
+            },
+            {
+                "name": "BB_13",
+                "start": "00014554",
+                "end": "00014573",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_14",
+                "start": "00014574",
+                "end": "00014577",
+                "calls": [
+                    {
+                        "func": "__stack_chk_fail",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "000131bc": {
+        "function": "000131bc",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "000131bc",
+                "end": "0001323b",
+                "calls": [
+                    {
+                        "func": "snprintf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_2",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "0001323c",
+                "end": "0001324b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_11"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "0001324c",
+                "end": "0001325b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "0001325c",
+                "end": "00013277",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_3",
+                    "BB_4"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "00013278",
+                "end": "00013283",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_6",
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_5",
+                "start": "00013284",
+                "end": "000132a3",
+                "calls": [
+                    {
+                        "func": "memset",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_6",
+                "start": "000132a4",
+                "end": "000132ab",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_10",
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_7",
+                "start": "000132ac",
+                "end": "000132b7",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_8"
+                ]
+            },
+            {
+                "name": "BB_8",
+                "start": "000132b8",
+                "end": "000132db",
+                "calls": [
+                    {
+                        "func": "0000aca8",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_8",
+                    "BB_9"
+                ]
+            },
+            {
+                "name": "BB_9",
+                "start": "000132dc",
+                "end": "000132e3",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_11"
+                ]
+            },
+            {
+                "name": "BB_10",
+                "start": "000132e4",
+                "end": "000132ef",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_11"
+                ]
+            },
+            {
+                "name": "BB_11",
+                "start": "000132f0",
+                "end": "0001333f",
+                "calls": [
+                    {
+                        "func": "snprintf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "printf",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_13",
+                    "BB_12"
+                ]
+            },
+            {
+                "name": "BB_12",
+                "start": "00013340",
+                "end": "00013357",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_13",
+                "start": "00013358",
+                "end": "0001335b",
+                "calls": [
+                    {
+                        "func": "__stack_chk_fail",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "0000aca8": {
+        "function": "0000aca8",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "0000aca8",
+                "end": "0000acf7",
+                "calls": [
+                    {
+                        "func": "TEE_GenerateRandom",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_2",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "0000acf8",
+                "end": "0000ad27",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_2",
+                "start": "0000ad28",
+                "end": "0000ad2b",
+                "calls": [
+                    {
+                        "func": "__stack_chk_fail",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
     "0000c434": {
         "function": "0000c434",
         "nodes": [
@@ -6746,50 +6790,6 @@
                 "name": "BB_11",
                 "start": "0000c59c",
                 "end": "0000c59f",
-                "calls": [
-                    {
-                        "func": "__stack_chk_fail",
-                        "api": true,
-                        "api_type": "libc"
-                    }
-                ],
-                "svc": [],
-                "edges": []
-            }
-        ]
-    },
-    "0000aca8": {
-        "function": "0000aca8",
-        "nodes": [
-            {
-                "name": "BB_0",
-                "start": "0000aca8",
-                "end": "0000acf7",
-                "calls": [
-                    {
-                        "func": "TEE_GenerateRandom",
-                        "api": true,
-                        "api_type": "gp_api"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_2",
-                    "BB_1"
-                ]
-            },
-            {
-                "name": "BB_1",
-                "start": "0000acf8",
-                "end": "0000ad27",
-                "calls": [],
-                "svc": [],
-                "edges": []
-            },
-            {
-                "name": "BB_2",
-                "start": "0000ad28",
-                "end": "0000ad2b",
                 "calls": [
                     {
                         "func": "__stack_chk_fail",

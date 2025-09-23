@@ -214,25 +214,6 @@
             }
         ]
     },
-    "00211938": {
-        "function": "00211938",
-        "nodes": [
-            {
-                "name": "BB_0",
-                "start": "00211938",
-                "end": "0021193b",
-                "calls": [
-                    {
-                        "func": "TEE_Malloc",
-                        "api": true,
-                        "api_type": "gp_api"
-                    }
-                ],
-                "svc": [],
-                "edges": []
-            }
-        ]
-    },
     "002119e8": {
         "function": "002119e8",
         "nodes": [
@@ -654,6 +635,25 @@
                 "start": "00209d16",
                 "end": "00209d1d",
                 "calls": [],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "00211938": {
+        "function": "00211938",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "00211938",
+                "end": "0021193b",
+                "calls": [
+                    {
+                        "func": "TEE_Malloc",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
                 "svc": [],
                 "edges": []
             }

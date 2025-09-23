@@ -10,18 +10,26 @@ from multiprocessing import Pool, cpu_count
 ta_fw = ["TA_CreateEntryPoint", "TA_OpenSessionEntryPoint", "TA_InvokeCommandEntryPoint", "TA_CloseSessionEntryPoint", "TA_DestroyEntryPoint"]
 
 ta_uuid = None
+tee_name = None
 do_ta_uuid = False
+do_tee_name = False
 
 def int2hex(nr):
     h = hex(nr)[2:]
     return '0' * (8-len(h)) + h
 
-def label(addr, no_uuid=False):
+def label(addr, no_uuid=False, do_tee_name=False):
     global ta_uuid
+    global tee_name
     if no_uuid:
         return addr
+    if do_tee_name:
+        return f'{tee_name}_{addr}'
     if do_ta_uuid:
-        return f'{ta_uuid}_{addr}'
+        if do_tee_name:
+            return f'{tee_name}_{ta_uuid}_{addr}'
+        else:
+            return f'{ta_uuid}_{addr}'
     else:
         return addr
 
@@ -156,7 +164,36 @@ def is_std(call):
 def is_tee(call):
     return call.api_type == "tee"
 
-def generate_graph(cfg):
+def match_all(call):
+    return True
+
+def generate_graph_noorder(cfg, todo=None):
+    reachable = []
+    used_apis = get_apis(cfg)
+    max_nodes = reachable_nodes(cfg, used_apis)
+    print("nr used apis", len(used_apis))
+    print("nr gp apis", len([a for a in used_apis if a.api_type == "gp_api"]))
+    print("nr libc apis", len([a for a in used_apis if a.api_type == "libc"]))
+    print("nr tee apis", len([a for a in used_apis if a.api_type.startswith("tee")]))
+    implemented_apis = []
+    i = 0
+    reachable.append(reachable_nodes(cfg, implemented_apis)) 
+    i+= 1
+    while 1:
+        max_api = find_best_add(cfg, used_apis, implemented_apis, match_all)
+        if max_api is None: 
+            break
+        print("all_api", max_api)
+        used_apis.remove(max_api)
+        implemented_apis.append(max_api)
+        reachable.append(reachable_nodes(cfg, implemented_apis))
+        i += 1 
+    print("imlemented apis", len(implemented_apis)) 
+    print(reachable)
+    return reachable, max_nodes, implemented_apis
+
+def generate_graph(cfg, todo=None):
+    #TODO: implemented using the cache
     reachable = []
     used_apis = get_apis(cfg)
     max_nodes = reachable_nodes(cfg, used_apis)
@@ -214,7 +251,7 @@ def generate_graph(cfg):
         i += 1
     print("imlemented apis", len(implemented_apis)) 
     print(reachable)
-    return reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx
+    return reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx, implemented_apis
 
 def get_root_node(ta_cfg):
     for n in ta_cfg.nodes:
@@ -233,7 +270,9 @@ def gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, al
     #plt.gca().set_xticklabels([])
     #plt.gca().tick_params(axis='x', which='both', length=8)
     #plt.gca().tick_params(axis='y', which='both', length=8)
-    plt.gca().margins(y=0.05, x=0.005)
+    plt.yticks([0, 50, 100], ["", "", ""])
+    plt.ylim(0, 102)
+    plt.gca().margins(y=0, x=0.005)
     plt.plot(range(len(reachable)), percentages, label="Reachable %")
 
     if all_gp_idx != 0:
@@ -281,7 +320,7 @@ def analyze_ta(ta_path):
     nx.draw(nothing_cfg, pos, with_labels=True, node_color="lightblue", arrows=True)
     plt.show()    
     """
-    reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx = generate_graph(cfg)
+    reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx, implemented_apis = generate_graph(cfg)
     print("max_nodes", max_nodes)
     plt = gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
     plt.show()
@@ -289,11 +328,12 @@ def analyze_ta(ta_path):
     plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
     print_info(cfg, reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
 
-
-def analyze_tee(tee_path):
+def build_tee_cfg(tee_path, only_tee=True):
     global do_ta_uuid
+    global tee_name
     do_ta_uuid = True
     tee = os.path.basename(tee_path)
+    tee_name = tee
     ta_cfgs = [] 
     for ta in [ta for ta in os.listdir(os.path.join(tee_path, "tas")) if ta.endswith(".ta")]:
         ta_path = os.path.join(tee_path, 'tas', ta)
@@ -307,27 +347,75 @@ def analyze_tee(tee_path):
         if len([a for a in ta_apis if a.api_type == "gp_api"]) > 0: nr_tas_gp_api += 1
         if len([a for a in ta_apis if a.api_type == "libc"]) > 0: nr_tas_libc += 1
         if len([a for a in ta_apis if a.api_type.startswith("tee")]) > 0: nr_tas_tee += 1
-    print(f'nr tas using gp_api {nr_tas_gp_api}')
-    print(f'nr tas using libc {nr_tas_libc}')
-    print(f'nr tas using tee {nr_tas_tee}')
-    print(f'analyzing {tee}, nr cfgs: {len(ta_cfgs)}')
+    print(f'[{tee}] nr tas using gp_api {nr_tas_gp_api}')
+    print(f'[{tee}] nr tas using libc {nr_tas_libc}')
+    print(f'[{tee}] nr tas using tee {nr_tas_tee}')
+    print(f'[{tee}] analyzing {tee}, nr cfgs: {len(ta_cfgs)}') 
     tee_cfg = nx.compose_all(ta_cfgs) 
-    tee_cfg.add_node(label(root, no_uuid=True))
+    if only_tee:
+        root_name = label(root, no_uuid=True)
+    else:
+        root_name = label(root, do_tee_name=True)
+    tee_cfg.add_node(root_name)
     for ta_cfg in ta_cfgs:
         ta_root_node = get_root_node(ta_cfg)
-        tee_cfg.add_edge(label(root, no_uuid=True), ta_root_node)
+        tee_cfg.add_edge(root_name, ta_root_node) 
+    return tee_cfg 
+
+def analyze_tee(tee_path):
+    tee = os.path.basename(tee_path)
+    tee_cfg = build_tee_cfg(tee_path, only_tee=True)
     #pos = graphviz_layout(tee_cfg, prog="dot", args="-Grankdir=TB")
     #nx.draw(tee_cfg, pos, with_labels=True, node_color="lightblue", arrows=True)
     #plt.show() 
-    reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx = generate_graph(tee_cfg)
+    reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx, implemented_apis = generate_graph(tee_cfg, todo=tee)
     plt = gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
     out_path = f'{tee}_reachable.pdf'
+    open(f'{tee}_order.txt', 'w+').write('\n'.join(c.func for c in implemented_apis))
+    plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
+    print_info(tee_cfg, reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
+    print(40*"=")
+    reachable, max_nodes, implemented_apis = generate_graph_noorder(tee_cfg, todo=tee)
+    plt.clf()
+    plt = gen_plot(reachable, max_nodes, 0, 0, 0, 0)
+    out_path = f'{tee}_reachable_noorder.pdf'
+    open(f'{tee}_order_noorder.txt', 'w+').write('\n'.join(c.func for c in implemented_apis))
+    plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
+
+def analyze_all():
+    global do_ta_uuid
+    global do_tee_name
+    do_ta_uuid = True
+    do_tee_name = True
+    tees = ["mitee", "teegris", "beanpod", "t6"]
+    tee_cfgs = [] 
+    for tee in tees:
+        tee_path = f'../{tee}'
+        tee_cfgs.append(build_tee_cfg(tee_path, only_tee=False))  
+    all_cfg = nx.compose_all(tee_cfgs)
+    root_all = label(root, no_uuid=True)
+    all_cfg.add_node(root_all)
+    for tee_cfg in tee_cfgs:
+        tee_root_node = get_root_node(tee_cfg)
+        all_cfg.add_edge(root_all, tee_root_node)
+    reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx, implemented_apis = generate_graph(all_cfg, todo='all')
+    plt = gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
+    out_path = f'all_reachable.pdf'
+    open(f'all_order.txt', 'w+').write('\n'.join(c.func for c in implemented_apis))
     plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
     print_info(cfg, reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
+    print(40*"=")
+    reachable, max_nodes, implemented_apis = generate_graph_noorder(all_cfg, todo='all')
+    plt.clf()
+    plt = gen_plot(reachable, max_nodes, 0, 0, 0, 0)
+    out_path = f'all_reachable_noorder.pdf'
+    open(f'all_order_noorder.txt', 'w+').write('\n'.join(c.func for c in implemented_apis))
+    plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("usage [path to ta], [path to tee folder], all")
+        exit(-1)
     inp_path = sys.argv[1]
     if inp_path.endswith(".ta"): 
         analyze_ta(sys.argv[1])
