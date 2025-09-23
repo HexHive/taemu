@@ -161,7 +161,9 @@ def generate_graph(cfg):
     used_apis = get_apis(cfg)
     max_nodes = reachable_nodes(cfg, used_apis)
     print("nr used apis", len(used_apis))
-    print(used_apis)
+    print("nr gp apis", len([a for a in used_apis if a.api_type == "gp_api"]))
+    print("nr libc apis", len([a for a in used_apis if a.api_type == "libc"]))
+    print("nr tee apis", len([a for a in used_apis if a.api_type.startswith("tee")]))
     implemented_apis = []
     i = 0
     reachable.append(reachable_nodes(cfg, implemented_apis))
@@ -252,7 +254,7 @@ def gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, al
     #plt.grid(True, linestyle="--", alpha=0.6) 
     return plt
 
-def print_info(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx):
+def print_info(cfg, reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx):
     print(f'overall reachable bbs: {max_nodes}')
     print(f'nr gp_api funcs: {all_gp_idx}')
     print(f'nr libc funcs: {all_libc_idx - all_gp_idx}')
@@ -285,7 +287,7 @@ def analyze_ta(ta_path):
     plt.show()
     out_path = f'ta_reach.pdf'
     plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
-    print_info(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
+    print_info(cfg, reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
 
 
 def analyze_tee(tee_path):
@@ -297,6 +299,17 @@ def analyze_tee(tee_path):
         ta_path = os.path.join(tee_path, 'tas', ta)
         if not os.path.exists(ta_path[:-3]+".json"): continue
         ta_cfgs.append(cfg_ta(ta_path))
+    nr_tas_gp_api = 0
+    nr_tas_libc = 0
+    nr_tas_tee = 0
+    for cfg in ta_cfgs:
+        ta_apis = get_apis(cfg)
+        if len([a for a in ta_apis if a.api_type == "gp_api"]) > 0: nr_tas_gp_api += 1
+        if len([a for a in ta_apis if a.api_type == "libc"]) > 0: nr_tas_libc += 1
+        if len([a for a in ta_apis if a.api_type.startswith("tee")]) > 0: nr_tas_tee += 1
+    print(f'nr tas using gp_api {nr_tas_gp_api}')
+    print(f'nr tas using libc {nr_tas_libc}')
+    print(f'nr tas using tee {nr_tas_tee}')
     print(f'analyzing {tee}, nr cfgs: {len(ta_cfgs)}')
     tee_cfg = nx.compose_all(ta_cfgs) 
     tee_cfg.add_node(label(root, no_uuid=True))
@@ -310,7 +323,7 @@ def analyze_tee(tee_path):
     plt = gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
     out_path = f'{tee}_reachable.pdf'
     plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
-    print_info(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
+    print_info(cfg, reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
