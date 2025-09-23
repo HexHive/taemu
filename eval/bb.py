@@ -214,33 +214,6 @@ def generate_graph(cfg):
     print(reachable)
     return reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx
 
-def analyze_ta(ta_path):
-    cfg = cfg_ta(ta_path)
-    print("=== OS interactions: ===")
-    for node, data in cfg.nodes(data=True):
-        if "svc" in data and len(data["svc"]) > 0:
-            # Find all simple paths from start_node to this node
-            path = list(nx.shortest_path(cfg, source=root, target=node))       
-            print(" -> ".join(path), "svc:", data["svc"])
-     
-    print(len(nx.descendants(cfg, root)))
-    nothing_cfg = trim_cfg(cfg, []) 
-    print(len(nx.descendants(nothing_cfg, root)))
-    """
-    pos = graphviz_layout(cfg, prog="dot", args="-Grankdir=TB")
-    nx.draw(cfg, pos, with_labels=True, node_color="lightblue", arrows=True)
-    plt.show()    
-    pos = graphviz_layout(nothing_cfg, prog="dot", args="-Grankdir=TB")
-    nx.draw(nothing_cfg, pos, with_labels=True, node_color="lightblue", arrows=True)
-    plt.show()    
-    """
-    reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx = generate_graph(cfg)
-    print("max_nodes", max_nodes)
-    plt = gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
-    plt.show()
-    out_path = f'ta_reach.pdf'
-    plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
-
 def get_root_node(ta_cfg):
     for n in ta_cfg.nodes:
         if n.endswith(root):   
@@ -279,6 +252,42 @@ def gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, al
     #plt.grid(True, linestyle="--", alpha=0.6) 
     return plt
 
+def print_info(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx):
+    print(f'overall reachable bbs: {max_nodes}')
+    print(f'nr gp_api funcs: {all_gp_idx}')
+    print(f'nr libc funcs: {all_libc_idx - all_gp_idx}')
+    print(f'nr tee_std funcs: {all_tee_std_idx - all_libc_idx}')
+    print(f'nr tee funcs: {all_tee_idx - all_tee_std_idx}')
+
+def analyze_ta(ta_path):
+    cfg = cfg_ta(ta_path)
+    print("=== OS interactions: ===")
+    for node, data in cfg.nodes(data=True):
+        if "svc" in data and len(data["svc"]) > 0:
+            # Find all simple paths from start_node to this node
+            path = list(nx.shortest_path(cfg, source=root, target=node))       
+            print(" -> ".join(path), "svc:", data["svc"])
+     
+    print(len(nx.descendants(cfg, root)))
+    nothing_cfg = trim_cfg(cfg, []) 
+    print(len(nx.descendants(nothing_cfg, root)))
+    """
+    pos = graphviz_layout(cfg, prog="dot", args="-Grankdir=TB")
+    nx.draw(cfg, pos, with_labels=True, node_color="lightblue", arrows=True)
+    plt.show()    
+    pos = graphviz_layout(nothing_cfg, prog="dot", args="-Grankdir=TB")
+    nx.draw(nothing_cfg, pos, with_labels=True, node_color="lightblue", arrows=True)
+    plt.show()    
+    """
+    reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx = generate_graph(cfg)
+    print("max_nodes", max_nodes)
+    plt = gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
+    plt.show()
+    out_path = f'ta_reach.pdf'
+    plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
+    print_info(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
+
+
 def analyze_tee(tee_path):
     global do_ta_uuid
     do_ta_uuid = True
@@ -301,7 +310,7 @@ def analyze_tee(tee_path):
     plt = gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
     out_path = f'{tee}_reachable.pdf'
     plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
-    plt.show() 
+    print_info(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
