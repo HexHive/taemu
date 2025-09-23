@@ -62,7 +62,7 @@
         },
         "TEE_KMGetHmacKey": {
             "addr": 7699600,
-            "type": "gp_api"
+            "type": "tee"
         },
         "TEE_GetObjectInfo": {
             "addr": 7700216,

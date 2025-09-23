@@ -26,7 +26,7 @@
         },
         "TEE_KMGetHmacKey": {
             "addr": 2841816,
-            "type": "gp_api"
+            "type": "tee"
         },
         "TEE_AllocateTransientObject": {
             "addr": 2842752,
@@ -38,6 +38,10 @@
         },
         "TEE_GetSystemTime": {
             "addr": 2841368,
+            "type": "gp_api"
+        },
+        "TEE_CheckMemoryAccessRights": {
+            "addr": 2841232,
             "type": "gp_api"
         }
     },

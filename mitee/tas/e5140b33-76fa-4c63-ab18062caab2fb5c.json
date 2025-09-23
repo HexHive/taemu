@@ -103,6 +103,10 @@
         "TEE_AsymmetricSignDigest": {
             "addr": 145576,
             "type": "gp_api"
+        },
+        "TEE_OpenTASession": {
+            "addr": 136080,
+            "type": "gp_api"
         }
     },
     "TA_DestroyEntryPoint_start": 123072,

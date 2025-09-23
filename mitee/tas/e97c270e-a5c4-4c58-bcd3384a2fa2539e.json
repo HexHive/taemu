@@ -248,10 +248,6 @@
             "addr": 823712,
             "type": "gp_api"
         },
-        "TEE_AllocateOperation": {
-            "addr": 508456,
-            "type": "gp_api"
-        },
         "TEE_MACComputeFinal": {
             "addr": 502984,
             "type": "gp_api"
@@ -279,6 +275,50 @@
         "TEE_CipherDoFinal": {
             "addr": 829056,
             "type": "gp_api"
+        },
+        "TEE_OpenTASession": {
+            "addr": 817560,
+            "type": "gp_api"
+        },
+        "mdrv_open": {
+            "addr": 1030832,
+            "type": "tee"
+        },
+        "mdrv_ioctl": {
+            "addr": 1031408,
+            "type": "tee"
+        },
+        "gen_random": {
+            "addr": 769464,
+            "type": "tee"
+        },
+        "mdrv_ioctl": {
+            "addr": 1031408,
+            "type": "tee"
+        },
+        "mdrv_open": {
+            "addr": 1030832,
+            "type": "tee"
+        },
+        "mdrv_close": {
+            "addr": 1031208,
+            "type": "tee"
+        },
+        "TEE_CheckMemoryAccessRights": {
+            "addr": 818456,
+            "type": "gp_api"
+        },
+        "tee_get_bcc_chain": {
+            "addr": 876184,
+            "type": "tee"
+        },
+        "hwbcc_sign_key": {
+            "addr": 877376,
+            "type": "tee"
+        },
+        "tee_get_enc_rot": {
+            "addr": 875232,
+            "type": "tee"
         }
     },
     "TA_CloseSessionEntryPoint_start": 327784,

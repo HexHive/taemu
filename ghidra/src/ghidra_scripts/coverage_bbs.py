@@ -78,6 +78,9 @@ def is_api_call(body, target, tee, inline_funcs):
     program = getCurrentProgram()
     fm = program.getFunctionManager()
     print("is_api_call?", target)
+    if get_inline(inline_funcs, target) is not None:
+        print("inline found", target) 
+        return True 
     if body.contains(target):
         return False
     f = fm.getFunctionContaining(target)
@@ -100,9 +103,7 @@ def is_api_call(body, target, tee, inline_funcs):
         return True
     if f.isExternal():
         return True 
-    if get_inline(inline_funcs, target) is not None:
-        print("inline found", target) 
-        return True
+    
     return False            
     
 def get_api_type(target, tee, inline_funcs):
