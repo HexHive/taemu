@@ -4,7 +4,7 @@ import os
 import sys
 import matplotlib.pyplot as plt
 from networkx.drawing.nx_agraph import graphviz_layout
-
+from multiprocessing import Pool, cpu_count
 
 ta_fw = ["TA_CreateEntryPoint", "TA_OpenSessionEntryPoint", "TA_InvokeCommandEntryPoint", "TA_CloseSessionEntryPoint", "TA_DestroyEntryPoint"]
 
@@ -112,16 +112,32 @@ def reachable_nodes(cfg, implemented_apis):
     trimmed_cfg = trim_cfg(cfg, implemented_apis)
     return len(nx.descendants(trimmed_cfg, root)) 
 
+def pool_worker(data):
+    cfg, implemented_apis, api = data
+    reach = reachable_nodes(cfg, implemented_apis + [api]) 
+    return (api, reach)
+
 def find_best_add(cfg, all_apis, implemented_apis, filterf):
     max_api = None
     max_nr = -1
+    work_queue = []
+    for api in all_apis:
+        if not filterf(api): continue
+        if api in implemented_apis: continue
+        work_queue.append((cfg, implemented_apis, api))
+    with Pool(cpu_count()-1) as pool:
+        results = pool.map(pool_worker, work_queue, chunksize=5)
+    for api, reach in results:
+       if reach > max_nr:
+            max_nr = reach
+            max_api = api 
+    """ 
     for api in all_apis:
         if not filterf(api): continue
         if api in implemented_apis: continue
         reach = reachable_nodes(cfg, implemented_apis + [api])
-        if reach > max_nr:
-            max_nr = reach
-            max_api = api
+        
+    """
     return max_api 
 
 

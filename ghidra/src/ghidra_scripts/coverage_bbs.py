@@ -73,6 +73,7 @@ def isname(fname):
 def is_gp_std(fname):
     if fname.startswith("TEE_LogPrint"): return True
     if fname == "msee_ta_printf_va": return True
+    if fname == "TEES_IsREESharedMemory": return True
 
 def is_api_call(body, target, tee, inline_funcs):
     program = getCurrentProgram()
@@ -86,6 +87,9 @@ def is_api_call(body, target, tee, inline_funcs):
     f = fm.getFunctionContaining(target)
     
     if f is None:
+        if target.getOffset() > 0xffffffff:
+            # avoid miscounted blocks
+            return False
         print("f is None..")
         return True
     fname = f.getName()
@@ -105,7 +109,13 @@ def is_api_call(body, target, tee, inline_funcs):
         return True 
     
     return False            
-    
+   
+def is_complex_interaction(fname):
+    if fname == "ioctl": return True
+    if fname == "TEE_InvokeTACommand": return True
+    if fname == "read": return True
+    if fname == "write": return True
+
 def get_api_type(target, tee, inline_funcs):
     program = getCurrentProgram()
     fm = program.getFunctionManager()
@@ -120,6 +130,8 @@ def get_api_type(target, tee, inline_funcs):
             # one cause t6 entry is disassembled as arm but should be thumb
             return "tee"
     fname = f.getName()
+    if is_complex_interaction(fname):
+        return "tee"
     if is_gp_std(fname):
         return "tee_std"
     if is_gp(fname):
