@@ -143,6 +143,22 @@
         "TEE_SEServiceGetReaders": {
             "addr": 178264,
             "type": "tee"
+        },
+        "TEE_OpenTASession": {
+            "addr": 144968,
+            "type": "gp_api"
+        },
+        "tee_get_enc_rot": {
+            "addr": 191016,
+            "type": "tee"
+        },
+        "tee_se_open_spi_clk": {
+            "addr": 191352,
+            "type": "tee"
+        },
+        "tee_se_close_spi_clk": {
+            "addr": 191696,
+            "type": "tee"
         }
     },
     "TA_DestroyEntryPoint_start": 139904,

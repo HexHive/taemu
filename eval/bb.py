@@ -114,7 +114,7 @@ def reachable_nodes(cfg, implemented_apis):
 
 def find_best_add(cfg, all_apis, implemented_apis, filterf):
     max_api = None
-    max_nr = 0
+    max_nr = -1
     for api in all_apis:
         if not filterf(api): continue
         if api in implemented_apis: continue
@@ -128,6 +128,9 @@ def find_best_add(cfg, all_apis, implemented_apis, filterf):
 def is_gp(call):
     return call.api_type == "gp_api"
 
+def is_libc(call):     
+    return call.api_type == "libc"
+
 def is_std(call):
     return call.api_type == "tee_std"
 
@@ -138,12 +141,14 @@ def generate_graph(cfg):
     reachable = []
     used_apis = get_apis(cfg)
     max_nodes = reachable_nodes(cfg, used_apis)
+    print("nr used apis", len(used_apis))
     print(used_apis)
     implemented_apis = []
     i = 0
     reachable.append(reachable_nodes(cfg, implemented_apis))
     i+= 1
     all_gp_idx = 0
+    all_libc_idx = 0
     all_tee_std_idx = 0
     all_tee_idx = 0
     while 1:
@@ -152,6 +157,17 @@ def generate_graph(cfg):
             all_gp_idx = i-1
             break
         print("gp", max_api)
+        used_apis.remove(max_api)
+        implemented_apis.append(max_api)
+        reachable.append(reachable_nodes(cfg, implemented_apis))
+        i += 1
+    while 1:
+        max_api = find_best_add(cfg, used_apis, implemented_apis, is_libc)
+        if max_api is None: 
+            all_libc_idx = i-1
+            break
+        print("libc", max_api)
+        used_apis.remove(max_api)
         implemented_apis.append(max_api)
         reachable.append(reachable_nodes(cfg, implemented_apis))
         i += 1
@@ -161,6 +177,7 @@ def generate_graph(cfg):
             all_tee_std_idx = i-1
             break
         print("gp_std", max_api)
+        used_apis.remove(max_api)
         implemented_apis.append(max_api)
         reachable.append(reachable_nodes(cfg, implemented_apis))
         i += 1
@@ -170,11 +187,13 @@ def generate_graph(cfg):
             all_tee_idx = i-1
             break
         print("tee", max_api)
+        used_apis.remove(max_api)
         implemented_apis.append(max_api)
         reachable.append(reachable_nodes(cfg, implemented_apis))
         i += 1
+    print("imlemented apis", len(implemented_apis)) 
     print(reachable)
-    return reachable, max_nodes, all_gp_idx, all_tee_std_idx, all_tee_idx
+    return reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx
 
 def analyze_ta(ta_path):
     cfg = cfg_ta(ta_path)
@@ -188,14 +207,36 @@ def analyze_ta(ta_path):
     print(len(nx.descendants(cfg, root)))
     nothing_cfg = trim_cfg(cfg, []) 
     print(len(nx.descendants(nothing_cfg, root)))
+    """
     pos = graphviz_layout(cfg, prog="dot", args="-Grankdir=TB")
     nx.draw(cfg, pos, with_labels=True, node_color="lightblue", arrows=True)
     plt.show()    
     pos = graphviz_layout(nothing_cfg, prog="dot", args="-Grankdir=TB")
     nx.draw(nothing_cfg, pos, with_labels=True, node_color="lightblue", arrows=True)
     plt.show()    
-    generate_graph(cfg)
+    """
+    reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx = generate_graph(cfg)
+    print("max_nodes", max_nodes)
+    percentages = [r / max_nodes * 100 for r in reachable]
+    plt.plot(range(len(reachable)), percentages, marker="o", label="Reachable %")
 
+    if all_gp_idx != 0:
+        plt.axvline(all_gp_idx, color="red", linestyle="--", label="GP index")
+    if all_tee_std_idx != 0:
+        plt.axvline(all_tee_std_idx, color="blue", linestyle="--", label="TEE std index")
+    if all_tee_idx != 0:
+        plt.axvline(all_tee_idx, color="green", linestyle="--", label="TEE index")
+    if all_libc_idx != 0:
+        plt.axvline(all_libc_idx, color="orange", linestyle="--", label="libc index")
+
+
+    plt.xlabel("Steps")
+    plt.ylabel("Reachable (%)")
+    plt.title("Reachable Nodes as % of Max Nodes")
+    plt.legend()
+    plt.grid(True, linestyle="--", alpha=0.6)
+
+    plt.show()
 def get_root_node(ta_cfg):
     for n in ta_cfg.nodes:
         if n.endswith(root):   
@@ -219,7 +260,7 @@ def analyze_tee(tee_path):
     #pos = graphviz_layout(tee_cfg, prog="dot", args="-Grankdir=TB")
     #nx.draw(tee_cfg, pos, with_labels=True, node_color="lightblue", arrows=True)
     #plt.show() 
-    reachable, max_nodes, all_gp_idx, all_tee_std_idx, all_tee_idx = generate_graph(tee_cfg)
+    reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx = generate_graph(tee_cfg)
 
     percentages = [r / max_nodes * 100 for r in reachable]
     plt.plot(range(len(reachable)), percentages, marker="o", label="Reachable %")
@@ -230,7 +271,10 @@ def analyze_tee(tee_path):
         plt.axvline(all_tee_std_idx, color="blue", linestyle="--", label="TEE std index")
     if all_tee_idx != 0:
         plt.axvline(all_tee_idx, color="green", linestyle="--", label="TEE index")
+    if all_libc_idx != 0:
+        plt.axvline(all_libc_idx, color="orange", linestyle="--", label="libc index")
 
+    
     plt.xlabel("Steps")
     plt.ylabel("Reachable (%)")
     plt.title("Reachable Nodes as % of Max Nodes")

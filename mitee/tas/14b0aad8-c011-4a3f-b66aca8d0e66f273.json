@@ -119,6 +119,14 @@
         "TEE_CipherDoFinal": {
             "addr": 587784,
             "type": "gp_api"
+        },
+        "TEE_OpenTASession": {
+            "addr": 577864,
+            "type": "gp_api"
+        },
+        "TEE_CheckMemoryAccessRights": {
+            "addr": 578760,
+            "type": "gp_api"
         }
     },
     "TA_DestroyEntryPoint_start": 248968,

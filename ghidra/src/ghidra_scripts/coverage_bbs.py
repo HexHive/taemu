@@ -56,7 +56,7 @@ def is_libc(fname):
     return fname in libc_funcs
 
 def is_gp(fname):
-    return fname.startswith("TEE_") and not fname.startswith("TEE_SE")
+    return fname.startswith("TEE_") and not fname.startswith("TEE_SE") and not fname.startswith("TEE_Rpmb")
 
 def get_inline(inline, addr):
     if addr.getOffset() in inline:    
@@ -69,6 +69,10 @@ def isname(fname):
         return False
     except:
         return True
+
+def is_gp_std(fname):
+    if fname.startswith("TEE_LogPrint"): return True
+    if fname == "msee_ta_printf_va": return True
 
 def is_api_call(body, target, tee, inline_funcs):
     program = getCurrentProgram()
@@ -89,6 +93,8 @@ def is_api_call(body, target, tee, inline_funcs):
     if is_gp(fname):
         return True
     if is_libc(fname):
+        return True
+    if fname.startswith("fdio_"):
         return True
     if fname.startswith("qsee_"):
         return True
@@ -113,6 +119,8 @@ def get_api_type(target, tee, inline_funcs):
             # one cause t6 entry is disassembled as arm but should be thumb
             return "tee"
     fname = f.getName()
+    if is_gp_std(fname):
+        return "tee_std"
     if is_gp(fname):
         return "gp_api"
     if is_libc(fname):
@@ -200,7 +208,8 @@ def gen_cfg(func, func_cfgs, tee, inline_funcs):
                         f = getFunctionAt(target)
                         if f:
                             f_name = f.getName()
-                            if tee == "mitee" and f_name.startswith("xz_"):
+                            print(tee, f_name)
+                            if tee == "mitee" and f_name.startswith("zx_"):
                                 # ipc is essentially a system call
                                 svcs.append(str(instr.getAddress()))    
                                 continue
