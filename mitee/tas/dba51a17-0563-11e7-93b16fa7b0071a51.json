@@ -59,6 +59,10 @@
         "gen_random": {
             "addr": 1229824,
             "type": "tee"
+        },
+        "tee_get_cpuid": {
+            "addr": 901968,
+            "type": "tee"
         }
     },
     "TA_DestroyEntryPoint_start": 809376,
