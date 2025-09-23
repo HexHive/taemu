@@ -1,4 +1,5 @@
 import networkx as nx
+import matplotlib
 import json
 import os
 import sys
@@ -121,23 +122,25 @@ def find_best_add(cfg, all_apis, implemented_apis, filterf):
     max_api = None
     max_nr = -1
     work_queue = []
-    for api in all_apis:
-        if not filterf(api): continue
-        if api in implemented_apis: continue
-        work_queue.append((cfg, implemented_apis, api))
-    with Pool(cpu_count()-1) as pool:
-        results = pool.map(pool_worker, work_queue, chunksize=5)
-    for api, reach in results:
-       if reach > max_nr:
-            max_nr = reach
-            max_api = api 
-    """ 
-    for api in all_apis:
-        if not filterf(api): continue
-        if api in implemented_apis: continue
-        reach = reachable_nodes(cfg, implemented_apis + [api])
-        
-    """
+    if not do_ta_uuid:
+        for api in all_apis:
+            if not filterf(api): continue
+            if api in implemented_apis: continue
+            reach = reachable_nodes(cfg, implemented_apis + [api])
+            if reach > max_nr:
+                max_nr = reach
+                max_api = api 
+    else:
+        for api in all_apis:
+            if not filterf(api): continue
+            if api in implemented_apis: continue
+            work_queue.append((cfg, implemented_apis, api))
+        with Pool(cpu_count()-1) as pool:
+            results = pool.map(pool_worker, work_queue, chunksize=5)
+        for api, reach in results:
+           if reach > max_nr:
+                max_nr = reach
+                max_api = api 
     return max_api 
 
 
@@ -233,8 +236,30 @@ def analyze_ta(ta_path):
     """
     reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx = generate_graph(cfg)
     print("max_nodes", max_nodes)
+    plt = gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
+    plt.show()
+    out_path = f'ta_reach.pdf'
+    plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
+
+def get_root_node(ta_cfg):
+    for n in ta_cfg.nodes:
+        if n.endswith(root):   
+            return n
+
+def gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx):
+    plt.clf()
+    matplotlib.rcParams['mathtext.fontset'] = 'custom'
+    matplotlib.rcParams['mathtext.rm'] = 'Bitstream Vera Sans'
+    matplotlib.rcParams['mathtext.it'] = 'Bitstream Vera Sans:italic'
+    matplotlib.rcParams['mathtext.bf'] = 'Bitstream Vera Sans:bold'
+    matplotlib.rcParams['mathtext.fontset'] = 'stix'
+    matplotlib.rcParams['font.family'] = 'STIXGeneral'
     percentages = [r / max_nodes * 100 for r in reachable]
-    plt.plot(range(len(reachable)), percentages, marker="o", label="Reachable %")
+    #plt.gca().set_xticklabels([])
+    #plt.gca().tick_params(axis='x', which='both', length=8)
+    #plt.gca().tick_params(axis='y', which='both', length=8)
+    plt.gca().margins(y=0.05, x=0.005)
+    plt.plot(range(len(reachable)), percentages, label="Reachable %")
 
     if all_gp_idx != 0:
         plt.axvline(all_gp_idx, color="red", linestyle="--", label="GP index")
@@ -245,18 +270,14 @@ def analyze_ta(ta_path):
     if all_libc_idx != 0:
         plt.axvline(all_libc_idx, color="orange", linestyle="--", label="libc index")
 
-
-    plt.xlabel("Steps")
-    plt.ylabel("Reachable (%)")
-    plt.title("Reachable Nodes as % of Max Nodes")
-    plt.legend()
-    plt.grid(True, linestyle="--", alpha=0.6)
-
-    plt.show()
-def get_root_node(ta_cfg):
-    for n in ta_cfg.nodes:
-        if n.endswith(root):   
-            return n
+    plt.tight_layout()
+    
+    #plt.xlabel("API")
+    #plt.ylabel("Reachable (%)")
+    #plt.title("Reachable Nodes as % of Max Nodes")
+    #plt.legend()
+    #plt.grid(True, linestyle="--", alpha=0.6) 
+    return plt
 
 def analyze_tee(tee_path):
     global do_ta_uuid
@@ -277,26 +298,9 @@ def analyze_tee(tee_path):
     #nx.draw(tee_cfg, pos, with_labels=True, node_color="lightblue", arrows=True)
     #plt.show() 
     reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx = generate_graph(tee_cfg)
-
-    percentages = [r / max_nodes * 100 for r in reachable]
-    plt.plot(range(len(reachable)), percentages, marker="o", label="Reachable %")
-
-    if all_gp_idx != 0:
-        plt.axvline(all_gp_idx, color="red", linestyle="--", label="GP index")
-    if all_tee_std_idx != 0:
-        plt.axvline(all_tee_std_idx, color="blue", linestyle="--", label="TEE std index")
-    if all_tee_idx != 0:
-        plt.axvline(all_tee_idx, color="green", linestyle="--", label="TEE index")
-    if all_libc_idx != 0:
-        plt.axvline(all_libc_idx, color="orange", linestyle="--", label="libc index")
-
-    
-    plt.xlabel("Steps")
-    plt.ylabel("Reachable (%)")
-    plt.title("Reachable Nodes as % of Max Nodes")
-    plt.legend()
-    plt.grid(True, linestyle="--", alpha=0.6)
-
+    plt = gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
+    out_path = f'{tee}_reachable.pdf'
+    plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
     plt.show() 
 
 if __name__ == "__main__":
