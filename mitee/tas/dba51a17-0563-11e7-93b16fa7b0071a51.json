@@ -55,19 +55,23 @@
         "TEE_TruncateObjectData": {
             "addr": 857072,
             "type": "gp_api"
+        },
+        "gen_random": {
+            "addr": 1229824,
+            "type": "tee"
         }
     },
     "TA_DestroyEntryPoint_start": 809376,
     "TA_DestroyEntryPoint_end": [
         809412
     ],
+    "TA_OpenSessionEntryPoint_start": -1,
+    "TA_OpenSessionEntryPoint_end": [
+        -1
+    ],
     "TA_CreateEntryPoint_start": 808440,
     "TA_CreateEntryPoint_end": [
         809364
-    ],
-    "TA_GetClientIdentity_start": 813328,
-    "TA_GetClientIdentity_end": [
-        813912
     ],
     "TA_CloseSessionEntryPoint_start": 814240,
     "TA_CloseSessionEntryPoint_end": [

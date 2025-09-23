@@ -143,6 +143,14 @@
         "TEE_CipherDoFinal": {
             "addr": 205088,
             "type": "gp_api"
+        },
+        "tee_get_cpuid": {
+            "addr": 254504,
+            "type": "tee"
+        },
+        "TEE_OpenTASession": {
+            "addr": 195080,
+            "type": "gp_api"
         }
     },
     "TA_DestroyEntryPoint_start": 143680,

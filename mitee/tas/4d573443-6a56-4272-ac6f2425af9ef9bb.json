@@ -95,23 +95,15 @@
         "TEE_GetSystemTime": {
             "addr": 107792,
             "type": "gp_api"
+        },
+        "TEE_OpenTASession": {
+            "addr": 106768,
+            "type": "gp_api"
         }
     },
-    "TA_GetAuthTokenKey_start": 95168,
-    "TA_GetAuthTokenKey_end": [
-        97820
-    ],
-    "TA_ComputePasswordSignature_start": 100896,
-    "TA_ComputePasswordSignature_end": [
-        101108
-    ],
     "TA_DestroyEntryPoint_start": 95008,
     "TA_DestroyEntryPoint_end": [
         95044
-    ],
-    "TA_Verify_start": 95168,
-    "TA_Verify_end": [
-        97820
     ],
     "TA_OpenSessionEntryPoint_start": 95088,
     "TA_OpenSessionEntryPoint_end": [
@@ -121,40 +113,12 @@
     "TA_CreateEntryPoint_end": [
         94996
     ],
-    "TA_GetMasterKey_start": 99808,
-    "TA_GetMasterKey_end": [
-        100588
-    ],
-    "TA_MintAuthToken_start": 95168,
-    "TA_MintAuthToken_end": [
-        97820
-    ],
-    "TA_ComputeSignature_start": 101120,
-    "TA_ComputeSignature_end": [
-        101544
-    ],
-    "TA_Enroll_start": 95168,
-    "TA_Enroll_end": [
-        97820
-    ],
-    "TA_DoVerify_start": 99496,
-    "TA_DoVerify_end": [
-        99792
-    ],
-    "TA_DeleteAllUser_start": 95168,
-    "TA_DeleteAllUser_end": [
-        97820
-    ],
     "TA_CloseSessionEntryPoint_start": 95048,
     "TA_CloseSessionEntryPoint_end": [
         95084
     ],
     "TA_InvokeCommandEntryPoint_start": 95168,
     "TA_InvokeCommandEntryPoint_end": [
-        97820
-    ],
-    "TA_DeleteUser_start": 95168,
-    "TA_DeleteUser_end": [
         97820
     ],
     "TA_CreatePasswordHandle_start": 99808,

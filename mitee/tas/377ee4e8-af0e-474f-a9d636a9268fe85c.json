@@ -107,6 +107,14 @@
         "TEE_AsymmetricSignDigest": {
             "addr": 175448,
             "type": "gp_api"
+        },
+        "TEE_OpenTASession": {
+            "addr": 166024,
+            "type": "gp_api"
+        },
+        "tee_get_cpuid": {
+            "addr": 213896,
+            "type": "tee"
         }
     },
     "TA_DestroyEntryPoint_start": 133136,

@@ -1,0 +1,2058 @@
+{
+    "0xedda8": {
+        "function": "0xedda8",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "000edda8",
+                "end": "000eddaf",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "0xeddb8": {
+        "function": "0xeddb8",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "000eddb8",
+                "end": "000ede4b",
+                "calls": [
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_4",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "000ede4c",
+                "end": "000ede53",
+                "calls": [
+                    {
+                        "func": "000e1c28",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_3",
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "000ede54",
+                "end": "000ede7f",
+                "calls": [
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "000ede80",
+                "end": "000ede9b",
+                "calls": [
+                    {
+                        "func": "000dccc8",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4e80",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_4"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "000ede9c",
+                "end": "000edeab",
+                "calls": [
+                    {
+                        "func": "TEE_Malloc",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_7",
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_5",
+                "start": "000edeac",
+                "end": "000edeef",
+                "calls": [
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "TEE_CheckMemoryAccessRights",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_8",
+                    "BB_6"
+                ]
+            },
+            {
+                "name": "BB_6",
+                "start": "000edef0",
+                "end": "000edf1b",
+                "calls": [
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "free",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_9"
+                ]
+            },
+            {
+                "name": "BB_7",
+                "start": "000edf1c",
+                "end": "000edf3f",
+                "calls": [
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_9"
+                ]
+            },
+            {
+                "name": "BB_8",
+                "start": "000edf40",
+                "end": "000edf67",
+                "calls": [
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_9"
+                ]
+            },
+            {
+                "name": "BB_9",
+                "start": "000edf68",
+                "end": "000edf73",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_11",
+                    "BB_10"
+                ]
+            },
+            {
+                "name": "BB_10",
+                "start": "000edf74",
+                "end": "000edf8f",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_11",
+                "start": "000edf90",
+                "end": "000edf93",
+                "calls": [
+                    {
+                        "func": "__stack_chk_fail",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "0xee008": {
+        "function": "0xee008",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "000ee008",
+                "end": "000ee02b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_2",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "000ee02c",
+                "end": "000ee057",
+                "calls": [
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "000ee058",
+                "end": "000ee06b",
+                "calls": [
+                    {
+                        "func": "TEE_CheckMemoryAccessRights",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_4",
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "000ee06c",
+                "end": "000ee09f",
+                "calls": [
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "000ee0a0",
+                "end": "000ee0b3",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_6",
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_5",
+                "start": "000ee0b4",
+                "end": "000ee0d3",
+                "calls": [
+                    {
+                        "func": "00757ac0",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_6",
+                "start": "000ee0d4",
+                "end": "000ee10f",
+                "calls": [
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000dd030",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_7",
+                "start": "000ee110",
+                "end": "000ee11f",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "000dd030": {
+        "function": "000dd030",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "000dd030",
+                "end": "000dd043",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_9",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "000dd044",
+                "end": "000dd04b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_9",
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "000dd04c",
+                "end": "000dd067",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_7",
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "000dd068",
+                "end": "000dd07b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_7",
+                    "BB_4"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "000dd07c",
+                "end": "000dd08f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_7",
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_5",
+                "start": "000dd090",
+                "end": "000dd0a3",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_7",
+                    "BB_6"
+                ]
+            },
+            {
+                "name": "BB_6",
+                "start": "000dd0a4",
+                "end": "000dd0b7",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_12",
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_7",
+                "start": "000dd0b8",
+                "end": "000dd0d7",
+                "calls": [
+                    {
+                        "func": "a949d3ee54effec1",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "aa1303fc2a0c03f4",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "710000bfaa0303e0",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "97e99ba1aa0903e0",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "35ffeffffa",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "000df450",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_10",
+                    "BB_8"
+                ]
+            },
+            {
+                "name": "BB_8",
+                "start": "000dd0d8",
+                "end": "000dd0eb",
+                "calls": [
+                    {
+                        "func": "000de678",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_11"
+                ]
+            },
+            {
+                "name": "BB_9",
+                "start": "000dd0ec",
+                "end": "000dd123",
+                "calls": [
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_10"
+                ]
+            },
+            {
+                "name": "BB_10",
+                "start": "000dd124",
+                "end": "000dd16f",
+                "calls": [
+                    {
+                        "func": "000df450",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000df450",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_11"
+                ]
+            },
+            {
+                "name": "BB_11",
+                "start": "000dd170",
+                "end": "000dd17f",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_12",
+                "start": "000dd180",
+                "end": "000dd187",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_10"
+                ]
+            }
+        ]
+    },
+    "000e1c28": {
+        "function": "000e1c28",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "000e1c28",
+                "end": "000e1ce7",
+                "calls": [
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_4",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "000e1ce8",
+                "end": "000e1ceb",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_4",
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "000e1cec",
+                "end": "000e1cff",
+                "calls": [
+                    {
+                        "func": "000e1e60",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_13",
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "000e1d00",
+                "end": "000e1d03",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_6"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "000e1d04",
+                "end": "000e1d07",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_9",
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_5",
+                "start": "000e1d08",
+                "end": "000e1d0f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_6"
+                ]
+            },
+            {
+                "name": "BB_6",
+                "start": "000e1d10",
+                "end": "000e1d1b",
+                "calls": [
+                    {
+                        "func": "000e1fa0",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_13",
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_7",
+                "start": "000e1d1c",
+                "end": "000e1d5f",
+                "calls": [
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e35a8",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_13",
+                    "BB_8"
+                ]
+            },
+            {
+                "name": "BB_8",
+                "start": "000e1d60",
+                "end": "000e1d63",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_16"
+                ]
+            },
+            {
+                "name": "BB_9",
+                "start": "000e1d64",
+                "end": "000e1d67",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_12",
+                    "BB_10"
+                ]
+            },
+            {
+                "name": "BB_10",
+                "start": "000e1d68",
+                "end": "000e1d77",
+                "calls": [
+                    {
+                        "func": "000e1e60",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_13",
+                    "BB_11"
+                ]
+            },
+            {
+                "name": "BB_11",
+                "start": "000e1d78",
+                "end": "000e1d7b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_12",
+                "start": "000e1d7c",
+                "end": "000e1dab",
+                "calls": [
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_13"
+                ]
+            },
+            {
+                "name": "BB_13",
+                "start": "000e1dac",
+                "end": "000e1dbf",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_15",
+                    "BB_14"
+                ]
+            },
+            {
+                "name": "BB_14",
+                "start": "000e1dc0",
+                "end": "000e1dc7",
+                "calls": [
+                    {
+                        "func": "000ecac8",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_15"
+                ]
+            },
+            {
+                "name": "BB_15",
+                "start": "000e1dc8",
+                "end": "000e1e2f",
+                "calls": [
+                    {
+                        "func": "000df450",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000df450",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_16"
+                ]
+            },
+            {
+                "name": "BB_16",
+                "start": "000e1e30",
+                "end": "000e1e3b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_18",
+                    "BB_17"
+                ]
+            },
+            {
+                "name": "BB_17",
+                "start": "000e1e3c",
+                "end": "000e1e5b",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_18",
+                "start": "000e1e5c",
+                "end": "000e1e5f",
+                "calls": [
+                    {
+                        "func": "__stack_chk_fail",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "000e4d78": {
+        "function": "000e4d78",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "000e4d78",
+                "end": "000e4e57",
+                "calls": [
+                    {
+                        "func": "memset",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "vsnprintf",
+                        "api": true,
+                        "api_type": "libc"
+                    },
+                    {
+                        "func": "puts",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_2",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "000e4e58",
+                "end": "000e4e77",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_2",
+                "start": "000e4e78",
+                "end": "000e4e7b",
+                "calls": [
+                    {
+                        "func": "__stack_chk_fail",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "001157e0": {
+        "function": "001157e0",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "001157e0",
+                "end": "00115807",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "00757ac0": {
+        "function": "00757ac0",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "00757ac0",
+                "end": "00757ac7",
+                "calls": [
+                    {
+                        "func": "memmove",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "000dccc8": {
+        "function": "000dccc8",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "000dccc8",
+                "end": "000dcebb",
+                "calls": [
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "27ffeffe76",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_5",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "000dcebc",
+                "end": "000dced3",
+                "calls": [
+                    {
+                        "func": "aa1803e054effde1",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_5",
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "000dced4",
+                "end": "000dceeb",
+                "calls": [
+                    {
+                        "func": "b900bbebb8f0b3ea",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_5",
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "000dceec",
+                "end": "000dcf03",
+                "calls": [
+                    {
+                        "func": "b940b3eab930abe9",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_5",
+                    "BB_4"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "000dcf04",
+                "end": "000dcf1b",
+                "calls": [
+                    {
+                        "func": "94004dcd53f000ad",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_6",
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_5",
+                "start": "000dcf1c",
+                "end": "000dcfb3",
+                "calls": [
+                    {
+                        "func": "000df450",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000df450",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000df450",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000df450",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_6"
+                ]
+            },
+            {
+                "name": "BB_6",
+                "start": "000dcfb4",
+                "end": "000dcfc7",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "000e4e80": {
+        "function": "000e4e80",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "000e4e80",
+                "end": "000e4ebb",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_4",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "000e4ebc",
+                "end": "000e4ec3",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_4",
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "000e4ec4",
+                "end": "000e4f13",
+                "calls": [
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "TEE_KMGetHmacKey",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_8",
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "000e4f14",
+                "end": "000e4f5b",
+                "calls": [
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "000e4f5c",
+                "end": "000e4f8b",
+                "calls": [
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_5",
+                "start": "000e4f8c",
+                "end": "000e4fd7",
+                "calls": [
+                    {
+                        "func": "000df450",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000df450",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_6"
+                ]
+            },
+            {
+                "name": "BB_6",
+                "start": "000e4fd8",
+                "end": "000e4fe3",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_9",
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_7",
+                "start": "000e4fe4",
+                "end": "000e5003",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_8",
+                "start": "000e5004",
+                "end": "000e5027",
+                "calls": [
+                    {
+                        "func": "00757ac0",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_6"
+                ]
+            },
+            {
+                "name": "BB_9",
+                "start": "000e5028",
+                "end": "000e502b",
+                "calls": [
+                    {
+                        "func": "__stack_chk_fail",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "000de678": {
+        "function": "000de678",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "000de678",
+                "end": "000de693",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_2",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "000de694",
+                "end": "000de6cf",
+                "calls": [
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "000de6d0",
+                "end": "000de6df",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_6",
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "000de6e0",
+                "end": "000de6e7",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_4"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "000de6e8",
+                "end": "000de6ff",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_7",
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_5",
+                "start": "000de700",
+                "end": "000de707",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_4",
+                    "BB_6"
+                ]
+            },
+            {
+                "name": "BB_6",
+                "start": "000de708",
+                "end": "000de70b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_7",
+                "start": "000de70c",
+                "end": "000de71b",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "000df450": {
+        "function": "000df450",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "000df450",
+                "end": "000df453",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_6",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "000df454",
+                "end": "000df467",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_7",
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "000df468",
+                "end": "000df473",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "000df474",
+                "end": "000df47f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_5",
+                    "BB_4"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "000df480",
+                "end": "000df48f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_3",
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_5",
+                "start": "000df490",
+                "end": "000df49b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_6",
+                "start": "000df49c",
+                "end": "000df49f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_7",
+                "start": "000df4a0",
+                "end": "000df4b3",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "000e1e60": {
+        "function": "000e1e60",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "000e1e60",
+                "end": "000e1e7f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_2",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "000e1e80",
+                "end": "000e1eb7",
+                "calls": [
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "000e1eb8",
+                "end": "000e1f07",
+                "calls": [
+                    {
+                        "func": "000df450",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000df450",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "000e1f08",
+                "end": "000e1f1b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_5",
+                    "BB_4"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "000e1f1c",
+                "end": "000e1f23",
+                "calls": [
+                    {
+                        "func": "000ecac8",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_5",
+                "start": "000e1f24",
+                "end": "000e1f9f",
+                "calls": [
+                    {
+                        "func": "000df450",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000df450",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "000e35a8": {
+        "function": "000e35a8",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "000e35a8",
+                "end": "000e35df",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_2",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "000e35e0",
+                "end": "000e35ff",
+                "calls": [
+                    {
+                        "func": "TEE_GetSystemTime",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "000e3600",
+                "end": "000e3603",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "000e3604",
+                "end": "000e360f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_5",
+                    "BB_4"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "000e3610",
+                "end": "000e3627",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_5",
+                "start": "000e3628",
+                "end": "000e362b",
+                "calls": [
+                    {
+                        "func": "__stack_chk_fail",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "000ecac8": {
+        "function": "000ecac8",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "000ecac8",
+                "end": "000ecacb",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_2",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "000ecacc",
+                "end": "000ecacf",
+                "calls": [
+                    {
+                        "func": "free",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_2",
+                "start": "000ecad0",
+                "end": "000ecad3",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "000e1fa0": {
+        "function": "000e1fa0",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "000e1fa0",
+                "end": "000e1fc7",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_2",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "000e1fc8",
+                "end": "000e1fff",
+                "calls": [
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_4"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "000e2000",
+                "end": "000e200b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_9",
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "000e200c",
+                "end": "000e2037",
+                "calls": [
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_4"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "000e2038",
+                "end": "000e203b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_5",
+                "start": "000e203c",
+                "end": "000e204f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_7",
+                    "BB_6"
+                ]
+            },
+            {
+                "name": "BB_6",
+                "start": "000e2050",
+                "end": "000e2057",
+                "calls": [
+                    {
+                        "func": "000ecac8",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_7",
+                "start": "000e2058",
+                "end": "000e20c3",
+                "calls": [
+                    {
+                        "func": "000df450",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000df450",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_8"
+                ]
+            },
+            {
+                "name": "BB_8",
+                "start": "000e20c4",
+                "end": "000e20db",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_9",
+                "start": "000e20dc",
+                "end": "000e20eb",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_10"
+                ]
+            },
+            {
+                "name": "BB_10",
+                "start": "000e20ec",
+                "end": "000e2113",
+                "calls": [
+                    {
+                        "func": "000ecac0",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_13",
+                    "BB_11"
+                ]
+            },
+            {
+                "name": "BB_11",
+                "start": "000e2114",
+                "end": "000e211b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_10",
+                    "BB_12"
+                ]
+            },
+            {
+                "name": "BB_12",
+                "start": "000e211c",
+                "end": "000e216f",
+                "calls": [
+                    {
+                        "func": "000df450",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "001157e0",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000df450",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000e4d78",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_13",
+                "start": "000e2170",
+                "end": "000e21bb",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_8"
+                ]
+            }
+        ]
+    },
+    "000ecac0": {
+        "function": "000ecac0",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "000ecac0",
+                "end": "000ecac7",
+                "calls": [
+                    {
+                        "func": "TEE_Malloc",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    }
+}

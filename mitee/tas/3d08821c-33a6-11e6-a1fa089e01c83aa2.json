@@ -99,6 +99,10 @@
         "TEE_AllocateOperation": {
             "addr": 163784,
             "type": "gp_api"
+        },
+        "TEE_OpenTASession": {
+            "addr": 158176,
+            "type": "gp_api"
         }
     },
     "TA_DestroyEntryPoint_start": 155704,

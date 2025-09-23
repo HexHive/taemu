@@ -99,6 +99,10 @@
         "TEE_TruncateObjectData": {
             "addr": 7703376,
             "type": "gp_api"
+        },
+        "TEE_CheckMemoryAccessRights": {
+            "addr": 7699016,
+            "type": "gp_api"
         }
     },
     "TA_OpenSessionEntryPoint_start": 974264,

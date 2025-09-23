@@ -130,7 +130,7 @@
         },
         "TEE_SaveTa_Data": {
             "addr": 476656,
-            "type": "gp_api"
+            "type": "tee"
         },
         "TEE_InitValueAttribute": {
             "addr": 479616,
@@ -142,7 +142,7 @@
         },
         "TEE_DeleteTa": {
             "addr": 477072,
-            "type": "gp_api"
+            "type": "tee"
         },
         "TEE_AsymmetricSignDigest": {
             "addr": 490632,
@@ -151,6 +151,14 @@
         "TEE_CipherDoFinal": {
             "addr": 487144,
             "type": "gp_api"
+        },
+        "TEE_OpenTASession": {
+            "addr": 474872,
+            "type": "gp_api"
+        },
+        "dev_get_cpuid": {
+            "addr": 218216,
+            "type": "tee"
         }
     },
     "TA_DestroyEntryPoint_start": 197360,

@@ -31,6 +31,14 @@
         "TEE_CloseObject": {
             "addr": 478800,
             "type": "gp_api"
+        },
+        "TEE_OpenTASession": {
+            "addr": 477328,
+            "type": "gp_api"
+        },
+        "gen_random": {
+            "addr": 815528,
+            "type": "tee"
         }
     },
     "TA_DestroyEntryPoint_start": 288728,
