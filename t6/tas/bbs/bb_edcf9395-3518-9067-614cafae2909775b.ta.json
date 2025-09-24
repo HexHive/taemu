@@ -20,7 +20,7 @@
                     {
                         "func": "debug_log",
                         "api": true,
-                        "api_type": "tee"
+                        "api_type": "tee_std"
                     },
                     {
                         "func": "TEE_AllocateTransientObject",
@@ -52,7 +52,7 @@
                     {
                         "func": "debug_log",
                         "api": true,
-                        "api_type": "tee"
+                        "api_type": "tee_std"
                     },
                     {
                         "func": "TEE_FreeTransientObject",
@@ -140,7 +140,7 @@
                     {
                         "func": "debug_log",
                         "api": true,
-                        "api_type": "tee"
+                        "api_type": "tee_std"
                     }
                 ],
                 "svc": [],
@@ -181,7 +181,7 @@
                     {
                         "func": "debug_log",
                         "api": true,
-                        "api_type": "tee"
+                        "api_type": "tee_std"
                     }
                 ],
                 "svc": [],
@@ -229,25 +229,6 @@
             }
         ]
     },
-    "0058a194": {
-        "function": "0058a194",
-        "nodes": [
-            {
-                "name": "BB_0",
-                "start": "0058a194",
-                "end": "0058a197",
-                "calls": [
-                    {
-                        "func": "GetBootSeed",
-                        "api": true,
-                        "api_type": "tee"
-                    }
-                ],
-                "svc": [],
-                "edges": []
-            }
-        ]
-    },
     "00584a08": {
         "function": "00584a08",
         "nodes": [
@@ -288,6 +269,25 @@
             }
         ]
     },
+    "0058a194": {
+        "function": "0058a194",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "0058a194",
+                "end": "0058a197",
+                "calls": [
+                    {
+                        "func": "GetBootSeed",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
     "00584a04": {
         "function": "00584a04",
         "nodes": [
@@ -304,6 +304,75 @@
                 ],
                 "svc": [],
                 "edges": []
+            }
+        ]
+    },
+    "0058278c": {
+        "function": "0058278c",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "0058278c",
+                "end": "005827a7",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "005827a8",
+                "end": "005827ab",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "00582890",
+                "end": "005828cb",
+                "calls": [
+                    {
+                        "func": "debug_log",
+                        "api": true,
+                        "api_type": "tee_std"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "005828cc",
+                "end": "005828cf",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_4"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "005829f0",
+                "end": "005829f7",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_5",
+                "start": "00584878",
+                "end": "00584883",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_2"
+                ]
             }
         ]
     },
@@ -480,72 +549,16 @@
             }
         ]
     },
-    "0058278c": {
-        "function": "0058278c",
+    "00585228": {
+        "function": "00585228",
         "nodes": [
             {
                 "name": "BB_0",
-                "start": "0058278c",
-                "end": "005827a7",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_1"
-                ]
-            },
-            {
-                "name": "BB_1",
-                "start": "005827a8",
-                "end": "005827ab",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_5"
-                ]
-            },
-            {
-                "name": "BB_2",
-                "start": "00582890",
-                "end": "005828cb",
-                "calls": [
-                    {
-                        "func": "debug_log",
-                        "api": true,
-                        "api_type": "tee"
-                    }
-                ],
-                "svc": [],
-                "edges": [
-                    "BB_3"
-                ]
-            },
-            {
-                "name": "BB_3",
-                "start": "005828cc",
-                "end": "005828cf",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_4"
-                ]
-            },
-            {
-                "name": "BB_4",
-                "start": "005829f0",
-                "end": "005829f7",
+                "start": "00585228",
+                "end": "00585287",
                 "calls": [],
                 "svc": [],
                 "edges": []
-            },
-            {
-                "name": "BB_5",
-                "start": "00584878",
-                "end": "00584883",
-                "calls": [],
-                "svc": [],
-                "edges": [
-                    "BB_2"
-                ]
             }
         ]
     },
@@ -573,19 +586,6 @@
                         "api_type": null
                     }
                 ],
-                "svc": [],
-                "edges": []
-            }
-        ]
-    },
-    "00585228": {
-        "function": "00585228",
-        "nodes": [
-            {
-                "name": "BB_0",
-                "start": "00585228",
-                "end": "00585287",
-                "calls": [],
                 "svc": [],
                 "edges": []
             }
@@ -626,25 +626,6 @@
             }
         ]
     },
-    "0056fb32": {
-        "function": "0056fb32",
-        "nodes": [
-            {
-                "name": "BB_0",
-                "start": "0056fb32",
-                "end": "0056fb43",
-                "calls": [
-                    {
-                        "func": "00596d4c",
-                        "api": false,
-                        "api_type": null
-                    }
-                ],
-                "svc": [],
-                "edges": []
-            }
-        ]
-    },
     "00596d4c": {
         "function": "00596d4c",
         "nodes": [
@@ -655,6 +636,25 @@
                 "calls": [
                     {
                         "func": "00588bb8",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "0056fb32": {
+        "function": "0056fb32",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "0056fb32",
+                "end": "0056fb43",
+                "calls": [
+                    {
+                        "func": "00596d4c",
                         "api": false,
                         "api_type": null
                     }

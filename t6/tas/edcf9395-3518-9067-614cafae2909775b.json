@@ -182,7 +182,7 @@
         },
         "debug_log": {
             "addr": 5843136,
-            "type": "tee"
+            "type": "tee_std"
         },
         "GetBootSeed": {
             "addr": 5831268,

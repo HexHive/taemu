@@ -167,6 +167,12 @@ def is_tee(call):
 def match_all(call):
     return True
 
+def get_api(api_list, api_name):
+    for api in api_list:
+        if api.func == api_name:
+            return api
+    return None
+
 def generate_graph_noorder(cfg, todo=None):
     reachable = []
     used_apis = get_apis(cfg)
@@ -179,15 +185,23 @@ def generate_graph_noorder(cfg, todo=None):
     i = 0
     reachable.append(reachable_nodes(cfg, implemented_apis)) 
     i+= 1
-    while 1:
-        max_api = find_best_add(cfg, used_apis, implemented_apis, match_all)
-        if max_api is None: 
-            break
-        print("all_api", max_api)
-        used_apis.remove(max_api)
-        implemented_apis.append(max_api)
-        reachable.append(reachable_nodes(cfg, implemented_apis))
-        i += 1 
+    if "BB_USE_CACHE" in os.environ:
+        api_order = open(f'{todo}_order_noorder.txt').read().split('\n')
+        for api_name in api_order:
+            max_api = get_api(used_apis, api_name)
+            print(max_api)
+            implemented_apis.append(max_api)
+            reachable.append(reachable_nodes(cfg, implemented_apis))
+    else: 
+        while 1:
+            max_api = find_best_add(cfg, used_apis, implemented_apis, match_all)
+            if max_api is None: 
+                break
+            print("all_api", max_api)
+            used_apis.remove(max_api)
+            implemented_apis.append(max_api)
+            reachable.append(reachable_nodes(cfg, implemented_apis))
+            i += 1 
     print("imlemented apis", len(implemented_apis)) 
     print(reachable)
     return reachable, max_nodes, implemented_apis
@@ -209,47 +223,61 @@ def generate_graph(cfg, todo=None):
     all_libc_idx = 0
     all_tee_std_idx = 0
     all_tee_idx = 0
-    while 1:
-        max_api = find_best_add(cfg, used_apis, implemented_apis, is_gp)
-        if max_api is None: 
+    if "BB_USE_CACHE" in os.environ:
+        api_order = open(f'{todo}_order.txt').read().split('\n')
+        for api_name in api_order:
+            max_api = get_api(used_apis, api_name)
+            print(max_api)
+            implemented_apis.append(max_api)
+            reachable.append(reachable_nodes(cfg, implemented_apis)) 
+            if max_api.api_type == "gp_api": all_gp_idx = i
+            if max_api.api_type == "libc": all_libc_idx = i
+            if max_api.api_type == "tee_std": all_tee_std_idx = i
+            if max_api.api_type == "tee": all_tee_idx = i
+            i += 1
+    else:
+        while 1:
+            max_api = find_best_add(cfg, used_apis, implemented_apis, is_gp)
+            if max_api is None: 
+                break
+            print("gp", max_api)
+            used_apis.remove(max_api)
+            implemented_apis.append(max_api)
+            reachable.append(reachable_nodes(cfg, implemented_apis))
             all_gp_idx = i-1
-            break
-        print("gp", max_api)
-        used_apis.remove(max_api)
-        implemented_apis.append(max_api)
-        reachable.append(reachable_nodes(cfg, implemented_apis))
-        i += 1
-    while 1:
-        max_api = find_best_add(cfg, used_apis, implemented_apis, is_libc)
-        if max_api is None: 
-            all_libc_idx = i-1
-            break
-        print("libc", max_api)
-        used_apis.remove(max_api)
-        implemented_apis.append(max_api)
-        reachable.append(reachable_nodes(cfg, implemented_apis))
-        i += 1
-    while 1:
-        max_api = find_best_add(cfg, used_apis, implemented_apis, is_std)
-        if max_api is None: 
-            all_tee_std_idx = i-1
-            break
-        print("gp_std", max_api)
-        used_apis.remove(max_api)
-        implemented_apis.append(max_api)
-        reachable.append(reachable_nodes(cfg, implemented_apis))
-        i += 1
-    while 1:
-        max_api = find_best_add(cfg, used_apis, implemented_apis, is_tee)
-        if max_api is None: 
-            all_tee_idx = i-1
-            break
-        print("tee", max_api)
-        used_apis.remove(max_api)
-        implemented_apis.append(max_api)
-        reachable.append(reachable_nodes(cfg, implemented_apis))
-        i += 1
+            i += 1
+        while 1:
+            max_api = find_best_add(cfg, used_apis, implemented_apis, is_libc)
+            if max_api is None: 
+                break
+            print("libc", max_api)
+            used_apis.remove(max_api)
+            implemented_apis.append(max_api)
+            reachable.append(reachable_nodes(cfg, implemented_apis))
+            all_libc_idx = i
+            i += 1
+        while 1:
+            max_api = find_best_add(cfg, used_apis, implemented_apis, is_std)
+            if max_api is None: 
+                break
+            print("gp_std", max_api)
+            used_apis.remove(max_api)
+            implemented_apis.append(max_api)
+            reachable.append(reachable_nodes(cfg, implemented_apis))
+            all_tee_std_idx = i
+            i += 1
+        while 1:
+            max_api = find_best_add(cfg, used_apis, implemented_apis, is_tee)
+            if max_api is None: 
+                break
+            print("tee", max_api)
+            used_apis.remove(max_api)
+            implemented_apis.append(max_api)
+            reachable.append(reachable_nodes(cfg, implemented_apis))
+            all_tee_idx = i
+            i += 1
     print("imlemented apis", len(implemented_apis)) 
+    print(all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
     print(reachable)
     return reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx, implemented_apis
 
@@ -267,22 +295,22 @@ def gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, al
     matplotlib.rcParams['mathtext.fontset'] = 'stix'
     matplotlib.rcParams['font.family'] = 'STIXGeneral'
     percentages = [r / max_nodes * 100 for r in reachable]
-    #plt.gca().set_xticklabels([])
+    plt.gca().set_xticklabels([])
     #plt.gca().tick_params(axis='x', which='both', length=8)
     #plt.gca().tick_params(axis='y', which='both', length=8)
     plt.yticks([0, 50, 100], ["", "", ""])
     plt.ylim(0, 102)
-    plt.gca().margins(y=0, x=0.005)
+    plt.xlim(0, len(reachable)+0.05)
     plt.plot(range(len(reachable)), percentages, label="Reachable %")
 
     if all_gp_idx != 0:
-        plt.axvline(all_gp_idx, color="red", linestyle="--", label="GP index")
+        plt.axvline(all_gp_idx, color="blue", linestyle="--", label="GP index")
     if all_tee_std_idx != 0:
-        plt.axvline(all_tee_std_idx, color="blue", linestyle="--", label="TEE std index")
+        plt.axvline(all_tee_std_idx, color="orange", linestyle="--", label="TEE std index")
     if all_tee_idx != 0:
-        plt.axvline(all_tee_idx, color="green", linestyle="--", label="TEE index")
+        plt.axvline(all_tee_idx, color="red", linestyle="--", label="TEE index")
     if all_libc_idx != 0:
-        plt.axvline(all_libc_idx, color="orange", linestyle="--", label="libc index")
+        plt.axvline(all_libc_idx, color="green", linestyle="--", label="libc index")
 
     plt.tight_layout()
     
