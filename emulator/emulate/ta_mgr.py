@@ -23,6 +23,7 @@ from .emulator_no_loader import (
     mitee_setup,
     hook_ta_dl,
     hook_ta_custom,
+    teegris_32_setup
 )
 from .common import CRASH_PC, NOTIMPL_PC
 
@@ -165,6 +166,8 @@ class TAEMU:
         if self.tee == "mitee":
             # handle tpidr_el0 and fix relocations
             mitee_setup(self.ql, self.ta_path, self.ta_base)
+        if self.tee == "teegris" and self.ql.arch.pointersize == 4:
+            teegris_32_setup(self.ql, self.ta_path, self.ta_base)
 
     def hook(self):
         # setup api hooks
@@ -174,6 +177,7 @@ class TAEMU:
             self.ta_elf,
             self,
             is_mitee=self.tee == "mitee",
+            is_tc=self.tee == "trustedcore"
         )
         hook_ta_custom(self.ql, self.ta_path, self.ta_elf, self)
         self.ql.do_lib_patch()
@@ -208,7 +212,7 @@ class TAEMU:
         for e in self.TA_CreateEntryPoint_end:
             self.ql.hook_address(pivot, e, user_data="TA_CreateEntryPoint")
 
-        # _debugger = self.ql._debugger
+        #_debugger = self.ql._debugger
         self.ql.debugger = False
         self.ql.run(begin=entrypoint)
 
@@ -408,6 +412,7 @@ class TAEMU:
                         return
                 else:
                     if uuid != self.ta_path.split("/")[-1][:-3]:
+                        breakpoint()
                         self.ql.log.error(f"Inconsistent TA name!")
                         sock.close()
                         exit(-1)
@@ -484,7 +489,7 @@ class TAEMU:
                             return
                         # get shared content
                         self.ql.log.debug(f"SHM IN content: {shm.to_bytes()}")
-                        if self.tee == "mitee" or self.tee == "teegris":
+                        if self.tee == "mitee" or self.tee == "teegris" or self.tee == "trustedcore":
                             # shared memory
                             memref = MemRefParam(shm.to_bytes(), size)
                             memref.is_shared = True

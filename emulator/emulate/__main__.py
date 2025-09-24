@@ -9,6 +9,7 @@ from qiling.const import QL_ARCH, QL_OS, QL_VERBOSE
 
 from .emulator_no_loader import simple_diassembler, trace_block, simple_diassembler
 from .ta_mgr import TAEMU
+from .custom.tc_loader import tc_load
 
 DIR = dir_path = os.path.dirname(os.path.realpath(__file__))
 TEE = ""
@@ -95,6 +96,8 @@ if __name__ == "__main__":
         TEE = "mitee"
     elif b"ta_head" in open(ta_path, "rb").read():
         TEE = "t6"
+    elif b"com.huawei.hidisk" in open(ta_path, "rb").read():
+        TEE = "trustedcore"
     if TEE == "":
         TEE = args.tee
 
@@ -115,15 +118,26 @@ if __name__ == "__main__":
         )
     elif TEE == "teegris":
         print("doing teegris")
-        ql = Qiling(
-            [ta_path],
-            rootfs=os.path.join(DIR, "../rootfs/"),
-            ostype=QL_OS.LINUX,
-            archtype=QL_ARCH.ARM64,
-            verbose=v,
-            env={"LD_LIBRARY_PATH": "lib64"},
-            profile="tee.ql"
-        )
+        if ta_elf.arch == "arm64":
+            ql = Qiling(
+                [ta_path],
+                rootfs=os.path.join(DIR, "../rootfs/"),
+                ostype=QL_OS.LINUX,
+                archtype=QL_ARCH.ARM64,
+                verbose=v,
+                env={"LD_LIBRARY_PATH": "lib64"},
+                profile="tee.ql"
+            )
+        else:
+           ql = Qiling(
+                [ta_path],
+                rootfs=os.path.join(DIR, "../rootfs/"),
+                ostype=QL_OS.LINUX,
+                archtype=QL_ARCH.ARM,
+                verbose=v,
+                env={"LD_LIBRARY_PATH": "lib64"},
+                profile="tee.ql"
+            ) 
     elif TEE == "mitee":
         print("doing mitee")
         ql = Qiling(
@@ -150,6 +164,17 @@ if __name__ == "__main__":
             #env={"LD_LIBRARY_PATH": "rom"},
             profile="tee.ql"
         )
+    elif TEE == "trustedcore":
+        ql = Qiling(
+            [ta_path],
+            rootfs=os.path.join(DIR, "../rootfs/"),
+            ostype=QL_OS.LINUX,
+            archtype=QL_ARCH.ARM,
+            verbose=v,
+            #env={"LD_LIBRARY_PATH": "rom"},
+            profile="tee.ql"
+        )
+        tc_load(ql, ta_path)
     else:
         print(f'[!] TEE not set  [!]')
         exit(-1)

@@ -154,6 +154,35 @@ def puts(ql: Qiling, hook_data):
 def printf(ql: Qiling, hook_data):
     TEE_LogPrintf(ql, hook_data)
 
+def strstr(ql, hook_data):
+    params = ql.os.resolve_fcall_params({"str1": POINTER, "str2": POINTER}) 
+    str1 = params["str1"]
+    str2 = params["str2"]
+    s1 = read_c_str(ql, str1)
+    s2 = read_c_str(ql, str2)
+    ql.log.info(f"strstr {s1}, {s2}")
+    try:
+        ql.os.fcall.cc.setReturnValue(s1.index(s2))
+    except:
+        ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def strncat(ql, hook_data):
+    params = ql.os.resolve_fcall_params({"str1": POINTER, "str2": POINTER, "n": INT}) 
+    str1 = params["str1"]
+    str2 = params["str2"]
+    hook_data.emu.update_shm(str1) 
+    s1 = read_c_str(ql, str1)
+    s2 = read_c_str(ql, str2) 
+    ql.log.info(f'strncat: {hex(str1)}->{hex(str2)} {params["n"]}')
+    dest = str1 + len(s1)
+    if not asan.is_access_valid(
+        ql, hook_data.emu.HEAP, dest, min(params["n"], len(s2)), hook_data.func_name, is_write=True
+    ):
+        return 
+    ql.mem.write(dest, s1[:params["n"]])
+    ql.os.fcall.cc.setReturnValue(dest) 
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def TEE_LogvPrintf(ql: Qiling, hook_data):
     try:

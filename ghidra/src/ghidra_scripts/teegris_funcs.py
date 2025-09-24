@@ -75,8 +75,12 @@ def beanpod_find_GP():
     funcs = ["TA_InvokeCommandEntryPoint",  "TA_CreateEntryPoint",  "TA_OpenSessionEntryPoint", "TA_CloseSessionEntryPoint", "TA_DestroyEntryPoint"]
     for func in funcs:
         ghidra_func = getGlobalFunctions(func)[0]
-        returns = find_returns(ghidra_func)
-        out[f'{func}_start'] = ghidra_func.getEntryPoint().getOffset()-0x100000
+        ptrSize = program.getDefaultPointerSize()
+        returns = find_returns(ghidra_func, is_thumb=ptrSize==4, is_pie=True)
+        if ptrSize == 4:
+            out[f'{func}_start'] = ghidra_func.getEntryPoint().getOffset()-0x10000
+        else:
+            out[f'{func}_start'] = ghidra_func.getEntryPoint().getOffset()-0x100000
         out[f'{func}_end'] = returns 
 
     return out

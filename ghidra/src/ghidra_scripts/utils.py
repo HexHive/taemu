@@ -44,7 +44,7 @@ log = logging.getLogger(__name__)
 ################################################################################
 
 
-def find_returns(function, is_thumb=False):
+def find_returns(function, is_thumb=False, is_pie=False):
 # iterate over instructions in function, mark all rets
     ret_offsets = []
     listing = getCurrentProgram().getListing()
@@ -54,13 +54,25 @@ def find_returns(function, is_thumb=False):
         # Check for return instructions (RET)
         if is_thumb:
             if "ldr pc,[lr" in str(instr):
-                ret_offsets.append(instr.getAddress().getOffset())
+                if is_pie:
+                    ret_offsets.append(instr.getAddress().getOffset()-0x10000)
+                else:
+                    ret_offsets.append(instr.getAddress().getOffset())
             if "pop" in str(instr) and "pc" in str(instr):
-                ret_offsets.append(instr.getAddress().getOffset())
+                if is_pie:
+                    ret_offsets.append(instr.getAddress().getOffset()-0x10000)
+                else:
+                    ret_offsets.append(instr.getAddress().getOffset())
             if "ldmia" in str(instr) and "pc" in str(instr):
-                ret_offsets.append(instr.getAddress().getOffset())
+                if is_pie:
+                    ret_offsets.append(instr.getAddress().getOffset()-0x10000)
+                else:
+                    ret_offsets.append(instr.getAddress().getOffset())
             if "bx lr" in str(instr):
-                ret_offsets.append(instr.getAddress().getOffset())
+                if is_pie:
+                    ret_offsets.append(instr.getAddress().getOffset()-0x10000)
+                else:
+                    ret_offsets.append(instr.getAddress().getOffset())
         else: 
             mnemonic = instr.getMnemonicString().upper()
             if mnemonic in ["RET", "RETN", "RETQ"]:  

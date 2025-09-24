@@ -15,11 +15,14 @@ from . import beanpod_api
 from . import teegris_api
 from . import mitee_api
 from . import t6_api
+from . import tc_api
 from .gp import bigint_ops, crypto, general_objects, persistent_objects, properties, session, transient_objects
 from unicorn.arm64_const import UC_ARM64_INS_MRS
 from unicorn import UC_PROT_READ, UC_PROT_WRITE
 from .custom.mitee_loader import mitee_read_relocs, mitee_relr_relocs
-
+from .custom.teegris_32_loader import teegris_32_rel
+from .custom.tc_loader import tc_read_relcall
+from keystone import Ks, KS_ARCH_ARM, KS_MODE_ARM
 
 class HookData():
     def __init__(self, emu, func_name):
@@ -52,6 +55,9 @@ def get_api_impl(func_name):
     if api_func is not None:
         return api_func
     api_func = getattr(t6_api, func_name, None)
+    if api_func is not None:
+        return api_func
+    api_func = getattr(tc_api,  func_name, None)
     if api_func is not None:
         return api_func
     if func_name == "__stack_chk_fail":
@@ -91,14 +97,16 @@ def fixup_got(ql: Qiling, ta_path, ta_elf:ELF, is_mitee=False):
             ql.mem.write_ptr(ta_base + reloc_addr, ta_base + addend)
 
 
-def hook_ta_dl(ql: Qiling, ta_path, ta_elf:ELF, emu, is_mitee=False):
+def hook_ta_dl(ql: Qiling, ta_path, ta_elf:ELF, emu, is_mitee=False, is_tc=False):
     counter = 0
     ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
     ta_elf.address = ta_base
     ql.mem.map(ql_resolve_mem, 0x1000,info="dl_resolve")
     for func, addr in ta_elf.plt.items():
-        ql.mem.write(ta_elf.got[func], (ql_resolve_mem+counter).to_bytes(ql.arch.pointersize, "little"))
+        if func not in ta_elf.got:
+            continue
         ql.log.info(f'hooking api function {func}, {hex(addr)}, {hex(ql_resolve_mem+counter)}')
+        ql.mem.write(ta_elf.got[func], (ql_resolve_mem+counter).to_bytes(ql.arch.pointersize, "little"))
         ql.hook_address(get_api_impl(func), ql_resolve_mem+counter, user_data=HookData(emu,func))
         counter += ql.arch.pointersize
     if is_mitee:
@@ -107,6 +115,17 @@ def hook_ta_dl(ql: Qiling, ta_path, ta_elf:ELF, emu, is_mitee=False):
             ql.mem.write(ta_base + off, (ql_resolve_mem+counter).to_bytes(ql.arch.pointersize, "little"))
             ql.log.info(f'[mitee] hooking plt relocation function {func}, {hex(off)}, {hex(ql_resolve_mem+counter)}')
             ql.hook_address(get_api_impl(func), ql_resolve_mem+counter, user_data=HookData(emu,func))
+            counter += ql.arch.pointersize
+    if is_tc:
+        # IGNORE ME!!
+        ks = Ks(KS_ARCH_ARM, KS_MODE_ARM)
+        to_hook = tc_read_relcall(ta_path)
+        ql.mem.map(0x7000, 0x1000,info="dl_resolve tc (hack)")
+        for func, off in to_hook:
+            encoding, count = ks.asm(f"bl {0x7000+counter}", addr=off)
+            ql.log.info(f'[tc] hooking inline arm call relocation function {func}, {hex(off)}, {hex(0x7000+counter)}')
+            ql.hook_address(get_api_impl(func), 0x7000+counter, user_data=HookData(emu,func))
+            ql.mem.write(off, bytes(encoding))
             counter += ql.arch.pointersize
 
 def hook_ta_custom(ql: Qiling, ta_path, ta_elf:ELF, emu):
@@ -136,6 +155,12 @@ def hook_ta_custom(ql: Qiling, ta_path, ta_elf:ELF, emu):
                     ql.hook_address(get_api_impl(fname), ta_base+addr, user_data=HookData(emu,fname))
                 else:
                     ql.hook_address(get_api_impl(fname), addr, user_data=HookData(emu,fname))
+
+def teegris_32_setup(ql: Qiling, ta_path, ta_base):
+    rels = teegris_32_rel(ta_path)
+    for rel in rels:
+        v = ql.mem.read_ptr(ta_base + rel)
+        ql.mem.write_ptr(ta_base + rel, v + ta_base)
 
 def mitee_setup(ql: Qiling, ta_path, ta_base):
     # 1: setup tls for mrs
