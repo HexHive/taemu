@@ -1,5 +1,5 @@
 diff --git a/qiling/loader/elf.py b/qiling/loader/elf.py
-index a5a8ac6f..ca9d1928 100644
+index a5a8ac6f..56d91a8e 100644
 --- a/qiling/loader/elf.py
 +++ b/qiling/loader/elf.py
 @@ -59,6 +59,8 @@ class AUXV(IntEnum):
@@ -11,7 +11,22 @@ index a5a8ac6f..ca9d1928 100644
  
  # memory for syscall table
  SYSCALL_MEM = API_HOOK_MEM + 0x1000
-@@ -189,7 +191,7 @@ class QlLoaderELF(QlLoader):
+@@ -100,8 +102,12 @@ class QlLoaderELF(QlLoader):
+ 
+         # is it a driver?
+         if elftype == 'ET_REL':
+-            self.load_driver(elffile, top_of_stack, loadbase=0x8000000)
+-            self.ql.hook_code(hook_kernel_api)
++            # why the fuck is the TC TA ET_REL????
++            load_address = 0
++            self.stack_address = stack_address+0x3000
++            self.load_address = load_address
++            #self.load_driver(elffile, top_of_stack, loadbase=0x8000000)
++            #self.ql.hook_code(hook_kernel_api)
+ 
+         # is it an executable?
+         elif elftype == 'ET_EXEC':
+@@ -189,7 +195,7 @@ class QlLoaderELF(QlLoader):
                          #
                          # this workaround unifies such "overlapping" segments, which may apply more permissive
                          # protection flags to that memory region.
@@ -20,7 +35,7 @@ index a5a8ac6f..ca9d1928 100644
                              load_regions[-1] = (prev_lbound, ubound, prev_perms | perms)
                              continue
  
-@@ -387,7 +389,7 @@ class QlLoaderELF(QlLoader):
+@@ -387,7 +393,7 @@ class QlLoaderELF(QlLoader):
          self.init_sp = self.ql.arch.regs.arch_sp
  
          self.ql.os.entry_point = self.entry_point = entry_point
