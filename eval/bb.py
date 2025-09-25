@@ -283,9 +283,12 @@ def generate_graph(cfg, todo=None):
     print(reachable)
     return reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx, implemented_apis
 
-def get_root_node(ta_cfg):
+def get_root_node(ta_cfg, tee=None):
     for n in ta_cfg.nodes:
-        if n.endswith(root):   
+        if tee is not None:
+            if n.endswith(f'{tee}_{root}'):
+                return n
+        elif n.endswith(root):   
             return n
 
 def gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx):
@@ -392,6 +395,7 @@ def build_tee_cfg(tee_path, only_tee=True):
     for ta_cfg in ta_cfgs:
         ta_root_node = get_root_node(ta_cfg)
         tee_cfg.add_edge(root_name, ta_root_node) 
+    print(f'size tee cfg: ', len(nx.descendants(tee_cfg, root_name)))
     return tee_cfg 
 
 def analyze_tee(tee_path):
@@ -427,10 +431,11 @@ def analyze_all():
     all_cfg = nx.compose_all(tee_cfgs)
     root_all = label(root, no_uuid=True)
     all_cfg.add_node(root_all)
-    for tee_cfg in tee_cfgs:
-        tee_root_node = get_root_node(tee_cfg)
+    for i, tee_cfg in enumerate(tee_cfgs):
+        tee_root_node = get_root_node(tee_cfg, tee=tees[i])
+        print('size tee_cfg', len(nx.descendants(tee_cfg, tee_root_node)))
         all_cfg.add_edge(root_all, tee_root_node)
-        print(len(nx.descendants(all_cfg, root_all)))
+        print('size all cfg', len(nx.descendants(all_cfg, root_all)))
     reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx, implemented_apis = generate_graph(all_cfg, todo='all')
     plt = gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
     out_path = f'all_reachable.pdf'
