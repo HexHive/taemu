@@ -185,7 +185,7 @@ def generate_graph_noorder(cfg, todo=None):
     i = 0
     reachable.append(reachable_nodes(cfg, implemented_apis)) 
     i+= 1
-    if "BB_USE_CACHE" in os.environ:
+    if "BB_USE_CACHE" in os.environ and os.path.exists(f'{todo}_order_noorder.txt'):
         api_order = open(f'{todo}_order_noorder.txt').read().split('\n')
         for api_name in api_order:
             max_api = get_api(used_apis, api_name)
@@ -327,6 +327,8 @@ def print_info(cfg, reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_
     print(f'nr libc funcs: {all_libc_idx - all_gp_idx}')
     print(f'nr tee_std funcs: {all_tee_std_idx - all_libc_idx}')
     print(f'nr tee funcs: {all_tee_idx - all_tee_std_idx}')
+    std_reachable = reachable[max(all_gp_idx, all_libc_idx, all_tee_std_idx)]
+    print(f'% reachable with gp, libc and tee-std', 100* std_reachable/reachable[-1], '%')
 
 def analyze_ta(ta_path):
     cfg = cfg_ta(ta_path)
