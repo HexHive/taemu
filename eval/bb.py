@@ -223,7 +223,7 @@ def generate_graph(cfg, todo=None):
     all_libc_idx = 0
     all_tee_std_idx = 0
     all_tee_idx = 0
-    if "BB_USE_CACHE" in os.environ:
+    if "BB_USE_CACHE" in os.environ and os.path.exists(f'{todo}_order.txt'):
         api_order = open(f'{todo}_order.txt').read().split('\n')
         for api_name in api_order:
             max_api = get_api(used_apis, api_name)
@@ -431,7 +431,7 @@ def analyze_all():
     out_path = f'all_reachable.pdf'
     open(f'all_order.txt', 'w+').write('\n'.join(c.func for c in implemented_apis))
     plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
-    print_info(cfg, reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
+    print_info(all_cfg, reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
     print(40*"=")
     reachable, max_nodes, implemented_apis = generate_graph_noorder(all_cfg, todo='all')
     plt.clf()
