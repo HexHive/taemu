@@ -25,3 +25,16 @@ def mdrv_close(ql: Qiling, hook_data):
 
 def msee_ta_printf_va(ql: Qiling, hook_data):
     TEE_LogPrintf(ql, hook_data)
+
+def ut_pf_cp_rd_random(ql: Qiling, hook_data):
+    params = ql.os.resolve_fcall_params({'unno': INT, 'buf': POINTER, 'size': INT})
+    buf = params['buf']
+    size = params['size']
+    if not asan.is_access_valid(
+        ql, hook_data.emu.HEAP, buf, size, hook_data.func_name, is_write=True
+    ):
+        return
+    ql.mem.write(buf, size * b"A")
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
