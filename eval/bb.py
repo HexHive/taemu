@@ -430,6 +430,7 @@ def analyze_all():
     for tee_cfg in tee_cfgs:
         tee_root_node = get_root_node(tee_cfg)
         all_cfg.add_edge(root_all, tee_root_node)
+        print(len(nx.descendants(all_cfg, root_all)))
     reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx, implemented_apis = generate_graph(all_cfg, todo='all')
     plt = gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
     out_path = f'all_reachable.pdf'
