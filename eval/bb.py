@@ -181,7 +181,7 @@ def generate_graph_noorder(cfg, todo=None):
     print("nr gp apis", len([a for a in used_apis if a.api_type == "gp_api"]))
     print("nr libc apis", len([a for a in used_apis if a.api_type == "libc"]))
     print("nr tee apis", len([a for a in used_apis if a.api_type.startswith("tee")]))
-    print("max nodes: {max_nodes}")
+    print(f"max nodes: {max_nodes}")
     implemented_apis = []
     i = 0
     reachable.append(reachable_nodes(cfg, implemented_apis)) 
@@ -216,7 +216,7 @@ def generate_graph(cfg, todo=None):
     print("nr gp apis", len([a for a in used_apis if a.api_type == "gp_api"]))
     print("nr libc apis", len([a for a in used_apis if a.api_type == "libc"]))
     print("nr tee apis", len([a for a in used_apis if a.api_type.startswith("tee")]))
-    print("max nodes: {max_nodes}")
+    print(f"max nodes: {max_nodes}")
     implemented_apis = []
     i = 0
     reachable.append(reachable_nodes(cfg, implemented_apis))
