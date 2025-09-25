@@ -9,7 +9,7 @@ services:
       - ./src:/src:ro
       - ../mitee/tas:/mitee_tas/:rw
       - ../beanpod/tas:/beanpod_tas/:rw
-      - ../teegris/vuln_tas:/teegris_tas/:rw
+      - ../teegris/tas:/teegris_tas/:rw
       - ../t6/tas:/t6_tas/:rw
       - ../qsee/tas:/qsee_tas/:rw
       - ../kinibi/tas:/kinibi_tas/:rw
