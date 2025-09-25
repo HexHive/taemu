@@ -143,7 +143,7 @@ def find_best_add(cfg, all_apis, implemented_apis, filterf):
             if not filterf(api): continue
             if api in implemented_apis: continue
             work_queue.append((cfg, implemented_apis, api))
-        with Pool(cpu_count()-1) as pool:
+        with Pool(10) as pool:
             results = pool.map(pool_worker, work_queue, chunksize=5)
         for api, reach in results:
            if reach > max_nr:
