@@ -117,8 +117,8 @@ if __name__ == "__main__":
             profile="tee.ql"
         )
     elif TEE == "teegris":
-        print("doing teegris")
-        if ta_elf.arch == "arm64":
+        print("doing teegris", ta_elf.arch)
+        if ta_elf.arch == "aarch64":
             ql = Qiling(
                 [ta_path],
                 rootfs=os.path.join(DIR, "../rootfs/"),
