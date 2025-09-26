@@ -56,9 +56,9 @@ if [ -z "$2" ]; then
     fi
 
     if [ -d "$in_path" ]; then
-        afl-fuzz -V 86400 -c 0 -t 2000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")"
+        afl-fuzz -V 86400 -t 2000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")"
     else 
-        afl-fuzz -V 86400 -c 0 -t 2000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ "rootfs/$(basename "$ta")"
+        afl-fuzz -V 86400 -t 2000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ "rootfs/$(basename "$ta")"
     fi
 else 
     if [ -d "$in_path" ]; then
