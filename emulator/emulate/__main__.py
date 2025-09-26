@@ -162,7 +162,8 @@ if __name__ == "__main__":
             verbose=v,
             thumb=is_thumb,
             #env={"LD_LIBRARY_PATH": "rom"},
-            profile="tee.ql"
+            profile="tee.ql",
+            log_devices=["stdout"]
         )
     elif TEE == "trustedcore":
         ql = Qiling(

@@ -44,3 +44,20 @@ index a5a8ac6f..56d91a8e 100644
  
          # If there is a loader, we ignore exit
          self.skip_exit_check = (self.elf_entry != self.entry_point)
+diff --git a/qiling/log.py b/qiling/log.py
+index 2735b8b7..53172ad3 100644
+--- a/qiling/log.py
++++ b/qiling/log.py
+@@ -193,9 +193,10 @@ def setup_logger(ql: Qiling, logdevs: Collection[Union[IO, str]], plain: bool, o
+ 
+             elif isinstance(dev, str):
+                 handler = FileHandler(dev)
+-
++            
+             else:
+-                raise TypeError(f'unexpected logging device type: {type(dev).__name__}')
++                handler = StreamHandler(dev)
++                #raise TypeError(f'unexpected logging device type: {type(dev).__name__}')
+ 
+             if no_color or not __is_color_terminal(handler.stream):
+                 formatter = QlBaseFormatter(ql, FMT_STR)

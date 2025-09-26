@@ -406,16 +406,16 @@ def analyze_tee(tee_path):
     #plt.show() 
     reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx, implemented_apis = generate_graph(tee_cfg, todo=tee)
     plt = gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
-    out_path = f'{tee}_reachable.pdf'
-    open(f'{tee}_order.txt', 'w+').write('\n'.join(c.func for c in implemented_apis))
+    out_path = f'bbs_out/{tee}_reachable.pdf'
+    open(f'bbs_out/{tee}_order.txt', 'w+').write('\n'.join(c.func for c in implemented_apis))
     plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
     print_info(tee_cfg, reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
     print(40*"=")
     reachable, max_nodes, implemented_apis = generate_graph_noorder(tee_cfg, todo=tee)
     plt.clf()
     plt = gen_plot(reachable, max_nodes, 0, 0, 0, 0)
-    out_path = f'{tee}_reachable_noorder.pdf'
-    open(f'{tee}_order_noorder.txt', 'w+').write('\n'.join(c.func for c in implemented_apis))
+    out_path = f'bbs_out/{tee}_reachable_noorder.pdf'
+    open(f'bbs_out/{tee}_order_noorder.txt', 'w+').write('\n'.join(c.func for c in implemented_apis))
     plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
 
 def analyze_all():
@@ -438,16 +438,16 @@ def analyze_all():
         print('size all cfg', len(nx.descendants(all_cfg, root_all)))
     reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx, implemented_apis = generate_graph(all_cfg, todo='all')
     plt = gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
-    out_path = f'all_reachable.pdf'
-    open(f'all_order.txt', 'w+').write('\n'.join(c.func for c in implemented_apis))
+    out_path = f'bbs_out/all_reachable.pdf'
+    open(f'bbs_out/all_order.txt', 'w+').write('\n'.join(c.func for c in implemented_apis))
     plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
     print_info(all_cfg, reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
     print(40*"=")
     reachable, max_nodes, implemented_apis = generate_graph_noorder(all_cfg, todo='all')
     plt.clf()
     plt = gen_plot(reachable, max_nodes, 0, 0, 0, 0)
-    out_path = f'all_reachable_noorder.pdf'
-    open(f'all_order_noorder.txt', 'w+').write('\n'.join(c.func for c in implemented_apis))
+    out_path = f'bbs_out/all_reachable_noorder.pdf'
+    open(f'bbs_out/all_order_noorder.txt', 'w+').write('\n'.join(c.func for c in implemented_apis))
     plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
 
 if __name__ == "__main__":
