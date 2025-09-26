@@ -1,4 +1,4 @@
-FROM ubuntu:jammy
+FROM ubuntu:24.04
 
 RUN rm -f /etc/apt/apt.conf.d/docker-clean && \
     echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
@@ -27,9 +27,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 COPY emulator/qiling.diff .
 RUN git clone -b dev https://github.com/qilingframework/qiling.git
-RUN cd qiling && git checkout 56dd77b6608698bfe54f4bde01981a40609c9532 && git apply ../qiling.diff && git submodule update --init --recursive && pip3 install . && cd ..
+RUN cd qiling && git checkout 56dd77b6608698bfe54f4bde01981a40609c9532 && git apply ../qiling.diff && git submodule update --init --recursive && pip3 install . --break-system-packages && cd ..
 COPY emulator/requirements.txt .
-RUN pip3 install -r requirements.txt
+RUN pip3 install -r requirements.txt --break-system-packages
 #RUN ./setup.sh
 
 ################################################################################
@@ -39,7 +39,7 @@ RUN pip3 install -r requirements.txt
 COPY --from=aflplusplus/aflplusplus:dev --link /usr/local/bin /opt/afl
 ENV PATH=$PATH:/opt/afl
 
-COPY --from=aflplusplus/aflplusplus:dev --link  /AFLplusplus/unicorn_mode/unicornafl/bindings/python/unicornafl /opt/afl/unicornafl
+COPY --from=aflplusplus/aflplusplus:dev --link  /AFLplusplus/unicorn_mode/unicornafl/python/unicornafl /opt/afl/unicornafl
 ENV PYTHONPATH=$PATH:/opt/afl
 
 ################################################################################
@@ -53,7 +53,7 @@ WORKDIR /opt/src
 # clone and make drcov-merge
 RUN git clone https://github.com/vanhauser-thc/drcov-merge.git && cd drcov-merge && make && mv drcov-merge /opt/afl
 
-RUN pip3 install networkx
+RUN pip3 install networkx --break-system-packages
 
 WORKDIR /srv/
-RUN useradd -u 1000 ctf
+#RUN useradd -u 1000 ctf
