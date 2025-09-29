@@ -193,11 +193,14 @@ if __name__ == "__main__":
         ql.log.info(f"[{ta_name}] fuzz start")
         emu.start_fuzz(args.fuzz, args.fuzz_harness)
         ql.log.info(f"[{ta_name}] fuzz end")
+        exit(0)
     if args.fuzz_replay:
         ql.log.info(f"[{ta_name}] fuzz replay start")
         emu.start_fuzz(args.fuzz_replay, args.fuzz_harness, fuzz_replay=True)
         ql.log.info(f"[{ta_name}] fuzz replay end")
+        exit(0)
     else:
         ql.log.info(f"[{ta_name}] emulation start")
         emu.start_interactive()
         ql.log.info(f"[{ta_name}] emulation end")
+        exit(0)
