@@ -42,7 +42,7 @@ def main():
     for tee in tees:
         for harness in os.listdir(os.path.join(BASE, tee, "harness")):
             if not os.path.exists(os.path.join(BASE, tee, "harness", harness, "ta.txt")):
-                print(f'!!!!!! {os.path.join(BASE, tee, "harness", harness} has no ta.txt!!!!!')
+                print(f'!!!!!! {os.path.join(BASE, tee, "harness", harness)} has no ta.txt!!!!!')
                 exit(-1)
             ta_name = open(os.path.join(BASE, tee, "harness", harness, "ta.txt")).read()
             if not os.path.exists(os.path.join(BASE, tee, "harness", harness, ta_name)):
