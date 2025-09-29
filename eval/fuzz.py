@@ -47,8 +47,8 @@ def main():
                 exit(-1)
             ta_name = open(os.path.join(BASE, tee, "harness", harness, "ta.txt")).read()
             if not os.path.exists(os.path.join(BASE, tee, "harness", harness, ta_name)):
-                os.symlink(os.path.join(BASE, tee, "harness", harness, ta_name), os.path.join(BASE, tee, "tas", ta_name))
-                os.symlink(os.path.join(BASE, tee, "harness", harness, ta_name[:-3]+".json"), os.path.join(BASE, tee, "tas", ta_name[:-3]+".json"))
+                os.symlink(os.path.join(BASE, tee, "tas", ta_name), os.path.join("..", tee, "harness", harness, ta_name))
+                os.symlink(os.path.join(BASE, tee, "tas", ta_name[:-3]+".json"), os.path.join("..", tee, "harness", harness, ta_name[:-3]+".json"))
             job_queue.put(os.path.join(tee, "harness", harness))
             if os.path.exists(f'{BASE}/{tee}/harness/{harness}/out'):
                 os.system(f'mv {BASE}/{tee}/harness/{harness}/out {BASE}/{tee}/harness/{harness}/backup_out_{time.time()}')
