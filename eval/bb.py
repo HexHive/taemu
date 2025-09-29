@@ -85,6 +85,8 @@ def cfg_ta(ta_path):
             node = cfg.nodes[bb_l]
             node["api_calls"] = []
             node["svc"] = bb["svc"]
+            node["start"] = bb["start"]
+            node["end"] = bb["end"]
             for call in bb["calls"]:
                 if not call['api']:
                     fcall_lbl = label(call["func"])
@@ -363,17 +365,21 @@ def analyze_ta(ta_path):
     plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
     print_info(cfg, reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
 
-def build_tee_cfg(tee_path, only_tee=True):
+def build_tee_cfg(tee_path, only_tee=True, specific_tas=None):
     global do_ta_uuid
     global tee_name
     do_ta_uuid = True
     tee = os.path.basename(tee_path)
     tee_name = tee
     ta_cfgs = [] 
-    for ta in [ta for ta in os.listdir(os.path.join(tee_path, "tas")) if ta.endswith(".ta")]:
-        ta_path = os.path.join(tee_path, 'tas', ta)
-        if not os.path.exists(ta_path[:-3]+".json"): continue
-        ta_cfgs.append(cfg_ta(ta_path))
+    if specific_tas is None:
+        for ta in [ta for ta in os.listdir(os.path.join(tee_path, "tas")) if ta.endswith(".ta")]:
+            ta_path = os.path.join(tee_path, 'tas', ta)
+            if not os.path.exists(ta_path[:-3]+".json"): continue
+            ta_cfgs.append(cfg_ta(ta_path))
+    else:
+        for ta_path in specific_tas:
+            ta_cfgs.append(cfg_ta(ta_path))
     nr_tas_gp_api = 0
     nr_tas_libc = 0
     nr_tas_tee = 0

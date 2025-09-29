@@ -5,6 +5,10 @@ export AFL_SKIP_CPUFREQ=1
 export AFL_FORKSRV_INIT_TMOUT=99999
 export AFL_AUTORESUME=1
 
+if [ -z "${FUZZTIME}" ]; then
+  FUZZTIME=99999999999
+fi
+
 #rm rootfs/*ta
 #rm rootfs/*json
 
@@ -56,9 +60,9 @@ if [ -z "$2" ]; then
     fi
 
     if [ -d "$in_path" ]; then
-        afl-fuzz -V 3600 -t 2000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")"
+        afl-fuzz -V $FUZZTIME -t 2000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")"
     else 
-        afl-fuzz -V 3600 -t 2000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ "rootfs/$(basename "$ta")"
+        afl-fuzz -V $FUZZTIME -t 2000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ "rootfs/$(basename "$ta")"
     fi
 else 
     if [ -d "$in_path" ]; then
