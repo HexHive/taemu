@@ -8,7 +8,7 @@ import sys
 BASE = os.path.join(os.path.dirname(__file__), "..")
 tees = ["teegris", "mitee", "beanpod", "t6"]
 #fuzz_time = 60 * 60 * 24
-fuzz_time = 60 * 5
+fuzz_time = 60 * 60
 
 def worker(harness_path):
     print(f"Job {harness_path} starting to fuzz {threading.current_thread().name}")
@@ -44,6 +44,10 @@ def main():
             job_queue.put(os.path.join(tee, "harness", harness))
             if os.path.exists(f'{BASE}/{tee}/harness/{harness}/out'):
                 os.system(f'mv {BASE}/{tee}/harness/{harness}/out {BASE}/{tee}/harness/{harness}/backup_out_{time.time()}')
+            if os.path.exists(f'{BASE}/{tee}/harness/{harness}/triage'):
+                os.system(f'mv {BASE}/{tee}/harness/{harness}/triage {BASE}/{tee}/harness/{harness}/backup_triage_{time.time()}')
+            if os.path.exists(f'{BASE}/{tee}/harness/{harness}/notimpl'):
+                os.system(f'mv {BASE}/{tee}/harness/{harness}/notimpl {BASE}/{tee}/harness/{harness}/backup_notimpl_{time.time()}')
 
     threads = []
     for _ in range(num_threads):
