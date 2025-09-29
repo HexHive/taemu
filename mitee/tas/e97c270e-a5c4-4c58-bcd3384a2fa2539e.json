@@ -1,15 +1,7 @@
 {
     "inline": {
-        "TEE_GetObjectBufferAttribute": {
-            "addr": 526136,
-            "type": "gp_api"
-        },
         "TEE_MACComputeFinal": {
             "addr": 830912,
-            "type": "gp_api"
-        },
-        "TEE_GetObjectBufferAttribute": {
-            "addr": 526136,
             "type": "gp_api"
         },
         "TEE_FreeTransientObject": {
@@ -84,16 +76,8 @@
             "addr": 497984,
             "type": "gp_api"
         },
-        "TEE_GetObjectBufferAttribute": {
-            "addr": 526136,
-            "type": "gp_api"
-        },
         "TEE_ResetOperation": {
             "addr": 826448,
-            "type": "gp_api"
-        },
-        "TEE_GetObjectBufferAttribute": {
-            "addr": 526136,
             "type": "gp_api"
         },
         "TEE_CloseTASession": {
@@ -120,10 +104,6 @@
             "addr": 830224,
             "type": "gp_api"
         },
-        "TEE_DigestDoFinal": {
-            "addr": 500040,
-            "type": "gp_api"
-        },
         "TEE_ReadObjectData": {
             "addr": 823296,
             "type": "gp_api"
@@ -137,10 +117,6 @@
             "type": "gp_api"
         },
         "TEE_SetOperationKey": {
-            "addr": 508456,
-            "type": "gp_api"
-        },
-        "TEE_DigestDoFinal": {
             "addr": 508456,
             "type": "gp_api"
         },
@@ -168,10 +144,6 @@
             "addr": 505400,
             "type": "gp_api"
         },
-        "TEE_GetObjectBufferAttribute": {
-            "addr": 526136,
-            "type": "gp_api"
-        },
         "TEE_GetObjectInfo": {
             "addr": 819608,
             "type": "gp_api"
@@ -194,10 +166,6 @@
         },
         "TEE_ReadObjectData": {
             "addr": 513864,
-            "type": "gp_api"
-        },
-        "TEE_GetObjectBufferAttribute": {
-            "addr": 526136,
             "type": "gp_api"
         },
         "TEE_SetTAPersistentTime": {
@@ -256,20 +224,8 @@
             "addr": 498576,
             "type": "gp_api"
         },
-        "TEE_GetObjectBufferAttribute": {
-            "addr": 526136,
-            "type": "gp_api"
-        },
-        "TEE_GetObjectBufferAttribute": {
-            "addr": 526136,
-            "type": "gp_api"
-        },
         "TEE_AsymmetricSignDigest": {
             "addr": 831888,
-            "type": "gp_api"
-        },
-        "TEE_GenerateKey": {
-            "addr": 526136,
             "type": "gp_api"
         },
         "TEE_CipherDoFinal": {
