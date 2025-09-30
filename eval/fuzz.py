@@ -47,7 +47,7 @@ def main():
                 exit(-1)
             if os.path.exists(os.path.join(BASE, tee, "harness", harness, "IGNOREME")):
                 continue
-            ta_name = open(os.path.join(BASE, tee, "harness", harness, "ta.txt")).read()
+            ta_name = open(os.path.join(BASE, tee, "harness", harness, "ta.txt")).read().strip("\n")
             if not os.path.exists(os.path.join(BASE, tee, "harness", harness, ta_name)):
                 os.symlink(os.path.join("..", "..", "tas", ta_name), os.path.join("..", tee, "harness", harness, ta_name))
                 os.symlink(os.path.join("..", "..", "tas", ta_name[:-3]+".json"), os.path.join("..", tee, "harness", harness, ta_name[:-3]+".json"))
