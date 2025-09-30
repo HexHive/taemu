@@ -144,6 +144,8 @@ for tee in tees:
     for harness in os.listdir(os.path.join(BASE, tee, "harness")):
         ta = None
         harness_path = os.path.join(BASE, tee, "harness", harness)
+        if os.path.exists(os.path.join(BASE, tee, "harness", harness, "IGNOREME")):
+            continue
         print(f'handling {harness_path}')
         for f in os.listdir(harness_path):
             if f.endswith(".ta"):
