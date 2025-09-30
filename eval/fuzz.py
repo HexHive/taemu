@@ -8,7 +8,7 @@ import sys
 BASE = os.path.join(os.path.dirname(__file__), "..")
 tees = ["teegris", "mitee", "beanpod", "t6"]
 #fuzz_time = 60 * 60 * 24
-fuzz_time = 2
+fuzz_time = 60*60
 
 def worker(harness_path):
     log_path = os.path.join(BASE, harness_path, "logs")
@@ -69,7 +69,7 @@ def main():
                 os.system(f'mv {BASE}/{tee}/harness/{harness}/notimpl {BASE}/{tee}/harness/{harness}/backup_notimpl_{time.time()}')
 
     threads = []
-    for _ in range(1):
+    for _ in range(num_threads):
         t = threading.Thread(target=thread_worker, args=(job_queue,))
         t.start()
         threads.append(t)
