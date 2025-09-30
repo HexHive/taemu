@@ -41,7 +41,7 @@ def is_covered(node, bbbs):
             return True
     return False
 
-def parse_drcov(ta, path):
+def parse_drcov(tee, ta, path):
     bbs_out = []
     raw = open(path, "rb").read()
     ta_base = raw.split(b"timestamp, path\n")[-1]
@@ -58,18 +58,20 @@ def parse_drcov(ta, path):
         size = int.from_bytes(bbs[4:6], "little")
         mod_id= int.from_bytes(bbs[6:8], "little")
         if mod_id == ta_id:
+            if tee == "beanpod" or tee == "t6":
+                start = base + start
             bbs_out.append(BB(ta, start, size))
         bbs = bbs[8:]
     return bbs_out
 
-def parse_cov(ta, drcov_path):
+def parse_cov(tee, ta, drcov_path):
     out = {}
     for cov_file in os.listdir(drcov_path):
         try:
             timestamp = int(int(cov_file.split("time:")[-1].split(",")[0])/1000)
         except:
             continue
-        bbs = parse_drcov(ta, os.path.join(drcov_path, cov_file))
+        bbs = parse_drcov(tee, ta, os.path.join(drcov_path, cov_file))
         out[timestamp] = bbs
     return out
 
@@ -157,7 +159,7 @@ for tee in tees:
             continue
         if not os.path.exists(os.path.join(harness_path, "out", "cov")):
             continue
-        ta2bbs[ta] = parse_cov(ta, os.path.join(harness_path, "out", "cov")) 
+        ta2bbs[ta] = parse_cov(tee, ta, os.path.join(harness_path, "out", "cov")) 
         unique_bbs = set()
         for timestamp, bbss in ta2bbs[ta].items():
             for bb in bbss:
@@ -173,8 +175,34 @@ for tee in tees:
     print(f'{tee}, {tas}')
     out[tee]['nr_tas'] = len(tas)
     tee_cfg = build_tee_cfg(tee, only_tee=True, specific_tas=tas)
+    def in_cfg(ta, bb, cfg):
+        nodes = nx.descendants(cfg, ta[:-3]+"_"+8*"0")
+        for n in nodes:
+            if not "start" in cfg.nodes[n] or not "end" in cfg.nodes[n]: 
+                continue
+            if bb.start >= int(cfg.nodes[n]["start"],16) and bb.start + bb.size<= int(cfg.nodes[n]["end"],16):
+                return True
+        return False
+    ta2bbs_cfg = {}
+    cfg_unique_bbs = set()
+    not_ctg_bbs = set()
+    for ta, data in ta2bbs.items():
+        ta2bbs_cfg[ta] = {}
+        for timestamp, bbs in data.items():
+            ta2bbs_cfg[ta][timestamp] = []
+            for bb in bbs:
+                if bb in not_ctg_bbs:
+                    continue
+                if bb in cfg_unique_bbs:
+                    ta2bbs_cfg[ta][timestamp].append(bb)
+                else:
+                    if in_cfg(ta, bb, tee_cfg): 
+                        ta2bbs_cfg[ta][timestamp].append(bb)
+                        cfg_unique_bbs.add(bb)
+                    else:
+                        not_ctg_bbs.add(bb)
     #print([n for n in nx.descendants(tee_cfg, root)])
-    print(len(nx.descendants(tee_cfg, root)), len(set(nx.descendants(tee_cfg, root))))
+    print(len(nx.descendants(tee_cfg, root)), len(cfg_unique_bbs))
     out[tee]['max_bbs'] = len(nx.descendants(tee_cfg, root))
     out[tee]['fuzz_bbs'] = sum([len(bbs) for _,bbs in ta2bbs_merged.items()])
     out[tee]['ta2bbs'] = ta2bbs
