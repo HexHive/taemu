@@ -72,6 +72,7 @@ def main():
     for _ in range(num_threads):
         t = threading.Thread(target=thread_worker, args=(job_queue,))
         t.start()
+        time.sleep(1)
         threads.append(t)
     job_queue.join()
     for t in threads:
