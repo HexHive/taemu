@@ -70,6 +70,16 @@ def parse_fmt_str(ql, format_param, final_params, func_name, arg=None):
         elif func_name == "ut_pf_log_msg" or func_name == "TEE_LogvPrintf":
             del params["format"]
             del params["log_level"]
+        elif func_name == "debug_log":
+            del params["format"]
+            del params["log_level"]
+            del params["filename"]
+        elif func_name == "debug_log2":
+            del params["format"]
+            del params["filename"]
+            del params["nr1"]
+            del params["nr2"]
+            del params["linenumber"]
         else:
             ql.log.error(f"unkown printf format resolving function: {func_name}")
             ql.emu_stop()

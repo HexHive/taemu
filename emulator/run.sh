@@ -2,7 +2,6 @@
 
 #rm rootfs/*ta
 #rm rootfs/*json
-
 v0="$1"
 v1="${v0::-3}" 
 cp "$v0" rootfs/

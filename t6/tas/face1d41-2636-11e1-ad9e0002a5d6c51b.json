@@ -176,7 +176,7 @@
             "addr": 2129624,
             "type": "gp_api"
         },
-        "debug_log": {
+        "debug_log2": {
             "addr": 2141044,
             "type": "tee_std"
         },
@@ -190,6 +190,10 @@
         },
         "throw_exception": {
             "addr": 2159968,
+            "type": "tee"
+        },
+        "check_license": {
+            "addr": 2101264,
             "type": "tee"
         }
     },

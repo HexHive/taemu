@@ -154,6 +154,8 @@ if __name__ == "__main__":
             is_thumb = False
         else:
             is_thumb = True
+        if "face1d41-2636-11e1-ad9e0002a5d6c51b" in ta_path:
+            is_thumb = False
         ql = Qiling(
             [ta_path],
             rootfs=os.path.join(DIR, "../rootfs/"),
@@ -162,8 +164,7 @@ if __name__ == "__main__":
             verbose=v,
             thumb=is_thumb,
             #env={"LD_LIBRARY_PATH": "rom"},
-            profile="tee.ql",
-            log_devices=["stdout"]
+            profile="tee.ql"
         )
     elif TEE == "trustedcore":
         ql = Qiling(
@@ -193,14 +194,11 @@ if __name__ == "__main__":
         ql.log.info(f"[{ta_name}] fuzz start")
         emu.start_fuzz(args.fuzz, args.fuzz_harness)
         ql.log.info(f"[{ta_name}] fuzz end")
-        exit(0)
-    if args.fuzz_replay:
+    elif args.fuzz_replay:
         ql.log.info(f"[{ta_name}] fuzz replay start")
         emu.start_fuzz(args.fuzz_replay, args.fuzz_harness, fuzz_replay=True)
         ql.log.info(f"[{ta_name}] fuzz replay end")
-        exit(0)
     else:
         ql.log.info(f"[{ta_name}] emulation start")
         emu.start_interactive()
         ql.log.info(f"[{ta_name}] emulation end")
-        exit(0)

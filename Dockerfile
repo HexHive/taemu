@@ -36,10 +36,10 @@ RUN pip3 install -r requirements.txt
 # AFL++
 ################################################################################
 
-COPY --from=aflplusplus/aflplusplus:stable --link /usr/local/bin /opt/afl
+COPY --from=aflplusplus/aflplusplus:v4.32c --link /usr/local/bin /opt/afl
 ENV PATH=$PATH:/opt/afl
 
-COPY --from=aflplusplus/aflplusplus:stable --link  /AFLplusplus/unicorn_mode/unicornafl/bindings/python/unicornafl /opt/afl/unicornafl
+COPY --from=aflplusplus/aflplusplus:v4.32c --link  /AFLplusplus/unicorn_mode/unicornafl/bindings/python/unicornafl /opt/afl/unicornafl
 ENV PYTHONPATH=$PATH:/opt/afl
 
 ################################################################################

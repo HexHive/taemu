@@ -161,7 +161,7 @@
                 "type": "gp_api"
         },
         "throw_exception": {
-            "addr": 2140784,
+            "addr": 2141548,
             "type": "tee"
         }
     },

@@ -182,6 +182,7 @@ all_bbs = 0
 all_crashes = 0
 all_bugs = 0
 all_notimpl = 0
+all_tas = 0
 for tee in tees: 
     x,y = gen_graph(tee, out[tee]['ta2bbs'], out[tee]['max_bbs'])
     all_ta2bbs = all_ta2bbs | out[tee]['ta2bbs']
@@ -189,12 +190,13 @@ for tee in tees:
     all_crashes += out[tee]['crashes']
     all_bugs += out[tee]['bugs']
     all_notimpl += out[tee]['notimpl']
+    all_tas += out[tee]['nr_tas']
     print(f'{tee} reached bbs: {max(y)}, max bbs: {out[tee]["max_bbs"]}')
 x,y = gen_graph('all', all_ta2bbs, all_bbs)
 print(f'all reached bbs: {max(y)}, max bbs: {all_bbs}')
 
 print(f'crashes')
 for tee in tees:
-    print(f'{tee} crashes: {out[tee]["crashes"]}, bugs: {out[tee]["bugs"]}, notimpl: {out[tee]["notimpl"]}')
-print(f'all crashes: {all_crashes}, bugs: {all_bugs}, notimpl: {all_notimpl}')
+    print(f'{tee} nr tas: {out[tee]["nr_tas"]} crashes: {out[tee]["crashes"]}, bugs: {out[tee]["bugs"]}, notimpl: {out[tee]["notimpl"]}')
+print(f'all nr tas: {all_tas} crashes: {all_crashes}, bugs: {all_bugs}, notimpl: {all_notimpl}')
 

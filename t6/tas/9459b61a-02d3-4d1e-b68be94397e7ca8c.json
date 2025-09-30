@@ -193,7 +193,7 @@
             "type": "gp_api"
     },
     "throw_exception":{
-        "addr": 2662888,
+        "addr": 2701916,
         "type": "tee"
     },
     "debug_log": {
