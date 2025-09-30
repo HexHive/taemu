@@ -212,8 +212,8 @@ class TAEMU:
         for e in self.TA_CreateEntryPoint_end:
             self.ql.hook_address(pivot, e, user_data="TA_CreateEntryPoint")
 
-        _debugger = self.ql._debugger
-        #self.ql.debugger = False
+        #_debugger = self.ql._debugger
+        self.ql.debugger = False
         self.ql.run(begin=entrypoint)
 
         ret = self.ql.os.fcall.cc.getReturnValue()
