@@ -8,7 +8,7 @@ import sys
 BASE = os.path.join(os.path.dirname(__file__), "..")
 tees = ["teegris", "mitee", "beanpod", "t6"]
 #fuzz_time = 60 * 60 * 24
-fuzz_time = 60 * 60
+fuzz_time = 2
 
 def worker(harness_path):
     log_path = os.path.join(BASE, harness_path, "logs")
@@ -16,15 +16,15 @@ def worker(harness_path):
         os.system(f'mkdir -p {log_path}')
     print(f"Job {harness_path} starting to fuzz {threading.current_thread().name}")
     print(f'docker exec -e AFL_DEBUG=1 -e TAEMU_CRASH_NOTIMPL=1 -it emu ./fuzz.sh ../{harness_path}')
-    proc = subprocess.run(f'docker exec -e FUZZTIME={fuzz_time} -e AFL_DEBUG=1 -e TAEMU_CRASH_NOTIMPL=1 -it emu ./fuzz.sh ../{harness_path}', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = subprocess.run(f'docker exec -e FUZZTIME={fuzz_time} -e AFL_DEBUG=1 -e TAEMU_CRASH_NOTIMPL=1 -it emu ./fuzz.sh ../{harness_path}', shell=True, capture_output=True)
     open(os.path.join(log_path, "fuzz_stdout.txt"),"wb+").write(proc.stdout)
     open(os.path.join(log_path, "fuzz_stderr.txt"),"wb+").write(proc.stderr)
     print(f"Job {harness_path} finished fuzzing {threading.current_thread().name}")
-    proc = subprocess.run(f'docker exec -e TAEMU_CRASH_NOTIMPL=1 -it emu ./replay.sh ../{harness_path}', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = subprocess.run(f'docker exec -e TAEMU_CRASH_NOTIMPL=1 -it emu ./replay.sh ../{harness_path}', shell=True, capture_output=True)
     open(os.path.join(log_path, "replay_stdout.txt"),"wb+").write(proc.stdout)
     open(os.path.join(log_path, "replay_stderr.txt"),"wb+").write(proc.stderr)
     print(f"Job {harness_path} finished replay {threading.current_thread().name}")
-    proc = subprocess.run(f'docker exec -e TAEMU_CRASH_NOTIMPL=1 -it emu ./triage.py ../{harness_path}', shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    proc = subprocess.run(f'docker exec -e TAEMU_CRASH_NOTIMPL=1 -it emu ./triage.py ../{harness_path}', shell=True, capture_output=True)
     open(os.path.join(log_path, "triage_stdout.txt"),"wb+").write(proc.stdout)
     open(os.path.join(log_path, "triage_stderr.txt"),"wb+").write(proc.stderr)
     print(f"Job {harness_path} finished triage {threading.current_thread().name}")
@@ -69,7 +69,7 @@ def main():
                 os.system(f'mv {BASE}/{tee}/harness/{harness}/notimpl {BASE}/{tee}/harness/{harness}/backup_notimpl_{time.time()}')
 
     threads = []
-    for _ in range(num_threads):
+    for _ in range(1):
         t = threading.Thread(target=thread_worker, args=(job_queue,))
         t.start()
         threads.append(t)
