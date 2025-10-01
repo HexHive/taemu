@@ -52,3 +52,18 @@ def localtime(ql: Qiling, hook_data):
     t = ql.mem.map_anywhere(9*4)
     ql.os.fcall.cc.setReturnValue(t)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def soter_load_fingerprint_result(ql: Qiling, hook_data):
+    params = ql.os.resolve_fcall_params({"buf": POINTER, "fp_type": INT})
+    buf = params["buf"]
+    fp_type = params["fp_type"]
+    out = '00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000046696e6765727072696e74204361726473000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+    ql.mem.write(buf, bytes.fromhex(out))
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def tee_get_cpuid(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+        

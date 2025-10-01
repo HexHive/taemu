@@ -78,11 +78,11 @@ def setup_params(ql: Qiling, session, cmd, ptypes, params, is_32bit=False):
             ) 
             if param.is_shared:
                 param.shm_pybuf = pybuf
-                ql.mem.write(pybuf, buf)
+                ql.mem.write(pybuf, buf[:size])
                 ql.hook_mem_write(shared_write_callback, user_data=param, begin=pybuf, end=pybuf+size)
                 ql.hook_mem_read(shared_read_callback, user_data=param, begin=pybuf, end=pybuf+size)
             else:
-                ql.mem.write(pybuf, buf)
+                ql.mem.write(pybuf, buf[:size])
             ql.mem.write_ptr(params_mem_write, pybuf)
             params_mem_write += ql.arch.pointersize
             ql.mem.write_ptr(params_mem_write, size)

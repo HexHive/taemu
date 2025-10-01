@@ -6,12 +6,12 @@
 #include <dlfcn.h>
 
 TEEC_Result (*TEEC_OpenSession_impl)(TEEC_Context*,
-			     TEEC_Session*,
-			     const TEEC_UUID*,
-			     uint32_t,
-			     const void*,
-			     TEEC_Operation*,
-			     uint32_t*);
+                 TEEC_Session*,
+                 const TEEC_UUID*,
+                 uint32_t,
+                 const void*,
+                 TEEC_Operation*,
+                 uint32_t*);
 TEEC_Result (*TEEC_InitializeContext_impl)(const char*, TEEC_Context*);
 void (*TEEC_FinalizeContext_impl)(TEEC_Context*);
 void (*TEEC_CloseSession_impl)(TEEC_Session*);
@@ -38,7 +38,7 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
     memset(&op, 0, sizeof(op));
     op.paramTypes = TEEC_PARAM_TYPES(TEEC_VALUE_INOUT,TEEC_MEMREF_TEMP_INPUT,TEEC_MEMREF_TEMP_INPUT, TEEC_MEMREF_TEMP_OUTPUT);
     
-	printf("params: 0x%lx\n", op.paramTypes);
+    printf("params: 0x%lx\n", op.paramTypes);
     op.params[3].tmpref.buffer = mem_area1;  
     op.params[3].tmpref.size =  0x370; 
     op.params[1].tmpref.buffer = mem_area2; 
@@ -48,10 +48,10 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
     op.params[0].value.a = 4;
     op.params[0].value.b = 4;
 
-	memset(mem_area3, 'A', 0x300);	
+    memset(mem_area3, 'A', 0x300);  
 
     TEEC_Result res = TEEC_InvokeCommand_impl(session, 0x100c, &op, &err_origin);
-	printf("TEEC_Result: %x origin: err_origin: %x\n", res, err_origin);
+    printf("TEEC_Result: %x origin: err_origin: %x\n", res, err_origin);
 
 }
 
@@ -66,7 +66,7 @@ int main(int argc, char **argv)
     uint32_t err_origin;
     TEEC_Result res;
 
-	cleanup_shm();
+    cleanup_shm();
     load_functions();
 
     // Initialize context
@@ -109,3 +109,4 @@ int main(int argc, char **argv)
     TEEC_FinalizeContext_impl(&context);
     return 0;
 }
+

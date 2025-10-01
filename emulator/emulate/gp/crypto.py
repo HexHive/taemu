@@ -27,6 +27,12 @@ def TEE_AllocateOperation(ql:Qiling, hook_data):
             id2opration[OPERATION_ID] = op
             ql.mem.write_ptr(param_operation, OPERATION_ID)
             OPERATION_ID += 1      
+        elif param_algorithm == TEE_ALG_MD5 and param_mode == TEE_MODE_DIGEST:
+            ql.log.info(f"\tTEE_ALG_MD5")
+            op = MD5_Operation(OPERATION_ID, ql)
+            id2opration[OPERATION_ID] = op
+            ql.mem.write_ptr(param_operation, OPERATION_ID)
+            OPERATION_ID += 1      
         elif param_algorithm == TEE_ALG_RSAES_PKCS1_V1_5:
             ql.log.info(f"\tTEE_ALG_RSAES_PKCS1_V1_5")
             op = RSAES_PKCS1_V1_5_Operation(OPERATION_ID, param_mode, param_maxKeySize, ql)
@@ -88,12 +94,15 @@ def TEE_DigestUpdate(ql:Qiling, hook_data):
             ql.emu_stop()
         
         op = id2opration[param_operation]
-        if type(op) != Digest_Operation:
-            ql.log.error(f"TEE_DigestUpdate: op is not a Digest_Operation")
+        data = ql.mem.read(param_chunk, param_chunkSize)
+        if type(op) == Digest_Operation:
+            op.digest_update(data)
+        elif type(op) == MD5_Operation:
+            op.digest_update(data)
+        else: 
+            ql.log.error(f"TEE_DigestUpdate: op is not a Digest_Operation {type(op)}")
             ql.emu_stop()
 
-        data = ql.mem.read(param_chunk, param_chunkSize)
-        op.digest_update(data)
     except unicorn.unicorn_py3.unicorn.UcError as e:
         crash(ql, hook_data.func_name)
         return
@@ -117,12 +126,14 @@ def TEE_DigestDoFinal(ql:Qiling, hook_data):
             ql.emu_stop()
         
         op = id2opration[param_operation]
-        if type(op) != Digest_Operation:
+        data = ql.mem.read(param_chunk, param_chunkLen)
+        if type(op) == Digest_Operation:
+            hash = op.finalize(data, param_hashLen, ql)
+        elif type(op) == MD5_Operation:
+            hash = op.finalize(data, param_hashLen, ql)
+        else:
             ql.log.error(f"TEE_DigestDoFinal: op is not a Digest_Operation")
             ql.emu_stop()
-            
-        data = ql.mem.read(param_chunk, param_chunkLen)
-        hash = op.finalize(data, param_hashLen, ql)
 
         if hash:    
             ql.mem.write(param_hash, hash)

@@ -7,7 +7,7 @@ services:
       target: ghidrathon
     volumes:
       - ./src:/src:ro
-      - ../mitee/tas:/mitee_tas/:rw
+      - ../mitee/redmi_note13_5g_tas/:/mitee_tas/:rw
       - ../beanpod/tas:/beanpod_tas/:rw
       - ../teegris/tas:/teegris_tas/:rw
       - ../t6/tas:/t6_tas/:rw

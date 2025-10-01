@@ -1,6 +1,6 @@
 import hmac
 import hashlib
-from Crypto.Hash import SHA256
+from Crypto.Hash import SHA256, MD5
 from Crypto.PublicKey import RSA  # provided by pycryptodome
 from Crypto.Cipher import PKCS1_v1_5
 from Crypto.Cipher import AES
@@ -12,6 +12,7 @@ from qiling import Qiling
 TEE_ALG_AES_ECB_NOPAD   =   0x10000010
 TEE_ALG_AES_CBC_NOPAD   =   0x10000110
 TEE_ALG_SHA256          =   0x50000004
+TEE_ALG_MD5             =   0x50000001
 TEE_ALG_RSAES_PKCS1_V1_5    =   0x60000130
 TEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256 = 0x60410230
 TEEGRIS_LOG_ENC = 0xf0100003
@@ -28,6 +29,25 @@ class Operation():
     def __init__(self, operaitonID, ql) -> None:
         self.operationID = operaitonID
         self.ql = ql
+
+class MD5_Operation(Operation):
+    def __init__(self, operationID, ql) -> None:
+        super().__init__(operationID, ql)
+        self.h = MD5.new()
+
+    def digest_update(self, data):
+        self.h.update(data)
+
+    def finalize(self, data, hash_len, ql:Qiling):
+        self.h.update(data)
+        hash = self.h.digest()
+
+        if len(hash) > hash_len:
+            ql.log.info(f"\tfinalize: len of hash {hex(len(hash))}, len of res buffer {hex(hash_len)}")
+            return None
+
+        self.h = MD5.new()
+        return hash
 
 
 class Digest_Operation(Operation):

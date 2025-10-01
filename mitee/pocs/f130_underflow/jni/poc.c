@@ -29,11 +29,9 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
     
 	printf("params: 0x%lx\n", op.paramTypes);
     op.params[0].tmpref.buffer = mem_area1; 
-    op.params[0].tmpref.size =  0x1; 
+    op.params[0].tmpref.size =  0xbc; 
 
-	memset(mem_area1, 'A', 0x300);	
-
-    TEEC_Result res = TEEC_InvokeCommand_impl(session, 0x105, &op, &err_origin);
+    TEEC_Result res = TEEC_InvokeCommand_impl(session, 0x1000, &op, &err_origin);
 	printf("TEEC_Result: %x origin: err_origin: %x\n", res, err_origin);
 
 }

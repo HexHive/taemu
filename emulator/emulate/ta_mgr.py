@@ -195,7 +195,7 @@ class TAEMU:
         param = self.get_shm(pointer)
         if param is None:
             return
-        self.ql.mem.write(param.shm_pybuf, param.shm.to_bytes())
+        self.ql.mem.write(param.shm_pybuf, param.shm.to_bytes()[:param.size])
 
     def writeback_shm(self, pointer):
         param = self.get_shm(pointer)
