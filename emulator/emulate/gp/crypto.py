@@ -27,6 +27,12 @@ def TEE_AllocateOperation(ql:Qiling, hook_data):
             id2opration[OPERATION_ID] = op
             ql.mem.write_ptr(param_operation, OPERATION_ID)
             OPERATION_ID += 1      
+        elif param_algorithm == TEE_ALG_RSASSA_PKCS1_PSS_MGF1_SHA256 and (param_mode == TEE_MODE_SIGN or param_mode == TEE_MODE_VERIFY):
+            ql.log.info("\tTEE_ALG_RSASSA_PKCS1_PSS_MGF1_SHA256")
+            op = RSASSA_PKCS1_PSS_MGF1_SHA256_Operation(OPERATION_ID, param_mode, param_maxKeySize, ql)
+            id2opration[OPERATION_ID] = op
+            ql.mem.write_ptr(param_operation, OPERATION_ID)
+            OPERATION_ID += 1
         elif param_algorithm == TEE_ALG_MD5 and param_mode == TEE_MODE_DIGEST:
             ql.log.info(f"\tTEE_ALG_MD5")
             op = MD5_Operation(OPERATION_ID, ql)
@@ -203,6 +209,12 @@ def TEE_SetOperationKey(ql:Qiling, hook_data):
             ql.log.info(f"\td: {op.key.d}")
             ql.log.info(f"\te: {op.key.e}")
 
+        elif type(op) == RSASSA_PKCS1_PSS_MGF1_SHA256_Operation:
+            if type(key) != RSA_KEYPAIR_Obj or not key.initialized:
+                ql.log.error(f'TEE_SetOperationKey: key is not a initialized object type of TEE_TYPE_RSA_KEYPAIR')
+                ql.emu_stop()
+            op.initialize(key.rsa_param, ql)
+
         elif type(op) == AES_ECB_NOPAD_Operation or type(op) == AES_CBC_NOPAD_Operation:
             if op.initialized:
                 ql.log.error(f'TEE_SetOperationKey: op is not an un-initialized operation type {type(op)}')
@@ -228,9 +240,9 @@ def TEE_SetOperationKey(ql:Qiling, hook_data):
             op.initialize(key.key, ql)
 
         else:
-            ql.log.error(f'TEE_SetOperationKey: unknown op type')
+            ql.log.error(f'TEE_SetOperationKey: unknown op type {type(op)}')
             if hook_data.emu.crash_on_not_implemented:
-                crash_notimpl(f'TEE_SetOperationKey: unknown op type {op}')
+                crash_notimpl(f'TEE_SetOperationKey: unknown op type {type(op)}')
                 return 
             ql.emu_stop()
     except unicorn.unicorn_py3.unicorn.UcError as e:
@@ -239,6 +251,17 @@ def TEE_SetOperationKey(ql:Qiling, hook_data):
 
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def TEE_AsymmetricSignDigest(ql:Qiling, hook_data):
+    #TODO
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr   
+
+def TEE_AsymmetricVerifyDigest(ql: Qiling, hook_data):
+    #TODO
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr   
 
 
 def TEE_AsymmetricDecrypt(ql:Qiling, hook_data):

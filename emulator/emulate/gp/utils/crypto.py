@@ -15,6 +15,7 @@ TEE_ALG_SHA256          =   0x50000004
 TEE_ALG_MD5             =   0x50000001
 TEE_ALG_RSAES_PKCS1_V1_5    =   0x60000130
 TEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256 = 0x60410230
+TEE_ALG_RSASSA_PKCS1_PSS_MGF1_SHA256 = 0x70414930
 TEEGRIS_LOG_ENC = 0xf0100003
 TEE_ALG_HMAC_SHA256     =   0x30000004
 
@@ -22,6 +23,8 @@ TEE_ALG_HMAC_SHA256     =   0x30000004
 # 6.1.1 Possible TEE_OperationMode Values
 TEE_MODE_ENCRYPT    = 0x00000000
 TEE_MODE_DECRYPT    = 0x00000001
+TEE_MODE_SIGN       = 0x00000002
+TEE_MODE_VERIFY     = 0x00000003
 TEE_MODE_DIGEST     = 0x00000005 
 
 
@@ -190,6 +193,21 @@ class TEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256_Operation(Operation):
 
     def initialize(self, params, ql):
         #TODO
+        self.initialized = True
+
+    def decrypt(self, ct, ql: Qiling):
+        return b""
+
+class RSASSA_PKCS1_PSS_MGF1_SHA256_Operation(Operation):
+    def __init__(self, operationID, mode, keySize, ql) -> None:
+        super().__init__(operationID, ql)
+        self.keySize = keySize
+        self.mode = mode
+        self.key = None
+        self.cypher = None
+        self.initialized = False 
+
+    def initialize(self, params, ql):
         self.initialized = True
 
     def decrypt(self, ct, ql: Qiling):

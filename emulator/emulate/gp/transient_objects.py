@@ -167,7 +167,7 @@ def TEE_InitRefAttribute(ql:Qiling, hook_data):
 def TEE_InitValueAttribute(ql:Qiling, hook_data):
     emu = hook_data.emu
     func_name = hook_data.func_name
-    params = ql.os.resolve_fcall_params({'attr': POINTER, "attributeID": UINT, "a": POINTER, "b": length})
+    params = ql.os.resolve_fcall_params({'attr': POINTER, "attributeID": UINT, "a": POINTER, "b": UINT})
     para_attr = params['attr']
     para_attributeID = params['attributeID']
     para_a = params['a']
@@ -180,8 +180,8 @@ def TEE_InitValueAttribute(ql:Qiling, hook_data):
 
     try:
         ql.mem.write(para_attr, p32(para_attributeID))
-        ql.mem.write_ptr(para_attr + 4, para_a, 4)
-        ql.mem.write(para_attr + 8, para_b, 4)
+        ql.mem.write(para_attr + 4, para_a.to_bytes(4, "little"))
+        ql.mem.write(para_attr + 8, para_b.to_bytes(4, "little"))
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, func_name)
         return
