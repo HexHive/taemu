@@ -15,10 +15,19 @@ def worker(harness_path):
     if not os.path.exists(log_path):
         os.system(f'mkdir -p {log_path}')
     print(f"Job {harness_path} starting to fuzz {threading.current_thread().name}")
-    print(f'docker exec -e AFL_DEBUG=1 -e TAEMU_CRASH_NOTIMPL=1 -it emu ./fuzz.sh ../{harness_path}')
-    proc = subprocess.run(f'docker exec -e FUZZTIME={fuzz_time} -e AFL_DEBUG=1 -e TAEMU_CRASH_NOTIMPL=1 -it emu ./fuzz.sh ../{harness_path}', shell=True, capture_output=True)
-    open(os.path.join(log_path, "fuzz_stdout.txt"),"wb+").write(proc.stdout)
-    open(os.path.join(log_path, "fuzz_stderr.txt"),"wb+").write(proc.stderr)
+    print(f'docker exec -e AFL_NO_UI=1 -e TAEMU_CRASH_NOTIMPL=1 -it emu ./fuzz.sh ../{harness_path}')
+    open(os.path.join(log_path, "fuzz_stdout.txt"),"wb+").write(b"")
+    open(os.path.join(log_path, "fuzz_stderr.txt"),"wb+").write(b"")
+    if fuzz_time > 60*60:
+        for _ in range(0, int(fuzz_time/(60*60))):
+            # ;; avoid memory running out
+            proc = subprocess.run(f'docker exec -e FUZZTIME={60*60} -e AFL_DEBUG=1 -e TAEMU_CRASH_NOTIMPL=1 -it emu ./fuzz.sh ../{harness_path}', shell=True, capture_output=True)
+            open(os.path.join(log_path, "fuzz_stdout.txt"),"ab+").write(proc.stdout)
+            open(os.path.join(log_path, "fuzz_stderr.txt"),"ab+").write(proc.stderr)
+    else:
+        proc = subprocess.run(f'docker exec -e FUZZTIME={fuzz_time} -e AFL_DEBUG=1 -e TAEMU_CRASH_NOTIMPL=1 -it emu ./fuzz.sh ../{harness_path}', shell=True, capture_output=True)
+        open(os.path.join(log_path, "fuzz_stdout.txt"),"ab+").write(proc.stdout)
+        open(os.path.join(log_path, "fuzz_stderr.txt"),"ab+").write(proc.stderr)
     print(f"Job {harness_path} finished fuzzing {threading.current_thread().name}")
     proc = subprocess.run(f'docker exec -e TAEMU_CRASH_NOTIMPL=1 -it emu ./replay.sh ../{harness_path}', shell=True, capture_output=True)
     open(os.path.join(log_path, "replay_stdout.txt"),"wb+").write(proc.stdout)
@@ -45,7 +54,7 @@ def main():
     if 'emu' not in str(subprocess.run('docker ps', shell=True)):
         subprocess.run(f'cd {BASE}  && docker run --rm --name emu --network host -d -v .:/srv -w /srv/emulator -v /dev/shm:/dev/shm --ipc=host --shm-size=100g ta_emu tail -f', shell=True)
     num_cores = os.cpu_count() or 2
-    num_threads = max(1, num_cores - 2)  # at least 1 thread
+    num_threads = max(1, num_cores - 30)  # at least 1 thread
     print(f"Using {num_threads} threads")
     job_queue = queue.Queue()
     for tee in tees:
