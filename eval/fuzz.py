@@ -19,13 +19,20 @@ def worker(harness_path):
     open(os.path.join(log_path, "fuzz_stdout.txt"),"wb+").write(b"")
     open(os.path.join(log_path, "fuzz_stderr.txt"),"wb+").write(b"")
     if fuzz_time > 60*60:
-        for _ in range(0, int(fuzz_time/(60*60))):
+        seed_backup_dir = os.path.join(BASE, harness_path, "seeds") 
+        queue_path = os.path.join(BASE, harness_path, "out", "default", "queue")
+        if os.path.exists(seed_backup_dir):
+            os.system(f'rm -rf {seed_backup_dir}')
+        os.system(f'mkdir -p {seed_backup_dir}')
+        for i in range(0, int(fuzz_time/(60*60))):
             # ;; avoid memory running out
-            proc = subprocess.run(f'docker exec -e FUZZTIME={60*60} -e AFL_DEBUG=1 -e TAEMU_CRASH_NOTIMPL=1 -it emu ./fuzz.sh ../{harness_path}', shell=True, capture_output=True)
+            proc = subprocess.run(f'docker exec -e FUZZTIME={60*60} -e AFL_NO_UI=1 -e TAEMU_CRASH_NOTIMPL=1 -it emu ./fuzz.sh ../{harness_path}', shell=True, capture_output=True)
             open(os.path.join(log_path, "fuzz_stdout.txt"),"ab+").write(proc.stdout)
             open(os.path.join(log_path, "fuzz_stderr.txt"),"ab+").write(proc.stderr)
+            os.system(f'mkdir -p {seed_backup_dir}/{i}')
+            os.system(f'cp -r {queue_path} {seed_backup_dir}/{i}')
     else:
-        proc = subprocess.run(f'docker exec -e FUZZTIME={fuzz_time} -e AFL_DEBUG=1 -e TAEMU_CRASH_NOTIMPL=1 -it emu ./fuzz.sh ../{harness_path}', shell=True, capture_output=True)
+        proc = subprocess.run(f'docker exec -e FUZZTIME={fuzz_time} -e AFL_NO_UI=1 -e TAEMU_CRASH_NOTIMPL=1 -it emu ./fuzz.sh ../{harness_path}', shell=True, capture_output=True)
         open(os.path.join(log_path, "fuzz_stdout.txt"),"ab+").write(proc.stdout)
         open(os.path.join(log_path, "fuzz_stderr.txt"),"ab+").write(proc.stderr)
     print(f"Job {harness_path} finished fuzzing {threading.current_thread().name}")
