@@ -68,6 +68,7 @@ def cfg_ta(ta_path):
         if ta_entry_addr == -1: continue
         cfg.add_node(label(int2hex(ta_entry_addr)))
         cfg.add_edge(label(root), label(int2hex(ta_entry_addr)))
+        print(ta_path, ta_entry, len(bb_data["0x" +int2hex(ta_entry_addr).lstrip("0")]["nodes"]))
     for f, data in bb_data.items():
         if f.startswith("0x"):
             f = int2hex(int(f,16))
@@ -349,6 +350,8 @@ def analyze_ta(ta_path):
     print(len(nx.descendants(cfg, root)))
     nothing_cfg = trim_cfg(cfg, []) 
     print(len(nx.descendants(nothing_cfg, root)))
+    for ta_fw in cfg.neighbors(root):
+        print(ta_fw, len(nx.descendants(cfg, ta_fw)))
     """
     pos = graphviz_layout(cfg, prog="dot", args="-Grankdir=TB")
     nx.draw(cfg, pos, with_labels=True, node_color="lightblue", arrows=True)

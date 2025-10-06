@@ -200,7 +200,6 @@ for tee in tees:
                 return True
         return False
     ta2bbs_cfg = {}
-    """
     cfg_unique_bbs = set()
     not_ctg_bbs = set()
     for ta, data in ta2bbs.items():
@@ -219,9 +218,8 @@ for tee in tees:
                     else:
                         not_ctg_bbs.add(bb)
     #print([n for n in nx.descendants(tee_cfg, root)])
-    #print(len(nx.descendants(tee_cfg, root)), len(cfg_unique_bbs))
-    """
-    out[tee]['max_bbs'] = len(nx.descendants(tee_cfg, root))
+    print("cfg bbs", len(nx.descendants(tee_cfg, root)), len(cfg_unique_bbs))
+    out[tee]['max_bbs'] = len(nx.descendants(tee_cfg, root)) + len(not_ctg_bbs)
     out[tee]['fuzz_bbs'] = sum([len(bbs) for _,bbs in ta2bbs_merged.items()])
     out[tee]['ta2bbs'] = ta2bbs
 
