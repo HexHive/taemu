@@ -417,6 +417,7 @@ def analyze_tee(tee_path):
     plt = gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
     out_path = f'bbs_out/{tee}_reachable.pdf'
     open(f'bbs_out/{tee}_order.txt', 'w+').write('\n'.join(c.func for c in implemented_apis))
+    open(f'bbs_out/{tee}.json','w+').write(json.dumps(reachable))
     plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
     print_info(tee_cfg, reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
     print(40*"=")
@@ -425,6 +426,7 @@ def analyze_tee(tee_path):
     plt = gen_plot(reachable, max_nodes, 0, 0, 0, 0)
     out_path = f'bbs_out/{tee}_reachable_noorder.pdf'
     open(f'bbs_out/{tee}_order_noorder.txt', 'w+').write('\n'.join(c.func for c in implemented_apis))
+    open(f'bbs_out/{tee}_noorder.json','w+').write(json.dumps(reachable))
     plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
 
 def analyze_all():
