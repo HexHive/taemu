@@ -19,7 +19,9 @@ def worker(harness_path):
     open(os.path.join(log_path, "fuzz_stderr.txt"),"wb+").write(b"")
     if fuzz_time > 60*60:
         seed_backup_dir = os.path.join(BASE, harness_path, "seeds") 
+        in_path = os.path.join(BASE, harness_path, "in")
         queue_path = os.path.join(BASE, harness_path, "out", "default", "queue")
+        crashes_path = os.path.join(BASE, harness_path, "out", "default", "crashes")
         if os.path.exists(seed_backup_dir):
             os.system(f'rm -rf {seed_backup_dir}')
         os.system(f'mkdir -p {seed_backup_dir}')
@@ -31,6 +33,11 @@ def worker(harness_path):
             open(os.path.join(log_path, "fuzz_stderr.txt"),"ab+").write(proc.stderr)
             os.system(f'mkdir -p {seed_backup_dir}/{i}')
             os.system(f'cp -r {queue_path} {seed_backup_dir}/{i}')
+            os.system(f'cp -r {seed_backup_dir}/{i} {in_path}')
+            os.system(f'cp -r {crashes_path} {seed_backup_dir}/{i}')
+        for index in os.listdir(seed_backup_dir):
+            for crash in os.listdir(os.path.join(seed_backup_dir, index, "crashes"):
+                os.system(f'cp {seed_backup_dir}/{index}/crashes/{crash} {crashes_path}')
     else:
         print(f'docker exec -e FUZZTIME={fuzz_time} -e AFL_NO_UI=1 -e TAEMU_CRASH_NOTIMPL=1 -it emu ./fuzz.sh ../{harness_path}')
         proc = subprocess.run(f'docker exec -e FUZZTIME={fuzz_time} -e AFL_NO_UI=1 -e TAEMU_CRASH_NOTIMPL=1 -it emu ./fuzz.sh ../{harness_path}', shell=True, capture_output=True)
