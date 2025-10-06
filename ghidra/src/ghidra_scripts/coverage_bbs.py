@@ -2,7 +2,6 @@ import os
 import json
 from argparse import ArgumentParser
 from decompile_util import (
-    SignatureChanger,
     Decompiler,
     INVOKE_COMMAND_FUNC_NAME,
     OPEN_SESSION_FUNC_NAME,
@@ -40,7 +39,6 @@ log = logging.getLogger(__name__)
 DATA_BASE_DIR = "/data"
 PROGRAM: ProgramDB = getCurrentProgram()
 DECOMPILER: Decompiler = Decompiler(PROGRAM)
-SIG_CHANGER = SignatureChanger(PROGRAM)
 
 ################################################################################
 # CODE
@@ -330,6 +328,8 @@ def main():
     )
     args = arg_parser.parse_args(args=getScriptArgs())
     prog_path = getCurrentProgram().getExecutablePath()
+    if not os.path.exists(prog_path):
+        prog_path = os.path.join("/mnt", prog_path[prog_path.find(args.tee):])
     ta_json = prog_path[:-3] + ".json"
     out_dir = os.path.join(os.path.dirname(prog_path), 'bbs')
     out_path = os.path.join(out_dir, 'bb_' + os.path.basename(prog_path)+'.json')

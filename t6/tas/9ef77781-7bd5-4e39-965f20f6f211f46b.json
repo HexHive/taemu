@@ -263,6 +263,18 @@
         "init_ta_session": {
             "addr": 2227564,
             "type": "tee"
+        },
+        "TEE_OpenSession": {
+            "addr": 2269672,
+            "type": "tee"
+        },
+        "throw_exception": {
+            "addr": 2292508,
+            "type": "tee"
+        },
+        "__assert_fail": {
+            "addr": 2290752,
+            "type": "tee"
         }
     },
     "TA_CreateEntryPoint_start": 2115340,

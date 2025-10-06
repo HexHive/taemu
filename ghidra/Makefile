@@ -24,4 +24,7 @@ t6: ## Run the Docker container(s) t6
 bbs: ## Check reachable bbs
 		@$(DOCKER) compose run --rm tipi /bbs-entrypoint.sh ${TARGET} ${TEE}
 
+bbs-manual: ## Check reachable bbs
+		@$(DOCKER) compose run --rm tipi /bbs-manual-entrypoint.sh ${TARGET} ${TEE}
+
 

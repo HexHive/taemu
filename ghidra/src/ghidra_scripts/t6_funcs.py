@@ -2,7 +2,6 @@ import os
 import json
 from argparse import ArgumentParser
 from decompile_util import (
-    SignatureChanger,
     Decompiler,
     INVOKE_COMMAND_FUNC_NAME,
     OPEN_SESSION_FUNC_NAME,
@@ -45,7 +44,6 @@ log = logging.getLogger(__name__)
 DATA_BASE_DIR = "/data"
 PROGRAM: ProgramDB = getCurrentProgram()
 DECOMPILER: Decompiler = Decompiler(PROGRAM)
-SIG_CHANGER = SignatureChanger(PROGRAM)
 
 ################################################################################
 # CODE

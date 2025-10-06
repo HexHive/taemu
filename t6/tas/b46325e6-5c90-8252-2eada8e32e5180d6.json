@@ -1,5 +1,13 @@
 {
     "inline": {
+        "TEE_CheckMemoryAccessRights": {
+            "addr": 2168796,
+            "type": "gp_api"
+        },
+        "TEE_AsymmetricVerifyDigest": {
+            "addr": 2182228,
+            "type": "gp_api"
+        },
         "TEE_AllocateTransientObject": {
             "addr": 2170796,
             "type": "gp_api"
@@ -32,8 +40,32 @@
             "addr": 2167420,
             "type": "gp_api"
         },
+        "TEE_GetPropertyAsString": {
+            "addr": 2166564,
+            "type": "gp_api"
+        },
+        "TEE_GetPropertyAsUUID": {
+            "addr": 2167312,
+            "type": "gp_api"
+        },
         "TEE_AllocatePropertyEnumerator": {
             "addr": 2167524,
+            "type": "gp_api"
+        },
+        "TEE_AsymmetricExport": {
+            "addr": 2182076,
+            "type": "gp_api"
+        },
+        "TEE_GenerateRandom": {
+            "addr": 2182952,
+            "type": "gp_api"
+        },
+        "TEE_GenerateKey": {
+            "addr": 2171844,
+            "type": "gp_api"
+        },
+        "TEE_InitValueAttribute": {
+            "addr": 2171416,
             "type": "gp_api"
         },
         "TEE_GetPropertyAsU32": {
@@ -182,6 +214,14 @@
         },
         "debug_log": {
             "addr": 2193768,
+            "type": "tee_std"
+        },
+        "TEE_OpenSession": {
+            "addr": 2168512,
+            "type": "gp_api"
+        },
+        "__assert_fail": {
+            "addr": 2205376,
             "type": "tee_std"
         }
     },

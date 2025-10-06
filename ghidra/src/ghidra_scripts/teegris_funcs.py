@@ -45,7 +45,6 @@ log = logging.getLogger(__name__)
 DATA_BASE_DIR = "/data"
 PROGRAM: ProgramDB = getCurrentProgram()
 DECOMPILER: Decompiler = Decompiler(PROGRAM)
-SIG_CHANGER = SignatureChanger(PROGRAM)
 
 ################################################################################
 # CODE

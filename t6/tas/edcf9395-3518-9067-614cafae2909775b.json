@@ -187,6 +187,14 @@
         "GetBootSeed": {
             "addr": 5831268,
             "type": "tee"
+        },
+        "platform_spi_write_read":{
+            "addr": 5803188,
+            "type": "tee"
+        },
+        "platform_open_driver": {
+            "addr": 5802944,
+            "type": "tee"
         }
     },
     "TA_CreateEntryPoint_start": 5804648,
