@@ -36,7 +36,7 @@ def worker(harness_path):
             os.system(f'cp -r {seed_backup_dir}/{i} {in_path}')
             os.system(f'cp -r {crashes_path} {seed_backup_dir}/{i}')
         for index in os.listdir(seed_backup_dir):
-            for crash in os.listdir(os.path.join(seed_backup_dir, index, "crashes"):
+            for crash in os.listdir(os.path.join(seed_backup_dir, index, "crashes")):
                 os.system(f'cp {seed_backup_dir}/{index}/crashes/{crash} {crashes_path}')
     else:
         print(f'docker exec -e FUZZTIME={fuzz_time} -e AFL_NO_UI=1 -e TAEMU_CRASH_NOTIMPL=1 -it emu ./fuzz.sh ../{harness_path}')
