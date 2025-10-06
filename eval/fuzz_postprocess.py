@@ -75,6 +75,19 @@ def parse_cov(tee, ta, drcov_path):
         out[timestamp] = bbs
     return out
 
+def parse_cov_seeds(tee, ta, drcov_path_seeds):
+    out = {}
+    for index in os.listdir(drcov_path_seeds):
+        queue_path = os.path.join(drcov_path_seeds, index, "queue")
+        for cov_file in os.listdir(queue_path):
+            try:
+                timestamp = int(int(cov_file.split("time:")[-1].split(",")[0])/1000)
+            except:
+                continue    
+            bbs = parse_drcov(tee, ta, os.path.join(queue_path, cov_file))
+            out[timestamp + 60*60*int(index)] = bbs
+    return out 
+
 def gen_graph(tee, ta2bbs, max_bbs):
     t2bbs = {}
     for ta, data in ta2bbs.items():
@@ -159,7 +172,10 @@ for tee in tees:
             continue
         if not os.path.exists(os.path.join(harness_path, "out", "cov")):
             continue
-        ta2bbs[ta] = parse_cov(tee, ta, os.path.join(harness_path, "out", "cov")) 
+        if fuzz_time > 60*60:
+            ta2bbs[ta] = parse_cov(tee, ta, os.path.join(harness_path, "out", "cov")) 
+        else:
+            ta2bbs[ta] = parse_cov_seeds(tee, ta, os.path.join(harness_path, "seeds")) 
         unique_bbs = set()
         for timestamp, bbss in ta2bbs[ta].items():
             for bb in bbss:
