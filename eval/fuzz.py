@@ -7,7 +7,7 @@ import sys
 
 BASE = os.path.join(os.path.dirname(__file__), "..")
 tees = ["teegris", "mitee", "beanpod", "t6"]
-fuzz_time = 60 * 60 * 24
+fuzz_time = 60 * 60 * 3
 #fuzz_time = 60*60
 
 def worker(harness_path):
@@ -69,7 +69,7 @@ def main():
     if 'emu' not in str(subprocess.run('docker ps', shell=True)):
         subprocess.run(f'cd {BASE}  && docker run --rm --name emu --network host -d -v .:/srv -w /srv/emulator -v /dev/shm:/dev/shm --ipc=host --shm-size=100g ta_emu tail -f', shell=True)
     num_cores = os.cpu_count() or 2
-    num_threads = max(1, num_cores - 30)  # at least 1 thread
+    num_threads = max(1, num_cores - 5)  # at least 1 thread
     print(f"Using {num_threads} threads")
     job_queue = queue.Queue()
     for tee in tees:
