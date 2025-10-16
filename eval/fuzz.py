@@ -7,7 +7,7 @@ import sys
 
 BASE = os.path.join(os.path.dirname(__file__), "..")
 tees = ["teegris", "mitee", "beanpod", "t6"]
-fuzz_time = 60 * 60 * 3
+fuzz_time = 60 * 60 * 24
 #fuzz_time = 60*60
 
 def worker(harness_path):
