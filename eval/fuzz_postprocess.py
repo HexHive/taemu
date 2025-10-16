@@ -251,22 +251,6 @@ for tee in tees:
 print(f'all nr tas: {all_tas} crashes: {all_crashes}, bugs: {all_bugs}, notimpl: {all_notimpl}')
 
 # print latex macros
-"""
-\newcommand{\numfuzztasteegris}{17\xspace}
-\newcommand{\numfuzzcrashesteegris}{19\xspace}
-\newcommand{\numfuzznotimplteegris}{19\xspace}
-\newcommand{\numfuzzbugteegris}{0\xspace}
-\newcommand{\numfuzzmaxbbteegris}{27'254\xspace}
-\newcommand{\numfuzzbbteegris}{4526\xspace}
-
-\newcommand{\numfuzzvuln}{12\xspace}
-\newcommand{\numfuzztas}{33\xspace}
-\newcommand{\numfuzzcrashes}{134\xspace}
-\newcommand{\numfuzznotimpl}{41\xspace}
-\newcommand{\numfuzzbug}{93\xspace}
-\newcommand{\numfuzzmaxbb}{76'515\xspace}
-\newcommand{\numfuzzbb}{17'444\xspace}
-"""
 
 for tee in tees:
     if tee == "t6": tee_name = "tsix"
