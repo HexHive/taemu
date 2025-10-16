@@ -233,6 +233,7 @@ all_notimpl = 0
 all_tas = 0
 for tee in tees: 
     x,y = gen_graph(tee, out[tee]['ta2bbs'], out[tee]['max_bbs'])
+    out[tee]['bbs'] = max(y)
     all_ta2bbs = all_ta2bbs | out[tee]['ta2bbs']
     all_bbs += out[tee]['max_bbs']
     all_crashes += out[tee]['crashes']
@@ -241,10 +242,46 @@ for tee in tees:
     all_tas += out[tee]['nr_tas']
     print(f'{tee} reached bbs: {max(y)}, max bbs: {out[tee]["max_bbs"]}')
 x,y = gen_graph('all', all_ta2bbs, all_bbs)
+all_fuzz_bbs = max(y)
 print(f'all reached bbs: {max(y)}, max bbs: {all_bbs}')
 
 print(f'crashes')
 for tee in tees:
     print(f'{tee} nr tas: {out[tee]["nr_tas"]} crashes: {out[tee]["crashes"]}, bugs: {out[tee]["bugs"]}, notimpl: {out[tee]["notimpl"]}')
 print(f'all nr tas: {all_tas} crashes: {all_crashes}, bugs: {all_bugs}, notimpl: {all_notimpl}')
+
+# print latex macros
+"""
+\newcommand{\numfuzztasteegris}{17\xspace}
+\newcommand{\numfuzzcrashesteegris}{19\xspace}
+\newcommand{\numfuzznotimplteegris}{19\xspace}
+\newcommand{\numfuzzbugteegris}{0\xspace}
+\newcommand{\numfuzzmaxbbteegris}{27'254\xspace}
+\newcommand{\numfuzzbbteegris}{4526\xspace}
+
+\newcommand{\numfuzzvuln}{12\xspace}
+\newcommand{\numfuzztas}{33\xspace}
+\newcommand{\numfuzzcrashes}{134\xspace}
+\newcommand{\numfuzznotimpl}{41\xspace}
+\newcommand{\numfuzzbug}{93\xspace}
+\newcommand{\numfuzzmaxbb}{76'515\xspace}
+\newcommand{\numfuzzbb}{17'444\xspace}
+"""
+
+for tee in tees:
+    if tee == "t6": tee_name = "tsix"
+    else: tee_name = tee
+    print_latex(f"numfuzztas{tee_name}", out[tee]['nr_tas'])
+    print_latex(f"numfuzzcrashes{tee_name}", out[tee]['crashes'])
+    print_latex(f"numfuzznotimpl{tee_name}", out[tee]['notimpl'])
+    print_latex(f"numfuzzbug{tee_name}", out[tee]['bugs'])
+    print_latex(f"numfuzzmaxbb{tee_name}", out[tee]['max_bbs'])
+    print_latex(f"numfuzzbb{tee_name}", out[tee]['bbs'])
+
+print_latex(f"numfuzztas", all_tas)
+print_latex(f"numfuzzcrashes", all_crashes)
+print_latex(f"numfuzznotimpl", all_notimpl)
+print_latex(f"numfuzzbug", all_bugs)
+print_latex(f"numfuzzmaxbb", all_bbs)
+print_latex(f"numfuzzbb", all_fuzz_bbs)
 

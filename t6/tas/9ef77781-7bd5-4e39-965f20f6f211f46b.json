@@ -266,7 +266,7 @@
         },
         "TEE_OpenSession": {
             "addr": 2269672,
-            "type": "tee"
+            "type": "gp_api"
         },
         "throw_exception": {
             "addr": 2292508,
