@@ -68,7 +68,19 @@ def setup_args():
         required=False,
         default="beanpod"
     )
-        
+    parser.add_argument(
+        "--no_std_apis",
+        help="don't hook standard (GP and libc) APIs",
+        default=False,
+        action="store_true"
+    )
+    parser.add_argument(
+        "--no_tee_apis",
+        help="don't hook standard TEE specific APIs",
+        default=False,
+        action="store_true"
+    )    
+
     parser.add_argument("ta", help="The Trusted Application to be executed.")
 
     return parser
@@ -187,7 +199,13 @@ if __name__ == "__main__":
         ql.hook_code(simple_diassembler, user_data=ql.arch.disassembler)
     if args.trace:
         ql.hook_block(trace_block)
-    emu = TAEMU(ql, TEE, ta_path, ta_elf)
+    std_apis = True
+    tee_apis = True
+    if args.no_std_apis:
+        std_apis = False
+    if args.no_tee_apis:
+        tee_apis = False
+    emu = TAEMU(ql, TEE, ta_path, ta_elf, std_implemented=std_apis, tee_specific_implemented=tee_apis)
     emu.setup()
     emu.hook()
     if args.fuzz:

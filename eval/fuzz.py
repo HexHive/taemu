@@ -8,6 +8,7 @@ import sys
 BASE = os.path.join(os.path.dirname(__file__), "..")
 tees = ["teegris", "mitee", "beanpod", "t6"]
 fuzz_time = 60 * 60 * 24
+fuzz_time = 60 * 60 * 2
 #fuzz_time = 60*60
 
 def worker(harness_path):
@@ -22,6 +23,7 @@ def worker(harness_path):
         in_path = os.path.join(BASE, harness_path, "in")
         queue_path = os.path.join(BASE, harness_path, "out", "default", "queue")
         crashes_path = os.path.join(BASE, harness_path, "out", "default", "crashes")
+        cov_path = os.path.join(BASE, harness_path, "out", "cov")
         if os.path.exists(seed_backup_dir):
             os.system(f'rm -rf {seed_backup_dir}')
         os.system(f'mkdir -p {seed_backup_dir}')
@@ -35,18 +37,35 @@ def worker(harness_path):
             os.system(f'cp -r {queue_path} {seed_backup_dir}/{i}')
             os.system(f'cp -r {seed_backup_dir}/{i} {in_path}')
             os.system(f'cp -r {crashes_path} {seed_backup_dir}/{i}')
+            print(f"Job {harness_path} finished fuzzing {threading.current_thread().name}")
+            
+            proc = subprocess.run(f'docker exec -it emu ./replay.sh ../{harness_path}', shell=True, capture_output=True)
+            open(os.path.join(log_path, "replay_stdout.txt"),"ab+").write(proc.stdout)
+            open(os.path.join(log_path, "replay_stderr.txt"),"ab+").write(proc.stderr)
+            os.system(f'mv {cov_path} {seed_backup_dir}/{i}/')
+
+            proc = subprocess.run(f'docker exec -e TAEMU_NO_TEE_API=1 -e TAEMU_NO_STD_API=1 -it emu ./replay.sh ../{harness_path}', shell=True, capture_output=True)
+            open(os.path.join(log_path, "replay_stdout_no_api.txt"),"ab+").write(proc.stdout)
+            open(os.path.join(log_path, "replay_stderr_no_api.txt"),"ab+").write(proc.stderr)
+            os.system(f'mv {cov_path} {seed_backup_dir}/{i}/cov_no_apis')
+            
+            proc = subprocess.run(f'docker exec -e TAEMU_NO_TEE_API=1 -it emu ./replay.sh ../{harness_path}', shell=True, capture_output=True)
+            open(os.path.join(log_path, "replay_stdout_no_tee_api.txt"),"ab+").write(proc.stdout)
+            open(os.path.join(log_path, "replay_stderr_no_tee_api.txt"),"ab+").write(proc.stderr)
+            os.system(f'mv {cov_path} {seed_backup_dir}/{i}/cov_no_tee_apis')
+            
         for index in os.listdir(seed_backup_dir):
             for crash in os.listdir(os.path.join(seed_backup_dir, index, "crashes")):
                 os.system(f'cp {seed_backup_dir}/{index}/crashes/{crash} {crashes_path}')
     else:
         print(f'docker exec -e FUZZTIME={fuzz_time} -e AFL_NO_UI=1 -e TAEMU_CRASH_NOTIMPL=1 -it emu ./fuzz.sh ../{harness_path}')
         proc = subprocess.run(f'docker exec -e FUZZTIME={fuzz_time} -e AFL_NO_UI=1 -e TAEMU_CRASH_NOTIMPL=1 -it emu ./fuzz.sh ../{harness_path}', shell=True, capture_output=True)
-        open(os.path.join(log_path, "fuzz_stdout.txt"),"ab+").write(proc.stdout)
-        open(os.path.join(log_path, "fuzz_stderr.txt"),"ab+").write(proc.stderr)
-    print(f"Job {harness_path} finished fuzzing {threading.current_thread().name}")
-    proc = subprocess.run(f'docker exec -e TAEMU_CRASH_NOTIMPL=1 -it emu ./replay.sh ../{harness_path}', shell=True, capture_output=True)
-    open(os.path.join(log_path, "replay_stdout.txt"),"wb+").write(proc.stdout)
-    open(os.path.join(log_path, "replay_stderr.txt"),"wb+").write(proc.stderr)
+        open(os.path.join(log_path, "fuzz_stdout.txt"),"wb+").write(proc.stdout)
+        open(os.path.join(log_path, "fuzz_stderr.txt"),"wb+").write(proc.stderr)
+        print(f"Job {harness_path} finished fuzzing {threading.current_thread().name}")
+        proc = subprocess.run(f'docker exec -e TAEMU_CRASH_NOTIMPL=1 -it emu ./replay.sh ../{harness_path}', shell=True, capture_output=True)
+        open(os.path.join(log_path, "replay_stdout.txt"),"wb+").write(proc.stdout)
+        open(os.path.join(log_path, "replay_stderr.txt"),"wb+").write(proc.stderr)
     print(f"Job {harness_path} finished replay {threading.current_thread().name}")
     proc = subprocess.run(f'docker exec -e TAEMU_CRASH_NOTIMPL=1 -it emu ./triage.py ../{harness_path}', shell=True, capture_output=True)
     open(os.path.join(log_path, "triage_stdout.txt"),"wb+").write(proc.stdout)

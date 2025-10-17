@@ -78,7 +78,7 @@ def parse_cov(tee, ta, drcov_path):
 def parse_cov_seeds(tee, ta, drcov_path_seeds):
     out = {}
     for index in os.listdir(drcov_path_seeds):
-        queue_path = os.path.join(drcov_path_seeds, index, "queue")
+        queue_path = os.path.join(drcov_path_seeds, index, "cov")
         for cov_file in os.listdir(queue_path):
             try:
                 timestamp = int(int(cov_file.split("time:")[-1].split(",")[0])/1000)
@@ -172,7 +172,7 @@ for tee in tees:
             continue
         if not os.path.exists(os.path.join(harness_path, "out", "cov")):
             continue
-        if fuzz_time > 60*60:
+        if fuzz_time < 60*60:
             ta2bbs[ta] = parse_cov(tee, ta, os.path.join(harness_path, "out", "cov")) 
         else:
             ta2bbs[ta] = parse_cov_seeds(tee, ta, os.path.join(harness_path, "seeds")) 

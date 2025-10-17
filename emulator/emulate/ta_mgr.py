@@ -81,7 +81,7 @@ class EmuLog:
 
 class TAEMU:
 
-    def __init__(self, ql: Qiling, tee: str, ta_path: str, ta_elf: ELF):
+    def __init__(self, ql: Qiling, tee: str, ta_path: str, ta_elf: ELF, std_implemented=True, tee_specific_implemented=True):
         self.ql = ql
         self.log = EmuLog(ql)
         self.tee = tee
@@ -101,6 +101,13 @@ class TAEMU:
             self.crash_on_not_implemented = True
         self.sessions = []
         self._debugger = ql._debugger
+        self.std_implemented= std_implemented
+        self.tee_specific_implemented = tee_specific_implemented
+        if "TAEMU_NO_STD_API" in os.environ:
+            self.std_implemented= False
+        if "TAEMU_NO_TEE_API" in os.environ:
+            self.tee_specific_implemented= False 
+            
 
         f = open(f"{self.ta_path[:-3]}.json", "r")
         ta_info = json.load(f)
@@ -177,9 +184,11 @@ class TAEMU:
             self.ta_elf,
             self,
             is_mitee=self.tee == "mitee",
-            is_tc=self.tee == "trustedcore"
+            is_tc=self.tee == "trustedcore",
+            std_implemented = self.std_implemented,
+            tee_specific_implemented = self.tee_specific_implemented
         )
-        hook_ta_custom(self.ql, self.ta_path, self.ta_elf, self)
+        hook_ta_custom(self.ql, self.ta_path, self.ta_elf, self, std_implemented = self.std_implemented, tee_specific_implemented=self.tee_specific_implemented)
         self.ql.do_lib_patch()
 
     def get_shm(self, pointer):
