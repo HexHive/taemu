@@ -252,6 +252,11 @@ print(f'all nr tas: {all_tas} crashes: {all_crashes}, bugs: {all_bugs}, notimpl:
 
 # print latex macros
 
+#\newcommand{\numdatataskinibi}{31\xspace}
+
+def print_latex(name, num):
+    print(f'\\newcommand{{\\{name}}}{{{num}\\xspace}}')
+
 for tee in tees:
     if tee == "t6": tee_name = "tsix"
     else: tee_name = tee
