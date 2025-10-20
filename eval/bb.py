@@ -53,6 +53,13 @@ class Call:
 
 root = '0'*8
 
+def is_address(func_name):
+    try:
+        a = int("0x"+func_name, 16)
+        return True
+    except:
+        return False
+
 def cfg_ta(ta_path):
     global ta_uuid
     cfg = nx.DiGraph()
@@ -95,6 +102,10 @@ def cfg_ta(ta_path):
                         cfg.add_node(fcall_lbl)
                     cfg.add_edge(bb_l, fcall_lbl)
                 else:
+                    if call["api_type"] == "tee" and is_address(call["func"]):
+                        # ignore ghidra fu
+                        print(f'ignoring: ', call["func"])
+                        continue
                     node["api_calls"].append(Call(call))    
         # add intraprocedural edges    
         for bb in nodes:
@@ -469,6 +480,10 @@ if __name__ == "__main__":
     if inp_path.endswith(".ta"): 
         analyze_ta(sys.argv[1])
     elif inp_path == "all":
+        analyze_all()
+    elif inp_path == "full":
+        for tee in ["mitee", "teegris", "beanpod", "t6"]:
+            analyze_tee(f'../{tee}')
         analyze_all()
     else:
         analyze_tee(inp_path.strip('/'))
