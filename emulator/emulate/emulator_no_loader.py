@@ -29,7 +29,7 @@ class HookData():
         self.emu = emu
         self.func_name = func_name
 
-def get_api_impl(func_name, std_implemented=True, tee_specific_implemented=True):
+def get_api_impl(func_name, implmented_apis=None):
     if func_name == "write":
         func_name = "_write"
     if func_name == "open":
@@ -38,32 +38,33 @@ def get_api_impl(func_name, std_implemented=True, tee_specific_implemented=True)
         func_name = "_close"
     if func_name == "__stack_chk_fail":
         func_name = "stack_chk_fail"
-    if std_implemented: 
-        api_func = getattr(gp_api, func_name, None)
-        if api_func is not None:
-            return api_func
-        package = importlib.import_module('emulate.gp') 
-        for _, modname, ispkg in pkgutil.iter_modules(package.__path__, package.__name__ + "."):
-            if not ispkg:  # only import .py modules, skip subpackages if you want
-                api_func = getattr(importlib.import_module(modname), func_name, None)
-                if api_func is not None and not inspect.ismodule(api_func):
-                    return api_func
-    if tee_specific_implemented:
-        api_func = getattr(beanpod_api, func_name, None)
-        if api_func is not None:
-            return api_func
-        api_func = getattr(teegris_api, func_name, None)
-        if api_func is not None:
-            return api_func
-        api_func = getattr(mitee_api, func_name, None)
-        if api_func is not None:
-            return api_func
-        api_func = getattr(t6_api, func_name, None)
-        if api_func is not None:
-            return api_func
-        api_func = getattr(tc_api,  func_name, None)
-        if api_func is not None:
-            return api_func
+    if implmented_apis is not None:
+        if func_name not in implmented_apis:
+            return gp_api.default_func
+    api_func = getattr(gp_api, func_name, None)
+    if api_func is not None:
+        return api_func
+    package = importlib.import_module('emulate.gp') 
+    for _, modname, ispkg in pkgutil.iter_modules(package.__path__, package.__name__ + "."):
+        if not ispkg:  # only import .py modules, skip subpackages if you want
+            api_func = getattr(importlib.import_module(modname), func_name, None)
+            if api_func is not None and not inspect.ismodule(api_func):
+                return api_func
+    api_func = getattr(beanpod_api, func_name, None)
+    if api_func is not None:
+        return api_func
+    api_func = getattr(teegris_api, func_name, None)
+    if api_func is not None:
+        return api_func
+    api_func = getattr(mitee_api, func_name, None)
+    if api_func is not None:
+        return api_func
+    api_func = getattr(t6_api, func_name, None)
+    if api_func is not None:
+        return api_func
+    api_func = getattr(tc_api,  func_name, None)
+    if api_func is not None:
+        return api_func
     return gp_api.default_func
 
 
@@ -109,14 +110,14 @@ def hook_ta_dl(ql: Qiling, ta_path, ta_elf:ELF, emu, is_mitee=False, is_tc=False
             continue
         ql.log.info(f'hooking api function {func}, {hex(addr)}, {hex(ql_resolve_mem+counter)}')
         ql.mem.write(ta_elf.got[func], (ql_resolve_mem+counter).to_bytes(ql.arch.pointersize, "little"))
-        ql.hook_address(get_api_impl(func, std_implemented=std_implemented, tee_specific_implemented=tee_specific_implemented), ql_resolve_mem+counter, user_data=HookData(emu,func))
+        ql.hook_address(get_api_impl(func, implmented_apis=emu.implemented_apis), ql_resolve_mem+counter, user_data=HookData(emu,func))
         counter += ql.arch.pointersize
     if is_mitee:
         to_hook = mitee_read_relocs(ta_path)
         for func, off in to_hook:
             ql.mem.write(ta_base + off, (ql_resolve_mem+counter).to_bytes(ql.arch.pointersize, "little"))
             ql.log.info(f'[mitee] hooking plt relocation function {func}, {hex(off)}, {hex(ql_resolve_mem+counter)}')
-            ql.hook_address(get_api_impl(func, std_implemented=std_implemented, tee_specific_implemented=tee_specific_implemented), ql_resolve_mem+counter, user_data=HookData(emu,func))
+            ql.hook_address(get_api_impl(func, implmented_apis=emu.implemented_apis), ql_resolve_mem+counter, user_data=HookData(emu,func))
             counter += ql.arch.pointersize
     if is_tc:
         # IGNORE ME!!
@@ -126,7 +127,7 @@ def hook_ta_dl(ql: Qiling, ta_path, ta_elf:ELF, emu, is_mitee=False, is_tc=False
         for func, off in to_hook:
             encoding, count = ks.asm(f"bl {0x7000+counter}", addr=off)
             ql.log.info(f'[tc] hooking inline arm call relocation function {func}, {hex(off)}, {hex(0x7000+counter)}')
-            ql.hook_address(get_api_impl(func, std_implemented=std_implemented, tee_specific_implemented=tee_specific_implemented), 0x7000+counter, user_data=HookData(emu,func))
+            ql.hook_address(get_api_impl(func, implmented_apis=emu.implemented_apis), 0x7000+counter, user_data=HookData(emu,func))
             ql.mem.write(off, bytes(encoding))
             counter += ql.arch.pointersize
 
@@ -154,9 +155,9 @@ def hook_ta_custom(ql: Qiling, ta_path, ta_elf:ELF, emu, std_implemented=True, t
             if hook_type == "gp_api" or hook_type == "tee" or hook_type == "tee_std":
                 ql.log.info(f'hooking inline api function {fname}, {hex(addr)}')
                 if ta_elf.pie:
-                    ql.hook_address(get_api_impl(fname, std_implemented=std_implemented, tee_specific_implemented=tee_specific_implemented), ta_base+addr, user_data=HookData(emu,fname))
+                    ql.hook_address(get_api_impl(fname, implmented_apis=emu.implemented_apis), ta_base+addr, user_data=HookData(emu,fname))
                 else:
-                    ql.hook_address(get_api_impl(fname, std_implemented=std_implemented, tee_specific_implemented=tee_specific_implemented), addr, user_data=HookData(emu,fname))
+                    ql.hook_address(get_api_impl(fname, implmented_apis=emu.implemented_apis), addr, user_data=HookData(emu,fname))
 
 def teegris_32_setup(ql: Qiling, ta_path, ta_base):
     rels = teegris_32_rel(ta_path)

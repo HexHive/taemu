@@ -103,11 +103,13 @@ class TAEMU:
         self._debugger = ql._debugger
         self.std_implemented= std_implemented
         self.tee_specific_implemented = tee_specific_implemented
+        self.implemented_apis = None
         if "TAEMU_NO_STD_API" in os.environ:
             self.std_implemented= False
         if "TAEMU_NO_TEE_API" in os.environ:
             self.tee_specific_implemented= False 
-            
+        if "TAEMU_IMPLEMENTED_APIS" in os.environ:
+            self.implemented_apis = json.load(open(os.environ["TAEMU_IMPLEMENTED_APIS"]))
 
         f = open(f"{self.ta_path[:-3]}.json", "r")
         ta_info = json.load(f)
