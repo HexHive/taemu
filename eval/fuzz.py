@@ -104,6 +104,8 @@ def thread_worker(q: queue.Queue):
             q.task_done()
 
 def main():
+    if 'TAEMU_FUZZ_TEE' in os.environ:
+        TEES = [os.environ['TAEMU_FUZZ_TEE']]
     if 'emu' not in str(subprocess.run('docker ps', shell=True)):
         subprocess.run(f'cd {BASE}  && docker run --rm --name emu --network host -d -v .:/srv -w /srv/emulator -v /dev/shm:/dev/shm --ipc=host --shm-size=100g ta_emu tail -f', shell=True)
     num_cores = os.cpu_count() or 2
