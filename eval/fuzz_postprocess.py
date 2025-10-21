@@ -83,8 +83,10 @@ def parse_cov(tee, ta, drcov_path):
 
 def parse_cov_seeds(tee, ta, drcov_path_seeds):
     out = {}
+    if not os.path.exists(drcov_path_seeds): return out
     for index in os.listdir(drcov_path_seeds):
         queue_path = os.path.join(drcov_path_seeds, index, "cov")
+        if not os.path.exists(queue_path): continue
         for cov_file in os.listdir(queue_path):
             try:
                 timestamp = int(int(cov_file.split("time:")[-1].split(",")[0])/1000)
@@ -181,7 +183,7 @@ def gen_graph(tee, ta2bbs, max_bbs):
         os.system(f'mkdir -p {out}')
     out_path = os.path.join(out, f'{tee}.pdf')
     plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1)
-    return x,y
+    return max(y_max)
 
 out = {}
 for tee in TEES:
@@ -213,11 +215,12 @@ for tee in TEES:
         campaign_out = os.path.join(harness_path, CAMPAIGN_DIR) 
         ta2bbs[ta] = {}
         for campaign_iteration in range(0, FUZZ_ITERATIONS):
-            iteration_dir = os.path.join(campaign_out, campaign_iteration)
+            iteration_dir = os.path.join(campaign_out, str(campaign_iteration))
             if FUZZ_TIME > 60*60:
                 ta2bbs[ta][campaign_iteration] = parse_cov_seeds(tee, ta, os.path.join(iteration_dir, FUZZ_CHUNKS)) 
             else:
                 ta2bbs[ta][campaign_iteration] = parse_cov(tee, ta, os.path.join(harness_path, "out", "cov")) 
+            print(ta2bbs)
         unique_bbs = set()
         for campaign_iteration in range(0, FUZZ_ITERATIONS):
             for timestamp, bbss in ta2bbs[ta][campaign_iteration].items():
@@ -230,6 +233,12 @@ for tee in TEES:
         if os.path.exists(os.path.join(harness_path, "notimpl")):
             out[tee]['notimpl'] += len(os.listdir(os.path.join(harness_path, "notimpl")))
             out[tee]['crashes'] += len(os.listdir(os.path.join(harness_path, "notimpl")))
+    iter2ta2bbs = {}
+    for ta, data in ta2bbs.items():
+        for iteration, bbs in data.items():
+            if iteration not in iter2ta2bbs:
+                iter2ta2bbs[iteration] = {}
+            iter2ta2bbs[iteration][ta] = bbs
     tas = list(set(tas))
     print(f'{tee}, {tas}')
     out[tee]['nr_tas'] = len(tas)
@@ -266,7 +275,7 @@ for tee in TEES:
     """
     out[tee]['max_bbs'] = len(nx.descendants(tee_cfg, root)) 
     out[tee]['fuzz_bbs'] = sum([len(bbs) for _,bbs in ta2bbs_merged.items()])
-    out[tee]['ta2bbs'] = ta2bbs
+    out[tee]['ta2bbs'] = iter2ta2bbs 
 
 all_ta2bbs = {}   
 all_bbs = 0
@@ -283,10 +292,10 @@ for tee in TEES:
     all_bugs += out[tee]['bugs']
     all_notimpl += out[tee]['notimpl']
     all_tas += out[tee]['nr_tas']
-    print(f'{tee} reached bbs: {max(y)}, max bbs: {out[tee]["max_bbs"]}')
-x,y = gen_graph('all', all_ta2bbs, all_bbs)
-all_fuzz_bbs = max(y)
-print(f'all reached bbs: {max(y)}, max bbs: {all_bbs}')
+    print(f'{tee} reached bbs: {max_bbs}, max bbs: {out[tee]["max_bbs"]}')
+max_bbs = gen_graph('all', all_ta2bbs, all_bbs)
+all_fuzz_bbs = max_bbs
+print(f'all reached bbs: {max_bbs}, max bbs: {all_bbs}')
 
 print(f'crashes')
 for tee in TEES:
