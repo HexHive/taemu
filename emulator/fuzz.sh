@@ -61,9 +61,9 @@ if [ -z "$2" ]; then
     fi
 
     if [ -d "$in_path" ]; then
-        timeout $FUZZTIME -k $FUZZTIME afl-fuzz -V $FUZZTIME -t 5000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")"
+        timeout -k $FUZZTIME $FUZZTIME afl-fuzz -V $FUZZTIME -t 5000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")"
     else 
-        timeout $FUZZTIME -k $FUZZTIME afl-fuzz -V $FUZZTIME -t 5000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ "rootfs/$(basename "$ta")"
+        timeout -k $FUZZTIME $FUZZTIME afl-fuzz -V $FUZZTIME -t 5000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ "rootfs/$(basename "$ta")"
     fi
 else 
     if [ -d "$in_path" ]; then
