@@ -78,7 +78,7 @@ def worker(harness_path):
     for fuzz_iteration in range(0, FUZZ_ITERATIONS):
         fuzz_iteration_dir = os.path.join(fuzz_dir, f'{fuzz_iteration}')
         if FUZZ_TIME > 60*60:
-            seed_backup_dir = os.path.join(fuzz_iteration_dir, "seeds") 
+            seed_backup_dir = os.path.join(fuzz_iteration_dir, FUZZ_CHUNKS) 
             for index in os.listdir(seed_backup_dir):
                     for crash in os.listdir(os.path.join(seed_backup_dir, index, "crashes")):
                         os.system(f'cp {seed_backup_dir}/{index}/crashes/{crash} {crashes_path}')
