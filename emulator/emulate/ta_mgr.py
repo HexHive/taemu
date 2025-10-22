@@ -194,6 +194,7 @@ class TAEMU:
         self.ql.do_lib_patch()
 
     def get_shm(self, pointer):
+        self.log.info(f"[sp1der ]get_shm for pointer {pointer:#0x}")
         if self.curr_params is None:
             return None
         for p in self.curr_params:

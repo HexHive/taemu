@@ -14,12 +14,23 @@ fi
 #rm rootfs/*json
 
 if [ -z "$1" ]; then 
-    echo "usage fuzzing ./fuzz.sh <path to ta>"
-    echo "usage replay seed ./fuzz.sh <path to ta> <path to seed> "
-    echo "usage fuzzing ./fuzz.sh <path to harness folder>"
-    echo "usage replay seed ./fuzz.sh <path to harness folder> <path to seed> "
+    echo "usage: fuzzing ./fuzz.sh <path to ta|harness folder> [--log_file <file>]"
+    echo "usage: replay seed ./fuzz.sh <path to ta|harness folder> <path to seed> "
     exit 0
 fi
+
+OPTS=$(getopt -o l: --long log_file: -n 'fuzz.sh' -- "$@")
+eval set -- "$OPTS"
+
+while true; do
+  case "$1" in
+    -l|--log_file ) log_file="$2"; shift 2 ;;
+    -- ) shift; break ;;
+    * ) break ;;
+  esac
+done
+
+log_arg=${log_file:+--log_file "$log_file"}
 
 in_path=`realpath $1`
 
@@ -40,6 +51,11 @@ else
     fuzz_out="tmp/out"
 fi
 
+echo ""Using TA: $ta
+echo "Using harness: $harness"
+echo "Using fuzz input dir: $fuzz_in"
+echo "Using fuzz output dir: $fuzz_out"
+
 chmod -R 777 "$fuzz_in"
 chmod -R 777 "$fuzz_out"
 
@@ -48,6 +64,7 @@ cp "$ta" rootfs/
 cp "${ta_name}.json" rootfs/
 
 if [ -z "$2" ]; then
+    echo "Starting fuzzing..."
     # no seed specified -> fuzz
     mkdir -p $fuzz_out
 
@@ -61,11 +78,14 @@ if [ -z "$2" ]; then
     fi
 
     if [ -d "$in_path" ]; then
-        timeout -k $FUZZTIME $FUZZTIME afl-fuzz -V $FUZZTIME -t 5000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")"
+        echo "Fuzzing with harness $harness ..."
+        timeout -k $FUZZTIME $FUZZTIME afl-fuzz -V $FUZZTIME -t 5000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")" $log_arg
+        #  --log_file "ql-emulator.log"
     else 
-        timeout -k $FUZZTIME $FUZZTIME afl-fuzz -V $FUZZTIME -t 5000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ "rootfs/$(basename "$ta")"
+        timeout -k $FUZZTIME $FUZZTIME afl-fuzz -V $FUZZTIME -t 5000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ "rootfs/$(basename "$ta")" $log_arg
     fi
 else 
+    echo "Replaying seed $2 ..."
     if [ -d "$in_path" ]; then
         # swap these when you want to attach gdb to triage
         #python3 -m emulate $3 --gdb --fuzz_replay $2 --fuzz_harness $harness "rootfs/$(basename "$ta")"
