@@ -1,42 +1,90 @@
 from qiling import Qiling
+from multiprocessing import shared_memory
 import threading
 import time
+import os
+import pickle
+
 
 class QilingWithCache(Qiling):
-    def __init__(self, *args, cache_max_items=10000, **kwargs):
+    def __init__(
+        self,
+        *args,
+        cache_max_items=10000,
+        shm_name="shared_memory_cache",
+        shm_size=1024 * 1024,
+        **kwargs
+    ):
         super().__init__(*args, **kwargs)
-        self._cache = {}
-        self._cache_meta = {}            # for timestamps / LRU
-        self._cache_lock = threading.RLock()
-        self._cache_max_items = cache_max_items
+        self._shm_lock = threading.RLock()
+        self.shm_name = shm_name
+        self.shm_size = shm_size
 
-    def cache_get(self, key):
-        with self._cache_lock:
-            val = self._cache.get(key)
-            if val is not None:
-                self._cache_meta[key] = time.time()
-            return val
+        try:
+            self.shm = shared_memory.SharedMemory(
+                create=True, size=shm_size, name=shm_name
+            )
+            self._write_shm({})
+        except FileExistsError:
+            self.shm = shared_memory.SharedMemory(name=shm_name)
 
-    def cache_set(self, key, value):
-        with self._cache_lock:
-            if len(self._cache) >= self._cache_max_items:
-                # simple LRU eviction
-                oldest = min(self._cache_meta, key=lambda k: self._cache_meta[k])
-                del self._cache[oldest]
-                del self._cache_meta[oldest]
-            self._cache[key] = value
-            self._cache_meta[key] = time.time()
-        self.log.info(f"Cache set: {key}")
-    
-    def cache_clear(self):
-        with self._cache_lock:
-            self._cache.clear()
-            self._cache_meta.clear()
-    
-    def cache_update(self, key, value, op):
-        with self._cache_lock:
-            if key in self._cache:
-                self._cache[key] = op(self._cache[key], value)
-                self._cache_meta[key] = time.time()
+    @staticmethod
+    def _serialize(data):
+        return pickle.dumps(data)
+
+    @staticmethod
+    def _deserialize(buf):
+        try:
+            return pickle.loads(bytes(buf).rstrip(b"\x00"))
+        except Exception:
+            return {}
+
+    def _read_shm(self):
+        with self._shm_lock:
+            return self._deserialize(self.shm.buf)
+
+    def _write_shm(self, data):
+        with self._shm_lock:
+            raw = QilingWithCache._serialize(data)
+            if len(raw) > self.shm_size:
+                raise MemoryError("Shared memory too small")
+            self.shm.buf[: len(raw)] = raw
+            self.shm.buf[len(raw) :] = b"\x00" * (self.shm_size - len(raw))
+
+    def set_cache(self, key, value):
+        with self._shm_lock:
+            data = self._read_shm()
+            data[key] = {"value": value, "last_accessed": time.time()}
+            self._write_shm(data)
+
+    def update_cache(self, key, value, op):
+        with self._shm_lock:
+            data = self._read_shm()
+            if key in data:
+                data[key]["value"] = op(data[key]["value"], value)
+                data[key]["last_accessed"] = time.time()
             else:
-                self.cache_set(key, value)
+                data[key] = {"value": value, "last_accessed": time.time()}
+            self._write_shm(data)
+
+    def get_cache(self, key):
+        with self._shm_lock:
+            data = self._read_shm()
+            return data.get(key)
+
+    def cache_information(self):
+        with self._shm_lock:
+            data = self._read_shm()
+            return {"num_items": len(data), "keys": list(data.keys())}
+
+    def close_shm(self):
+        if hasattr(self, "shm") and self.shm is not None:
+            self.shm.close()
+            try:
+                self.shm.unlink()
+            except FileNotFoundError:
+                pass
+            self.shm = None
+
+    def __del__(self):
+        self.close_shm()

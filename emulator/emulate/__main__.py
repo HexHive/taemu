@@ -3,6 +3,7 @@ import argparse
 import json
 
 from pwn import ELF
+
 # from qiling import Qiling
 from .qiling_cache import QilingWithCache as Qiling
 from qiling.const import QL_VERBOSE
@@ -261,4 +262,5 @@ if __name__ == "__main__":
         ql.log.info(f"[{ta_name}] emulation start")
         emu.start_interactive()
         ql.log.info(f"[{ta_name}] emulation end")
-    sys.stdout.close()
+
+    ql.close_shm()

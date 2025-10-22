@@ -1,6 +1,7 @@
 import os
 import tempfile
 import importlib
+
 # from qiling import Qiling
 from .qiling_cache import QilingWithCache as Qiling
 from qiling.extensions.afl import ql_afl_fuzz
@@ -256,6 +257,9 @@ class TAEMU:
 
     def get_shm(self, pointer):
         self.log.info(f"[ql_get_shm] get_shm for pointer {pointer:#0x}")
+        self.log.info(
+            f"[ql_get_shm] cached shm information: {self.ql.cache_information()}"
+        )
 
         if self.curr_params is None:
             return None
