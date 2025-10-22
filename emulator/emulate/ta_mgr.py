@@ -1,7 +1,8 @@
 import os
 import tempfile
 import importlib
-from qiling import Qiling
+# from qiling import Qiling
+from .qiling_cache import QilingWithCache as Qiling
 from qiling.extensions.afl import ql_afl_fuzz
 from qiling.extensions.coverage import utils as cov_utils
 from qiling.extensions import pipe
@@ -23,9 +24,10 @@ from .emulator_no_loader import (
     mitee_setup,
     hook_ta_dl,
     hook_ta_custom,
-    teegris_32_setup
+    teegris_32_setup,
 )
 from .common import CRASH_PC, NOTIMPL_PC
+from typing import Any
 
 
 def parse_msg(msg):
@@ -35,8 +37,20 @@ def parse_msg(msg):
     return (f, l, data)
 
 
+def finialize_fuzzing(ql: Qiling, user_data: Any) -> None:
+    ql.log.info(
+        Fore.BLUE
+        + f"[{user_data()}] finish fuzzing round @{ql.arch.regs.read('PC'):#0x}"
+        + Style.RESET_ALL
+    )
+
+
 def pivot(ql: Qiling, cur) -> None:
-    ql.log.info(Fore.BLUE + f"[{cur}] reach end @{ql.arch.regs.read('PC'):#0x}" + Style.RESET_ALL)
+    ql.log.info(
+        Fore.BLUE
+        + f"[{cur}] reach end @{ql.arch.regs.read('PC'):#0x}"
+        + Style.RESET_ALL
+    )
     ql.stop()
 
 
@@ -81,7 +95,15 @@ class EmuLog:
 
 class TAEMU:
 
-    def __init__(self, ql: Qiling, tee: str, ta_path: str, ta_elf: ELF, std_implemented=True, tee_specific_implemented=True):
+    def __init__(
+        self,
+        ql: Qiling,
+        tee: str,
+        ta_path: str,
+        ta_elf: ELF,
+        std_implemented=True,
+        tee_specific_implemented=True,
+    ):
         self.ql = ql
         self.log = EmuLog(ql)
         self.tee = tee
@@ -101,15 +123,17 @@ class TAEMU:
             self.crash_on_not_implemented = True
         self.sessions = []
         self._debugger = ql._debugger
-        self.std_implemented= std_implemented
+        self.std_implemented = std_implemented
         self.tee_specific_implemented = tee_specific_implemented
         self.implemented_apis = None
         if "TAEMU_NO_STD_API" in os.environ:
-            self.std_implemented= False
+            self.std_implemented = False
         if "TAEMU_NO_TEE_API" in os.environ:
-            self.tee_specific_implemented= False 
+            self.tee_specific_implemented = False
         if "TAEMU_IMPLEMENTED_APIS" in os.environ:
-            self.implemented_apis = json.load(open(os.environ["TAEMU_IMPLEMENTED_APIS"]))
+            self.implemented_apis = json.load(
+                open(os.environ["TAEMU_IMPLEMENTED_APIS"])
+            )
 
         f = open(f"{self.ta_path[:-3]}.json", "r")
         ta_info = json.load(f)
@@ -133,12 +157,22 @@ class TAEMU:
 
             self.TA_CreateEntryPoint_start = ta_info["TA_CreateEntryPoint_start"]
             self.TA_CreateEntryPoint_end = ta_info["TA_CreateEntryPoint_end"]
-            self.TA_OpenSessionEntryPoint_start = ta_info["TA_OpenSessionEntryPoint_start"]
+            self.TA_OpenSessionEntryPoint_start = ta_info[
+                "TA_OpenSessionEntryPoint_start"
+            ]
             self.TA_OpenSessionEntryPoint_end = ta_info["TA_OpenSessionEntryPoint_end"]
-            self.TA_InvokeCommandEntryPoint_start = ta_info["TA_InvokeCommandEntryPoint_start"]
-            self.TA_InvokeCommandEntryPoint_end = ta_info["TA_InvokeCommandEntryPoint_end"]
-            self.TA_CloseSessionEntryPoint_start = ta_info["TA_CloseSessionEntryPoint_start"]
-            self.TA_CloseSessionEntryPoint_end = ta_info["TA_CloseSessionEntryPoint_end"]
+            self.TA_InvokeCommandEntryPoint_start = ta_info[
+                "TA_InvokeCommandEntryPoint_start"
+            ]
+            self.TA_InvokeCommandEntryPoint_end = ta_info[
+                "TA_InvokeCommandEntryPoint_end"
+            ]
+            self.TA_CloseSessionEntryPoint_start = ta_info[
+                "TA_CloseSessionEntryPoint_start"
+            ]
+            self.TA_CloseSessionEntryPoint_end = ta_info[
+                "TA_CloseSessionEntryPoint_end"
+            ]
             self.TA_DestroyEntryPoint_start = ta_info["TA_DestroyEntryPoint_start"]
             self.TA_DestroyEntryPoint_end = ta_info["TA_DestroyEntryPoint_end"]
         else:
@@ -156,16 +190,36 @@ class TAEMU:
             exit(-1)
 
         if self.ta_elf.pie:
-            self.TA_CreateEntryPoint_start = self.TA_CreateEntryPoint_start + self.ta_base
-            self.TA_CreateEntryPoint_end = [end + self.ta_base for end in self.TA_CreateEntryPoint_end]
-            self.TA_OpenSessionEntryPoint_start = self.TA_OpenSessionEntryPoint_start + self.ta_base
-            self.TA_OpenSessionEntryPoint_end = [end + self.ta_base for end in self.TA_OpenSessionEntryPoint_end]
-            self.TA_InvokeCommandEntryPoint_start = self.TA_InvokeCommandEntryPoint_start + self.ta_base
-            self.TA_InvokeCommandEntryPoint_end = [end + self.ta_base for end in self.TA_InvokeCommandEntryPoint_end]
-            self.TA_CloseSessionEntryPoint_start = self.TA_CloseSessionEntryPoint_start + self.ta_base
-            self.TA_CloseSessionEntryPoint_end = [end + self.ta_base for end in self.TA_CloseSessionEntryPoint_end]
-            self.TA_DestroyEntryPoint_start = self.TA_DestroyEntryPoint_start + self.ta_base
-            self.TA_DestroyEntryPoint_end = [end + self.ta_base for end in self.TA_DestroyEntryPoint_end]
+            self.TA_CreateEntryPoint_start = (
+                self.TA_CreateEntryPoint_start + self.ta_base
+            )
+            self.TA_CreateEntryPoint_end = [
+                end + self.ta_base for end in self.TA_CreateEntryPoint_end
+            ]
+            self.TA_OpenSessionEntryPoint_start = (
+                self.TA_OpenSessionEntryPoint_start + self.ta_base
+            )
+            self.TA_OpenSessionEntryPoint_end = [
+                end + self.ta_base for end in self.TA_OpenSessionEntryPoint_end
+            ]
+            self.TA_InvokeCommandEntryPoint_start = (
+                self.TA_InvokeCommandEntryPoint_start + self.ta_base
+            )
+            self.TA_InvokeCommandEntryPoint_end = [
+                end + self.ta_base for end in self.TA_InvokeCommandEntryPoint_end
+            ]
+            self.TA_CloseSessionEntryPoint_start = (
+                self.TA_CloseSessionEntryPoint_start + self.ta_base
+            )
+            self.TA_CloseSessionEntryPoint_end = [
+                end + self.ta_base for end in self.TA_CloseSessionEntryPoint_end
+            ]
+            self.TA_DestroyEntryPoint_start = (
+                self.TA_DestroyEntryPoint_start + self.ta_base
+            )
+            self.TA_DestroyEntryPoint_end = [
+                end + self.ta_base for end in self.TA_DestroyEntryPoint_end
+            ]
 
         f.close()
 
@@ -187,19 +241,31 @@ class TAEMU:
             self,
             is_mitee=self.tee == "mitee",
             is_tc=self.tee == "trustedcore",
-            std_implemented = self.std_implemented,
-            tee_specific_implemented = self.tee_specific_implemented
+            std_implemented=self.std_implemented,
+            tee_specific_implemented=self.tee_specific_implemented,
         )
-        hook_ta_custom(self.ql, self.ta_path, self.ta_elf, self, std_implemented = self.std_implemented, tee_specific_implemented=self.tee_specific_implemented)
+        hook_ta_custom(
+            self.ql,
+            self.ta_path,
+            self.ta_elf,
+            self,
+            std_implemented=self.std_implemented,
+            tee_specific_implemented=self.tee_specific_implemented,
+        )
         self.ql.do_lib_patch()
 
     def get_shm(self, pointer):
-        self.log.info(f"[sp1der ]get_shm for pointer {pointer:#0x}")
+        self.log.info(f"[ql_get_shm] get_shm for pointer {pointer:#0x}")
+
         if self.curr_params is None:
             return None
         for p in self.curr_params:
             if isinstance(p, MemRefParam):
-                if p.is_shared and pointer >= p.shm_pybuf and pointer <= p.shm_pybuf + p.size:
+                if (
+                    p.is_shared
+                    and pointer >= p.shm_pybuf
+                    and pointer <= p.shm_pybuf + p.size
+                ):
                     return p
         return None
 
@@ -207,7 +273,7 @@ class TAEMU:
         param = self.get_shm(pointer)
         if param is None:
             return
-        self.ql.mem.write(param.shm_pybuf, param.shm.to_bytes()[:param.size])
+        self.ql.mem.write(param.shm_pybuf, param.shm.to_bytes()[: param.size])
 
     def writeback_shm(self, pointer):
         param = self.get_shm(pointer)
@@ -217,38 +283,50 @@ class TAEMU:
         param.shm.from_bytes(curr_data)
 
     def CreateEntryPoint(self):
-        self.log.info(f"[TA_CreateEntryPoint] start @{self.TA_CreateEntryPoint_start:#0x}")
+        self.log.info(
+            f"[TA_CreateEntryPoint] start @{self.TA_CreateEntryPoint_start:#0x}"
+        )
         entrypoint = self.TA_CreateEntryPoint_start
 
         # stop at TA_CreateEntryPoint_end
         for e in self.TA_CreateEntryPoint_end:
             self.ql.hook_address(pivot, e, user_data="TA_CreateEntryPoint")
 
-        #_debugger = self.ql._debugger
+        # _debugger = self.ql._debugger
         self.ql.debugger = False
         self.ql.run(begin=entrypoint)
 
         ret = self.ql.os.fcall.cc.getReturnValue()
         self.CreateEntryPoint_ret = ret
         if ret != TEE_SUCCESS:
-            self.ql.log.warning(f"[////TA_CreateEntryPoint////] return != TEE_SUCCESS {hex(ret)}")
+            self.ql.log.warning(
+                f"[////TA_CreateEntryPoint////] return != TEE_SUCCESS {hex(ret)}"
+            )
             return ret
         return ret
 
     def OpenSession(self):
         if self.CreateEntryPoint_ret != TEE_SUCCESS:
-            self.ql.log.warning(f"Calling OpenSession without succesfull CreateEntryPoint!")
+            self.ql.log.warning(
+                f"Calling OpenSession without succesfull CreateEntryPoint!"
+            )
             return TEE_ERROR_BAD_STATE
         # TODO: support parameters
         session_opened = self.session_counter
         self.session_counter += 1
-        session_id_mem = self.ql.mem.map_anywhere(0x1000, minaddr=min_addr, perms=3, info="session_id")
-        sessionContext = self.ql.mem.map_anywhere(0x1000, minaddr=min_addr, perms=3, info="session_context")
+        session_id_mem = self.ql.mem.map_anywhere(
+            0x1000, minaddr=min_addr, perms=3, info="session_id"
+        )
+        sessionContext = self.ql.mem.map_anywhere(
+            0x1000, minaddr=min_addr, perms=3, info="session_context"
+        )
         self.ql.mem.write_ptr(session_id_mem, session_opened)
         new_session = Session(session_id_mem, session_opened, sessionContext)
         self.sessions.append(new_session)
 
-        self.log.info(f"[TA_OpenSessionEntryPoint] start @{self.TA_OpenSessionEntryPoint_start:#0x}")
+        self.log.info(
+            f"[TA_OpenSessionEntryPoint] start @{self.TA_OpenSessionEntryPoint_start:#0x}"
+        )
         for e in self.TA_OpenSessionEntryPoint_end:
             self.ql.hook_address(pivot, e, user_data="TA_OpenSessionEntryPoint")
 
@@ -258,7 +336,9 @@ class TAEMU:
 
         ret = self.ql.os.fcall.cc.getReturnValue()
         if ret != TEE_SUCCESS:
-            self.ql.log.warning(f"[////TA_OpenSessionEntryPoint////] return != TEE_SUCCESS {hex(ret)}")
+            self.ql.log.warning(
+                f"[////TA_OpenSessionEntryPoint////] return != TEE_SUCCESS {hex(ret)}"
+            )
             return ret, None
         return ret, new_session
 
@@ -280,16 +360,20 @@ class TAEMU:
             cmd,
             ptypes,
             params,
-            is_32bit= self.ql.arch.pointersize==4,
+            is_32bit=self.ql.arch.pointersize == 4,
         )
         if status != TEE_SUCCESS:
             return status
         self.curr_params = params
 
-        self.log.info(f"[TA_InvokeCommandEntryPoint] start @{self.TA_InvokeCommandEntryPoint_start:#0x}")
+        self.log.info(
+            f"[TA_InvokeCommandEntryPoint] start @{self.TA_InvokeCommandEntryPoint_start:#0x}"
+        )
         # stop at TA_InvokeCommandEntryPoint_end
         for e in self.TA_InvokeCommandEntryPoint_end:
-            exit_hooks.append(self.ql.hook_address(pivot, e, user_data="TA_InvokeCommandEntryPoint"))
+            exit_hooks.append(
+                self.ql.hook_address(pivot, e, user_data="TA_InvokeCommandEntryPoint")
+            )
 
         # run
         self.ql._debugger = self._debugger
@@ -342,11 +426,13 @@ class TAEMU:
         if session is None:
             self.ql.log.error(f"unknown session {sid}")
             return TEE_ERROR_BAD_STATE
-        self.log.info(f"[CloseSessionEntryPoint] start @{self.TA_CloseSessionEntryPoint_start:#0x}")
+        self.log.info(
+            f"[CloseSessionEntryPoint] start @{self.TA_CloseSessionEntryPoint_start:#0x}"
+        )
         for e in self.TA_CloseSessionEntryPoint_end:
             self.ql.hook_address(pivot, e, user_data="TA_CloseSessionEntryPoint_end")
 
-        #self.ql._debugger = self._debugger
+        # self.ql._debugger = self._debugger
 
         self.ql.os.fcall.cc.setRawParam(0, session.sessionContext)
         self.ql.run(begin=self.TA_CloseSessionEntryPoint_start)
@@ -356,7 +442,9 @@ class TAEMU:
         self.sessions.pop(idx)
 
     def DestroyEntryPoint(self):
-        self.log.info(f"[TA_DestroyEntryPoint] start @{self.TA_DestroyEntryPoint_start:#0x}")
+        self.log.info(
+            f"[TA_DestroyEntryPoint] start @{self.TA_DestroyEntryPoint_start:#0x}"
+        )
         if self.tee == "t6":
             self.ql.log.warning(f"t6 TA_DestroyEntryPoint not supported by emulator")
             return
@@ -406,7 +494,11 @@ class TAEMU:
                 return
             (f, l, d) = parse_msg(data)
 
-            if f == FUNCS.func_TEEC_InitializeContext.value and l == 5 and d == b"start":
+            if (
+                f == FUNCS.func_TEEC_InitializeContext.value
+                and l == 5
+                and d == b"start"
+            ):
                 self.ql.log.debug(f"TEEC_InitializeContext")
                 client_socket.send(b"ok")
             elif f == FUNCS.func_TEEC_OpenSession.value and l == 0x10:
@@ -429,14 +521,18 @@ class TAEMU:
                         exit(-1)
                 ret, new_session = self.OpenSession()
                 if ret != TEE_SUCCESS:
-                    self.ql.log.warning(f"[////TA_OpenSessionEntryPoint////] return != TEE_SUCCESS {hex(ret)}")
+                    self.ql.log.warning(
+                        f"[////TA_OpenSessionEntryPoint////] return != TEE_SUCCESS {hex(ret)}"
+                    )
                     return
                 client_socket.send(b"ok" + p32(new_session.session_id))
             elif f == FUNCS.func_TEEC_RegisterSharedMemory.value and l == 16:
                 shm_key = u32(d[:4])
                 size = u32(d[4:8])
                 buf = u64(d[8:])
-                self.ql.log.info(f"TEEC_RegisterSharedMemory {shm_key:#0x} {buf:#0x} {size:#0x}")
+                self.ql.log.info(
+                    f"TEEC_RegisterSharedMemory {shm_key:#0x} {buf:#0x} {size:#0x}"
+                )
 
                 class SHM(Structure):
                     _fields_ = [
@@ -495,12 +591,18 @@ class TAEMU:
                             return
                         (shm_size, shm) = bufc2py[buf]
                         if size > shm_size:
-                            self.ql.log.error(f"size larger than shm: {size:#0x} v.s. {shm_size}")
+                            self.ql.log.error(
+                                f"size larger than shm: {size:#0x} v.s. {shm_size}"
+                            )
                             sock.close()
                             return
                         # get shared content
                         self.ql.log.debug(f"SHM IN content: {shm.to_bytes()}")
-                        if self.tee == "mitee" or self.tee == "teegris" or self.tee == "trustedcore":
+                        if (
+                            self.tee == "mitee"
+                            or self.tee == "teegris"
+                            or self.tee == "trustedcore"
+                        ):
                             # shared memory
                             memref = MemRefParam(shm.to_bytes(), size)
                             memref.is_shared = True
@@ -588,7 +690,9 @@ class TAEMU:
         cov_path = os.path.join(cov_dir, f"{input_name}.cov")
         return cov_path
 
-    def start_fuzz(self, input_file, fuzz_harness=None, fuzz_replay=False, rec_cov=False):
+    def start_fuzz(
+        self, input_file, fuzz_harness=None, fuzz_replay=False, rec_cov=False
+    ):
 
         ret = self.CreateEntryPoint()
         if ret != TEE_SUCCESS:
@@ -597,7 +701,9 @@ class TAEMU:
 
         ret, new_session = self.OpenSession()
         if ret != TEE_SUCCESS:
-            self.ql.log.warning(f"[////TA_OpenSessionEntryPoint////] return != TEE_SUCCESS {hex(ret)}")
+            self.ql.log.warning(
+                f"[////TA_OpenSessionEntryPoint////] return != TEE_SUCCESS {hex(ret)}"
+            )
             return
 
         exit_addr = []
@@ -630,7 +736,9 @@ class TAEMU:
             command_params = [NoneParam()] * 4
             cmd = u32(input[:4])
             print(f"cmdId: {cmd}")
-            ret, params_mem = setup_params_fuzz(ql, cmd, ptypes, command_params)  # assume the session is already set
+            ret, params_mem = setup_params_fuzz(
+                ql, cmd, ptypes, command_params
+            )  # assume the session is already set
             if ret != TEE_SUCCESS:
                 return False
 
@@ -652,7 +760,9 @@ class TAEMU:
             if hasattr(module, "init_fuzz"):
                 init_fuzz = getattr(module, "init_fuzz")
 
-        def crash_validation(ql: Qiling, result: int, input_bytes: bytes, round: int) -> bool:
+        def crash_validation(
+            ql: Qiling, result: int, input_bytes: bytes, round: int
+        ) -> bool:
             print("crash callback: ", result)
             if ql.arch.regs.arch_pc == CRASH_PC or ql.arch.regs.arch_pc == NOTIMPL_PC:
                 return True
@@ -682,12 +792,24 @@ class TAEMU:
         if fuzz_replay:
             self.ql._debugger = self._debugger
             for e in exit_addr:
-                exit_hooks.append(self.ql.hook_address(pivot, e, user_data="TA_InvokeCommandEntryPoint"))
+                exit_hooks.append(
+                    self.ql.hook_address(
+                        pivot, e, user_data="TA_InvokeCommandEntryPoint"
+                    )
+                )
         else:
             self.ql.hook_address(
                 callback=start_afl,
                 address=self.TA_InvokeCommandEntryPoint_start,
             )
+
+            # sp1der: set exit hooks for fuzzer's recording logics
+            for e in exit_addr:
+                self.ql.hook_address(
+                    callback=finialize_fuzzing,
+                    address=e,
+                    user_data=lambda: f"run:id:{hashlib.md5(open(input_file, 'rb').read()).hexdigest()}",
+                )
 
         if init_fuzz is not None:
             self.init_fuzz = True
@@ -699,11 +821,13 @@ class TAEMU:
             # use data from `input_file`
             input_data = open(input_file, "rb").read()
             if not place_input_callback(self.ql, input_data, -1):
-                print(f"place_input returend -1, returning")
+                print(f"place_input returned -1, returning")
                 return
 
             # record coverage while we replay `input_file`
-            cov_path = self.get_cov_file_path(os.path.basename(input_file), os.path.dirname(fuzz_harness))
+            cov_path = self.get_cov_file_path(
+                os.path.basename(input_file), os.path.dirname(fuzz_harness)
+            )
 
             with cov_utils.collect_coverage(self.ql, "drcov", cov_path):
                 self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)

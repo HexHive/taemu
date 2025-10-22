@@ -414,4 +414,4 @@ androidroot/*
 # End of https://www.toptal.com/developers/gitignore/api/linux,windows,macos,emacs,vim,visualstudiocode,python,c++,c
 
 ### Custom ignores
-emulator/qiling/**
+emulator/qiling/*
