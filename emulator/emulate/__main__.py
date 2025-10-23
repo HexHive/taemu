@@ -1,22 +1,22 @@
 import os
 import argparse
-import json
 
 from pwn import ELF
 
 # from qiling import Qiling
-from .qiling_cache import QilingWithCache as Qiling
+from .qiling_extned import QilingExtend as Qiling
 from qiling.const import QL_VERBOSE
 from qiling.const import QL_ARCH, QL_OS, QL_VERBOSE
 
 
 from .emulator_no_loader import simple_diassembler, trace_block, simple_diassembler
-from .ta_mgr import TAEMU
+from .ta_mgr import TAEMU, Status
 from .custom.tc_loader import tc_load
 
 DIR = dir_path = os.path.dirname(os.path.realpath(__file__))
 TEE = ""
 
+        
 
 def setup_args():
     """Returns an initialized argument parser."""
@@ -240,6 +240,7 @@ if __name__ == "__main__":
         std_apis = False
     if args.no_tee_apis:
         tee_apis = False
+
     emu = TAEMU(
         ql,
         TEE,
@@ -247,21 +248,14 @@ if __name__ == "__main__":
         ta_elf,
         std_implemented=std_apis,
         tee_specific_implemented=tee_apis,
+        status = (
+            Status.FUZZING if args.fuzz
+            else Status.REPLAYING if args.fuzz_replay
+            else Status.INTERACTIVE
+        ),
     )
+    ql.emu = emu
     emu.setup()
     emu.hook()
-    if args.fuzz:
-        ql.log.info(f"[{ta_name}] fuzz start")
-        emu.start_fuzz(args.fuzz, args.fuzz_harness)
-        ql.log.info(f"[{ta_name}] fuzz end")
-    elif args.fuzz_replay:
-        ql.log.info(f"[{ta_name}] fuzz replay start")
-        emu.start_fuzz(args.fuzz_replay, args.fuzz_harness, fuzz_replay=True)
-        ql.log.info(f"[{ta_name}] fuzz replay end")
-    else:
-        ql.log.info(f"[{ta_name}] emulation start")
-        emu.start_interactive()
-        ql.log.info(f"[{ta_name}] emulation end")
-
-    ql.close_shm()
-    ql.cache_clear()
+    emu.start(args.fuzz or args.fuzz_replay, args.fuzz_harness)
+    emu.clear_records()

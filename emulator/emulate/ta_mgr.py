@@ -1,9 +1,12 @@
 import os
 import tempfile
 import importlib
+from multiprocessing import shared_memory
+import time
+import pickle
 
 # from qiling import Qiling
-from .qiling_cache import QilingWithCache as Qiling
+from .qiling_extned import QilingExtend as Qiling
 from qiling.extensions.afl import ql_afl_fuzz
 from qiling.extensions.coverage import utils as cov_utils
 from qiling.extensions import pipe
@@ -72,6 +75,10 @@ class FUNCS(Enum):
     func_TEEC_ReleaseSharedMemory = 5
     func_TEEC_FinalizeContext = 6
 
+class Status(Enum):
+    FUZZING = 1
+    REPLAYING = 2
+    INTERACTIVE = 3
 
 class Session:
     def __init__(self, session_id_mem, session_id, sessionContext):
@@ -83,6 +90,23 @@ class Session:
 def get_ta_uuid(ta_name):
     ta_name = ta_name.replace("-", "")
     return bytes.fromhex(ta_name)
+
+
+def require_class_attr(param_name, attr_name):
+    def decorator(func):
+        def wrapper(self, *args, **kwargs):
+            if param_name in kwargs:
+                val = kwargs[param_name]
+
+            if val != getattr(self, attr_name):
+                raise ValueError(
+                    f"{param_name}={val} does not match self.{attr_name}={getattr(self, attr_name)}"
+                )
+            return func(self, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 class EmuLog:
@@ -104,6 +128,11 @@ class TAEMU:
         ta_elf: ELF,
         std_implemented=True,
         tee_specific_implemented=True,
+        *,
+        status: Status = None,
+        cache_max_items=10000,
+        shm_name="shared_memory_cache",
+        shm_size=1024 * 1024,
     ):
         self.ql = ql
         self.log = EmuLog(ql)
@@ -119,6 +148,32 @@ class TAEMU:
         self.curr_params = None
         self.session_counter = 0
         self.init_fuzz = False
+        self.status = status
+        self.log.info(f"TAEMU initialized in {self.status.name} mode")
+        
+        if self.status in (Status.REPLAYING, Status.FUZZING):
+            self._shm_record_lock = threading.RLock()
+            self.shm_name = shm_name
+            self.shm_size = shm_size
+
+            # only visiable for one thread (separate copy on the process level)
+            self.curr_record_key = None
+            self._record_meta = {}
+            self._record_lock = threading.RLock()
+            self._record_max_items = cache_max_items
+
+
+            # shared memory across forked processes
+            try:
+                self.shm_shared_record = shared_memory.SharedMemory(
+                    create=True, size=shm_size, name=shm_name
+                )
+                self._write_shared_shm({})
+                self._record = {}
+            except FileExistsError:
+                self.shm_shared_record = shared_memory.SharedMemory(name=shm_name)
+                self._record = self._read_shared_shm()
+            
         self.crash_on_not_implemented = False
         if "TAEMU_CRASH_NOTIMPL" in os.environ:
             self.crash_on_not_implemented = True
@@ -254,14 +309,19 @@ class TAEMU:
             tee_specific_implemented=self.tee_specific_implemented,
         )
         self.ql.do_lib_patch()
-
+        
+        
+    def start(self, *args):
+        if self.status in (Status.FUZZING, Status.REPLAYING):
+            self.start_fuzz(*args, fuzz_replay=(self.status == Status.REPLAYING))
+        else:
+            self.start_interactive()
+            
     def get_shm(self, pointer):
         if self.curr_params is None:
             return None
 
-        self.log.info(
-            f"[ql_get_shm] get_shm for pointer {pointer:#0x}"
-        )
+        self.log.info(f"[ql_get_shm] get_shm for pointer {pointer:#0x}")
 
         for p in self.curr_params:
             if isinstance(p, MemRefParam):
@@ -271,27 +331,130 @@ class TAEMU:
                     and pointer <= p.shm_pybuf + p.size
                 ):
                     self.log.info(f"[ql_get_shm] found shm for pointer {pointer:#0x}")
-                    self.ql.update_cache(
-                        self.ql.get_curr_key(), pointer, lambda a, b: a.append(b)
+                    self.update_records(
+                        self.curr_record_key, pointer, lambda a, b: a + [b]
                     )
-                    self.log.info(f"[ql_get_shm] current shm cache: {self.ql.get_cache(self.ql.get_curr_key())}")
+                    self.log.info(
+                        f"[ql_get_shm] current shm cache: {self.get_records(self.curr_record_key)}"
+                    )
                     return p
         return None
 
     def update_shm(self, pointer):
         self.log.info(f"[ql_update_shm] update_shm for pointer {pointer:#0x}")
-        
+
         param = self.get_shm(pointer)
         if param is None:
             return
-        self.ql.mem.write(param.shm_pybuf, param.shm.to_bytes()[: param.size])
+        if self.status == Status.INTERACTIVE:
+            self.ql.mem.write(param.shm_pybuf, param.shm.to_bytes()[: param.size])
 
     def writeback_shm(self, pointer):
         param = self.get_shm(pointer)
         if param is None:
             return
         curr_data = self.ql.mem.read(param.shm_pybuf, param.size)
-        param.shm.from_bytes(curr_data)
+        if self.status == Status.INTERACTIVE:
+            param.shm.from_bytes(curr_data)
+
+    @staticmethod
+    def _serialize(data):
+        return pickle.dumps(data)
+
+    @staticmethod
+    def _deserialize(buf):
+        try:
+            return pickle.loads(bytes(buf).rstrip(b"\x00"))
+        except Exception:
+            return {}
+
+    def _read_shared_shm(self):
+        with self._shm_record_lock:
+            return self._deserialize(self.shm_shared_record.buf)
+
+    def _write_shared_shm(self, data):
+        with self._shm_record_lock:
+            raw = self._serialize(data)
+            if len(raw) > self.shm_size:
+                raise MemoryError("Shared memory too small")
+            self.shm_shared_record.buf[: len(raw)] = raw
+            self.shm_shared_record.buf[len(raw) :] = b"\x00" * (self.shm_size - len(raw))
+
+    # @require_class_attr("key", "curr_key")
+    def get_records(self, key):
+        with self._record_lock:
+            return self._record.get(key)
+
+    # @require_class_attr("key", "curr_key")
+    def set_records(self, key, value):
+        with self._record_lock:
+            if len(self._record) >= self._record_max_items:
+                # simple LRU eviction
+                oldest = min(self._record_meta, key=lambda k: self._record_meta[k])
+                del self._record[oldest]
+                del self._record_meta[oldest]
+                self.ql.log.info(f"[set_records] Evicted oldest cache item: {oldest}")
+
+            self._record[key] = value
+            self._record_meta[key] = time.time()
+
+    # @require_class_attr("key", "curr_key")
+    def update_records(self, key, value, op):
+        with self._record_lock:
+            if key in self._record:
+                self._record[key] = op(self._record[key], value)
+                self._record_meta[key] = time.time()
+            else:
+                self.set_records(key, value)
+        
+
+    def set_shared_records(self, key, value):
+        with self._shm_record_lock:
+            data = self._read_shared_shm()
+            data[key] = {"value": value, "last_accessed": time.time()}
+            self._write_shared_shm(data)
+
+    def update_shared_records(self, key, value, op):
+        with self._shm_record_lock:
+            data = self._read_shared_shm()
+            if key in data:
+                data[key]["value"] = op(data[key]["value"], value)
+                data[key]["last_accessed"] = time.time()
+            else:
+                data[key] = {"value": value, "last_accessed": time.time()}
+            self._write_shared_shm(data)
+
+    def get_shared_records(self, key):
+        with self._shm_record_lock:
+            data = self._read_shared_shm()
+            return data.get(key)
+
+    def records_info(self):
+        with self._record_lock and self._shm_record_lock:
+            data = self._read_shared_shm()
+            return {
+                "local": {
+                    "num_items": len(self._record),
+                    "keys": list(self._record.keys()),
+                    "details": {
+                        k: {"last_accessed": self._record_meta[k]}
+                        for k in self._record.keys()
+                    },
+                },
+                "shared": {"num_items": len(data), "keys": list(data.keys())},
+            }
+
+    def clear_records(self):
+        if hasattr(self, "shm_shared") and self.shm_shared_record is not None:
+            self.shm_shared_record.close()
+            try:
+                self.shm_shared_record.unlink()
+            except FileNotFoundError:
+                pass
+            self.shm_shared_record = None
+        with self._record_lock:
+            self._record.clear()
+            self._record_meta.clear()
 
     def CreateEntryPoint(self):
         self.log.info(
@@ -704,7 +867,7 @@ class TAEMU:
     def start_fuzz(
         self, input_file, fuzz_harness=None, fuzz_replay=False, rec_cov=False
     ):
-
+        self.log.info(f"start fuzz args is {input_file} {fuzz_harness} {fuzz_replay}")
         ret = self.CreateEntryPoint()
         if ret != TEE_SUCCESS:
             self.ql.log.warning(f"CreateEntryPoint ret != TEE_SUCCESS {hex(ret)}")
@@ -856,3 +1019,7 @@ class TAEMU:
 
         self.DestroyEntryPoint()
         return
+
+    
+    def __del__(self):
+        self.clear_records()
