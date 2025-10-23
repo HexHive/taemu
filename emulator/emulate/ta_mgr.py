@@ -130,9 +130,9 @@ class TAEMU:
         tee_specific_implemented=True,
         *,
         status: Status = None,
-        cache_max_items=10000,
-        shm_name="shared_memory_cache",
-        shm_size=1024 * 1024,
+        record_max_items=10000,
+        shm_record_name="shared_memory_record",
+        shm_record_size=1024 * 1024,
     ):
         self.ql = ql
         self.log = EmuLog(ql)
@@ -153,25 +153,25 @@ class TAEMU:
         
         if self.status in (Status.REPLAYING, Status.FUZZING):
             self._shm_record_lock = threading.RLock()
-            self.shm_name = shm_name
-            self.shm_size = shm_size
+            self.shm_name = shm_record_name
+            self.shm_size = shm_record_size
 
             # only visiable for one thread (separate copy on the process level)
             self.curr_record_key = None
             self._record_meta = {}
             self._record_lock = threading.RLock()
-            self._record_max_items = cache_max_items
+            self._record_max_items = record_max_items
 
 
             # shared memory across forked processes
             try:
                 self.shm_shared_record = shared_memory.SharedMemory(
-                    create=True, size=shm_size, name=shm_name
+                    create=True, size=shm_record_size, name=shm_record_name
                 )
                 self._write_shared_shm({})
                 self._record = {}
             except FileExistsError:
-                self.shm_shared_record = shared_memory.SharedMemory(name=shm_name)
+                self.shm_shared_record = shared_memory.SharedMemory(name=shm_record_name)
                 self._record = self._read_shared_shm()
             
         self.crash_on_not_implemented = False
@@ -445,16 +445,18 @@ class TAEMU:
             }
 
     def clear_records(self):
-        if hasattr(self, "shm_shared") and self.shm_shared_record is not None:
-            self.shm_shared_record.close()
-            try:
-                self.shm_shared_record.unlink()
-            except FileNotFoundError:
-                pass
-            self.shm_shared_record = None
-        with self._record_lock:
-            self._record.clear()
-            self._record_meta.clear()
+        if self.status in (Status.FUZZING, Status.REPLAYING):
+            print(f"[+] Clearing records for fuzzing procedure...")
+            if hasattr(self, "shm_shared_record") and self.shm_shared_record is not None:
+                self.shm_shared_record.close()
+                try:
+                    self.shm_shared_record.unlink()
+                except FileNotFoundError:
+                    pass
+                self.shm_shared_record = None
+            with self._record_lock:
+                self._record.clear()
+                self._record_meta.clear()
 
     def CreateEntryPoint(self):
         self.log.info(

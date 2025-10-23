@@ -258,4 +258,3 @@ if __name__ == "__main__":
     emu.setup()
     emu.hook()
     emu.start(args.fuzz or args.fuzz_replay, args.fuzz_harness)
-    emu.clear_records()
