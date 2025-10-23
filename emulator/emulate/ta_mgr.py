@@ -256,13 +256,13 @@ class TAEMU:
         self.ql.do_lib_patch()
 
     def get_shm(self, pointer):
-        self.log.info(f"[ql_get_shm] get_shm for pointer {pointer:#0x}")
-        self.log.info(
-            f"[ql_get_shm] cached shm information: {self.ql.cache_information()}"
-        )
-
         if self.curr_params is None:
             return None
+
+        self.log.info(
+            f"[ql_get_shm] get_shm for pointer {pointer:#0x}"
+        )
+
         for p in self.curr_params:
             if isinstance(p, MemRefParam):
                 if (
@@ -270,10 +270,17 @@ class TAEMU:
                     and pointer >= p.shm_pybuf
                     and pointer <= p.shm_pybuf + p.size
                 ):
+                    self.log.info(f"[ql_get_shm] found shm for pointer {pointer:#0x}")
+                    self.ql.update_cache(
+                        self.ql.get_curr_key(), pointer, lambda a, b: a.append(b)
+                    )
+                    self.log.info(f"[ql_get_shm] current shm cache: {self.ql.get_cache(self.ql.get_curr_key())}")
                     return p
         return None
 
     def update_shm(self, pointer):
+        self.log.info(f"[ql_update_shm] update_shm for pointer {pointer:#0x}")
+        
         param = self.get_shm(pointer)
         if param is None:
             return
@@ -808,12 +815,12 @@ class TAEMU:
             )
 
             # sp1der: set exit hooks for fuzzer's recording logics
-            for e in exit_addr:
-                self.ql.hook_address(
-                    callback=finialize_fuzzing,
-                    address=e,
-                    user_data=lambda: f"run:id:{hashlib.md5(open(input_file, 'rb').read()).hexdigest()}",
-                )
+            # for e in exit_addr:
+            #     self.ql.hook_address(
+            #         callback=finialize_fuzzing,
+            #         address=e,
+            #         user_data=lambda: f"run:id:{hashlib.md5(open(input_file, 'rb').read()).hexdigest()}",
+            #     )
 
         if init_fuzz is not None:
             self.init_fuzz = True

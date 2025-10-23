@@ -9,6 +9,7 @@ RPMSESSION_BUFFER_L2_MEM = 0x920000
 RPMSESSIONS_L1 = None
 RPMSESSION_BUFFER_L1_MEM = 0x980000
 
+
 def ut_pf_rpmb_open(ql: Qiling, func_name):
     global RPMSESSIONS_L1
 
@@ -21,13 +22,16 @@ def ut_pf_rpmb_open(ql: Qiling, func_name):
         0x1000, minaddr=RPMSESSION_BUFFER_L1_MEM, info="Rpmsession_L1_buffer"
     )
     RPMSESSIONS_L1 = m
-    
+
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+
 def ut_pf_rpmb_read_data_blocks(ql: Qiling, func_name):
     global RPMSESSIONS_L1
-    params = ql.os.resolve_fcall_params({"sessionID": UINT, "buf": POINTER, "size": UINT})
+    params = ql.os.resolve_fcall_params(
+        {"sessionID": UINT, "buf": POINTER, "size": UINT}
+    )
     para_sessionID = params["sessionID"]
     para_buf = params["buf"]
     para_size = params["size"]
@@ -39,7 +43,7 @@ def ut_pf_rpmb_read_data_blocks(ql: Qiling, func_name):
         ql.mem.write(para_buf, content)
 
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
-    ql.arch.regs.arch_pc = ql.arch.regs.lr   
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
 def ut_pf_rpmb_close(ql: Qiling, func_name):
@@ -52,9 +56,9 @@ def ut_pf_rpmb_close(ql: Qiling, func_name):
         ql.mem.unmap(RPMSESSIONS_L1, 0x1000)
         RPMSESSIONS_L1 = None
 
-
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
 
 def TEE_RpmbOpenSession(ql: Qiling, func_name):
     global RPMSESSIONS
@@ -75,11 +79,11 @@ def TEE_RpmbCloseSession(ql: Qiling, func_name):
     global RPMSESSIONS
     params = ql.os.resolve_fcall_params({"sessionID": UINT})
     para_sessionID = params["sessionID"]
-    
+
     ret = TEE_SUCCESS
     if para_sessionID in RPMSESSIONS:
         RPMSESSIONS[para_sessionID]["opened"] = False
-    
+
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 

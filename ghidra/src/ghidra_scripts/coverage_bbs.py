@@ -15,7 +15,7 @@ from ghidra.app.decompiler import DecompInterface
 from ghidra.util.task import ConsoleTaskMonitor
 from ghidra.program.util import DefinedDataIterator
 from ghidra.app.util import XReferenceUtil
-from utils import find_returns 
+from utils import find_returns
 from graphviz import Digraph
 from typing import List, Dict
 from ghidra.program.database import ProgramDB
@@ -27,9 +27,7 @@ import logging
 from libc_funcs import libc_funcs
 
 FORMAT = "%(asctime)s,%(msecs)d %(levelname)-8s " "%(message)s"
-logging.basicConfig(
-    format=FORMAT, datefmt="%Y-%m-%d:%H:%M:%S", level=logging.DEBUG
-)
+logging.basicConfig(format=FORMAT, datefmt="%Y-%m-%d:%H:%M:%S", level=logging.DEBUG)
 log = logging.getLogger(__name__)
 
 ################################################################################
@@ -44,48 +42,62 @@ DECOMPILER: Decompiler = Decompiler(PROGRAM)
 # CODE
 ################################################################################
 
+
 def convert(inline_funcs):
     out = {}
     for f, entry in inline_funcs.items():
-        out[entry['addr']] = {'name': f, 'type': entry['type']}    
+        out[entry["addr"]] = {"name": f, "type": entry["type"]}
     return out
+
 
 def is_libc(fname):
     return fname in libc_funcs
 
+
 def is_gp(fname):
-    return fname.startswith("TEE_") and not fname.startswith("TEE_SE") and not fname.startswith("TEE_Rpmb")
+    return (
+        fname.startswith("TEE_")
+        and not fname.startswith("TEE_SE")
+        and not fname.startswith("TEE_Rpmb")
+    )
+
 
 def get_inline(inline, addr):
-    if addr.getOffset() in inline:    
+    if addr.getOffset() in inline:
         return inline[addr.getOffset()]
     return None
 
+
 def isname(fname):
     try:
-        a = int(fname.split("FUN_")[-1],16)
+        a = int(fname.split("FUN_")[-1], 16)
         return False
     except:
         return True
 
+
 def is_gp_std(fname):
-    if fname.startswith("TEE_LogPrint"): return True
-    if fname == "msee_ta_printf_va": return True
-    if fname == "TEES_IsREESharedMemory": return True
+    if fname.startswith("TEE_LogPrint"):
+        return True
+    if fname == "msee_ta_printf_va":
+        return True
+    if fname == "TEES_IsREESharedMemory":
+        return True
+
 
 def is_api_call(body, target, tee, inline_funcs):
     program = getCurrentProgram()
     fm = program.getFunctionManager()
     print("is_api_call?", target)
     if get_inline(inline_funcs, target) is not None:
-        print("inline found", target) 
-        return True 
+        print("inline found", target)
+        return True
     if body.contains(target):
         return False
     f = fm.getFunctionContaining(target)
-    
+
     if f is None:
-        if target.getOffset() > 0xffffffff:
+        if target.getOffset() > 0xFFFFFFFF:
             # avoid miscounted blocks
             return False
         print("f is None..")
@@ -104,27 +116,33 @@ def is_api_call(body, target, tee, inline_funcs):
     if fname.startswith("qsee_"):
         return True
     if f.isExternal():
-        return True 
-    
-    return False            
-   
+        return True
+
+    return False
+
+
 def is_complex_interaction(fname):
-    if fname == "ioctl": return True
-    if fname == "TEE_InvokeTACommand": return True
-    if fname == "read": return True
-    if fname == "write": return True
+    if fname == "ioctl":
+        return True
+    if fname == "TEE_InvokeTACommand":
+        return True
+    if fname == "read":
+        return True
+    if fname == "write":
+        return True
+
 
 def get_api_type(target, tee, inline_funcs):
     program = getCurrentProgram()
     fm = program.getFunctionManager()
     f = fm.getFunctionAt(target)
-    if f is None: 
+    if f is None:
         clearListing(target)
         disassemble(target)
         createFunction(target, None)
         f = fm.getFunctionAt(target)
         if f is None:
-            print('f is None')
+            print("f is None")
             # one cause t6 entry is disassembled as arm but should be thumb
             return "tee"
     fname = f.getName()
@@ -139,12 +157,13 @@ def get_api_type(target, tee, inline_funcs):
     if fname.startswith("qsee_"):
         return "tee"
     if f.isExternal():
-        return "tee"        
-    inline_entry = get_inline(inline_funcs, target)    
+        return "tee"
+    inline_entry = get_inline(inline_funcs, target)
     if inline_entry is not None:
         return inline_entry["type"]
     return "tee"
-   
+
+
 def is_call(ghidra_func, instr):
     ft = instr.getFlowType()
     if ft.isCall():
@@ -152,14 +171,23 @@ def is_call(ghidra_func, instr):
     if ft.isConditional() or ft.isUnConditional() or ft.isJump():
         for ref in instr.getReferencesFrom():
             # conditional branch or similar is a ctually a function call
-            target = ref.getToAddress() 
+            target = ref.getToAddress()
             print(target)
-            if str(target).startswith("Stack"): continue
+            if str(target).startswith("Stack"):
+                continue
             if not ghidra_func.getBody().contains(target):
                 return True
     return False
- 
-ta_fw = ["TA_CreateEntryPoint", "TA_OpenSessionEntryPoint", "TA_InvokeCommandEntryPoint", "TA_CloseSessionEntryPoint", "TA_DestroyEntryPoint"]
+
+
+ta_fw = [
+    "TA_CreateEntryPoint",
+    "TA_OpenSessionEntryPoint",
+    "TA_InvokeCommandEntryPoint",
+    "TA_CloseSessionEntryPoint",
+    "TA_DestroyEntryPoint",
+]
+
 
 def gen_cfg(func, func_cfgs, tee, inline_funcs):
     monitor = ConsoleTaskMonitor()
@@ -167,7 +195,7 @@ def gen_cfg(func, func_cfgs, tee, inline_funcs):
     fm = program.getFunctionManager()
     functions = fm.getFunctions(True)
     addressFactory = program.getAddressFactory()
-    print('analyzing', func)
+    print("analyzing", func)
     try:
         ghidra_func = getGlobalFunctions(func)[0]
     except:
@@ -182,8 +210,8 @@ def gen_cfg(func, func_cfgs, tee, inline_funcs):
     block_model = BasicBlockModel(program)
     blocks_iter = block_model.getCodeBlocksContaining(ghidra_func.getBody(), monitor)
 
-    funcs_todo = []        
-    bb_map = {}   # addr_str -> BB info
+    funcs_todo = []
+    bb_map = {}  # addr_str -> BB info
     addr_to_name = {}  # entry address -> BB_x name
     bb_index = 0
     while blocks_iter.hasNext():
@@ -203,15 +231,24 @@ def gen_cfg(func, func_cfgs, tee, inline_funcs):
             instr = instr_iter.next()
             # Detect calls
             if is_call(ghidra_func, instr):
-            #if instr.getFlowType().isCall():
+                # if instr.getFlowType().isCall():
                 for ref in instr.getReferencesFrom():
                     refType = ref.getReferenceType()
                     if refType.isRead() or refType.isData():
                         continue
-                    if refType == RefType.UNCONDITIONAL_CALL or refType.isCall() or refType.isComputed() or refType.isConditional() or refType.isJump():
+                    if (
+                        refType == RefType.UNCONDITIONAL_CALL
+                        or refType.isCall()
+                        or refType.isComputed()
+                        or refType.isConditional()
+                        or refType.isJump()
+                    ):
                         target = ref.getToAddress()
-                        if str(target).startswith("Stack"): continue
-                        is_api = is_api_call(ghidra_func.getBody(), target, tee, inline_funcs)
+                        if str(target).startswith("Stack"):
+                            continue
+                        is_api = is_api_call(
+                            ghidra_func.getBody(), target, tee, inline_funcs
+                        )
                         if is_api:
                             api_type = get_api_type(target, tee, inline_funcs)
                         else:
@@ -222,18 +259,32 @@ def gen_cfg(func, func_cfgs, tee, inline_funcs):
                             print(tee, f_name)
                             if tee == "mitee" and f_name.startswith("zx_"):
                                 # ipc is essentially a system call
-                                svcs.append(str(instr.getAddress()))    
+                                svcs.append(str(instr.getAddress()))
                                 continue
-                            if f_name.startswith("FUN_") or f_name.startswith("thunk_FUN_"):
+                            if f_name.startswith("FUN_") or f_name.startswith(
+                                "thunk_FUN_"
+                            ):
                                 f_name = str(target)
                             if get_inline(inline_funcs, target) is not None:
                                 f_name = get_inline(inline_funcs, target)["name"]
-                            calls.append({"func": f_name, "api": is_api, "api_type": api_type})
+                            calls.append(
+                                {"func": f_name, "api": is_api, "api_type": api_type}
+                            )
                         else:
-                            calls.append({"func": str(target), "api": is_api, "api_type": api_type})
-                        if not is_api and str(target) not in func_cfgs and str(target) not in funcs_todo:
+                            calls.append(
+                                {
+                                    "func": str(target),
+                                    "api": is_api,
+                                    "api_type": api_type,
+                                }
+                            )
+                        if (
+                            not is_api
+                            and str(target) not in func_cfgs
+                            and str(target) not in funcs_todo
+                        ):
                             funcs_todo.append(str(target))
-                            
+
             # Detect svc instruction (ARM/Thumb)
             if instr.getMnemonicString().lower() == "svc":
                 svcs.append(str(instr.getAddress()))
@@ -246,7 +297,7 @@ def gen_cfg(func, func_cfgs, tee, inline_funcs):
             "end": str(end),
             "calls": calls,
             "svc": svcs,
-            "edges": []  # will fill later
+            "edges": [],  # will fill later
         }
 
     # Second pass: resolve CFG edges
@@ -261,11 +312,9 @@ def gen_cfg(func, func_cfgs, tee, inline_funcs):
             if dest_addr in bb_map:
                 bb["edges"].append(bb_map[dest_addr]["name"])
 
-    graph_json = {
-        "function": str(func),
-        "nodes": list(bb_map.values())
-    }    
+    graph_json = {"function": str(func), "nodes": list(bb_map.values())}
     return graph_json, funcs_todo
+
 
 def do_work(tee, ta_json):
     print("working..")
@@ -284,12 +333,7 @@ def do_work(tee, ta_json):
     if image_base == addressFactory.getAddress("0x100000"):
         program.setImageBase(addressFactory.getAddress("0x0"), True)
 
-    print(
-        8 * "*"
-        + "cfg bbs analyzing: "
-        + filename
-        + 8 * "="
-    )
+    print(8 * "*" + "cfg bbs analyzing: " + filename + 8 * "=")
     func_cfgs = {}
     func_todo = []
     ta_info = json.load(open(ta_json))
@@ -298,9 +342,10 @@ def do_work(tee, ta_json):
     else:
         inline_funcs = {}
     for ta_f in ta_fw:
-        if ta_info[ta_f+'_start'] == -1: continue
-        func_todo.append((hex(ta_info[ta_f+'_start'])))
-    while(len(func_todo) != 0):
+        if ta_info[ta_f + "_start"] == -1:
+            continue
+        func_todo.append((hex(ta_info[ta_f + "_start"])))
+    while len(func_todo) != 0:
         func_todo_tmp = []
         for f in func_todo:
             cfg, todo = gen_cfg(f, func_cfgs, tee, inline_funcs)
@@ -314,13 +359,17 @@ def do_work(tee, ta_json):
         func_todo = list(set(func_todo_tmp))
 
     return func_cfgs
-    
+
+
 def main():
     logging.info("Initializing...")
     # create a target-specific output directory
 
     arg_parser = ArgumentParser(
-        description="ghidra analyzer to find GP funcs for mitee", prog="script", prefix_chars="+")
+        description="ghidra analyzer to find GP funcs for mitee",
+        prog="script",
+        prefix_chars="+",
+    )
     arg_parser.add_argument(
         "++tee",
         required=True,
@@ -329,19 +378,20 @@ def main():
     args = arg_parser.parse_args(args=getScriptArgs())
     prog_path = getCurrentProgram().getExecutablePath()
     if not os.path.exists(prog_path):
-        prog_path = os.path.join("/mnt", prog_path[prog_path.find(args.tee):])
+        prog_path = os.path.join("/mnt", prog_path[prog_path.find(args.tee) :])
     ta_json = prog_path[:-3] + ".json"
-    out_dir = os.path.join(os.path.dirname(prog_path), 'bbs')
-    out_path = os.path.join(out_dir, 'bb_' + os.path.basename(prog_path)+'.json')
+    out_dir = os.path.join(os.path.dirname(prog_path), "bbs")
+    out_path = os.path.join(out_dir, "bb_" + os.path.basename(prog_path) + ".json")
     if not os.path.exists(out_dir):
-        os.system(f'mkdir -p {out_dir}')
-        os.system(f'chmod 777 {out_dir}')
-        
+        os.system(f"mkdir -p {out_dir}")
+        os.system(f"chmod 777 {out_dir}")
+
     out = do_work(args.tee, ta_json)
     print(out)
     open(out_path, "w").write(json.dumps(out, indent=4))
-    os.system(f'chmod 666 {out_path}')
+    os.system(f"chmod 666 {out_path}")
     return
+
 
 if __name__ == "__main__":
     main()

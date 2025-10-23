@@ -14,10 +14,12 @@ TEE_TIMEOUT_INFINITE = 0xFFFFFFFF
 SESSIONS = {}
 SESSION_NUM = 0
 
+
 class Session:
     def __init__(self, session_num, target_ta):
         self.session_num = session_num
         self.target_ta = target_ta
+
 
 def TEE_OpenTASession(ql: Qiling, hook_data):
     global SESSIONS, SESSION_NUM
@@ -64,9 +66,7 @@ def TEE_OpenTASession(ql: Qiling, hook_data):
         ):
             buffer = ql.mem.read(para_params + i * 4, 4)
             size = ql.mem.read(para_params + 4 + i * 4, 4)
-            ql.log.info(
-                f"TEE_OpenTASession: memref param: {hex(buffer)}:{hex(size)}"
-            )
+            ql.log.info(f"TEE_OpenTASession: memref param: {hex(buffer)}:{hex(size)}")
 
     ql.mem.write_ptr(para_session, SESSION_NUM)
     SESSIONS[SESSION_NUM] = Session(SESSION_NUM, ql.mem.read(para_destination, 0x10))
@@ -105,9 +105,7 @@ def TEE_InvokeTACommand(ql: Qiling, hook_data):
     )
 
     if para_session not in SESSIONS:
-        ql.log.error(
-            f"TEE_InvokeTACommand: not valid session {hex(para_session)}"
-        )
+        ql.log.error(f"TEE_InvokeTACommand: not valid session {hex(para_session)}")
         ql.emu_stop()
 
     session = SESSIONS[para_session]
@@ -163,11 +161,10 @@ def TEE_InvokeTACommand(ql: Qiling, hook_data):
         ql.arch.regs.arch_pc = ql.arch.regs.lr
     else:
         if hook_data.emu.crash_on_not_implemented:
-            crash_notimpl(ql, f'TEE_InvokeTACommand unknown target TA')
+            crash_notimpl(ql, f"TEE_InvokeTACommand unknown target TA")
             return
         ql.os.fcall.cc.setReturnValue(TEE_ERROR_BUSY)
         ql.arch.regs.arch_pc = ql.arch.regs.lr
-
 
 
 def TEE_CloseTASession(ql: Qiling, hook_data):
@@ -178,9 +175,7 @@ def TEE_CloseTASession(ql: Qiling, hook_data):
     ql.log.info(f"TEE_CloseTASession: {para_session}")
 
     if para_session not in SESSIONS:
-        ql.log.error(
-            f"TEE_InvokeTACommand: not valid session {hex(para_session)}"
-        )
+        ql.log.error(f"TEE_InvokeTACommand: not valid session {hex(para_session)}")
         ql.emu_stop()
 
     del SESSIONS[para_session]

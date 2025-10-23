@@ -7,10 +7,11 @@ import unicorn
 TEE_PROPSET_TEE_IMPLEMENTATION = 0xFFFFFFFD
 TEE_PROPSET_CURRENT_TA = 0xFFFFFFFF
 
+
 def TEE_GetPropertyAsUUID(ql: Qiling, hook_data):
     func_name = hook_data.func_name
     params = ql.os.resolve_fcall_params(
-        {   
+        {
             "propsetOrEnumerator": UINT,
             "name": POINTER,
             "value": POINTER,
@@ -27,8 +28,8 @@ def TEE_GetPropertyAsUUID(ql: Qiling, hook_data):
             ql.log.error(f"\tunknown name")
             ql.emu_stop()
 
-        try: 
-            ql.mem.write(para_value, b'\xaa'*0x10)
+        try:
+            ql.mem.write(para_value, b"\xaa" * 0x10)
         except unicorn.unicorn_py3.unicorn.UcError as e:
             crash(ql, func_name)
             return
@@ -42,16 +43,16 @@ def TEE_GetPropertyAsUUID(ql: Qiling, hook_data):
                 crash(ql, func_name)
                 return
         else:
-            ql.log.error(f'\tunknown property {name}')
+            ql.log.error(f"\tunknown property {name}")
             if hook_data.emu.crash_on_not_implemented:
-                crash_notimpl(f'unknown property {name}')
+                crash_notimpl(f"unknown property {name}")
                 return
             ql.emu_stop()
 
     else:
         ql.log.error(f"{func_name}: unknown property {para_propsetOrEnumerator}")
         if hook_data.emu.crash_on_not_implemented:
-            crash_notimpl(f'unknown property {para_propsetOrEnumerator}')
+            crash_notimpl(f"unknown property {para_propsetOrEnumerator}")
             return
         ql.emu_stop()
 

@@ -16,7 +16,9 @@ from .custom import rpmb
 from unicorn import UC_PROT_READ, UC_PROT_WRITE
 
 
-def GP_params_setup(ql: Qiling, command_id, parameters_type, tee_params, session_id=None):
+def GP_params_setup(
+    ql: Qiling, command_id, parameters_type, tee_params, session_id=None
+):
     """
     r0: session_id
     r1: command_id
@@ -34,7 +36,9 @@ def GP_params_setup(ql: Qiling, command_id, parameters_type, tee_params, session
     ql.arch.regs.r3 = params_mem
     for i, tee_param in enumerate(tee_params):
         if isinstance(tee_param, TEE_Param_Memref):
-            memref_memory = ql.mem.map_anywhere(tee_param.len, minaddr=0x130000, info=f"memref_param_{i}")
+            memref_memory = ql.mem.map_anywhere(
+                tee_param.len, minaddr=0x130000, info=f"memref_param_{i}"
+            )
             tee_param.ptr = memref_memory
             ql.mem.write(memref_memory, tee_param.data)
             ql.mem.write_ptr(params_mem, tee_param.ptr)
@@ -44,7 +48,9 @@ def GP_params_setup(ql: Qiling, command_id, parameters_type, tee_params, session
 
 
 def default_func(ql: Qiling, hook_data):
-    ql.log.critical(f"{hook_data.func_name} called, not implemented! lr: {hex(ql.arch.regs.lr)}")
+    ql.log.critical(
+        f"{hook_data.func_name} called, not implemented! lr: {hex(ql.arch.regs.lr)}"
+    )
     if hook_data.emu.crash_on_not_implemented:
         ql.arch.regs.arch_pc = NOTIMPL_PC
     else:
@@ -122,7 +128,7 @@ def TEE_LogPrintf(ql: Qiling, hook_data):
         except ValueError:
             ql.log.error(f"format string not supported: {format_param}")
             if hook_data.emu.crash_on_not_implemented:
-                crash_notimpl(ql, f'format string not supported: {format_param}')
+                crash_notimpl(ql, f"format string not supported: {format_param}")
                 return
         ql.log.info(f"{hook_data.func_name}: {out_str}")
         ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
@@ -154,8 +160,9 @@ def puts(ql: Qiling, hook_data):
 def printf(ql: Qiling, hook_data):
     TEE_LogPrintf(ql, hook_data)
 
+
 def strstr(ql, hook_data):
-    params = ql.os.resolve_fcall_params({"str1": POINTER, "str2": POINTER}) 
+    params = ql.os.resolve_fcall_params({"str1": POINTER, "str2": POINTER})
     str1 = params["str1"]
     str2 = params["str2"]
     s1 = read_c_str(ql, str1)
@@ -167,22 +174,29 @@ def strstr(ql, hook_data):
         ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+
 def strncat(ql, hook_data):
-    params = ql.os.resolve_fcall_params({"str1": POINTER, "str2": POINTER, "n": INT}) 
+    params = ql.os.resolve_fcall_params({"str1": POINTER, "str2": POINTER, "n": INT})
     str1 = params["str1"]
     str2 = params["str2"]
-    hook_data.emu.update_shm(str1) 
+    hook_data.emu.update_shm(str1)
     s1 = read_c_str(ql, str1)
-    s2 = read_c_str(ql, str2) 
+    s2 = read_c_str(ql, str2)
     ql.log.info(f'strncat: {hex(str1)}->{hex(str2)} {params["n"]}')
     dest = str1 + len(s1)
     if not asan.is_access_valid(
-        ql, hook_data.emu.HEAP, dest, min(params["n"], len(s2)), hook_data.func_name, is_write=True
+        ql,
+        hook_data.emu.HEAP,
+        dest,
+        min(params["n"], len(s2)),
+        hook_data.func_name,
+        is_write=True,
     ):
-        return 
-    ql.mem.write(dest, s1[:params["n"]])
-    ql.os.fcall.cc.setReturnValue(dest) 
+        return
+    ql.mem.write(dest, s1[: params["n"]])
+    ql.os.fcall.cc.setReturnValue(dest)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
 
 def TEE_LogvPrintf(ql: Qiling, hook_data):
     try:
@@ -198,17 +212,20 @@ def TEE_LogvPrintf(ql: Qiling, hook_data):
         except TypeError:
             ql.log.error(f"format string not supported: {format_param}")
             if hook_data.emu.crash_on_not_implemented:
-                crash_notimpl(ql, f'format string not supported: {format_param}')
-                return 
+                crash_notimpl(ql, f"format string not supported: {format_param}")
+                return
         ql.log.info(f"{hook_data.func_name}: {log_level}, {out_str}")
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, hook_data.func_name)
         return
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+
 def TEE_GetPropertyAsIdentity(ql: Qiling, hook_data):
     try:
-        p = ql.os.resolve_fcall_params({"propsetOrEnumerator": POINTER, "name": STRING, "value": POINTER})
+        p = ql.os.resolve_fcall_params(
+            {"propsetOrEnumerator": POINTER, "name": STRING, "value": POINTER}
+        )
         propset = p["propsetOrEnumerator"]
         name = p["name"]
         value = p["value"]
@@ -219,22 +236,25 @@ def TEE_GetPropertyAsIdentity(ql: Qiling, hook_data):
             return
         else:
             if hook_data.emu.crash_on_not_implemented:
-                crash_notimpl(ql, f'unknown property.. {name} {hex(propset)}')
+                crash_notimpl(ql, f"unknown property.. {name} {hex(propset)}")
                 return
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, hook_data.func_name)
-        return 
-             
+        return
 
 
 def log_msg(ql: Qiling, hook_data):
     try:
-        p = ql.os.resolve_fcall_params({"log_level": INT, "log_level_2": INT, "format": STRING})
+        p = ql.os.resolve_fcall_params(
+            {"log_level": INT, "log_level_2": INT, "format": STRING}
+        )
         log_level = p["log_level"]
         log_level_2 = p["log_level_2"]
         format_param = p["format"]
         final_params = {"log_level": INT, "log_level_2": INT, "format": STRING}
-        final_params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
+        final_params = parse_fmt_str(
+            ql, format_param, final_params, hook_data.func_name
+        )
         params = ql.os.resolve_fcall_params(final_params)
         del params["format"]
         string_params = [params[f"{i}"] for i in range(0, len(params) - 2)]
@@ -244,7 +264,7 @@ def log_msg(ql: Qiling, hook_data):
         except TypeError:
             ql.log.error(f"format string not supported: {format_param}")
             if hook_data.emu.crash_on_not_implemented:
-                crash_notimpl(ql, f'format string not supported: {format_param}')
+                crash_notimpl(ql, f"format string not supported: {format_param}")
                 return
         ql.log.info(f"log_msg: {log_level}, {log_level_2},{out_str}")
     except unicorn.unicorn_py3.unicorn.UcError:
@@ -255,12 +275,20 @@ def log_msg(ql: Qiling, hook_data):
 
 def snprintf(ql: Qiling, hook_data):
     try:
-        params_initial = ql.os.resolve_fcall_params({"s": POINTER, "n": INT, "format": STRING, "arg": POINTER})
+        params_initial = ql.os.resolve_fcall_params(
+            {"s": POINTER, "n": INT, "format": STRING, "arg": POINTER}
+        )
         format_param = params_initial["format"]
         n = params_initial["n"]
         s = params_initial["s"]
         arg = params_initial["arg"]
-        params = parse_fmt_str(ql, format_param, {"s": INT, "n": INT, "format": STRING}, hook_data.func_name, arg=arg)
+        params = parse_fmt_str(
+            ql,
+            format_param,
+            {"s": INT, "n": INT, "format": STRING},
+            hook_data.func_name,
+            arg=arg,
+        )
         string_params = [params[f"{i}"] for i in range(0, len(params))]
         format_param = fixup_format(format_param)
         try:
@@ -268,13 +296,17 @@ def snprintf(ql: Qiling, hook_data):
         except TypeError:
             ql.log.error(f"format string not supported: {format_param}")
             if hook_data.emu.crash_on_not_implemented:
-                crash_notimpl(ql, f'format string not supported: {format_param}')
-                return 
+                crash_notimpl(ql, f"format string not supported: {format_param}")
+                return
         full_len = len(out_str)
         out_str = out_str[: n - 1]
         out_str = out_str.encode("latin-1") + b"\x00"
-        ql.log.info(f'{hook_data.func_name}: len: {hex(n)} "{out_str}" written to {hex(s)}, lr: {hex(ql.arch.regs.lr)}')
-        if not asan.is_access_valid(ql, hook_data.emu.HEAP, s, len(out_str), hook_data.func_name, is_write=True):
+        ql.log.info(
+            f'{hook_data.func_name}: len: {hex(n)} "{out_str}" written to {hex(s)}, lr: {hex(ql.arch.regs.lr)}'
+        )
+        if not asan.is_access_valid(
+            ql, hook_data.emu.HEAP, s, len(out_str), hook_data.func_name, is_write=True
+        ):
             return
         ql.mem.write(s, out_str)
     except unicorn.unicorn_py3.unicorn.UcError:
@@ -286,12 +318,16 @@ def snprintf(ql: Qiling, hook_data):
 
 
 def sprintf(ql: Qiling, hook_data):
-    params_initial = ql.os.resolve_fcall_params({"s": POINTER, "format": STRING, "arg": POINTER})
+    params_initial = ql.os.resolve_fcall_params(
+        {"s": POINTER, "format": STRING, "arg": POINTER}
+    )
     format_param = params_initial["format"]
     s = params_initial["s"]
     arg = params_initial["arg"]
     try:
-        params = parse_fmt_str(ql, format_param, {"s": INT, "format": STRING}, hook_data.func_name, arg=arg)
+        params = parse_fmt_str(
+            ql, format_param, {"s": INT, "format": STRING}, hook_data.func_name, arg=arg
+        )
         string_params = [params[f"{i}"] for i in range(0, len(params))]
         format_param = fixup_format(format_param)
         try:
@@ -299,12 +335,14 @@ def sprintf(ql: Qiling, hook_data):
         except TypeError:
             ql.log.error(f"format string not supported: {format_param}")
             if hook_data.emu.crash_on_not_implemented:
-                crash_notimpl(ql, f'format string not supported: {format_param}')
-                return 
+                crash_notimpl(ql, f"format string not supported: {format_param}")
+                return
         full_len = len(out_str)
         out_str = out_str.encode("latin-1") + b"\x00"
         ql.log.info(f'{hook_data.func_name}: "{out_str}" written to {hex(s)}')
-        if not asan.is_access_valid(ql, hook_data.emu.HEAP, s, len(out_str), hook_data.func_name, is_write=True):
+        if not asan.is_access_valid(
+            ql, hook_data.emu.HEAP, s, len(out_str), hook_data.func_name, is_write=True
+        ):
             return
         ql.mem.write(s, out_str)
     except unicorn.unicorn_py3.unicorn.UcError:
@@ -331,6 +369,7 @@ def strlen(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(out)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+
 def strnlen(ql: Qiling, hook_data):
     params = ql.os.resolve_fcall_params({"ptr": POINTER, "len": POINTER})
     ptr = params["ptr"]
@@ -348,6 +387,7 @@ def strnlen(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(out)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+
 def strcpy(ql: Qiling, hook_data):
     params = ql.os.resolve_fcall_params({"dst": POINTER, "src": POINTER})
     dst = params["dst"]
@@ -356,7 +396,9 @@ def strcpy(ql: Qiling, hook_data):
     hook_data.emu.update_shm(src)
     try:
         s = read_c_str(ql, src)
-        if not asan.is_access_valid(ql, hook_data.emu.HEAP, dst, len(s) + 1, hook_data.func_name, is_write=True):
+        if not asan.is_access_valid(
+            ql, hook_data.emu.HEAP, dst, len(s) + 1, hook_data.func_name, is_write=True
+        ):
             return
         ql.mem.write(dst, s + b"\x00")
     except unicorn.unicorn_py3.unicorn.UcError:
@@ -368,7 +410,9 @@ def strcpy(ql: Qiling, hook_data):
 
 
 def strncpy(ql: Qiling, hook_data):
-    params = ql.os.resolve_fcall_params({"dst": POINTER, "src": POINTER, "num": POINTER})
+    params = ql.os.resolve_fcall_params(
+        {"dst": POINTER, "src": POINTER, "num": POINTER}
+    )
     dst = params["dst"]
     src = params["src"]
     num = params["num"]
@@ -377,11 +421,20 @@ def strncpy(ql: Qiling, hook_data):
     try:
         s = read_c_str(ql, src)
         if len(s) >= num:
-            if not asan.is_access_valid(ql, hook_data.emu.HEAP, dst, num, hook_data.func_name, is_write=True):
+            if not asan.is_access_valid(
+                ql, hook_data.emu.HEAP, dst, num, hook_data.func_name, is_write=True
+            ):
                 return
             ql.mem.write(dst, s[:num])
         else:
-            if not asan.is_access_valid(ql, hook_data.emu.HEAP, dst, len(s) + 1, hook_data.func_name, is_write=True):
+            if not asan.is_access_valid(
+                ql,
+                hook_data.emu.HEAP,
+                dst,
+                len(s) + 1,
+                hook_data.func_name,
+                is_write=True,
+            ):
                 return
             ql.mem.write(dst, s + b"\x00")
     except unicorn.unicorn_py3.unicorn.UcError:
@@ -397,14 +450,28 @@ def TEE_MemMove(ql: Qiling, hook_data):
 
 
 def memmove(ql: Qiling, hook_data):
-    params = ql.os.resolve_fcall_params({"dest": POINTER, "src": POINTER, "size": POINTER})
-    ql.log.info(f'{hook_data.func_name} {params["size"]:#0x} from {hex(params["src"])} to {hex(params["dest"])}')
+    params = ql.os.resolve_fcall_params(
+        {"dest": POINTER, "src": POINTER, "size": POINTER}
+    )
+    ql.log.info(
+        f'{hook_data.func_name} {params["size"]:#0x} from {hex(params["src"])} to {hex(params["dest"])}'
+    )
     if not asan.is_access_valid(
-        ql, hook_data.emu.HEAP, params["dest"], params["size"], hook_data.func_name, is_write=True
+        ql,
+        hook_data.emu.HEAP,
+        params["dest"],
+        params["size"],
+        hook_data.func_name,
+        is_write=True,
     ):
         return
     if not asan.is_access_valid(
-        ql, hook_data.emu.HEAP, params["src"], params["size"], hook_data.func_name, is_write=False
+        ql,
+        hook_data.emu.HEAP,
+        params["src"],
+        params["size"],
+        hook_data.func_name,
+        is_write=False,
     ):
         return
     hook_data.emu.update_shm(params["src"])
@@ -436,13 +503,19 @@ def memset(ql: Qiling, hook_data):
 
 
 def TEE_MemCompare(ql: Qiling, hook_data):
-    params = ql.os.resolve_fcall_params({"dest": POINTER, "src": POINTER, "size": POINTER})
+    params = ql.os.resolve_fcall_params(
+        {"dest": POINTER, "src": POINTER, "size": POINTER}
+    )
     buffer_1 = params["dest"]
     buffer_2 = params["src"]
     size = params["size"]
-    if not asan.is_access_valid(ql, hook_data.emu.HEAP, buffer_1, size, hook_data.func_name, is_write=False):
+    if not asan.is_access_valid(
+        ql, hook_data.emu.HEAP, buffer_1, size, hook_data.func_name, is_write=False
+    ):
         return
-    if not asan.is_access_valid(ql, hook_data.emu.HEAP, buffer_2, size, hook_data.func_name, is_write=False):
+    if not asan.is_access_valid(
+        ql, hook_data.emu.HEAP, buffer_2, size, hook_data.func_name, is_write=False
+    ):
         return
     ret = 0
     hook_data.emu.update_shm(buffer_1)
@@ -480,9 +553,23 @@ def strcmp(ql: Qiling, hook_data):
         crash(ql, hook_data.func_name)
         return
 
-    if not asan.is_access_valid(ql, hook_data.emu.HEAP, str1, len(content_1), hook_data.func_name, is_write=False):
+    if not asan.is_access_valid(
+        ql,
+        hook_data.emu.HEAP,
+        str1,
+        len(content_1),
+        hook_data.func_name,
+        is_write=False,
+    ):
         return
-    if not asan.is_access_valid(ql, hook_data.emu.HEAP, str2, len(content_2), hook_data.func_name, is_write=False):
+    if not asan.is_access_valid(
+        ql,
+        hook_data.emu.HEAP,
+        str2,
+        len(content_2),
+        hook_data.func_name,
+        is_write=False,
+    ):
         return
     ret = 0
 
@@ -498,8 +585,11 @@ def strcmp(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+
 def strncmp(ql: Qiling, hook_data):
-    params = ql.os.resolve_fcall_params({"str1": POINTER, "str2": POINTER, "size": POINTER})
+    params = ql.os.resolve_fcall_params(
+        {"str1": POINTER, "str2": POINTER, "size": POINTER}
+    )
     str1 = params["str1"]
     str2 = params["str2"]
     size = params["size"]
@@ -513,9 +603,23 @@ def strncmp(ql: Qiling, hook_data):
         crash(ql, hook_data.func_name)
         return
 
-    if not asan.is_access_valid(ql, hook_data.emu.HEAP, str1, len(content_1), hook_data.func_name, is_write=False):
+    if not asan.is_access_valid(
+        ql,
+        hook_data.emu.HEAP,
+        str1,
+        len(content_1),
+        hook_data.func_name,
+        is_write=False,
+    ):
         return
-    if not asan.is_access_valid(ql, hook_data.emu.HEAP, str2, len(content_2), hook_data.func_name, is_write=False):
+    if not asan.is_access_valid(
+        ql,
+        hook_data.emu.HEAP,
+        str2,
+        len(content_2),
+        hook_data.func_name,
+        is_write=False,
+    ):
         return
     ret = 0
 
@@ -533,8 +637,11 @@ def strncmp(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+
 def TEE_GenerateRandom(ql: Qiling, hook_data):
-    params = ql.os.resolve_fcall_params({"randomBuffer": POINTER, "randomBufferLen": INT})
+    params = ql.os.resolve_fcall_params(
+        {"randomBuffer": POINTER, "randomBufferLen": INT}
+    )
     r = get_random_bytes(params["randomBufferLen"])
     try:
         ql.mem.write(params["randomBuffer"], r)
@@ -545,7 +652,9 @@ def TEE_GenerateRandom(ql: Qiling, hook_data):
 
 
 def TEE_CheckMemoryAccessRights(ql: Qiling, hook_data):
-    params = ql.os.resolve_fcall_params({"accessFlags": INT, "buffer": POINTER, "size": INT})
+    params = ql.os.resolve_fcall_params(
+        {"accessFlags": INT, "buffer": POINTER, "size": INT}
+    )
     flags = params["accessFlags"]
     buffer = params["buffer"]
     size = params["size"]

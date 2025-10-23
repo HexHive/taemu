@@ -6,6 +6,7 @@ from ... import asan
 from ...common import CRASH_PC, HEAP_MEM, crash
 import unicorn
 
+
 def memset_core(ql, hook_data, called_from_api_emu):
     func_name = hook_data.func_name
     emu = hook_data.emu
@@ -13,11 +14,17 @@ def memset_core(ql, hook_data, called_from_api_emu):
     ql.log.info(
         f'{func_name} {params["size"]:#0x} bytes of {hex(params["x"])} fill to {hex(params["dest"])}'
     )
-    if not asan.is_access_valid(ql, hook_data.emu.HEAP, params["dest"], params["size"], 
-                                hook_data.func_name, is_write=True):
+    if not asan.is_access_valid(
+        ql,
+        hook_data.emu.HEAP,
+        params["dest"],
+        params["size"],
+        hook_data.func_name,
+        is_write=True,
+    ):
         return
     try:
-        ql.mem.write(params["dest"], params["size"]*params["x"].to_bytes(1, "little"))
+        ql.mem.write(params["dest"], params["size"] * params["x"].to_bytes(1, "little"))
     except unicorn.unicorn_py3.unicorn.UcError as e:
         crash(ql, func_name)
         return
@@ -25,6 +32,7 @@ def memset_core(ql, hook_data, called_from_api_emu):
 
     if not called_from_api_emu:
         ql.arch.regs.arch_pc = ql.arch.regs.lr
+
 
 def malloc_core(ql: Qiling, hook_data, called_from_custom_lib):
     func_name = hook_data.func_name
@@ -41,24 +49,25 @@ def malloc_core(ql: Qiling, hook_data, called_from_custom_lib):
     if ret2user_out in hook_data.emu.HEAP["freed"]:
         del hook_data.emu.HEAP["freed"][ret2user_out]
 
-    ql.log.info(f'redzone hook {hex(out)}')
+    ql.log.info(f"redzone hook {hex(out)}")
     asan.asan_hook_redzone_mem_rw(out, asan.ASAN_REDZONE_SIZE, ql)
     hook_data.emu.HEAP["redzones"][out] = asan.ASAN_REDZONE_SIZE
-    ql.log.info(f'redzone hook {hex(ret2user_out + size)}')
+    ql.log.info(f"redzone hook {hex(ret2user_out + size)}")
     asan.asan_hook_redzone_mem_rw(
         ret2user_out + size, real_size - asan.ASAN_REDZONE_SIZE - size, ql
     )
-    hook_data.emu.HEAP["redzones"][ret2user_out + size] = real_size - asan.ASAN_REDZONE_SIZE -size
+    hook_data.emu.HEAP["redzones"][ret2user_out + size] = (
+        real_size - asan.ASAN_REDZONE_SIZE - size
+    )
 
     ql.os.fcall.cc.setReturnValue(ret2user_out)
     if not called_from_custom_lib:
         ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-
-def calloc_core(ql:Qiling, hook_data):
+def calloc_core(ql: Qiling, hook_data):
     param = ql.os.resolve_fcall_params({"nmemb": INT, "size": INT})
-    size = param['size'] * param['nmemb']
+    size = param["size"] * param["nmemb"]
 
     real_size = asan.memory_alignment_round_up(
         size + 2 * asan.ASAN_REDZONE_SIZE, 0x1000
@@ -77,13 +86,15 @@ def calloc_core(ql:Qiling, hook_data):
         ret2user_out + size, real_size - asan.ASAN_REDZONE_SIZE - size, ql
     )
     hook_data.emu.HEAP["redzones"][out] = asan.ASAN_REDZONE_SIZE
-    hook_data.emu.HEAP["redzones"][ret2user_out + size] = real_size - asan.ASAN_REDZONE_SIZE -size
+    hook_data.emu.HEAP["redzones"][ret2user_out + size] = (
+        real_size - asan.ASAN_REDZONE_SIZE - size
+    )
 
     ql.os.fcall.cc.setReturnValue(ret2user_out)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def free_core(ql:Qiling, hook_data, called_from_custom_lib):
+def free_core(ql: Qiling, hook_data, called_from_custom_lib):
     func_name = hook_data.func_name
     ptr = ql.os.resolve_fcall_params({"ptr": INT})["ptr"]
     if ptr == 0:
@@ -101,7 +112,7 @@ def free_core(ql:Qiling, hook_data, called_from_custom_lib):
         return
     ql.log.info(f"{func_name}: freeing memory at {hex(ptr)}")
     real_ptr = ptr - asan.ASAN_REDZONE_SIZE
-    if size == 0: 
+    if size == 0:
         ql.mem.unmap(real_ptr, (1 + 0x1000 - 1) & ~(0x1000 - 1))
     else:
         ql.mem.unmap(real_ptr, (size + 0x1000 - 1) & ~(0x1000 - 1))

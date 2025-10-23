@@ -202,9 +202,7 @@ class SignatureChanger:
             "buffer",
             None,
         )
-        memref_struct.insertAtOffset(
-            0x4, UnsignedIntegerDataType(), 0, "size", None
-        )
+        memref_struct.insertAtOffset(0x4, UnsignedIntegerDataType(), 0, "size", None)
 
         value_struct = StructureDataType(self.category_path, "value", 0)
         value_struct.insertAtOffset(0x0, IntegerDataType(), 0, "a", None)
@@ -231,9 +229,7 @@ class SignatureChanger:
             "buffer",
             None,
         )
-        memref_struct.insertAtOffset(
-            0x8, UnsignedLongDataType(), 0x8, "size", None
-        )
+        memref_struct.insertAtOffset(0x8, UnsignedLongDataType(), 0x8, "size", None)
 
         value_struct = StructureDataType(self.category_path, "value", 0x8)
         value_struct.insertAtOffset(0x0, LongDataType(), 0x8, "a", None)
@@ -267,21 +263,15 @@ class SignatureChanger:
                 "session_obj", PointerDataType(VoidDataType()), None
             ),
             ParameterDefinitionImpl("cmd_id", UnsignedIntegerDataType(), None),
-            ParameterDefinitionImpl(
-                "param_types", UnsignedIntegerDataType(), None
-            ),
+            ParameterDefinitionImpl("param_types", UnsignedIntegerDataType(), None),
             ParameterDefinitionImpl(
                 "params",
-                PointerDataType(
-                    self.data_type_manager.getDataType("/TC_NS_Parameter")
-                ),
+                PointerDataType(self.data_type_manager.getDataType("/TC_NS_Parameter")),
                 None,
             ),
         ]
 
-        new_signature = FunctionDefinitionDataType(
-            self.category_path, function_name
-        )
+        new_signature = FunctionDefinitionDataType(self.category_path, function_name)
         new_signature.setReturnType(return_type)
         new_signature.setArguments(params)
 
@@ -312,21 +302,15 @@ class SignatureChanger:
                 PointerDataType(PointerDataType(VoidDataType())),
                 None,
             ),
-            ParameterDefinitionImpl(
-                "param_types", UnsignedIntegerDataType(), None
-            ),
+            ParameterDefinitionImpl("param_types", UnsignedIntegerDataType(), None),
             ParameterDefinitionImpl(
                 "params",
-                PointerDataType(
-                    self.data_type_manager.getDataType("/TC_NS_Parameter")
-                ),
+                PointerDataType(self.data_type_manager.getDataType("/TC_NS_Parameter")),
                 None,
             ),
         ]
 
-        new_signature = FunctionDefinitionDataType(
-            self.category_path, function_name
-        )
+        new_signature = FunctionDefinitionDataType(self.category_path, function_name)
         new_signature.setReturnType(return_type)
         new_signature.setArguments(params)
 
@@ -368,9 +352,7 @@ class Decompiler:
         Returns:
             DecompileResults: decompiled function
         """
-        return self.decomp_interface.decompileFunction(
-            function, 60, self.monitor
-        )
+        return self.decomp_interface.decompileFunction(function, 60, self.monitor)
 
     def get_argument_varnode(
         self, func: Function, param_idx: int, empty_ok: bool = False
@@ -382,9 +364,7 @@ class Decompiler:
             )
             decompiled_func = self._cache[func]
         else:
-            log.debug(
-                f"decompiling func {func.getName()}@{func.getEntryPoint()}..."
-            )
+            log.debug(f"decompiling func {func.getName()}@{func.getEntryPoint()}...")
             decompiled_func = self.decompile_function(func)
             self._cache[func] = decompiled_func
 
@@ -515,9 +495,7 @@ class TOCTOUAnalyzer:
         high_func: HighFunction = decompiled_func.getHighFunction()
 
         # Get the basic blocks for each params
-        basic_blocks = [
-            self.BasicBlock(bb) for bb in high_func.getBasicBlocks()
-        ]
+        basic_blocks = [self.BasicBlock(bb) for bb in high_func.getBasicBlocks()]
         # Order basic_blocks by start address
         basic_blocks.sort(key=lambda x: x.start)
         for _ in range(self.num_params):
@@ -661,10 +639,7 @@ class TOCTOUAnalyzer:
             # Find the bb index of the parent with the nearest bb index
             nearest_parent_bb_index = -1
             for bb_index in next_bb_indexes:
-                if (
-                    bb_index > nearest_parent_bb_index
-                    and bb_index <= desc_bb_index
-                ):
+                if bb_index > nearest_parent_bb_index and bb_index <= desc_bb_index:
                     nearest_parent_bb_index = bb_index
 
             # Find the id of the parent in the nearest basic block with the nearest address
@@ -681,9 +656,7 @@ class TOCTOUAnalyzer:
             # Add the edge from the nearest parent to the descendant
             # and add the descendant instruction to the basic block
             self.reachability_graph.add_edge(nearest_parent_id, desc_id)
-            self.basic_blocks[params_index][desc_bb_index].add_instruction(
-                instruction
-            )
+            self.basic_blocks[params_index][desc_bb_index].add_instruction(instruction)
 
             output: VarnodeAST = desc.getOutput()
             if output:
@@ -719,9 +692,7 @@ class TOCTOUAnalyzer:
                 if output:
                     high_out: HighOther = output.getHigh()
                     if high_out:
-                        high_out_instances: List[VarnodeAST] = (
-                            high_out.getInstances()
-                        )
+                        high_out_instances: List[VarnodeAST] = high_out.getInstances()
                         first_descendants.extend(high_out_instances)
         return first_descendants
 
@@ -778,9 +749,7 @@ class TOCTOUAnalyzer:
         """
         # TODO: set __stack_chk_fail type to NONE
 
-        refined_pcode = (
-            entity.getDef() if isinstance(entity, VarnodeAST) else entity
-        )
+        refined_pcode = entity.getDef() if isinstance(entity, VarnodeAST) else entity
         if not refined_pcode:
             return InstructionType.NONE
 

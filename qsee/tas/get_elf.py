@@ -12,6 +12,7 @@ import fs
 import zipfile
 import lz4
 
+
 def unify_tas(file_chunk_dir: str, fw_out_dir: str):
 
     # unify .mdt and .bXX to ELF
@@ -56,9 +57,7 @@ def unify_tas(file_chunk_dir: str, fw_out_dir: str):
             phnum = struct.unpack(
                 "<H", elf_header[E_PHNUM_OFFSET : E_PHNUM_OFFSET + 2]
             )[0]
-            print(
-                "[+] Found %d program headers in %s" % (phnum, trustlet_name)
-            )
+            print("[+] Found %d program headers in %s" % (phnum, trustlet_name))
 
             # Reading each of the program headers and copying the relevant chunk
             output_file_path = os.path.join(fw_out_dir, f"{trustlet_name}.elf")
@@ -112,5 +111,6 @@ def unify_tas(file_chunk_dir: str, fw_out_dir: str):
             with open(mdn_file_path, "wb") as f:
                 f.write(mdn.read())
             mdn.close()
+
 
 unify_tas(".", ".")

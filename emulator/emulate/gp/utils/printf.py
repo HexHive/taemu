@@ -1,5 +1,6 @@
 from qiling.os.const import STRING, INT, BYTE, POINTER
 
+
 def read_c_str(ql, addr):
     read = b""
     while True:
@@ -10,6 +11,7 @@ def read_c_str(ql, addr):
             read += b
             addr += 1
     return read
+
 
 def fixup_format(format_param):
     format_param = format_param.replace("%p", "0x%x")
@@ -28,7 +30,7 @@ def parse_fmt_str(ql, format_param, final_params, func_name, arg=None):
             if next_char == "s":
                 format_dict.append(f"s")
                 i += 2
-            elif format_param[i:i+4] == "%-*s" or format_param[i:i+4] == "%.*s":
+            elif format_param[i : i + 4] == "%-*s" or format_param[i : i + 4] == "%.*s":
                 format_dict.append(f"d")
                 format_dict.append(f"s")
                 i += 4
@@ -38,18 +40,20 @@ def parse_fmt_str(ql, format_param, final_params, func_name, arg=None):
         else:
             i += 1
     if func_name == "vsnprintf":
-        #TODO fix!!
-        arg_ptr = ql.mem.read_ptr(arg+2*ql.arch.pointersize)  # ???
-        params = {} 
+        # TODO fix!!
+        arg_ptr = ql.mem.read_ptr(arg + 2 * ql.arch.pointersize)  # ???
+        params = {}
         for i, fm in enumerate(format_dict):
             # read c string
             if fm == "s":
-                if(not ql.mem.is_mapped(ql.mem.read_ptr(arg_ptr),1)):
+                if not ql.mem.is_mapped(ql.mem.read_ptr(arg_ptr), 1):
                     arg_ptr += ql.arch.pointersize
-                params[f"{i}"] = read_c_str(ql, ql.mem.read_ptr(arg_ptr)).decode('utf-8', errors='replace')
+                params[f"{i}"] = read_c_str(ql, ql.mem.read_ptr(arg_ptr)).decode(
+                    "utf-8", errors="replace"
+                )
             else:
                 params[f"{i}"] = ql.mem.read_ptr(arg_ptr)
-            arg_ptr  += ql.arch.pointersize
+            arg_ptr += ql.arch.pointersize
         return params
     else:
         for i, fm in enumerate(format_dict):
@@ -58,7 +62,11 @@ def parse_fmt_str(ql, format_param, final_params, func_name, arg=None):
             else:
                 final_params[f"{i}"] = INT
         params = ql.os.resolve_fcall_params(final_params)
-        if func_name == "TEE_Logprintf" or func_name == "printf" or func_name == "msee_ta_printf_va" :
+        if (
+            func_name == "TEE_Logprintf"
+            or func_name == "printf"
+            or func_name == "msee_ta_printf_va"
+        ):
             del params["format"]
         elif func_name == "snprintf":
             del params["format"]
@@ -83,5 +91,4 @@ def parse_fmt_str(ql, format_param, final_params, func_name, arg=None):
         else:
             ql.log.error(f"unkown printf format resolving function: {func_name}")
             ql.emu_stop()
-    return params 
-
+    return params

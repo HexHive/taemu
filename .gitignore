@@ -415,3 +415,6 @@ androidroot/*
 
 ### Custom ignores
 emulator/qiling/*
+emulator/qiling
+emulator/rootfs/*
+**/out/*

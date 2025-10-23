@@ -68,9 +68,7 @@ def _disasm_block(listing: ListingDB, bb: CodeBlockImpl):
     return block_disasm
 
 
-def cfg(
-    program: ProgramDB, func: Function, disasm: bool = False
-) -> GraphHelper:
+def cfg(program: ProgramDB, func: Function, disasm: bool = False) -> GraphHelper:
     """Create GraphHeler for the cfg of function `func`.
 
     Args:
@@ -209,9 +207,7 @@ def get_raw_pcode(entity) -> List[PcodeOp]:
     """
     instruction = None
     if isinstance(entity, PcodeOpAST):
-        instruction: List[PcodeOp] = getInstructionAt(
-            entity.getSeqnum().getTarget()
-        )
+        instruction: List[PcodeOp] = getInstructionAt(entity.getSeqnum().getTarget())
     elif isinstance(entity, VarnodeAST):
         instruction: List[PcodeOp] = getInstructionAt(entity.getPCAddress())
 

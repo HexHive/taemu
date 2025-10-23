@@ -8,5 +8,5 @@ for tee in tees:
     m = max(data)
     for i, d in enumerate(data):
         if d >= 0.9 * m:
-            print(f'{tee}: 0.8 bbs: {i+1}')
+            print(f"{tee}: 0.8 bbs: {i+1}")
             break

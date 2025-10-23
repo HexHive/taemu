@@ -32,7 +32,7 @@ def ut_pf_km_get_hmac_key(ql: Qiling, func_name):
 
     ql.log.info(f"ut_pf_km_get_hmac_key {hex(a1)}, {hex(a2)}, {hex(hmac_size)}")
 
-    ql.mem.write(a1, b'a'*hmac_size) 
+    ql.mem.write(a1, b"a" * hmac_size)
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = current_lr
 
@@ -152,7 +152,9 @@ def ut_pf_log_msg_fake(ql, log_level, log):
 
 
 def ut_pf_km_enc_pw(ql: Qiling, func_name):
-    params = ql.os.resolve_fcall_params({"a1": POINTER, "a2": UINT, "a3": POINTER, "a4": POINTER})
+    params = ql.os.resolve_fcall_params(
+        {"a1": POINTER, "a2": UINT, "a3": POINTER, "a4": POINTER}
+    )
     a1 = params["a1"]
     a2 = params["a2"]
     a3 = params["a3"]
@@ -161,6 +163,6 @@ def ut_pf_km_enc_pw(ql: Qiling, func_name):
     ql.log.info(f"{func_name}: {a1:#0x} {a2:#0x} {a3:#0x} {a4:#0x}")
 
     ql.mem.write_ptr(a4, 0x20)
-    ql.mem.write(a3, b'b'*0x20)
+    ql.mem.write(a3, b"b" * 0x20)
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr

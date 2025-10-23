@@ -264,3 +264,4 @@ if __name__ == "__main__":
         ql.log.info(f"[{ta_name}] emulation end")
 
     ql.close_shm()
+    ql.cache_clear()

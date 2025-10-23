@@ -9,29 +9,30 @@ from Crypto.Util.number import bytes_to_long
 from qiling import Qiling
 
 #  6.10.1 List of Algorithm Identifiers
-TEE_ALG_AES_ECB_NOPAD   =   0x10000010
-TEE_ALG_AES_CBC_NOPAD   =   0x10000110
-TEE_ALG_SHA256          =   0x50000004
-TEE_ALG_MD5             =   0x50000001
-TEE_ALG_RSAES_PKCS1_V1_5    =   0x60000130
+TEE_ALG_AES_ECB_NOPAD = 0x10000010
+TEE_ALG_AES_CBC_NOPAD = 0x10000110
+TEE_ALG_SHA256 = 0x50000004
+TEE_ALG_MD5 = 0x50000001
+TEE_ALG_RSAES_PKCS1_V1_5 = 0x60000130
 TEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256 = 0x60410230
 TEE_ALG_RSASSA_PKCS1_PSS_MGF1_SHA256 = 0x70414930
-TEEGRIS_LOG_ENC = 0xf0100003
-TEE_ALG_HMAC_SHA256     =   0x30000004
+TEEGRIS_LOG_ENC = 0xF0100003
+TEE_ALG_HMAC_SHA256 = 0x30000004
 
 
 # 6.1.1 Possible TEE_OperationMode Values
-TEE_MODE_ENCRYPT    = 0x00000000
-TEE_MODE_DECRYPT    = 0x00000001
-TEE_MODE_SIGN       = 0x00000002
-TEE_MODE_VERIFY     = 0x00000003
-TEE_MODE_DIGEST     = 0x00000005 
+TEE_MODE_ENCRYPT = 0x00000000
+TEE_MODE_DECRYPT = 0x00000001
+TEE_MODE_SIGN = 0x00000002
+TEE_MODE_VERIFY = 0x00000003
+TEE_MODE_DIGEST = 0x00000005
 
 
-class Operation():
+class Operation:
     def __init__(self, operaitonID, ql) -> None:
         self.operationID = operaitonID
         self.ql = ql
+
 
 class MD5_Operation(Operation):
     def __init__(self, operationID, ql) -> None:
@@ -41,12 +42,14 @@ class MD5_Operation(Operation):
     def digest_update(self, data):
         self.h.update(data)
 
-    def finalize(self, data, hash_len, ql:Qiling):
+    def finalize(self, data, hash_len, ql: Qiling):
         self.h.update(data)
         hash = self.h.digest()
 
         if len(hash) > hash_len:
-            ql.log.info(f"\tfinalize: len of hash {hex(len(hash))}, len of res buffer {hex(hash_len)}")
+            ql.log.info(
+                f"\tfinalize: len of hash {hex(len(hash))}, len of res buffer {hex(hash_len)}"
+            )
             return None
 
         self.h = MD5.new()
@@ -61,16 +64,19 @@ class Digest_Operation(Operation):
     def digest_update(self, data):
         self.h.update(data)
 
-    def finalize(self, data, hash_len, ql:Qiling):
+    def finalize(self, data, hash_len, ql: Qiling):
         self.h.update(data)
         hash = self.h.digest()
 
         if len(hash) > hash_len:
-            ql.log.info(f"\tfinalize: len of hash {hex(len(hash))}, len of res buffer {hex(hash_len)}")
+            ql.log.info(
+                f"\tfinalize: len of hash {hex(len(hash))}, len of res buffer {hex(hash_len)}"
+            )
             return None
 
         self.h = SHA256.new()
         return hash
+
 
 class AES_ECB_NOPAD_Operation(Operation):
     def __init__(self, operationID, mode, ql) -> None:
@@ -81,14 +87,14 @@ class AES_ECB_NOPAD_Operation(Operation):
         self.iv = None
         self.active = False
         self.mode = mode
-    
+
     def initialize(self, key, ql):
         self.key = key
         self.initialized = True
 
     def activate(self, iv):
         self.iv = iv
-        # no iv for ECB mode  
+        # no iv for ECB mode
         self.cypher = AES.new(self.key, AES.MODE_ECB)
         self.active = True
 
@@ -100,7 +106,7 @@ class AES_ECB_NOPAD_Operation(Operation):
                 pad_l = l
             else:
                 pad_l = l - (l % 0x10) + 0x10
-            pad_src = src.ljust(pad_l, b'\x00')
+            pad_src = src.ljust(pad_l, b"\x00")
             return self.cypher.decrypt(pad_src)[:l]
         elif self.mode == TEE_MODE_ENCRYPT:
             self.active = False
@@ -109,10 +115,12 @@ class AES_ECB_NOPAD_Operation(Operation):
                 pad_l = l
             else:
                 pad_l = l - (l % 0x10) + 0x10
-            pad_src = src.ljust(pad_l, b'\x00')
+            pad_src = src.ljust(pad_l, b"\x00")
             return self.cypher.encrypt(pad_src)[:l]
         else:
-            self.ql.log.error(f"mode {self.mode} for AES_ECB_NOPAD_Operation not implemented")
+            self.ql.log.error(
+                f"mode {self.mode} for AES_ECB_NOPAD_Operation not implemented"
+            )
             self.ql.emu_stop()
 
 
@@ -125,14 +133,14 @@ class AES_CBC_NOPAD_Operation(Operation):
         self.iv = None
         self.active = False
         self.mode = mode
-    
+
     def initialize(self, key, ql):
         self.key = key
         self.initialized = True
 
     def activate(self, iv):
         self.iv = iv
-        self.cypher = AES.new(self.key, AES.MODE_CBC, iv = iv)
+        self.cypher = AES.new(self.key, AES.MODE_CBC, iv=iv)
         self.active = True
 
     def finalize(self, src):
@@ -143,7 +151,7 @@ class AES_CBC_NOPAD_Operation(Operation):
                 pad_l = l
             else:
                 pad_l = l - (l % 0x10) + 0x10
-            pad_src = src.ljust(pad_l, b'\x00')
+            pad_src = src.ljust(pad_l, b"\x00")
             return self.cypher.decrypt(pad_src)[:l]
         elif self.mode == TEE_MODE_ENCRYPT:
             self.active = False
@@ -152,12 +160,15 @@ class AES_CBC_NOPAD_Operation(Operation):
                 pad_l = l
             else:
                 pad_l = l - (l % 0x10) + 0x10
-            pad_src = src.ljust(pad_l, b'\x00')
+            pad_src = src.ljust(pad_l, b"\x00")
             return self.cypher.encrypt(pad_src)[:l]
         else:
-            self.ql.log.error(f"mode {self.mode} for AES_CBC_NOPAD_Operation not implemented")
+            self.ql.log.error(
+                f"mode {self.mode} for AES_CBC_NOPAD_Operation not implemented"
+            )
             self.ql.emu_stop()
-    
+
+
 class RSAES_PKCS1_V1_5_Operation(Operation):
     def __init__(self, operationID, mode, keySize, ql) -> None:
         super().__init__(operationID, ql)
@@ -168,19 +179,20 @@ class RSAES_PKCS1_V1_5_Operation(Operation):
         self.initialized = False
 
     def initialize(self, params, ql):
-        n = bytes_to_long(params['n'])
-        d = bytes_to_long(params['d'])
-        e = bytes_to_long(params['e'])
+        n = bytes_to_long(params["n"])
+        d = bytes_to_long(params["d"])
+        e = bytes_to_long(params["e"])
         self.key = RSA.construct((n, e, d))
         self.cypher = PKCS1_v1_5.new(self.key)
         self.initialized = True
 
-    def decrypt(self, ct, ql:Qiling):
+    def decrypt(self, ct, ql: Qiling):
         ct = bytes(ct)
         ql.log.info(f"\tct: {ct}, len: {len(ct):#0x}")
         pt = self.cypher.decrypt(ct, None)
         ql.log.info(f"\tpt: {pt}, len: {len(pt):#0x}")
         return pt
+
 
 class TEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256_Operation(Operation):
     def __init__(self, operationID, mode, keySize, ql) -> None:
@@ -189,14 +201,15 @@ class TEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256_Operation(Operation):
         self.mode = mode
         self.key = None
         self.cypher = None
-        self.initialized = False 
+        self.initialized = False
 
     def initialize(self, params, ql):
-        #TODO
+        # TODO
         self.initialized = True
 
     def decrypt(self, ct, ql: Qiling):
         return b""
+
 
 class RSASSA_PKCS1_PSS_MGF1_SHA256_Operation(Operation):
     def __init__(self, operationID, mode, keySize, ql) -> None:
@@ -205,7 +218,7 @@ class RSASSA_PKCS1_PSS_MGF1_SHA256_Operation(Operation):
         self.mode = mode
         self.key = None
         self.cypher = None
-        self.initialized = False 
+        self.initialized = False
 
     def initialize(self, params, ql):
         self.initialized = True
@@ -213,13 +226,14 @@ class RSASSA_PKCS1_PSS_MGF1_SHA256_Operation(Operation):
     def decrypt(self, ct, ql: Qiling):
         return b""
 
+
 class TEEGRIS_LOG_ENC_Operation(Operation):
     def __init__(self, operationID, mode, ql) -> None:
         super().__init__(operationID, ql)
         self.mode = mode
         self.key = None
         self.cypher = None
-        self.initialized = False 
+        self.initialized = False
         self.active = False
 
     def activate(self, iv):
@@ -232,7 +246,8 @@ class TEEGRIS_LOG_ENC_Operation(Operation):
     def initialize(self, key, ql):
         self.initialized = True
         self.key = key
-    
+
+
 class TEE_ALG_HMAC_SHA256_Operation(Operation):
     def __init__(self, operaitonID, mode, ql):
         super().__init__(operaitonID, ql)
@@ -249,4 +264,4 @@ class TEE_ALG_HMAC_SHA256_Operation(Operation):
         self.activated = True
 
     def compute(self, message):
-        return hmac.new(self.key, message, hashlib.sha256).digest() 
+        return hmac.new(self.key, message, hashlib.sha256).digest()

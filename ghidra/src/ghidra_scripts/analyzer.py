@@ -126,18 +126,14 @@ class BaseAnalyzer:
 
     def _trace_param_types_arg(
         self, param_types_varnode: VarnodeAST
-    ) -> Tuple[
-        List[Tuple[str, PcodeOp]], List[Tuple[PcodeOp, FunctionDB, int]]
-    ]:
+    ) -> Tuple[List[Tuple[str, PcodeOp]], List[Tuple[PcodeOp, FunctionDB, int]]]:
         """Populate existing analyzers in case `param_types` are passed to
         their function as an argument. Collect and return all nodes that
         compare the `param_types` (overapproximate checker nodes)."""
         checker_nodes: List[Tuple[str, PcodeOp]] = []
         caller_nodes: List[Tuple[PcodeOp, FunctionDB, int]] = []
 
-        types_descendants_animator = self._collect_arg_descendants(
-            param_types_varnode
-        )
+        types_descendants_animator = self._collect_arg_descendants(param_types_varnode)
 
         types_descendants_animator.render(
             os.path.join(
@@ -146,9 +142,7 @@ class BaseAnalyzer:
             )
         )
 
-        log.debug(
-            f"descendants: {types_descendants_animator.get_nodes().items()}"
-        )
+        log.debug(f"descendants: {types_descendants_animator.get_nodes().items()}")
 
         # TODO: we need to _isolate_paths() here
         for node_id in types_descendants_animator.get_nodes().keys():
@@ -181,9 +175,7 @@ class BaseAnalyzer:
                 assert slot > 0, ""
                 idx = slot - 1
                 func: Function = getFunctionAt(dst.getAddress())
-                log.info(
-                    f"`param_types` passed to {func.getName()} at idx {idx}"
-                )
+                log.info(f"`param_types` passed to {func.getName()} at idx {idx}")
                 # TODO: mark pcode as propagate/forward arg node
                 # remember func and arg idx of param_types
                 caller_nodes.append((pcode, func, idx))
@@ -222,9 +214,7 @@ class BaseAnalyzer:
         param_paths_animators = self._isolate_paths(param_descendants)
 
         for animator in param_paths_animators:
-            tmp_derefs, tmp_param_consumers = self._find_derefs(
-                animator, param_sink
-            )
+            tmp_derefs, tmp_param_consumers = self._find_derefs(animator, param_sink)
             derefs.extend(tmp_derefs)
             param_consumers.extend(tmp_param_consumers)
 
@@ -263,9 +253,7 @@ class BaseAnalyzer:
         visited_descendants = {}
         visited_descendants[instance_id] = True
 
-        self._traverse_varnode(
-            animator, instance_id, arg_varnode, visited_descendants
-        )
+        self._traverse_varnode(animator, instance_id, arg_varnode, visited_descendants)
 
         # update each node label for visualization
         for node_id, node_data in animator.get_nodes().items():
@@ -340,9 +328,7 @@ class BaseAnalyzer:
 
         for n in animator._ga.neighbors(node):
             if n not in path_nodes:
-                self._collect_paths(
-                    animator, n, path_nodes.copy(), paths_collection
-                )
+                self._collect_paths(animator, n, path_nodes.copy(), paths_collection)
 
         return paths_collection
 
@@ -474,9 +460,7 @@ class BaseAnalyzer:
                 assert input1.isConstant(), "Expected input1 to be constant"
                 global_offset += input1.getOffset()
             else:
-                raise NotImplementedError(
-                    f"Implement case for {pcode.getMnemonic()}"
-                )
+                raise NotImplementedError(f"Implement case for {pcode.getMnemonic()}")
 
         # print(f"global_offset: {global_offset}")
 
@@ -543,12 +527,8 @@ class BaseAnalyzer:
                 if self.is_known_memref(func_name, arg_idx):
                     # function is a known memref function (memcpy, TEE_MemMove etc..)
                     # add a dereference
-                    log.debug(
-                        f"deref found in known function: {func_name}, {arg_idx}"
-                    )
-                    deref_nodes.append(
-                        DerefSink(node_id, pcode, param_sink.param_idx)
-                    )
+                    log.debug(f"deref found in known function: {func_name}, {arg_idx}")
+                    deref_nodes.append(DerefSink(node_id, pcode, param_sink.param_idx))
                 else:
                     param_consumer.append(
                         ParamConsumer(
@@ -593,17 +573,13 @@ class BaseAnalyzer:
                 in0: Varnode = pcode.getInput(0)  # Constant ID of space
                 in1: Varnode = pcode.getInput(1)  # pointer offset to data
                 if in1 in tainted:
-                    deref_nodes.append(
-                        DerefSink(node_id, pcode, param_sink.param_idx)
-                    )
+                    deref_nodes.append(DerefSink(node_id, pcode, param_sink.param_idx))
                     break
             elif opcode == PcodeOp.STORE:
                 in0: Varnode = pcode.getInput(0)  # Constant ID of space
                 in1: Varnode = pcode.getInput(1)  # pointer offset to data
                 if in1 in tainted:
-                    deref_nodes.append(
-                        DerefSink(node_id, pcode, param_sink.param_idx)
-                    )
+                    deref_nodes.append(DerefSink(node_id, pcode, param_sink.param_idx))
                     break
             else:
                 print(f"Implement case for {pcode.getMnemonic()}")
