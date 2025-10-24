@@ -1,6 +1,7 @@
 from qiling import Qiling
 from .params import *
 from pwn import *
+import hashlib
 
 
 def generate_ptypes(p0, p1, p2, p3):

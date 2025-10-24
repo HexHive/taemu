@@ -5,9 +5,10 @@ from pwn import ELF
 
 # from qiling import Qiling
 from .qiling_extend import QilingExtend as Qiling
+from multiprocessing import Queue, Process
 from qiling.const import QL_VERBOSE
 from qiling.const import QL_ARCH, QL_OS, QL_VERBOSE
-
+from .fuzz_record import Recorder
 
 from .emulator_no_loader import simple_diassembler, trace_block, simple_diassembler
 from .ta_mgr import TAEMU, Status
@@ -224,9 +225,6 @@ if __name__ == "__main__":
         print(f"[!] TEE not set  [!]")
         exit(-1)
 
-    print(
-        f"[+] Loaded TA {ta_name} for TEE {TEE} with Qiling {ql.arch.type}/{ql.os.type}"
-    )
     if args.gdb:
         ql.debugger = True
     if args.disas:
@@ -240,22 +238,70 @@ if __name__ == "__main__":
     if args.no_tee_apis:
         tee_apis = False
 
-    with TAEMU(
-        ql,
-        TEE,
-        ta_path,
-        ta_elf,
-        std_implemented=std_apis,
-        tee_specific_implemented=tee_apis,
-        status=(
-            Status.FUZZING
-            if args.fuzz
-            else Status.REPLAYING if args.fuzz_replay else Status.INTERACTIVE
-        ),
-    ) as emu:
-        try:
-            emu.start(args.fuzz or args.fuzz_replay, args.fuzz_harness)
-        except KeyboardInterrupt:
-            print("[Main] Keyboard interrupt received...")
-        except Exception as e:
-            print(f"[Main] Error occurred: {e}")
+    record_q = Queue()
+
+    def launch_taemu():
+        print(
+            f"[+] Loaded TA {ta_name} for TEE {TEE} with Qiling {ql.arch.type}/{ql.os.type}"
+        )
+        with TAEMU(
+            ql,
+            TEE,
+            ta_path,
+            ta_elf,
+            std_implemented=std_apis,
+            tee_specific_implemented=tee_apis,
+            status=(
+                Status.FUZZING
+                if args.fuzz
+                else Status.REPLAYING if args.fuzz_replay else Status.INTERACTIVE
+            ),
+            record_q=record_q,
+        ) as emu:
+            try:
+                emu.start(args.fuzz or args.fuzz_replay, args.fuzz_harness)
+            except KeyboardInterrupt:
+                print("[+] Keyboard interrupt received...")
+            except Exception as e:
+                print(f"[+] Error occurred: {e}")
+
+    def launch_recorder():
+        suspicious_seeds_save_dir = os.path.join(
+            os.path.dirname(args.fuzz_harness),
+            "in/suspicious_inputs" + ("_replay" if args.fuzz_replay else ""),
+        )
+        if not os.path.exists(suspicious_seeds_save_dir):
+            os.makedirs(suspicious_seeds_save_dir)
+
+        print(f"[+] Saving suspicious inputs at dir => {suspicious_seeds_save_dir}")
+
+        with Recorder(record_q, suspicious_seeds_save_dir, custom_logger) as recorder:
+            recorder.start()
+
+    print("[+] Starting all the processes... [+]")
+    p1 = Process(target=launch_taemu)
+    p1.start()
+
+    if args.fuzz or args.fuzz_replay:
+        p2 = Process(target=launch_recorder)
+        p2.start()
+
+    p1.join()
+    print(f"[+] TAEMU process stopped (exit code: {p1.exitcode})")
+
+    if args.fuzz or args.fuzz_replay:
+        print(f"[+] Sending STOP message to recorder process...")
+        record_q.put("STOP")
+        p2.join(timeout=15.0)
+
+        if p2.is_alive():
+            p2.terminate()
+            p2.join(timeout=2.0)
+
+            if p2.is_alive():
+                p2.kill()
+                p2.join()
+                
+        print(f"[+] Recorder process stopped (exit code: {p2.exitcode})")
+
+    print("[+] Exiting all the procedures completed successfully. [+]")

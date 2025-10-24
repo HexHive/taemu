@@ -1,11 +1,8 @@
 import os
 import tempfile
 import importlib
-from multiprocessing import Queue, Process
-from .fuzz_record import recorder
-from multiprocessing import shared_memory
+
 import time
-import pickle
 import threading
 
 # from qiling import Qiling
@@ -13,6 +10,7 @@ from .qiling_extend import QilingExtend as Qiling
 from qiling.extensions.afl import ql_afl_fuzz
 from qiling.extensions.coverage import utils as cov_utils
 from qiling.extensions import pipe
+from multiprocessing import Queue
 import unicorn
 from pwn import *
 from . import gp_api
@@ -56,7 +54,7 @@ def has_duplicates(nums):
 def finialize_fuzzing(ql: Qiling, user_data: Any) -> None:
     ql.log.info(
         Fore.BLUE
-        + f"[+] finish one fuzzing input, with user_data {user_data}"
+        + f"[+] [{user_data}] Finished one fuzzing input at @{ql.arch.regs.read('PC'):#0x}"
         + Style.RESET_ALL
     )
     ql.emu.save_records_to_queue(checker=lambda records: has_duplicates(records))
@@ -149,7 +147,8 @@ class TAEMU:
         tee_specific_implemented=True,
         *,
         status: Status = None,
-        record_max_items=10000,
+        record_max_items=5000,
+        record_q: Queue = None,
     ):
         self.ql = ql
         self.log = EmuLog(ql)
@@ -169,8 +168,7 @@ class TAEMU:
         self.log.info(f"TAEMU initialized in {self.status.name} mode")
 
         # Simple process management for recorder
-        self._recorder_process = None
-
+        self._record_q = record_q
         if self.status in (Status.REPLAYING, Status.FUZZING):
             # only visiable for one thread (separate copy on the process level)
             self.curr_record_key = None
@@ -179,12 +177,6 @@ class TAEMU:
             self._record_lock = threading.RLock()
             self._record_max_items = record_max_items
             self._record = []
-
-            # shared memory across forked processes
-            self._record_q = Queue()
-            self.interets_seeds_save_dir = os.environ.get(
-                "TAEMU_INTEREST_FUZZ_SEEDS_DIR", None
-            )
 
         self.crash_on_not_implemented = False
         if "TAEMU_CRASH_NOTIMPL" in os.environ:
@@ -325,30 +317,7 @@ class TAEMU:
 
     def start(self, *args):
         if self.status in (Status.FUZZING, Status.REPLAYING):
-            self.interets_seeds_save_dir = self.interets_seeds_save_dir or os.path.join(
-                os.path.dirname(args[1]),
-                "in/suspicious_inputs"
-                + ("_replay" if self.status == Status.REPLAYING else ""),
-            )
-            if not os.path.exists(self.interets_seeds_save_dir):
-                os.makedirs(self.interets_seeds_save_dir)
-            self.ql.log.info(
-                f"[TAEMU] Saving suspicious inputs at dir => {self.interets_seeds_save_dir}"
-            )
-            self._recorder_process = Process(
-                target=recorder,
-                args=(
-                    self._record_q,
-                    self.interets_seeds_save_dir,
-                ),
-            )
-            self._recorder_process.start()
-            self.log.info(
-                f"[TAEMU] Started recorder process (PID: {self._recorder_process.pid})"
-            )
-
             self.start_fuzz(*args, fuzz_replay=(self.status == Status.REPLAYING))
-
         else:
             self.start_interactive()
 
@@ -356,7 +325,7 @@ class TAEMU:
         if self.curr_params is None:
             return None
 
-        self.log.info(f"[ql_get_shm] get_shm for pointer {pointer:#0x}")
+        # self.log.info(f"[ql_get_shm] get_shm for pointer {pointer:#0x}")
 
         for p in self.curr_params:
             if isinstance(p, MemRefParam):
@@ -375,7 +344,7 @@ class TAEMU:
         return None
 
     def update_shm(self, pointer):
-        self.log.info(f"[ql_update_shm] update_shm for pointer {pointer:#0x}")
+        # self.log.info(f"[ql_update_shm] update_shm for pointer {pointer:#0x}")
 
         param = self.get_shm(pointer)
         if param is None:
@@ -453,18 +422,20 @@ class TAEMU:
                     return
             record_copy = self._record.copy()
             record_meta_copy = self._record_meta.copy()
-            self.log.info(
-                f"[save_records_to_queue] Saving records to queue, since checker passed. Records: {record_copy}"
-            )
 
-        self._record_q.put(
-            {
-                "input": self.curr_input,
-                "key": self.curr_record_key,
-                "records": record_copy,
-                "meta": record_meta_copy,
-            }
+        self.log.info(
+            f"[save_records_to_queue] Saving records {self.curr_record_key} items to queue, since checker passed. "
         )
+
+        if self._record_q:
+            self._record_q.put(
+                {
+                    "input": self.curr_input,
+                    "key": self.curr_record_key,
+                    "records": record_copy,
+                    "meta": record_meta_copy,
+                }
+            )
 
     def clear_records(self):
         if self.status in (Status.FUZZING, Status.REPLAYING):
@@ -968,7 +939,7 @@ class TAEMU:
                 return
             if self.init_fuzz:
                 return
-            print("starting afl")
+            self.log.info(f"[TAEMU] starting afl")
             ql_afl_fuzz(
                 _ql,
                 input_file=input_file,
@@ -995,6 +966,10 @@ class TAEMU:
                 address=self.TA_InvokeCommandEntryPoint_start,
             )
 
+        self.log.info(
+            f"[TAEMU]in start, Current PID: {os.getpid()}, Parent PID: {os.getppid()}"
+        )
+
         # set exit hooks for fuzzer's recording logics
         for e in exit_addr:
             self.ql.hook_address(
@@ -1009,7 +984,6 @@ class TAEMU:
             self.init_fuzz = False
 
         if fuzz_replay:
-
             # use data from `input_file`
             input_data = open(input_file, "rb").read()
             if not place_input_callback(self.ql, input_data, -1):
@@ -1027,7 +1001,7 @@ class TAEMU:
             self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)
 
         ret = self.ql.os.fcall.cc.getReturnValue()
-        self.ql.log.info(f"InvokeCommand returned: {hex(ret)}")
+        self.log.info(f"InvokeCommand returned: {hex(ret)}")
 
         for e in exit_hooks:
             self.ql.hook_del(e)
@@ -1038,36 +1012,6 @@ class TAEMU:
         self.DestroyEntryPoint()
         return
 
-    def stop_recorder(self):
-        """Stop the recorder process gracefully."""
-        if self._recorder_process and self._recorder_process.is_alive():
-            self.log.info(
-                f"[TAEMU] Stopping recorder process (PID: {self._recorder_process.pid})"
-            )
-
-            # Send stop signal to recorder
-            self._record_q.put("STOP")
-
-            # Wait for graceful termination
-            self._recorder_process.join(timeout=5.0)
-
-            if self._recorder_process.is_alive():
-                self.log.warning(
-                    "[TAEMU] Recorder didn't stop gracefully, forcing termination..."
-                )
-                self._recorder_process.terminate()
-                self._recorder_process.join(timeout=2.0)
-
-                if self._recorder_process.is_alive():
-                    self.log.warning("[TAEMU] Force killing recorder process...")
-                    self._recorder_process.kill()
-                    self._recorder_process.join()
-
-            self.log.info(
-                f"[TAEMU] Recorder process stopped (exit code: {self._recorder_process.exitcode})"
-            )
-            self._recorder_process = None
-
     def __enter__(self):
         self.setup()
         self.hook()
@@ -1076,7 +1020,6 @@ class TAEMU:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         print("[TAEMU] Context manager cleanup...")
-        self.stop_recorder()
         self.clear_records()
         self.ql.stop()
-        return False  # Don't suppress exceptions
+        return False
