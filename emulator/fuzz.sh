@@ -19,6 +19,12 @@ if [ -z "$1" ]; then
     exit 0
 fi
 
+
+if [ ! -f /.dockerenv ]; then
+    echo "Not running inside emulator Docker. Execute ./run-docker.sh first."
+    exit 1
+fi
+
 OPTS=$(getopt -o l: --long log_file: -n 'fuzz.sh' -- "$@")
 eval set -- "$OPTS"
 

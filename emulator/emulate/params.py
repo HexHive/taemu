@@ -23,7 +23,7 @@ class MemRefParam:
         self.is_shared = False
         self.shm = None
         self.shm_pybuf = None
-        
+
     def __str__(self):
         return f"MemRefParam(size={self.size}, is_shared={self.is_shared}, shm={self.shm}, shm_pybuf={self.shm_pybuf})"
 

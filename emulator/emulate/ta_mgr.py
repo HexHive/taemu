@@ -1,12 +1,15 @@
 import os
 import tempfile
 import importlib
+from multiprocessing import Queue, Process
+from .fuzz_record import recorder
 from multiprocessing import shared_memory
 import time
 import pickle
+import threading
 
 # from qiling import Qiling
-from .qiling_extned import QilingExtend as Qiling
+from .qiling_extend import QilingExtend as Qiling
 from qiling.extensions.afl import ql_afl_fuzz
 from qiling.extensions.coverage import utils as cov_utils
 from qiling.extensions import pipe
@@ -31,7 +34,7 @@ from .emulator_no_loader import (
     teegris_32_setup,
 )
 from .common import CRASH_PC, NOTIMPL_PC
-from typing import Any
+from typing import Any, Callable, Optional
 
 
 def parse_msg(msg):
@@ -41,12 +44,22 @@ def parse_msg(msg):
     return (f, l, data)
 
 
+def has_duplicates(nums):
+    seen = set()
+    for n in nums:
+        if n in seen:
+            return True
+        seen.add(n)
+    return False
+
+
 def finialize_fuzzing(ql: Qiling, user_data: Any) -> None:
     ql.log.info(
         Fore.BLUE
-        + f"[{user_data()}] finish fuzzing round @{ql.arch.regs.read('PC'):#0x}"
+        + f"[+] finish one fuzzing input, with user_data {user_data}"
         + Style.RESET_ALL
     )
+    ql.emu.save_records_to_queue(checker=lambda records: has_duplicates(records))
 
 
 def pivot(ql: Qiling, cur) -> None:
@@ -75,10 +88,12 @@ class FUNCS(Enum):
     func_TEEC_ReleaseSharedMemory = 5
     func_TEEC_FinalizeContext = 6
 
+
 class Status(Enum):
     FUZZING = 1
     REPLAYING = 2
     INTERACTIVE = 3
+
 
 class Session:
     def __init__(self, session_id_mem, session_id, sessionContext):
@@ -94,15 +109,19 @@ def get_ta_uuid(ta_name):
 
 def require_class_attr(param_name, attr_name):
     def decorator(func):
-        def wrapper(self, *args, **kwargs):
+        def wrapper(self, **kwargs):
             if param_name in kwargs:
                 val = kwargs[param_name]
 
-            if val != getattr(self, attr_name):
+                if val != getattr(self, attr_name):
+                    raise ValueError(
+                        f"{param_name}={val} does not match self.{attr_name}={getattr(self, attr_name)}"
+                    )
+                return func(self, **kwargs)
+            else:
                 raise ValueError(
-                    f"{param_name}={val} does not match self.{attr_name}={getattr(self, attr_name)}"
+                    f"{param_name} not found in args or kwargs. Probably a racing bug here."
                 )
-            return func(self, *args, **kwargs)
 
         return wrapper
 
@@ -131,8 +150,6 @@ class TAEMU:
         *,
         status: Status = None,
         record_max_items=10000,
-        shm_record_name="shared_memory_record",
-        shm_record_size=1024 * 1024,
     ):
         self.ql = ql
         self.log = EmuLog(ql)
@@ -150,33 +167,29 @@ class TAEMU:
         self.init_fuzz = False
         self.status = status
         self.log.info(f"TAEMU initialized in {self.status.name} mode")
-        
-        if self.status in (Status.REPLAYING, Status.FUZZING):
-            self._shm_record_lock = threading.RLock()
-            self.shm_name = shm_record_name
-            self.shm_size = shm_record_size
 
+        # Simple process management for recorder
+        self._recorder_process = None
+
+        if self.status in (Status.REPLAYING, Status.FUZZING):
             # only visiable for one thread (separate copy on the process level)
             self.curr_record_key = None
+            self.curr_input = None
             self._record_meta = {}
             self._record_lock = threading.RLock()
             self._record_max_items = record_max_items
-
+            self._record = []
 
             # shared memory across forked processes
-            try:
-                self.shm_shared_record = shared_memory.SharedMemory(
-                    create=True, size=shm_record_size, name=shm_record_name
-                )
-                self._write_shared_shm({})
-                self._record = {}
-            except FileExistsError:
-                self.shm_shared_record = shared_memory.SharedMemory(name=shm_record_name)
-                self._record = self._read_shared_shm()
-            
+            self._record_q = Queue()
+            self.interets_seeds_save_dir = os.environ.get(
+                "TAEMU_INTEREST_FUZZ_SEEDS_DIR", None
+            )
+
         self.crash_on_not_implemented = False
         if "TAEMU_CRASH_NOTIMPL" in os.environ:
             self.crash_on_not_implemented = True
+
         self.sessions = []
         self._debugger = ql._debugger
         self.std_implemented = std_implemented
@@ -309,14 +322,36 @@ class TAEMU:
             tee_specific_implemented=self.tee_specific_implemented,
         )
         self.ql.do_lib_patch()
-        
-        
+
     def start(self, *args):
         if self.status in (Status.FUZZING, Status.REPLAYING):
+            self.interets_seeds_save_dir = self.interets_seeds_save_dir or os.path.join(
+                os.path.dirname(args[1]),
+                "in/suspicious_inputs"
+                + ("_replay" if self.status == Status.REPLAYING else ""),
+            )
+            if not os.path.exists(self.interets_seeds_save_dir):
+                os.makedirs(self.interets_seeds_save_dir)
+            self.ql.log.info(
+                f"[TAEMU] Saving suspicious inputs at dir => {self.interets_seeds_save_dir}"
+            )
+            self._recorder_process = Process(
+                target=recorder,
+                args=(
+                    self._record_q,
+                    self.interets_seeds_save_dir,
+                ),
+            )
+            self._recorder_process.start()
+            self.log.info(
+                f"[TAEMU] Started recorder process (PID: {self._recorder_process.pid})"
+            )
+
             self.start_fuzz(*args, fuzz_replay=(self.status == Status.REPLAYING))
+
         else:
             self.start_interactive()
-            
+
     def get_shm(self, pointer):
         if self.curr_params is None:
             return None
@@ -330,13 +365,12 @@ class TAEMU:
                     and pointer >= p.shm_pybuf
                     and pointer <= p.shm_pybuf + p.size
                 ):
-                    self.log.info(f"[ql_get_shm] found shm for pointer {pointer:#0x}")
-                    self.update_records(
-                        self.curr_record_key, pointer, lambda a, b: a + [b]
-                    )
-                    self.log.info(
-                        f"[ql_get_shm] current shm cache: {self.get_records(self.curr_record_key)}"
-                    )
+                    if self.status in (Status.FUZZING, Status.REPLAYING):
+                        self.update_records(
+                            key=self.curr_record_key,
+                            single_value=pointer,
+                            op=lambda a, b: a + [b],
+                        )
                     return p
         return None
 
@@ -357,106 +391,87 @@ class TAEMU:
         if self.status == Status.INTERACTIVE:
             param.shm.from_bytes(curr_data)
 
-    @staticmethod
-    def _serialize(data):
-        return pickle.dumps(data)
-
-    @staticmethod
-    def _deserialize(buf):
-        try:
-            return pickle.loads(bytes(buf).rstrip(b"\x00"))
-        except Exception:
-            return {}
-
-    def _read_shared_shm(self):
-        with self._shm_record_lock:
-            return self._deserialize(self.shm_shared_record.buf)
-
-    def _write_shared_shm(self, data):
-        with self._shm_record_lock:
-            raw = self._serialize(data)
-            if len(raw) > self.shm_size:
-                raise MemoryError("Shared memory too small")
-            self.shm_shared_record.buf[: len(raw)] = raw
-            self.shm_shared_record.buf[len(raw) :] = b"\x00" * (self.shm_size - len(raw))
-
-    # @require_class_attr("key", "curr_key")
+    @require_class_attr("key", "curr_record_key")
     def get_records(self, key):
         with self._record_lock:
-            return self._record.get(key)
+            return self._record
 
-    # @require_class_attr("key", "curr_key")
-    def set_records(self, key, value):
+    @require_class_attr("key", "curr_record_key")
+    def set_records(self, *, key, value: list):
         with self._record_lock:
-            if len(self._record) >= self._record_max_items:
-                # simple LRU eviction
-                oldest = min(self._record_meta, key=lambda k: self._record_meta[k])
-                del self._record[oldest]
-                del self._record_meta[oldest]
-                self.ql.log.info(f"[set_records] Evicted oldest cache item: {oldest}")
+            if len(value) >= self._record_max_items:
+                self.log.info(
+                    f"[set_records] record cache full, truncating to {self._record_max_items} items"
+                )
+                value = value[: self._record_max_items]
 
-            self._record[key] = value
-            self._record_meta[key] = time.time()
+            self._record = value
+            self._record_meta["last_accessed"] = time.time()
 
-    # @require_class_attr("key", "curr_key")
-    def update_records(self, key, value, op):
+    @require_class_attr("key", "curr_record_key")
+    def update_records(
+        self,
+        *,
+        key,
+        single_value,
+        op: Callable,
+    ):
         with self._record_lock:
-            if key in self._record:
-                self._record[key] = op(self._record[key], value)
-                self._record_meta[key] = time.time()
+            if self._record:
+                if len(self._record) >= self._record_max_items:
+                    self.log.info(
+                        f"[update_records] record cache full, skipping update"
+                    )
+                    self._record_meta["last_accessed"] = time.time()
+                    self._record_meta["full_record"] = True
+                    self._record_meta["skipped_updates"] = (
+                        self._record_meta["skipped_updates"]
+                        if "skipped_updates" in self._record_meta
+                        else 0
+                    ) + 1
+                    return
+
+                self._record = op(self._record, single_value)
+                self._record_meta["last_accessed"] = time.time()
             else:
-                self.set_records(key, value)
-        
-
-    def set_shared_records(self, key, value):
-        with self._shm_record_lock:
-            data = self._read_shared_shm()
-            data[key] = {"value": value, "last_accessed": time.time()}
-            self._write_shared_shm(data)
-
-    def update_shared_records(self, key, value, op):
-        with self._shm_record_lock:
-            data = self._read_shared_shm()
-            if key in data:
-                data[key]["value"] = op(data[key]["value"], value)
-                data[key]["last_accessed"] = time.time()
-            else:
-                data[key] = {"value": value, "last_accessed": time.time()}
-            self._write_shared_shm(data)
-
-    def get_shared_records(self, key):
-        with self._shm_record_lock:
-            data = self._read_shared_shm()
-            return data.get(key)
+                self.set_records(key=key, value=[single_value])
+        # self.ql.log.info(f"[update_records] current records is {self.records_info()}")
 
     def records_info(self):
-        with self._record_lock and self._shm_record_lock:
-            data = self._read_shared_shm()
+        with self._record_lock:
             return {
-                "local": {
-                    "num_items": len(self._record),
-                    "keys": list(self._record.keys()),
-                    "details": {
-                        k: {"last_accessed": self._record_meta[k]}
-                        for k in self._record.keys()
-                    },
-                },
-                "shared": {"num_items": len(data), "keys": list(data.keys())},
+                "num_items": len(self._record),
+                "key": self.curr_record_key,
+                **self._record_meta,
+                "details": self._record,
             }
+
+    def save_records_to_queue(self, checker: Optional[Callable] = None):
+        with self._record_lock:
+            if checker is not None:
+                if not checker(self._record):
+                    return
+            record_copy = self._record.copy()
+            record_meta_copy = self._record_meta.copy()
+            self.log.info(
+                f"[save_records_to_queue] Saving records to queue, since checker passed. Records: {record_copy}"
+            )
+
+        self._record_q.put(
+            {
+                "input": self.curr_input,
+                "key": self.curr_record_key,
+                "records": record_copy,
+                "meta": record_meta_copy,
+            }
+        )
 
     def clear_records(self):
         if self.status in (Status.FUZZING, Status.REPLAYING):
-            print(f"[+] Clearing records for fuzzing procedure...")
-            if hasattr(self, "shm_shared_record") and self.shm_shared_record is not None:
-                self.shm_shared_record.close()
-                try:
-                    self.shm_shared_record.unlink()
-                except FileNotFoundError:
-                    pass
-                self.shm_shared_record = None
             with self._record_lock:
                 self._record.clear()
                 self._record_meta.clear()
+                self.curr_record_key = None
 
     def CreateEntryPoint(self):
         self.log.info(
@@ -973,19 +988,20 @@ class TAEMU:
                         pivot, e, user_data="TA_InvokeCommandEntryPoint"
                     )
                 )
+
         else:
             self.ql.hook_address(
                 callback=start_afl,
                 address=self.TA_InvokeCommandEntryPoint_start,
             )
 
-            # sp1der: set exit hooks for fuzzer's recording logics
-            # for e in exit_addr:
-            #     self.ql.hook_address(
-            #         callback=finialize_fuzzing,
-            #         address=e,
-            #         user_data=lambda: f"run:id:{hashlib.md5(open(input_file, 'rb').read()).hexdigest()}",
-            #     )
+        # set exit hooks for fuzzer's recording logics
+        for e in exit_addr:
+            self.ql.hook_address(
+                callback=finialize_fuzzing,
+                address=e,
+                user_data="Recording suspicious inputs",
+            )
 
         if init_fuzz is not None:
             self.init_fuzz = True
@@ -1022,6 +1038,45 @@ class TAEMU:
         self.DestroyEntryPoint()
         return
 
-    
-    def __del__(self):
+    def stop_recorder(self):
+        """Stop the recorder process gracefully."""
+        if self._recorder_process and self._recorder_process.is_alive():
+            self.log.info(
+                f"[TAEMU] Stopping recorder process (PID: {self._recorder_process.pid})"
+            )
+
+            # Send stop signal to recorder
+            self._record_q.put("STOP")
+
+            # Wait for graceful termination
+            self._recorder_process.join(timeout=5.0)
+
+            if self._recorder_process.is_alive():
+                self.log.warning(
+                    "[TAEMU] Recorder didn't stop gracefully, forcing termination..."
+                )
+                self._recorder_process.terminate()
+                self._recorder_process.join(timeout=2.0)
+
+                if self._recorder_process.is_alive():
+                    self.log.warning("[TAEMU] Force killing recorder process...")
+                    self._recorder_process.kill()
+                    self._recorder_process.join()
+
+            self.log.info(
+                f"[TAEMU] Recorder process stopped (exit code: {self._recorder_process.exitcode})"
+            )
+            self._recorder_process = None
+
+    def __enter__(self):
+        self.setup()
+        self.hook()
+        self.ql.emu = self
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        print("[TAEMU] Context manager cleanup...")
+        self.stop_recorder()
         self.clear_records()
+        self.ql.stop()
+        return False  # Don't suppress exceptions

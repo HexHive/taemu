@@ -4,7 +4,7 @@ import argparse
 from pwn import ELF
 
 # from qiling import Qiling
-from .qiling_extned import QilingExtend as Qiling
+from .qiling_extend import QilingExtend as Qiling
 from qiling.const import QL_VERBOSE
 from qiling.const import QL_ARCH, QL_OS, QL_VERBOSE
 
@@ -16,7 +16,6 @@ from .custom.tc_loader import tc_load
 DIR = dir_path = os.path.dirname(os.path.realpath(__file__))
 TEE = ""
 
-        
 
 def setup_args():
     """Returns an initialized argument parser."""
@@ -241,20 +240,22 @@ if __name__ == "__main__":
     if args.no_tee_apis:
         tee_apis = False
 
-    emu = TAEMU(
+    with TAEMU(
         ql,
         TEE,
         ta_path,
         ta_elf,
         std_implemented=std_apis,
         tee_specific_implemented=tee_apis,
-        status = (
-            Status.FUZZING if args.fuzz
-            else Status.REPLAYING if args.fuzz_replay
-            else Status.INTERACTIVE
+        status=(
+            Status.FUZZING
+            if args.fuzz
+            else Status.REPLAYING if args.fuzz_replay else Status.INTERACTIVE
         ),
-    )
-    ql.emu = emu
-    emu.setup()
-    emu.hook()
-    emu.start(args.fuzz or args.fuzz_replay, args.fuzz_harness)
+    ) as emu:
+        try:
+            emu.start(args.fuzz or args.fuzz_replay, args.fuzz_harness)
+        except KeyboardInterrupt:
+            print("[Main] Keyboard interrupt received...")
+        except Exception as e:
+            print(f"[Main] Error occurred: {e}")

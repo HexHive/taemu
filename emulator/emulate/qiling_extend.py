@@ -2,7 +2,7 @@ from qiling import Qiling
 
 
 class QilingExtend(Qiling):
-    
+
     def __init__(
         self,
         *args,
