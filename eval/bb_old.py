@@ -204,7 +204,6 @@ def generate_graph_noorder(cfg, todo=None):
         api_order = open(f'{todo}_order_noorder.txt').read().split('\n')
         for api_name in api_order:
             max_api = get_api(used_apis, api_name)
-            if max_api is None: breakpoint()
             print(max_api)
             implemented_apis.append(max_api)
             reachable.append(reachable_nodes(cfg, implemented_apis))
@@ -240,11 +239,10 @@ def generate_graph(cfg, todo=None):
     all_libc_idx = 0
     all_tee_std_idx = 0
     all_tee_idx = 0
-    if "BB_USE_CACHE" in os.environ and os.path.exists(f'bbs_out/{todo}_order.txt'):
-        api_order = open(f'bbs_out/{todo}_order.txt').read().split('\n')
+    if "BB_USE_CACHE" in os.environ and os.path.exists(f'{todo}_order.txt'):
+        api_order = open(f'{todo}_order.txt').read().split('\n')
         for api_name in api_order:
             max_api = get_api(used_apis, api_name)
-            if max_api is None: continue
             print(max_api)
             implemented_apis.append(max_api)
             reachable.append(reachable_nodes(cfg, implemented_apis)) 
@@ -316,30 +314,22 @@ def gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, al
     matplotlib.rcParams['mathtext.fontset'] = 'stix'
     matplotlib.rcParams['font.family'] = 'STIXGeneral'
     percentages = [r / max_nodes * 100 for r in reachable]
-    std_max = percentages[all_libc_idx]
-    if all_libc_idx != 0:
-        percentages = percentages[all_libc_idx:]
-    else:
-        percentages = percentages[all_gp_idx:]
-    print(percentages)
-    print(f"nr data points: {len(percentages)}")
-    print(f"std_max: {std_max}")
     plt.gca().set_xticklabels([])
     #plt.gca().tick_params(axis='x', which='both', length=8)
     #plt.gca().tick_params(axis='y', which='both', length=8)
-    plt.yticks([std_max, 100], ["",  ""])
-    plt.ylim(std_max, 100)
-    plt.xlim(0, len(percentages))
-    plt.plot(range(len(percentages)), percentages, label="Reachable %")
+    plt.yticks([0, 50, 100], ["", "", ""])
+    plt.ylim(0, 102)
+    plt.xlim(0, len(reachable)+0.05)
+    plt.plot(range(len(reachable)), percentages, label="Reachable %")
 
-    #if all_gp_idx != 0:
-        #plt.axvline(all_gp_idx, color="blue", linestyle="--", label="GP index")
-    #if all_tee_std_idx != 0:
-    #    plt.axvline(all_tee_std_idx, color="orange", linestyle="--", label="TEE std index")
-    #if all_tee_idx != 0:
-        #plt.axvline(all_tee_idx, color="red", linestyle="--", label="TEE index")
-    #if all_libc_idx != 0:
-        #plt.axvline(all_libc_idx, color="green", linestyle="--", label="libc index")
+    if all_gp_idx != 0:
+        plt.axvline(all_gp_idx, color="blue", linestyle="--", label="GP index")
+    if all_tee_std_idx != 0:
+        plt.axvline(all_tee_std_idx, color="orange", linestyle="--", label="TEE std index")
+    if all_tee_idx != 0:
+        plt.axvline(all_tee_idx, color="red", linestyle="--", label="TEE index")
+    if all_libc_idx != 0:
+        plt.axvline(all_libc_idx, color="green", linestyle="--", label="libc index")
 
     plt.tight_layout()
     
@@ -442,7 +432,6 @@ def analyze_tee(tee_path):
     plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
     print_info(tee_cfg, reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
     print(40*"=")
-    """
     reachable, max_nodes, implemented_apis = generate_graph_noorder(tee_cfg, todo=tee)
     plt.clf()
     plt = gen_plot(reachable, max_nodes, 0, 0, 0, 0)
@@ -450,8 +439,7 @@ def analyze_tee(tee_path):
     open(f'bbs_out/{tee}_order_noorder.txt', 'w+').write('\n'.join(c.func for c in implemented_apis))
     open(f'bbs_out/{tee}_noorder.json','w+').write(json.dumps(reachable))
     plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
-    """
-    
+
 def analyze_all():
     global do_ta_uuid
     global do_tee_name
@@ -471,23 +459,18 @@ def analyze_all():
         all_cfg.add_edge(root_all, tee_root_node)
         print('size all cfg', len(nx.descendants(all_cfg, root_all)))
     reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx, implemented_apis = generate_graph(all_cfg, todo='all')
-    if all_gp_idx > all_tee_std_idx: 
-        print("bricked!!")
-        exit(-1)
     plt = gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
     out_path = f'bbs_out/all_reachable.pdf'
     open(f'bbs_out/all_order.txt', 'w+').write('\n'.join(c.func for c in implemented_apis))
     plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
     print_info(all_cfg, reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
     print(40*"=")
-    """
     reachable, max_nodes, implemented_apis = generate_graph_noorder(all_cfg, todo='all')
     plt.clf()
     plt = gen_plot(reachable, max_nodes, 0, 0, 0, 0)
     out_path = f'bbs_out/all_reachable_noorder.pdf'
     open(f'bbs_out/all_order_noorder.txt', 'w+').write('\n'.join(c.func for c in implemented_apis))
     plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
-    """
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
