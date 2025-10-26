@@ -2,3 +2,4 @@ pwntools
 pycryptodome
 colorama
 hexdump
+redis

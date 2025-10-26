@@ -10,7 +10,7 @@ from .qiling_extend import QilingExtend as Qiling
 from qiling.extensions.afl import ql_afl_fuzz
 from qiling.extensions.coverage import utils as cov_utils
 from qiling.extensions import pipe
-from multiprocessing import Queue
+from .redis_queue import RedisQueue
 import unicorn
 from pwn import *
 from . import gp_api
@@ -52,11 +52,11 @@ def has_duplicates(nums):
 
 
 def finialize_fuzzing(ql: Qiling, user_data: Any) -> None:
-    ql.log.info(
-        Fore.BLUE
-        + f"[+] [{user_data}] Finished one fuzzing input at @{ql.arch.regs.read('PC'):#0x}"
-        + Style.RESET_ALL
-    )
+    # ql.log.info(
+    #     Fore.BLUE
+    #     + f"[+] [{user_data}] Finished one fuzzing input at @{ql.arch.regs.read('PC'):#0x}"
+    #     + Style.RESET_ALL
+    # )
     ql.emu.save_records_to_queue(checker=lambda records: has_duplicates(records))
 
 
@@ -148,7 +148,7 @@ class TAEMU:
         *,
         status: Status = None,
         record_max_items=5000,
-        record_q: Queue = None,
+        record_q: Optional[RedisQueue] = None,
     ):
         self.ql = ql
         self.log = EmuLog(ql)
@@ -424,9 +424,8 @@ class TAEMU:
             record_meta_copy = self._record_meta.copy()
 
         self.log.info(
-            f"[save_records_to_queue] Saving records {self.curr_record_key} items to queue, since checker passed. "
+            f"Saving records to queue: {self.curr_input}, {self.curr_record_key}"
         )
-
         if self._record_q:
             self._record_q.put(
                 {
@@ -965,10 +964,6 @@ class TAEMU:
                 callback=start_afl,
                 address=self.TA_InvokeCommandEntryPoint_start,
             )
-
-        self.log.info(
-            f"[TAEMU]in start, Current PID: {os.getpid()}, Parent PID: {os.getppid()}"
-        )
 
         # set exit hooks for fuzzer's recording logics
         for e in exit_addr:

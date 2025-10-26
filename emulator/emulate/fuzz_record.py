@@ -1,17 +1,36 @@
-from multiprocessing import Queue
 import os
 import json
 import threading
 import time
-import signal
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from queue import Empty
+import sys
+from .redis_queue import RedisQueue
 
 
 class Recorder:
-    def __init__(self, q: Queue, record_seed_dir, log: logging.Logger):
+    def __init__(
+        self,
+        q: RedisQueue,
+        record_seed_dir,
+        log: logging.Logger = None,
+        *,
+        batch_size: int = 50,
+        max_workers: int = 4,
+    ):
         self.q = q
         self.record_seed_dir = record_seed_dir
-        self.log = log or logging.getLogger(__name__)
+        self._log = log or logging.getLogger(__name__)
+        if not log:
+            self._log.handlers = [logging.StreamHandler(sys.stdout)]
+            # self._log.setLevel(logging.INFO)
+        self._batch_size = batch_size
+        self._max_workers = max_workers
+        self._batch_items = []
+        self._executor = None
+        self._batch_processing = False
+        self._batch_lock = threading.Lock()
 
     def start(self):
         self._consume_records()
@@ -20,45 +39,59 @@ class Recorder:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        print(f"[{__name__}] Context manager cleanup...")
-        return False  # Don't suppress exceptions
+        self._log.info(
+            f"[{__name__}] cleanup context manager and process the final batch of {len(self._batch_items)} items"
+        )
+        self._trigger_async_batch_processing()
+        self._log.info(f"[{__name__}] Recorder process exited gracefully")
+        return False  # don't suppress exceptions
 
     def _consume_records(self):
-        print(f"[{__name__}] Starting recorder for directory {self.record_seed_dir}")
+        self._log.info(
+            f"[{__name__}] Starting recorder for directory {self.record_seed_dir}"
+        )
 
-        # Set up signal handlers for graceful shutdown
-        shutdown_requested = threading.Event()
-
-        def signal_handler(signum, _):
-            self.log.info(f"[{__name__}] Received signal {signum}, initiating shutdown...")
-            shutdown_requested.set()
-
-        signal.signal(signal.SIGINT, signal_handler)
-        signal.signal(signal.SIGTERM, signal_handler)
+        self._batch_items = []
 
         if not os.path.exists(self.record_seed_dir):
             os.makedirs(self.record_seed_dir)
 
-        while not shutdown_requested.is_set():
+        while True:
             try:
-                # Use timeout to allow checking shutdown signal
-                item = self.q.get(timeout=3.0)
-                self.log.info(f"[{__name__}] Queue item is {item}. Queue size is {self.q.qsize()}")
+                item = self.q.get(timeout=8.0)
 
-                # Handle special stop message
                 if item == "STOP":
-                    self.log.info(f"[{__name__}] Received STOP message, exiting...")
+                    self._log.info(f"[{__name__}] Received STOP message, exiting...")
                     break
 
+                if self._should_trigger_batch_processing():
+                    self._trigger_async_batch_processing()
+
+                with self._batch_lock:
+                    self._batch_items.append(item)
+
+            except Empty:
+                self._trigger_async_batch_processing()
+                continue
+            except Exception as e:
+                self._log.error(f"[{__name__}] Error processing item: {e}")
+                continue
+
+    def _batch_process_items(self, items: list):
+        if not items:
+            return
+
+        def process_single_item(item):
+            try:
                 input_data = item.get("input", b"")
                 key = item.get("key", "")
                 records = item.get("records", [])
                 meta = item.get("meta", {})
 
                 if not key:
-                    self.log.warning(f"[{__name__}] Warning: Empty key, skipping item")
-                    continue
+                    return False, f"Empty key for item"
 
+                # save input data file
                 file_path = os.path.join(self.record_seed_dir, key)
                 try:
                     with open(file_path, "wb") as f:
@@ -67,30 +100,73 @@ class Recorder:
                         else:
                             f.write(str(input_data).encode("utf-8"))
                 except Exception as e:
-                    self.log.error(f"[{__name__}] Error saving file {file_path}: {e}")
-                    continue
+                    return False, f"Error saving file {file_path}: {e}"
 
-                # Create individual metadata file for this item
+                # save metadata file
                 metadata_file = os.path.join(self.record_seed_dir, f"{key}.meta")
-                self._update_metadata(metadata_file, key, meta, records)
+                try:
+                    metadata = {
+                        "key": key,
+                        "meta": meta,
+                        "updated_at": time.time(),
+                        "full_to_replay": meta.get("full_record", False),
+                        "records": records,
+                    }
+                    with open(metadata_file, "w") as f:
+                        json.dump(metadata, f, indent=2)
+                except Exception as e:
+                    return False, f"Error saving metadata to {metadata_file}: {e}"
+
+                return True, f"Successfully processed item"
 
             except Exception as e:
-                self.log.error(f"[{__name__}] Error processing item: {e}")
-                continue
+                return False, f"Error processing item: {e}"
 
-        self.log.info(f"[{__name__}] Recorder process exiting gracefully")
+        with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
+            futures = [executor.submit(process_single_item, item) for item in items]
 
-    def _update_metadata(self, metadata_file: str, key: str, meta: dict, records: list):
-        metadata = {
-            "key": key,
-            "meta": meta,
-            "updated_at": time.time(),
-            "full_to_replay": meta.get("full_record", False),
-            "records": records,
-        }
+            success_count = 0
+            error_count = 0
 
-        try:
-            with open(metadata_file, "w") as f:
-                json.dump(metadata, f, indent=2)
-        except Exception as e:
-            self.log.error(f"[{__name__}] Error saving metadata to {metadata_file}: {e}")
+            for future in as_completed(futures):
+                try:
+                    success, message = future.result()
+                    if success:
+                        success_count += 1
+                    else:
+                        error_count += 1
+                        self._log.error(
+                            f"[{__name__}] Batch processing error: {message}"
+                        )
+                except Exception as e:
+                    error_count += 1
+                    self._log.error(f"[{__name__}] Future execution error: {e}")
+
+            self._log.info(
+                f"[{__name__}] Batch processing completed: {success_count} success, {error_count} errors"
+            )
+
+    def _should_trigger_batch_processing(self):
+        with self._batch_lock:
+            return (
+                len(self._batch_items) >= self._batch_size
+                and not self._batch_processing
+            )
+
+    def _trigger_async_batch_processing(self):
+        with self._batch_lock:
+            if self._batch_processing or not self._batch_items:
+                return
+            self._batch_processing = True
+            items_to_process = self._batch_items.copy()
+            self._batch_items.clear()
+
+        # use a separate thread to process the items
+        def batch_worker():
+            try:
+                self._batch_process_items(items_to_process)
+            finally:
+                with self._batch_lock:
+                    self._batch_processing = False
+
+        threading.Thread(target=batch_worker).start()

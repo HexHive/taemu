@@ -1,11 +1,13 @@
+from multiprocessing import Process
 import os
 import argparse
+import threading
 
 from pwn import ELF
 
 # from qiling import Qiling
 from .qiling_extend import QilingExtend as Qiling
-from multiprocessing import Queue, Process
+from .redis_queue import create_redis_queue
 from qiling.const import QL_VERBOSE
 from qiling.const import QL_ARCH, QL_OS, QL_VERBOSE
 from .fuzz_record import Recorder
@@ -107,7 +109,6 @@ if __name__ == "__main__":
     custom_logger = None
     if args.log_file:
         print(f"[+] Logging to {args.log_file} [+]")
-
         import logging
 
         logging.basicConfig(
@@ -116,7 +117,7 @@ if __name__ == "__main__":
             handlers=[
                 logging.handlers.RotatingFileHandler(
                     args.log_file,
-                    mode="w",
+                    mode="a",
                     maxBytes=10 * 1024 * 1024,
                     backupCount=5,
                     encoding="utf-8",
@@ -238,9 +239,19 @@ if __name__ == "__main__":
     if args.no_tee_apis:
         tee_apis = False
 
-    record_q = Queue()
+    if args.fuzz or args.fuzz_replay:
+        # Create Redis queue
+        record_q = create_redis_queue(
+            queue_name="ta_emulator_queue",
+            redis_host=os.environ.get("REDIS_HOST", "localhost"),
+            redis_port=int(os.environ.get("REDIS_PORT", "6379")),
+            redis_db=int(os.environ.get("REDIS_DB", "0")),
+            logger=custom_logger,
+        )
+    else:
+        record_q = None
 
-    def launch_taemu():
+    def launch_taemu(curr_record_q):
         print(
             f"[+] Loaded TA {ta_name} for TEE {TEE} with Qiling {ql.arch.type}/{ql.os.type}"
         )
@@ -256,7 +267,7 @@ if __name__ == "__main__":
                 if args.fuzz
                 else Status.REPLAYING if args.fuzz_replay else Status.INTERACTIVE
             ),
-            record_q=record_q,
+            record_q=curr_record_q,
         ) as emu:
             try:
                 emu.start(args.fuzz or args.fuzz_replay, args.fuzz_harness)
@@ -265,7 +276,7 @@ if __name__ == "__main__":
             except Exception as e:
                 print(f"[+] Error occurred: {e}")
 
-    def launch_recorder():
+    def launch_recorder(curr_record_q):
         suspicious_seeds_save_dir = os.path.join(
             os.path.dirname(args.fuzz_harness),
             "in/suspicious_inputs" + ("_replay" if args.fuzz_replay else ""),
@@ -275,15 +286,17 @@ if __name__ == "__main__":
 
         print(f"[+] Saving suspicious inputs at dir => {suspicious_seeds_save_dir}")
 
-        with Recorder(record_q, suspicious_seeds_save_dir, custom_logger) as recorder:
+        with Recorder(
+            curr_record_q, suspicious_seeds_save_dir, custom_logger
+        ) as recorder:
             recorder.start()
 
     print("[+] Starting all the processes... [+]")
-    p1 = Process(target=launch_taemu)
+    p1 = Process(target=launch_taemu, args=(record_q,))
     p1.start()
 
     if args.fuzz or args.fuzz_replay:
-        p2 = Process(target=launch_recorder)
+        p2 = Process(target=launch_recorder, args=(record_q,))
         p2.start()
 
     p1.join()
@@ -296,12 +309,11 @@ if __name__ == "__main__":
 
         if p2.is_alive():
             p2.terminate()
-            p2.join(timeout=2.0)
-
+            p2.join(timeout=5.0)
             if p2.is_alive():
                 p2.kill()
                 p2.join()
-                
+        record_q.close()
         print(f"[+] Recorder process stopped (exit code: {p2.exitcode})")
 
     print("[+] Exiting all the procedures completed successfully. [+]")
