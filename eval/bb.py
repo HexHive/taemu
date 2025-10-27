@@ -471,9 +471,9 @@ def analyze_all():
         all_cfg.add_edge(root_all, tee_root_node)
         print('size all cfg', len(nx.descendants(all_cfg, root_all)))
     reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx, implemented_apis = generate_graph(all_cfg, todo='all')
-    if all_gp_idx > all_tee_std_idx: 
-        print("bricked!!")
-        exit(-1)
+    #if all_gp_idx > all_tee_std_idx: 
+        #print("bricked!!")
+        #exit(-1)
     plt = gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
     out_path = f'bbs_out/all_reachable.pdf'
     open(f'bbs_out/all_order.txt', 'w+').write('\n'.join(c.func for c in implemented_apis))

@@ -6,17 +6,17 @@ import subprocess
 import sys
 
 BASE = os.path.join(os.path.dirname(__file__), "..")
-CAMPAIGN_DIR = "campaign_out"
 FUZZ_CHUNKS = "fuzz_chunk"
 COV_DIR = "cov"
 
+CAMPAIGN_NAME = "campaign_out"
+
 TEES = ["teegris", "mitee", "beanpod", "t6"]
 FUZZ_TIME = 60 * 60 * 24
-FUZZ_ITERATIONS = 5
 FUZZ_TIME = 60 * 60 * 2
-FUZZ_ITERATIONS = 2
 
 def worker(harness_path):
+    global CAMPAIGN_NAME
     log_path = os.path.join(BASE, harness_path, "logs")
     if not os.path.exists(log_path):
         os.system(f'mkdir -p {log_path}')
@@ -34,56 +34,53 @@ def worker(harness_path):
     if os.path.exists(fuzz_dir):
         os.system(f'rm -rf {fuzz_dir}')
     os.system(f'mkdir -p {fuzz_dir}')
-    for fuzz_iteration in range(0, FUZZ_ITERATIONS):
-        if os.path.exists(out_path):
-            os.system(f'rm -rf {out_path}') 
-        fuzz_iteration_dir = os.path.join(fuzz_dir, f'{fuzz_iteration}')
-        os.system(f'mkdir -p {fuzz_iteration_dir}')
-        if FUZZ_TIME > 60*60:
-            seed_backup_dir = os.path.join(fuzz_iteration_dir, FUZZ_CHUNKS) 
-            if os.path.exists(seed_backup_dir):
-                os.system(f'rm -rf {seed_backup_dir}')
-            os.system(f'mkdir -p {seed_backup_dir}')
-            for i in range(0, int(FUZZ_TIME/(60*60))):
-                # ;; avoid memory running out
-                print(f'docker exec -e FUZZTIME={60*60} -e AFL_NO_UI=1 -e TAEMU_CRASH_NOTIMPL=1 -it emu ./fuzz.sh ../{harness_path}')
-                proc = subprocess.run(f'docker exec -e FUZZTIME={60*60} -e AFL_NO_UI=1 -e TAEMU_CRASH_NOTIMPL=1 -it emu ./fuzz.sh ../{harness_path}', shell=True, capture_output=True)
-                open(os.path.join(log_path, "fuzz_stdout.txt"),"ab+").write(proc.stdout)
-                open(os.path.join(log_path, "fuzz_stderr.txt"),"ab+").write(proc.stderr)
-                os.system(f'mkdir -p {seed_backup_dir}/{i}')
-                os.system(f'cp -r {queue_path} {seed_backup_dir}/{i}')
-                os.system(f'cp -r {seed_backup_dir}/{i} {in_path}')
-                os.system(f'cp -r {crashes_path} {seed_backup_dir}/{i}')
-                print(f"Job {harness_path} finished fuzzing {threading.current_thread().name}")
-                
-                proc = subprocess.run(f'docker exec -it emu ./replay.sh ../{harness_path}', shell=True, capture_output=True)
-                open(os.path.join(log_path, "replay_stdout.txt"),"ab+").write(proc.stdout)
-                open(os.path.join(log_path, "replay_stderr.txt"),"ab+").write(proc.stderr)
-                os.system(f'mv {cov_path} {seed_backup_dir}/{i}/')
-        else:
-            print(f'docker exec -e FUZZTIME={FUZZ_TIME} -e AFL_NO_UI=1 -e TAEMU_CRASH_NOTIMPL=1 -it emu ./fuzz.sh ../{harness_path}')
-            proc = subprocess.run(f'timeout {FUZZ_TIME} docker exec -e FUZZTIME={FUZZ_TIME} -e AFL_NO_UI=1 -e TAEMU_CRASH_NOTIMPL=1 -it emu ./fuzz.sh ../{harness_path}', shell=True, capture_output=True)
-            open(os.path.join(log_path, "fuzz_stdout.txt"),"wb+").write(proc.stdout)
-            open(os.path.join(log_path, "fuzz_stderr.txt"),"wb+").write(proc.stderr)
+    if os.path.exists(out_path):
+        os.system(f'rm -rf {out_path}') 
+    campaign_out_dir = os.path.join(fuzz_dir, CAMPAIGN_NAME)
+    os.system(f'mkdir -p {campaign_out_dir}')
+    if FUZZ_TIME > 60*60:
+        seed_backup_dir = os.path.join(campaign_out_dir, FUZZ_CHUNKS) 
+        if os.path.exists(seed_backup_dir):
+            os.system(f'rm -rf {seed_backup_dir}')
+        os.system(f'mkdir -p {seed_backup_dir}')
+        for i in range(0, int(FUZZ_TIME/(60*60))):
+            # ;; avoid memory running out
+            print(f'docker exec -e FUZZTIME={60*60} -e AFL_NO_UI=1 -e TAEMU_CRASH_NOTIMPL=1 -it emu ./fuzz.sh ../{harness_path}')
+            proc = subprocess.run(f'docker exec -e FUZZTIME={60*60} -e AFL_NO_UI=1 -e TAEMU_CRASH_NOTIMPL=1 -it emu ./fuzz.sh ../{harness_path}', shell=True, capture_output=True)
+            open(os.path.join(log_path, "fuzz_stdout.txt"),"ab+").write(proc.stdout)
+            open(os.path.join(log_path, "fuzz_stderr.txt"),"ab+").write(proc.stderr)
+            os.system(f'mkdir -p {seed_backup_dir}/{i}')
+            os.system(f'cp -r {queue_path} {seed_backup_dir}/{i}')
+            os.system(f'cp -r {seed_backup_dir}/{i} {in_path}')
+            os.system(f'cp -r {crashes_path} {seed_backup_dir}/{i}')
             print(f"Job {harness_path} finished fuzzing {threading.current_thread().name}")
-            proc = subprocess.run(f'docker exec -e TAEMU_CRASH_NOTIMPL=1 -it emu ./replay.sh ../{harness_path}', shell=True, capture_output=True)
-            open(os.path.join(log_path, "replay_stdout.txt"),"wb+").write(proc.stdout)
-            open(os.path.join(log_path, "replay_stderr.txt"),"wb+").write(proc.stderr)
-            os.system(f'mv {cov_path} {fuzz_iteration_dir}/')
-            os.system(f'cp -r {queue_path} {fuzz_iteration_dir}/')
-            os.system(f'cp -r {crashes_path} {fuzz_iteration_dir}/')
+            
+            proc = subprocess.run(f'docker exec -it emu ./replay.sh ../{harness_path}', shell=True, capture_output=True)
+            open(os.path.join(log_path, "replay_stdout.txt"),"ab+").write(proc.stdout)
+            open(os.path.join(log_path, "replay_stderr.txt"),"ab+").write(proc.stderr)
+            os.system(f'mv {cov_path} {seed_backup_dir}/{i}/')
+    else:
+        print(f'docker exec -e FUZZTIME={FUZZ_TIME} -e AFL_NO_UI=1 -e TAEMU_CRASH_NOTIMPL=1 -it emu ./fuzz.sh ../{harness_path}')
+        proc = subprocess.run(f'timeout {FUZZ_TIME} docker exec -e FUZZTIME={FUZZ_TIME} -e AFL_NO_UI=1 -e TAEMU_CRASH_NOTIMPL=1 -it emu ./fuzz.sh ../{harness_path}', shell=True, capture_output=True)
+        open(os.path.join(log_path, "fuzz_stdout.txt"),"wb+").write(proc.stdout)
+        open(os.path.join(log_path, "fuzz_stderr.txt"),"wb+").write(proc.stderr)
+        print(f"Job {harness_path} finished fuzzing {threading.current_thread().name}")
+        proc = subprocess.run(f'docker exec -e TAEMU_CRASH_NOTIMPL=1 -it emu ./replay.sh ../{harness_path}', shell=True, capture_output=True)
+        open(os.path.join(log_path, "replay_stdout.txt"),"wb+").write(proc.stdout)
+        open(os.path.join(log_path, "replay_stderr.txt"),"wb+").write(proc.stderr)
+        os.system(f'mv {cov_path} {campaign_out_dir}/')
+        os.system(f'cp -r {queue_path} {campaign_out_dir}/')
+        os.system(f'cp -r {crashes_path} {campaign_out_dir}/')
 
-        os.system(f'rm -rf {in_path}') 
+    os.system(f'rm -rf {in_path}') 
     
-    for fuzz_iteration in range(0, FUZZ_ITERATIONS):
-        fuzz_iteration_dir = os.path.join(fuzz_dir, f'{fuzz_iteration}')
-        if FUZZ_TIME > 60*60:
-            seed_backup_dir = os.path.join(fuzz_iteration_dir, FUZZ_CHUNKS) 
-            for index in os.listdir(seed_backup_dir):
-                    for crash in os.listdir(os.path.join(seed_backup_dir, index, "crashes")):
-                        os.system(f'cp {seed_backup_dir}/{index}/crashes/{crash} {crashes_path}')
-        else:
-            os.system(f'cp {fuzz_iteration_dir}/crashes/* {crashes_path}')
+    if FUZZ_TIME > 60*60:
+        seed_backup_dir = os.path.join(campaign_out_dir, FUZZ_CHUNKS) 
+        for index in os.listdir(seed_backup_dir):
+                for crash in os.listdir(os.path.join(seed_backup_dir, index, "crashes")):
+                    os.system(f'cp {seed_backup_dir}/{index}/crashes/{crash} {crashes_path}')
+    else:
+        os.system(f'cp {campaign_out_dir}/crashes/* {crashes_path}')
             
     print(f"Job {harness_path} finished replay {threading.current_thread().name}")
     proc = subprocess.run(f'docker exec -e TAEMU_CRASH_NOTIMPL=1 -it emu ./triage.py ../{harness_path}', shell=True, capture_output=True)
@@ -103,7 +100,7 @@ def thread_worker(q: queue.Queue):
         finally:
             q.task_done()
 
-def main():
+def main(campaign_name):
     if 'TAEMU_FUZZ_TEE' in os.environ:
         tees = [os.environ['TAEMU_FUZZ_TEE']]
     else:
@@ -148,5 +145,7 @@ def main():
     print("All jobs completed")
 
 if __name__ == "__main__":
-    main()
+    global CAMPAIGN_NAME
+    CAMPAIGN_NAME = sys.argv[1]
+    main(campaign_name)
 
