@@ -9,8 +9,6 @@ BASE = os.path.join(os.path.dirname(__file__), "..")
 FUZZ_CHUNKS = "fuzz_chunk"
 COV_DIR = "cov"
 
-CAMPAIGN_NAME = "campaign_out"
-
 TEES = ["teegris", "mitee", "beanpod", "t6"]
 FUZZ_TIME = 60 * 60 * 24
 FUZZ_TIME = 60 * 60 * 2
@@ -25,18 +23,17 @@ def worker(harness_path):
     open(os.path.join(log_path, "fuzz_stderr.txt"),"wb+").write(b"")
     open(os.path.join(log_path, "replay_stdout.txt"),"wb+").write(b"")
     open(os.path.join(log_path, "replay_stderr.txt"),"wb+").write(b"")
-    fuzz_dir = os.path.join(BASE, harness_path, CAMPAIGN_DIR) 
+    campaign_out_dir = os.path.join(BASE, harness_path, CAMPAIGN_NAME)
     in_path = os.path.join(BASE, harness_path, "in")
     out_path = os.path.join(BASE, harness_path, "out")
     queue_path = os.path.join(out_path, "default", "queue")
     crashes_path = os.path.join(out_path, "default", "crashes")
     cov_path = os.path.join(out_path, COV_DIR)
-    if os.path.exists(fuzz_dir):
-        os.system(f'rm -rf {fuzz_dir}')
-    os.system(f'mkdir -p {fuzz_dir}')
+    if os.path.exists(campaign_out_dir):
+        os.system(f'mv {campaign_out_dir} {campaign_out_dir}.backup')
+    os.system(f'mkdir -p {campaign_out_dir}')
     if os.path.exists(out_path):
         os.system(f'rm -rf {out_path}') 
-    campaign_out_dir = os.path.join(fuzz_dir, CAMPAIGN_NAME)
     os.system(f'mkdir -p {campaign_out_dir}')
     if FUZZ_TIME > 60*60:
         seed_backup_dir = os.path.join(campaign_out_dir, FUZZ_CHUNKS) 
@@ -100,7 +97,7 @@ def thread_worker(q: queue.Queue):
         finally:
             q.task_done()
 
-def main(campaign_name):
+def main():
     if 'TAEMU_FUZZ_TEE' in os.environ:
         tees = [os.environ['TAEMU_FUZZ_TEE']]
     else:
@@ -147,5 +144,5 @@ def main(campaign_name):
 if __name__ == "__main__":
     global CAMPAIGN_NAME
     CAMPAIGN_NAME = sys.argv[1]
-    main(campaign_name)
+    main()
 
