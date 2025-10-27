@@ -187,46 +187,14 @@ def get_api(api_list, api_name):
             return api
     return None
 
-def generate_graph_noorder(cfg, todo=None):
-    reachable = []
-    used_apis = get_apis(cfg)
-    max_nodes = reachable_nodes(cfg, used_apis)
-    print("nr used apis", len(used_apis))
-    print("nr gp apis", len([a for a in used_apis if a.api_type == "gp_api"]))
-    print("nr libc apis", len([a for a in used_apis if a.api_type == "libc"]))
-    print("nr tee apis", len([a for a in used_apis if a.api_type.startswith("tee")]))
-    print(f"max nodes: {max_nodes}")
-    implemented_apis = []
-    i = 0
-    reachable.append(reachable_nodes(cfg, implemented_apis)) 
-    i+= 1
-    if "BB_USE_CACHE" in os.environ and os.path.exists(f'{todo}_order_noorder.txt'):
-        api_order = open(f'{todo}_order_noorder.txt').read().split('\n')
-        for api_name in api_order:
-            max_api = get_api(used_apis, api_name)
-            if max_api is None: breakpoint()
-            print(max_api)
-            implemented_apis.append(max_api)
-            reachable.append(reachable_nodes(cfg, implemented_apis))
-    else: 
-        while 1:
-            max_api = find_best_add(cfg, used_apis, implemented_apis, match_all)
-            if max_api is None: 
-                break
-            print("all_api", max_api)
-            used_apis.remove(max_api)
-            implemented_apis.append(max_api)
-            reachable.append(reachable_nodes(cfg, implemented_apis))
-            i += 1 
-    print("imlemented apis", len(implemented_apis)) 
-    print(reachable)
-    return reachable, max_nodes, implemented_apis
-
 def generate_graph(cfg, todo=None):
     #TODO: implemented using the cache
     reachable = []
     used_apis = get_apis(cfg)
     max_nodes = reachable_nodes(cfg, used_apis)
+    nr_gp = len([a for a in used_apis if a.api_type == "gp_api"])
+    nr_libc = len([a for a in used_apis if a.api_type == "libc"])
+    nr_tee = len([a for a in used_apis if a.api_type.startswith("tee")])
     print("nr used apis", len(used_apis))
     print("nr gp apis", len([a for a in used_apis if a.api_type == "gp_api"]))
     print("nr libc apis", len([a for a in used_apis if a.api_type == "libc"]))
@@ -236,10 +204,6 @@ def generate_graph(cfg, todo=None):
     i = 0
     reachable.append(reachable_nodes(cfg, implemented_apis))
     i+= 1
-    all_gp_idx = 0
-    all_libc_idx = 0
-    all_tee_std_idx = 0
-    all_tee_idx = 0
     if "BB_USE_CACHE" in os.environ and os.path.exists(f'bbs_out/{todo}_order.txt'):
         api_order = open(f'bbs_out/{todo}_order.txt').read().split('\n')
         for api_name in api_order:
@@ -248,10 +212,6 @@ def generate_graph(cfg, todo=None):
             print(max_api)
             implemented_apis.append(max_api)
             reachable.append(reachable_nodes(cfg, implemented_apis)) 
-            if max_api.api_type == "gp_api": all_gp_idx = i
-            if max_api.api_type == "libc": all_libc_idx = i
-            if max_api.api_type == "tee_std": all_tee_std_idx = i
-            if max_api.api_type == "tee": all_tee_idx = i
             i += 1
     else:
         while 1:
@@ -262,7 +222,6 @@ def generate_graph(cfg, todo=None):
             used_apis.remove(max_api)
             implemented_apis.append(max_api)
             reachable.append(reachable_nodes(cfg, implemented_apis))
-            all_gp_idx = i-1
             i += 1
         while 1:
             max_api = find_best_add(cfg, used_apis, implemented_apis, is_libc)
@@ -272,7 +231,6 @@ def generate_graph(cfg, todo=None):
             used_apis.remove(max_api)
             implemented_apis.append(max_api)
             reachable.append(reachable_nodes(cfg, implemented_apis))
-            all_libc_idx = i
             i += 1
         while 1:
             max_api = find_best_add(cfg, used_apis, implemented_apis, is_std)
@@ -282,7 +240,6 @@ def generate_graph(cfg, todo=None):
             used_apis.remove(max_api)
             implemented_apis.append(max_api)
             reachable.append(reachable_nodes(cfg, implemented_apis))
-            all_tee_std_idx = i
             i += 1
         while 1:
             max_api = find_best_add(cfg, used_apis, implemented_apis, is_tee)
@@ -292,12 +249,9 @@ def generate_graph(cfg, todo=None):
             used_apis.remove(max_api)
             implemented_apis.append(max_api)
             reachable.append(reachable_nodes(cfg, implemented_apis))
-            all_tee_idx = i
             i += 1
     print("imlemented apis", len(implemented_apis)) 
-    print(all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
-    print(reachable)
-    return reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx, implemented_apis
+    return reachable, max_nodes, nr_gp, nr_libc, nr_tee, implemented_apis
 
 def get_root_node(ta_cfg, tee=None):
     for n in ta_cfg.nodes:
@@ -307,7 +261,7 @@ def get_root_node(ta_cfg, tee=None):
         elif n.endswith(root):   
             return n
 
-def gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx):
+def gen_plot(reachable, max_nodes, nr_gp, nr_libc, nr_tee):
     plt.clf()
     matplotlib.rcParams['mathtext.fontset'] = 'custom'
     matplotlib.rcParams['mathtext.rm'] = 'Bitstream Vera Sans'
@@ -316,11 +270,8 @@ def gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, al
     matplotlib.rcParams['mathtext.fontset'] = 'stix'
     matplotlib.rcParams['font.family'] = 'STIXGeneral'
     percentages = [r / max_nodes * 100 for r in reachable]
-    std_max = percentages[all_libc_idx]
-    if all_libc_idx != 0:
-        percentages = percentages[all_libc_idx:]
-    else:
-        percentages = percentages[all_gp_idx:]
+    std_max = min(percentages[-nr_tee-1::])
+    percentages = percentages[-nr_tee-1::]
     print(percentages)
     print(f"nr data points: {len(percentages)}")
     print(f"std_max: {std_max}")
@@ -350,13 +301,12 @@ def gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, al
     #plt.grid(True, linestyle="--", alpha=0.6) 
     return plt
 
-def print_info(cfg, reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx):
+def print_info(cfg, reachable, max_nodes, nr_gp, nr_libc, nr_tee):
     print(f'overall reachable bbs: {max_nodes}')
-    print(f'nr gp_api funcs: {all_gp_idx}')
-    print(f'nr libc funcs: {all_libc_idx - all_gp_idx}')
-    print(f'nr tee_std funcs: {all_tee_std_idx - all_libc_idx}')
-    print(f'nr tee funcs: {all_tee_idx - all_tee_std_idx}')
-    std_reachable = reachable[max(all_gp_idx, all_libc_idx, all_tee_std_idx)]
+    print(f'nr gp_api funcs: {nr_gp}')
+    print(f'nr libc funcs: {nr_libc}')
+    print(f'nr tee funcs: {nr_tee}')
+    std_reachable = min(reachable[-nr_tee-1::])
     print(f'% reachable with gp, libc and tee-std', 100* std_reachable/reachable[-1], '%')
 
 def analyze_ta(ta_path):
@@ -381,13 +331,13 @@ def analyze_ta(ta_path):
     nx.draw(nothing_cfg, pos, with_labels=True, node_color="lightblue", arrows=True)
     plt.show()    
     """
-    reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx, implemented_apis = generate_graph(cfg)
+    reachable, max_nodes, nr_gp, nr_libc, nr_tee, implemented_apis = generate_graph(cfg)
     print("max_nodes", max_nodes)
-    plt = gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
+    plt = gen_plot(reachable, max_nodes, nr_gp, nr_libc, nr_tee)
     plt.show()
     out_path = f'ta_reach.pdf'
     plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
-    print_info(cfg, reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
+    print_info(cfg, reachable, max_nodes, nr_gp, nr_libc, nr_tee)
 
 def build_tee_cfg(tee_path, only_tee=True, specific_tas=None):
     global do_ta_uuid
@@ -434,23 +384,14 @@ def analyze_tee(tee_path):
     #pos = graphviz_layout(tee_cfg, prog="dot", args="-Grankdir=TB")
     #nx.draw(tee_cfg, pos, with_labels=True, node_color="lightblue", arrows=True)
     #plt.show() 
-    reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx, implemented_apis = generate_graph(tee_cfg, todo=tee)
-    plt = gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
+    reachable, max_nodes, nr_gp, nr_libc, nr_tee, implemented_apis = generate_graph(tee_cfg, todo=tee)
+    plt = gen_plot(reachable, max_nodes, nr_gp, nr_libc, nr_tee)
     out_path = f'bbs_out/{tee}_reachable.pdf'
     open(f'bbs_out/{tee}_order.txt', 'w+').write('\n'.join(c.func for c in implemented_apis))
     open(f'bbs_out/{tee}.json','w+').write(json.dumps(reachable))
     plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
-    print_info(tee_cfg, reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
+    print_info(tee_cfg, reachable, max_nodes, nr_gp, nr_libc, nr_tee)
     print(40*"=")
-    """
-    reachable, max_nodes, implemented_apis = generate_graph_noorder(tee_cfg, todo=tee)
-    plt.clf()
-    plt = gen_plot(reachable, max_nodes, 0, 0, 0, 0)
-    out_path = f'bbs_out/{tee}_reachable_noorder.pdf'
-    open(f'bbs_out/{tee}_order_noorder.txt', 'w+').write('\n'.join(c.func for c in implemented_apis))
-    open(f'bbs_out/{tee}_noorder.json','w+').write(json.dumps(reachable))
-    plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
-    """
     
 def analyze_all():
     global do_ta_uuid
@@ -470,24 +411,16 @@ def analyze_all():
         print('size tee_cfg', len(nx.descendants(tee_cfg, tee_root_node)))
         all_cfg.add_edge(root_all, tee_root_node)
         print('size all cfg', len(nx.descendants(all_cfg, root_all)))
-    reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx, implemented_apis = generate_graph(all_cfg, todo='all')
+    reachable, max_nodes, nr_gp, nr_libc, nr_tee, implemented_apis = generate_graph(all_cfg, todo='all')
     #if all_gp_idx > all_tee_std_idx: 
         #print("bricked!!")
         #exit(-1)
-    plt = gen_plot(reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
+    plt = gen_plot(reachable, max_nodes, nr_gp, nr_libc, nr_tee)
     out_path = f'bbs_out/all_reachable.pdf'
     open(f'bbs_out/all_order.txt', 'w+').write('\n'.join(c.func for c in implemented_apis))
     plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
-    print_info(all_cfg, reachable, max_nodes, all_gp_idx, all_libc_idx, all_tee_std_idx, all_tee_idx)
+    print_info(all_cfg, reachable, max_nodes, nr_gp, nr_libc, nr_tee)
     print(40*"=")
-    """
-    reachable, max_nodes, implemented_apis = generate_graph_noorder(all_cfg, todo='all')
-    plt.clf()
-    plt = gen_plot(reachable, max_nodes, 0, 0, 0, 0)
-    out_path = f'bbs_out/all_reachable_noorder.pdf'
-    open(f'bbs_out/all_order_noorder.txt', 'w+').write('\n'.join(c.func for c in implemented_apis))
-    plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
-    """
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

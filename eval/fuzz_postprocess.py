@@ -186,6 +186,8 @@ def gen_graph(tee, ta2bbs, max_bbs):
     plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1)
     return x,y
 
+# list of names of the campaigns
+campaigns = json.load(open("fuzz_config.json"))
 out = {}
 for tee in TEES:
     out[tee] = {
@@ -213,17 +215,16 @@ for tee in TEES:
         if ta is None:
             print(f'?????', ta)
             continue
-        campaign_out = os.path.join(harness_path, CAMPAIGN_DIR) 
         ta2bbs[ta] = {}
-        for campaign_iteration in range(0, FUZZ_ITERATIONS):
-            iteration_dir = os.path.join(campaign_out, campaign_iteration)
+        for campaign in campaigns:
+            campaign_out = os.path.join(harness_path, campaign) 
             if FUZZ_TIME > 60*60:
-                ta2bbs[ta][campaign_iteration] = parse_cov_seeds(tee, ta, os.path.join(iteration_dir, FUZZ_CHUNKS)) 
+                ta2bbs[ta][campaign] = parse_cov_seeds(tee, ta, os.path.join(campaign_out, FUZZ_CHUNKS)) 
             else:
-                ta2bbs[ta][campaign_iteration] = parse_cov(tee, ta, os.path.join(harness_path, "out", "cov")) 
+                ta2bbs[ta][campaign] = parse_cov(tee, ta, os.path.join(harness_path, "out", "cov")) 
         unique_bbs = set()
-        for campaign_iteration in range(0, FUZZ_ITERATIONS):
-            for timestamp, bbss in ta2bbs[ta][campaign_iteration].items():
+        for campaign in campaigns:
+            for timestamp, bbss in ta2bbs[ta][campaign].items():
                 for bb in bbss:
                     unique_bbs.add(bb)
         ta2bbs_merged[ta] = list(unique_bbs)
@@ -237,36 +238,6 @@ for tee in TEES:
     print(f'{tee}, {tas}')
     out[tee]['nr_tas'] = len(tas)
     tee_cfg = build_tee_cfg(tee, only_tee=True, specific_tas=tas)
-    def in_cfg(ta, bb, cfg):
-        nodes = nx.descendants(cfg, ta[:-3]+"_"+8*"0")
-        for n in nodes:
-            if not "start" in cfg.nodes[n] or not "end" in cfg.nodes[n]: 
-                continue
-            if bb.start >= int(cfg.nodes[n]["start"],16) and bb.start + bb.size<= int(cfg.nodes[n]["end"],16):
-                return True
-        return False
-    """
-    ta2bbs_cfg = {}
-    cfg_unique_bbs = set()
-    not_ctg_bbs = set()
-    for ta, data in ta2bbs.items():
-        ta2bbs_cfg[ta] = {}
-        for timestamp, bbs in data.items():
-            ta2bbs_cfg[ta][timestamp] = []
-            for bb in bbs:
-                if bb in not_ctg_bbs:
-                    continue
-                if bb in cfg_unique_bbs:
-                    ta2bbs_cfg[ta][timestamp].append(bb)
-                else:
-                    if in_cfg(ta, bb, tee_cfg): 
-                        ta2bbs_cfg[ta][timestamp].append(bb)
-                        cfg_unique_bbs.add(bb)
-                    else:
-                        not_ctg_bbs.add(bb)
-    #print([n for n in nx.descendants(tee_cfg, root)])
-    print("cfg bbs", len(nx.descendants(tee_cfg, root)), len(cfg_unique_bbs))
-    """
     out[tee]['max_bbs'] = len(nx.descendants(tee_cfg, root)) 
     out[tee]['fuzz_bbs'] = sum([len(bbs) for _,bbs in ta2bbs_merged.items()])
     out[tee]['ta2bbs'] = ta2bbs
