@@ -81,6 +81,8 @@ def gen_graph(tee, ta2bbs, max_bbs):
     plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1)
     return x,y
 
+campaigns = json.load(open("fuzz_config.json"))
+
 out = {}
 for tee in TEES:
     out[tee] = {
@@ -108,13 +110,13 @@ for tee in TEES:
         cov_api_dir = os.path.join(harness_path, COV_API_DIR) 
         ta2bbs[ta] = {}
         unique_bbs = set()
-        for campaign_iteration in range(0, FUZZ_ITERATIONS):
-            iteration_dir = os.path.join(cov_api_dir, campaign_iteration)
-            ta2bbs[ta][campaign_iteration] = {}
+        for campaign in campaigns:
+            iteration_dir = os.path.join(harness_path, campaign)
+            ta2bbs[ta][campaign] = {}
             for nr_apis in os.listdir(iteration_dir):
                 drcov = os.path.join(iteration_dir, nr_apis, "drcov.log")
                 bbs = parse_drcov(tee, ta, drcov)
-                ta2bbs[ta][campaign_iteration][nr_apis] = bbs
+                ta2bbs[ta][campaign][nr_apis] = bbs
                 unique_bbs.add(bbs)
         ta2bbs_merged[ta] = list(unique_bbs)
     tas = list(set(tas))

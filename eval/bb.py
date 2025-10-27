@@ -172,11 +172,8 @@ def is_gp(call):
 def is_libc(call):     
     return call.api_type == "libc"
 
-def is_std(call):
-    return call.api_type == "tee_std"
-
 def is_tee(call):
-    return call.api_type == "tee"
+    return call.api_type.startswith("tee")
 
 def match_all(call):
     return True
@@ -228,15 +225,6 @@ def generate_graph(cfg, todo=None):
             if max_api is None: 
                 break
             print("libc", max_api)
-            used_apis.remove(max_api)
-            implemented_apis.append(max_api)
-            reachable.append(reachable_nodes(cfg, implemented_apis))
-            i += 1
-        while 1:
-            max_api = find_best_add(cfg, used_apis, implemented_apis, is_std)
-            if max_api is None: 
-                break
-            print("gp_std", max_api)
             used_apis.remove(max_api)
             implemented_apis.append(max_api)
             reachable.append(reachable_nodes(cfg, implemented_apis))
@@ -334,7 +322,6 @@ def analyze_ta(ta_path):
     reachable, max_nodes, nr_gp, nr_libc, nr_tee, implemented_apis = generate_graph(cfg)
     print("max_nodes", max_nodes)
     plt = gen_plot(reachable, max_nodes, nr_gp, nr_libc, nr_tee)
-    plt.show()
     out_path = f'ta_reach.pdf'
     plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
     print_info(cfg, reachable, max_nodes, nr_gp, nr_libc, nr_tee)
