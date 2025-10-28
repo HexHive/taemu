@@ -1,4 +1,5 @@
 import threading
+from tqdm import tqdm
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
@@ -8,9 +9,10 @@ import os
 import time
 import subprocess
 import sys
+import json
 
 from bb import build_tee_cfg
-from fuzz import FUZZ_TIME, TEES, FUZZ_CHUNKS, FUZZ_ITERATIONS, COV_DIR, CAMPAIGN_DIR
+from fuzz import FUZZ_TIME, TEES, FUZZ_CHUNKS, COV_DIR
 
 """
 After a fuzzing campaign, generate the coverage graphs for each TEE + merged
@@ -75,7 +77,7 @@ def parse_drcov(tee, ta, path):
 
 def parse_cov(tee, ta, drcov_path):
     out = {}
-    for cov_file in os.listdir(drcov_path):
+    for cov_file in tqdm(os.listdir(drcov_path), desc=f"drcov {drcov_path}", unit="it"):
         try:
             timestamp = int(int(cov_file.split("time:")[-1].split(",")[0])/1000)
         except:
@@ -88,7 +90,9 @@ def parse_cov_seeds(tee, ta, drcov_path_seeds):
     out = {}
     for index in os.listdir(drcov_path_seeds):
         queue_path = os.path.join(drcov_path_seeds, index, "cov")
-        for cov_file in os.listdir(queue_path):
+        if not os.path.exists(queue_path):
+            continue
+        for cov_file in tqdm(os.listdir(queue_path), desc=f"drcov {index}->{ta}", unit="it"):
             try:
                 timestamp = int(int(cov_file.split("time:")[-1].split(",")[0])/1000)
             except:
@@ -124,18 +128,23 @@ def aggregate(coords):
         y_med.append(np.median(all_y))
     return y_max, y_min, y_med, x_aggr
 
-def gen_graph(tee, ta2bbs, max_bbs):
+def gen_graph(campaigns, tee, ta2bbs, max_bbs):
     coords = []
-    for campaign_iteration in range(0, FUZZ_ITERATIONS):
+    c2t2bbs = {}
+    for ta, campaign_data in ta2bbs.items():
         t2bbs = {}
-        for ta, data in ta2bbs[campaign_iteration].items():
+        for campaign, data in campaign_data.items():
+            if campaign not in c2t2bbs:
+                c2t2bbs[campaign] = {}
             for timestamp, bbs in data.items():
                 if timestamp > FUZZ_TIME:
                     continue
-                if timestamp not in t2bbs:
-                    t2bbs[timestamp] = list(set(bbs))
+                if timestamp not in c2t2bbs[campaign]:
+                    c2t2bbs[campaign][timestamp] = list(set(bbs))
                 else:
-                    t2bbs[timestamp] = list(set(t2bbs[timestamp] + bbs)) 
+                    c2t2bbs[campaign][timestamp] = list(set(c2t2bbs[campaign][timestamp] + bbs)) 
+
+    for campaign, t2bbs in c2t2bbs.items():
         x = [0]
         y = [0] 
         bball = set()
@@ -184,7 +193,7 @@ def gen_graph(tee, ta2bbs, max_bbs):
         os.system(f'mkdir -p {out}')
     out_path = os.path.join(out, f'{tee}.pdf')
     plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1)
-    return x,y
+    return max(y_max)
 
 # list of names of the campaigns
 campaigns = json.load(open("fuzz_config.json"))
@@ -249,7 +258,7 @@ all_bugs = 0
 all_notimpl = 0
 all_tas = 0
 for tee in TEES: 
-    max_bbs = gen_graph(tee, out[tee]['ta2bbs'], out[tee]['max_bbs'])
+    max_bbs = gen_graph(campaigns, tee, out[tee]['ta2bbs'], out[tee]['max_bbs'])
     out[tee]['bbs'] = max_bbs 
     all_ta2bbs = all_ta2bbs | out[tee]['ta2bbs']
     all_bbs += out[tee]['max_bbs']
@@ -257,10 +266,10 @@ for tee in TEES:
     all_bugs += out[tee]['bugs']
     all_notimpl += out[tee]['notimpl']
     all_tas += out[tee]['nr_tas']
-    print(f'{tee} reached bbs: {max(y)}, max bbs: {out[tee]["max_bbs"]}')
-x,y = gen_graph('all', all_ta2bbs, all_bbs)
-all_fuzz_bbs = max(y)
-print(f'all reached bbs: {max(y)}, max bbs: {all_bbs}')
+    print(f'{tee} reached bbs: {max_bbs}, max bbs: {out[tee]["max_bbs"]}')
+max_bbs = gen_graph(campaigns, 'all', all_ta2bbs, all_bbs)
+all_fuzz_bbs = max_bbs 
+print(f'all reached bbs: {max_bbs}, max bbs: {all_bbs}')
 
 print(f'crashes')
 for tee in TEES:
