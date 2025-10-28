@@ -53,7 +53,7 @@ def worker(harness_path):
             os.system(f'cp -r {crashes_path} {seed_backup_dir}/{i}')
             print(f"Job {harness_path} finished fuzzing {threading.current_thread().name}")
             
-            proc = subprocess.run(f'docker exec -it emu -e REPLAY_TIMEOUT={REPLAY_TIMEOUT} ./replay.sh ../{harness_path}', shell=True, capture_output=True)
+            proc = subprocess.run(f'docker exec -it -e REPLAY_TIMEOUT={REPLAY_TIMEOUT} emu ./replay.sh ../{harness_path}', shell=True, capture_output=True)
             open(os.path.join(log_path, "replay_stdout.txt"),"ab+").write(proc.stdout)
             open(os.path.join(log_path, "replay_stderr.txt"),"ab+").write(proc.stderr)
             os.system(f'mv {cov_path} {seed_backup_dir}/{i}/')
