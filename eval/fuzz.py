@@ -110,6 +110,7 @@ def main():
     num_threads = max(1, num_cores - 5)  # at least 1 thread
     print(f"Using {num_threads} threads")
     job_queue = queue.Queue()
+    count = 0
     for tee in tees:
         for harness in os.listdir(os.path.join(BASE, tee, "harness")):
             if harness == "__pycache__": continue
@@ -123,6 +124,7 @@ def main():
                 os.symlink(os.path.join("..", "..", "tas", ta_name), os.path.join("..", tee, "harness", harness, ta_name))
                 os.symlink(os.path.join("..", "..", "tas", ta_name[:-3]+".json"), os.path.join("..", tee, "harness", harness, ta_name[:-3]+".json"))
             job_queue.put(os.path.join(tee, "harness", harness))
+            count += 1
             if os.path.exists(f'{BASE}/{tee}/harness/{harness}/out'):
                 os.system(f'mv {BASE}/{tee}/harness/{harness}/out {BASE}/{tee}/harness/{harness}/backup_out_{time.time()}')
             if os.path.exists(f'{BASE}/{tee}/harness/{harness}/triage'):
@@ -131,6 +133,7 @@ def main():
                 os.system(f'mv {BASE}/{tee}/harness/{harness}/notimpl {BASE}/{tee}/harness/{harness}/backup_notimpl_{time.time()}')
 
     threads = []
+    print(f'nr jobs: {count}')
     for _ in range(num_threads):
         t = threading.Thread(target=thread_worker, args=(job_queue,))
         t.start()
