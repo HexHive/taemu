@@ -7,9 +7,11 @@ export AFL_NO_FASTRESUME=1
 export AFL_AUTORESUME=1
 
 if [ -z "${FUZZTIME}" ]; then
-  FUZZTIME=99999999999
+  export FUZZTIME=99999999999
 fi
-
+if [ -z "${REPLAYTIME}" ]; then
+  export REPLAYTIME=99999
+fi
 #rm rootfs/*ta
 #rm rootfs/*json
 
@@ -69,8 +71,8 @@ else
     if [ -d "$in_path" ]; then
         # swap these when you want to attach gdb to triage
         #python3 -m emulate $3 --gdb --fuzz_replay $2 --fuzz_harness $harness "rootfs/$(basename "$ta")"
-        python3 -m emulate $3 --fuzz_replay $2 --fuzz_harness $harness "rootfs/$(basename "$ta")"
+        timeout -k $REPLAYTIME $REPLAYTIME python3 -m emulate $3 --fuzz_replay $2 --fuzz_harness $harness "rootfs/$(basename "$ta")"
     else
-        python3 -m emulate $3 --fuzz_replay $2 "rootfs/$(basename "$v0")"
+        timeout -k $REPLAYTIME $REPLAYTIME python3 -m emulate $3 --fuzz_replay $2 "rootfs/$(basename "$v0")"
     fi
 fi

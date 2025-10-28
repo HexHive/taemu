@@ -12,6 +12,7 @@ COV_DIR = "cov"
 TEES = ["teegris", "mitee", "beanpod", "t6"]
 FUZZ_TIME = 60 * 60 * 24
 FUZZ_TIME = 60 * 60 * 2
+REPLAY_TIMEOUT = 60
 
 def worker(harness_path):
     global CAMPAIGN_NAME
@@ -52,7 +53,7 @@ def worker(harness_path):
             os.system(f'cp -r {crashes_path} {seed_backup_dir}/{i}')
             print(f"Job {harness_path} finished fuzzing {threading.current_thread().name}")
             
-            proc = subprocess.run(f'docker exec -it emu ./replay.sh ../{harness_path}', shell=True, capture_output=True)
+            proc = subprocess.run(f'docker exec -it emu -e REPLAY_TIMEOUT={REPLAY_TIMEOUT} ./replay.sh ../{harness_path}', shell=True, capture_output=True)
             open(os.path.join(log_path, "replay_stdout.txt"),"ab+").write(proc.stdout)
             open(os.path.join(log_path, "replay_stderr.txt"),"ab+").write(proc.stderr)
             os.system(f'mv {cov_path} {seed_backup_dir}/{i}/')
@@ -62,7 +63,7 @@ def worker(harness_path):
         open(os.path.join(log_path, "fuzz_stdout.txt"),"wb+").write(proc.stdout)
         open(os.path.join(log_path, "fuzz_stderr.txt"),"wb+").write(proc.stderr)
         print(f"Job {harness_path} finished fuzzing {threading.current_thread().name}")
-        proc = subprocess.run(f'docker exec -e TAEMU_CRASH_NOTIMPL=1 -it emu ./replay.sh ../{harness_path}', shell=True, capture_output=True)
+        proc = subprocess.run(f'docker exec -e TAEMU_CRASH_NOTIMPL=1 -e REPLAY_TIMEOUT={REPLAY_TIMEOUT} -it emu ./replay.sh ../{harness_path}', shell=True, capture_output=True)
         open(os.path.join(log_path, "replay_stdout.txt"),"wb+").write(proc.stdout)
         open(os.path.join(log_path, "replay_stderr.txt"),"wb+").write(proc.stderr)
         os.system(f'mv {cov_path} {campaign_out_dir}/')

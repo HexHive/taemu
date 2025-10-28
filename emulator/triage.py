@@ -47,12 +47,16 @@ def do_triage(harness, do_all=False):
 				crash_dir = os.path.join(harness, 'out', inst, d)
 				for crash_seed in os.listdir(crash_dir):
 					if crash_seed == "README.txt": continue
-					proc = subprocess.run(
-						["./fuzz.sh", harness, f'{crash_dir}/{crash_seed}'],
-						stdout=subprocess.DEVNULL,
-						stderr=subprocess.PIPE,
-						text=True
-					)
+					try:
+						proc = subprocess.run(
+							["./fuzz.sh", harness, f'{crash_dir}/{crash_seed}'],
+							stdout=subprocess.DEVNULL,
+							stderr=subprocess.PIPE,
+							text=True,
+							timeout=60
+						)
+					except subprocess.TimeoutExpired:
+						continue
 					full_log = proc.stderr
 					lines = [line for line in proc.stderr.splitlines() if line.startswith("[x]")]
 					if len(lines) == 0:
