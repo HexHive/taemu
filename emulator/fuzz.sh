@@ -9,8 +9,8 @@ export AFL_AUTORESUME=1
 if [ -z "${FUZZTIME}" ]; then
   export FUZZTIME=99999999999
 fi
-if [ -z "${REPLAYTIME}" ]; then
-  export REPLAYTIME=99999
+if [ -z "${REPLAY_TIMEOUT}" ]; then
+  export REPLAY_TIMEOUT=99999
 fi
 #rm rootfs/*ta
 #rm rootfs/*json

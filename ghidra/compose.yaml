@@ -7,7 +7,7 @@ services:
       target: ghidrathon
     volumes:
       - ./src:/src:ro
-      - ../mitee/redmi_note13_5g_tas/:/mitee_tas/:rw
+      - ../mitee/tas/:/mitee_tas/:rw
       - ../beanpod/tas:/beanpod_tas/:rw
       - ../teegris/tas:/teegris_tas/:rw
       - ../t6/tas:/t6_tas/:rw
@@ -18,6 +18,7 @@ services:
       - ./docker/beanpod-entrypoint.sh:/beanpod-entrypoint.sh
       - ./docker/teegris-entrypoint.sh:/teegris-entrypoint.sh
       - ./docker/t6-entrypoint.sh:/t6-entrypoint.sh
+      - ./docker/qsee-entrypoint.sh:/qsee-entrypoint.sh
       - ./docker/bbs-entrypoint.sh:/bbs-entrypoint.sh
       - ./docker/bbs-manual-entrypoint.sh:/bbs-manual-entrypoint.sh
     deploy:

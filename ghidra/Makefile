@@ -21,6 +21,9 @@ teegris: ## Run the Docker container(s) teegris
 t6: ## Run the Docker container(s) t6
 		@$(DOCKER) compose run --rm tipi /t6-entrypoint.sh ${TARGET} 
 
+qsee: ## Run the Docker container(s) t6
+		@$(DOCKER) compose run --rm tipi /qsee-entrypoint.sh ${TARGET} 
+
 bbs: ## Check reachable bbs
 		@$(DOCKER) compose run --rm tipi /bbs-entrypoint.sh ${TARGET} ${TEE}
 

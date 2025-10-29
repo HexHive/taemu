@@ -30,7 +30,7 @@ def msee_ta_printf_va(ql: Qiling, hook_data):
     TEE_LogPrintf(ql, hook_data)
 
 def ut_pf_cp_rd_random(ql: Qiling, hook_data):
-    params = ql.os.resolve_fcall_params({'unno': INT, 'buf': POINTER, 'size': INT})
+    params = ql.os.resolve_fcall_params({'int': INT, 'buf': POINTER, 'size': INT})
     buf = params['buf']
     size = params['size']
     if not asan.is_access_valid(

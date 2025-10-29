@@ -50,8 +50,8 @@ data = {
             "nongp": 31
         },
         "qsee": {
-            "gp": 3,
-            "nongp": 38
+            "gp": 5,
+            "nongp": 35
         },
         "teegris": {
             "gp": 34,
