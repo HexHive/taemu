@@ -71,8 +71,8 @@ else
     if [ -d "$in_path" ]; then
         # swap these when you want to attach gdb to triage
         #python3 -m emulate $3 --gdb --fuzz_replay $2 --fuzz_harness $harness "rootfs/$(basename "$ta")"
-        timeout -k $REPLAYTIME $REPLAYTIME python3 -m emulate $3 --fuzz_replay $2 --fuzz_harness $harness "rootfs/$(basename "$ta")"
+        timeout -k $REPLAY_TIMEOUT $REPLAY_TIMEOUT python3 -m emulate $3 --fuzz_replay $2 --fuzz_harness $harness "rootfs/$(basename "$ta")"
     else
-        timeout -k $REPLAYTIME $REPLAYTIME python3 -m emulate $3 --fuzz_replay $2 "rootfs/$(basename "$v0")"
+        timeout -k $REPLAY_TIMEOUT $REPLAY_TIMEOUT python3 -m emulate $3 --fuzz_replay $2 "rootfs/$(basename "$v0")"
     fi
 fi
