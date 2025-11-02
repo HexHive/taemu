@@ -1,5 +1,5 @@
 use clap::Parser;
-use slog::{Drain, Logger, error, info, o, warn};
+use slog::{Drain, Logger, o, info, warn, error};
 use slog_async;
 use slog_term;
 use std::path::{Path, PathBuf};
@@ -22,7 +22,7 @@ struct Args {
     #[arg(short, long, default_value = "harness")]
     pattern: String,
 
-    #[arg(short, long, default_value = "emulator/fuzz.sh")]
+    #[arg(short, long, default_value = "/srv/emulator/fuzz.sh")]
     fuzz_script: PathBuf,
 
     #[arg(short, long, default_value = "1")]
@@ -75,7 +75,7 @@ fn find_ta_files(top_directory: &Path, filter_pattern: &str) -> Vec<FuzzJob> {
 }
 
 fn basic_slogger() -> Logger {
-    let decorator = slog_term::TermDecorator::new().build();
+    let decorator = slog_term::PlainSyncDecorator::new(std::io::stdout());
     let drain = slog_term::FullFormat::new(decorator).build().fuse();
     let drain = slog_async::Async::new(drain).build().fuse();
 
@@ -83,8 +83,8 @@ fn basic_slogger() -> Logger {
     log
 }
 
-async fn run_fuzz_job(job: FuzzJob, fuzz_script: &Path, duration: u64, job_num: usize) {
-    let log = basic_slogger();
+async fn run_fuzz_job(job: FuzzJob, top_directory: &Path, fuzz_script: &Path, duration: u64, job_num: usize) {
+    let log = basic_slogger();  
 
     let timeout_duration = Duration::from_secs(duration * 3600);
     let start_time = Instant::now();
@@ -108,7 +108,7 @@ async fn run_fuzz_job(job: FuzzJob, fuzz_script: &Path, duration: u64, job_num: 
     let child = Command::new("bash")
         .arg(&fuzz_script_path)
         .arg(&job.ta_harness_dir)
-        // .current_dir(work_dir)
+        .current_dir(top_directory.join("emulator"))
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -193,7 +193,7 @@ async fn main() {
         process::exit(1);
     }
 
-    if args.fuzz_script.exists() {
+    if !args.fuzz_script.exists() {
         error!(log, "Fuzz script does not exist"; "path" => args.fuzz_script.display());
         process::exit(1);
     }
@@ -234,12 +234,13 @@ async fn main() {
         let semaphore = Arc::clone(&semaphore);
         let permit: OwnedSemaphorePermit = semaphore.acquire_owned().await.unwrap();
         let fuzz_script = args.fuzz_script.clone();
+        let top_directory = args.top_directory.clone();
         let duration = args.duration;
         let job_num = idx + 1;
 
         let handle = tokio::spawn(async move {
             let _permit = permit; // Hold the permit for the duration of the job
-            run_fuzz_job(job, &fuzz_script, duration, job_num).await;
+            run_fuzz_job(job, &top_directory, &fuzz_script, duration, job_num).await;
         });
 
         handles.push(handle);

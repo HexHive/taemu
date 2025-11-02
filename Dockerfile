@@ -19,7 +19,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         python3-dev \
         python3-ipython \
         python3-ipdb \
-        git
+        git \
+        curl
 
 ################################################################################
 # Qiling
@@ -48,12 +49,21 @@ ENV PYTHONPATH=$PATH:/opt/afl
 
 RUN wget -q https://raw.githubusercontent.com/bata24/gef/dev/install-uv.sh -O- | sh
 
+################################################################################
+# Build swarm
+################################################################################
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH=$PATH:/root/.cargo/bin
+# COPY swarm/ /opt/swarm/
+# RUN cd /opt/swarm/ && cargo build --release
+
 WORKDIR /opt/src
 
 # clone and make drcov-merge
 RUN git clone https://github.com/vanhauser-thc/drcov-merge.git && cd drcov-merge && make && mv drcov-merge /opt/afl
 
 RUN pip3 install networkx 
+
 
 WORKDIR /srv/
 #RUN useradd -u 1000 ctf
