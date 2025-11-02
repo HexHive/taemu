@@ -179,21 +179,22 @@ def strncat(ql, hook_data):
     params = ql.os.resolve_fcall_params({"str1": POINTER, "str2": POINTER, "n": INT})
     str1 = params["str1"]
     str2 = params["str2"]
-    hook_data.emu.update_shm(str1)
+    n = params["n"]
+    hook_data.emu.update_shm(str1, n)
     s1 = read_c_str(ql, str1)
     s2 = read_c_str(ql, str2)
-    ql.log.info(f'strncat: {hex(str1)}->{hex(str2)} {params["n"]}')
+    ql.log.info(f'strncat: {hex(str1)}->{hex(str2)} {n}')
     dest = str1 + len(s1)
     if not asan.is_access_valid(
         ql,
         hook_data.emu.HEAP,
         dest,
-        min(params["n"], len(s2)),
+        min(n, len(s2)),
         hook_data.func_name,
         is_write=True,
     ):
         return
-    ql.mem.write(dest, s1[: params["n"]])
+    ql.mem.write(dest, s1[: n])
     ql.os.fcall.cc.setReturnValue(dest)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
@@ -358,13 +359,15 @@ def vsnprintf(ql: Qiling, hook_data):
 
 def strlen(ql: Qiling, hook_data):
     ptr = ql.os.resolve_fcall_params({"ptr": POINTER})["ptr"]
-    hook_data.emu.update_shm(ptr)
     try:
         string = read_c_str(ql, ptr)
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, hook_data.func_name)
         return
     out = len(string)
+    # FIXME: Possible risky code move here
+    # FIXME: depends on the version of strlen implementation, it optimizes the calculation unit with some bitwise operation or SSE instructions, which may cause reasonable overread.
+    hook_data.emu.update_shm(ptr, out)
     ql.log.info(f"strlen {hex(ptr)}: {out}")  # , "{string}"=> {hex(out)}')
     ql.os.fcall.cc.setReturnValue(out)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -374,7 +377,7 @@ def strnlen(ql: Qiling, hook_data):
     params = ql.os.resolve_fcall_params({"ptr": POINTER, "len": POINTER})
     ptr = params["ptr"]
     length = params["len"]
-    hook_data.emu.update_shm(ptr)
+    hook_data.emu.update_shm(ptr, length)
     try:
         string = read_c_str(ql, ptr)
     except unicorn.unicorn_py3.unicorn.UcError:
@@ -393,7 +396,6 @@ def strcpy(ql: Qiling, hook_data):
     dst = params["dst"]
     src = params["src"]
     ql.log.info(f"{hook_data.func_name} {hex(src)}->{hex(dst)}")
-    hook_data.emu.update_shm(src)
     try:
         s = read_c_str(ql, src)
         if not asan.is_access_valid(
@@ -404,6 +406,9 @@ def strcpy(ql: Qiling, hook_data):
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, hook_data.func_name)
         return
+
+    # FIXME: Possible risky code move here
+    hook_data.emu.update_shm(src, len(s) + 1) # +1 for the null terminator
     hook_data.emu.writeback_shm(dst)
     ql.os.fcall.cc.setReturnValue(dst)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -417,7 +422,7 @@ def strncpy(ql: Qiling, hook_data):
     src = params["src"]
     num = params["num"]
     ql.log.info(f"{hook_data.func_name} {hex(src)}->{hex(dst)} ({num})")
-    hook_data.emu.update_shm(src)
+    hook_data.emu.update_shm(src, num)
     try:
         s = read_c_str(ql, src)
         if len(s) >= num:
@@ -474,7 +479,7 @@ def memmove(ql: Qiling, hook_data):
         is_write=False,
     ):
         return
-    hook_data.emu.update_shm(params["src"])
+    hook_data.emu.update_shm(params["src"], params["size"])
     try:
         data = ql.mem.read(params["src"], params["size"])
         ql.mem.write(params["dest"], bytes(data))
@@ -518,8 +523,8 @@ def TEE_MemCompare(ql: Qiling, hook_data):
     ):
         return
     ret = 0
-    hook_data.emu.update_shm(buffer_1)
-    hook_data.emu.update_shm(buffer_2)
+    hook_data.emu.update_shm(buffer_1, size)
+    hook_data.emu.update_shm(buffer_2, size)
     try:
         content_1 = ql.mem.read(buffer_1, size)
         content_2 = ql.mem.read(buffer_2, size)
@@ -544,14 +549,16 @@ def strcmp(ql: Qiling, hook_data):
     str1 = params["str1"]
     str2 = params["str2"]
 
-    hook_data.emu.update_shm(str1)
-    hook_data.emu.update_shm(str2)
+
     try:
         content_1 = read_c_str(ql, str1)
         content_2 = read_c_str(ql, str2)
     except unicorn.unicorn_py3.unicorn.UcError as e:
         crash(ql, hook_data.func_name)
         return
+    # FIXME: Possible risky code move here
+    hook_data.emu.update_shm(str1, len(content_1) + 1) # +1 for the null terminator
+    hook_data.emu.update_shm(str2, len(content_2) + 1)
 
     if not asan.is_access_valid(
         ql,
@@ -594,8 +601,8 @@ def strncmp(ql: Qiling, hook_data):
     str2 = params["str2"]
     size = params["size"]
 
-    hook_data.emu.update_shm(str1)
-    hook_data.emu.update_shm(str2)
+    hook_data.emu.update_shm(str1, size)
+    hook_data.emu.update_shm(str2, size)
     try:
         content_1 = read_c_str(ql, str1)
         content_2 = read_c_str(ql, str2)

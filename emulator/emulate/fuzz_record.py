@@ -7,6 +7,15 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Empty
 import sys
 from .redis_queue import RedisQueue
+from dataclasses import dataclass
+from typing import Dict, Any
+from typing import Optional
+
+@dataclass(frozen=True)
+class Record:
+    addr: int
+    size: Optional[int] = None
+    regs: Optional[Dict[str, Any]] = None
 
 
 class Recorder:

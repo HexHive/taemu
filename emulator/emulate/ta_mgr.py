@@ -32,7 +32,8 @@ from .emulator_no_loader import (
     teegris_32_setup,
 )
 from .common import CRASH_PC, NOTIMPL_PC
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, List, Dict
+from .fuzz_record import Record
 
 
 def parse_msg(msg):
@@ -42,22 +43,37 @@ def parse_msg(msg):
     return (f, l, data)
 
 
-def has_duplicates(nums):
-    seen = set()
-    for n in nums:
-        if n in seen:
+def have_overlaps(records: List[Record]) -> bool:
+    # sweep line algorithm to check for duplicates
+    if len(records) <= 1:
+        return False
+
+    lines = []
+    for record in records:
+        if record.size is None:
+            print(f"Warning: record {record.addr} has no size, which thus we treat it as a single byte")
+            lines.append((record.addr, record.addr + 1))
+        else:
+            lines.append((record.addr, record.addr + record.size))
+
+    lines.sort(key=lambda x: x[0])
+    max_end = lines[0][1]
+    for start, end in lines[1:]:
+        # check section like [a, b) and [b, c) for non-overlaps (b is not included)
+        if start < max_end:
             return True
-        seen.add(n)
+
+        max_end = max(max_end, end)
     return False
 
 
 def finialize_fuzzing(ql: Qiling, user_data: Any) -> None:
-    # ql.log.info(
-    #     Fore.BLUE
-    #     + f"[+] [{user_data}] Finished one fuzzing input at @{ql.arch.regs.read('PC'):#0x}"
-    #     + Style.RESET_ALL
-    # )
-    ql.emu.save_records_to_queue(checker=lambda records: has_duplicates(records))
+    ql.log.info(
+        Fore.BLUE
+        + f"[+] [{user_data}] Finished one fuzzing input at @{ql.arch.regs.read('PC'):#0x}"
+        + Style.RESET_ALL
+    )
+    ql.emu.save_records_to_queue(checker=lambda records: have_overlaps(records))
 
 
 def pivot(ql: Qiling, cur) -> None:
@@ -173,10 +189,10 @@ class TAEMU:
             # only visiable for one thread (separate copy on the process level)
             self.curr_record_key = None
             self.curr_input = None
-            self._record_meta = {}
+            self._record_meta: Dict[str, Any] = {}
             self._record_lock = threading.RLock()
             self._record_max_items = record_max_items
-            self._record = []
+            self._record: List[Record] = []
 
         self.crash_on_not_implemented = False
         if "TAEMU_CRASH_NOTIMPL" in os.environ:
@@ -321,7 +337,7 @@ class TAEMU:
         else:
             self.start_interactive()
 
-    def get_shm(self, pointer):
+    def get_shm(self, pointer, size: Optional[int] = None):
         if self.curr_params is None:
             return None
 
@@ -337,16 +353,16 @@ class TAEMU:
                     if self.status in (Status.FUZZING, Status.REPLAYING):
                         self.update_records(
                             key=self.curr_record_key,
-                            single_value=pointer,
+                            item=Record(pointer, size if size is not None else None, regs={"PC": self.ql.arch.regs.read("PC")}),
                             op=lambda a, b: a + [b],
                         )
                     return p
         return None
 
-    def update_shm(self, pointer):
+    def update_shm(self, pointer, size: Optional[int] = None):
         # self.log.info(f"[ql_update_shm] update_shm for pointer {pointer:#0x}")
 
-        param = self.get_shm(pointer)
+        param = self.get_shm(pointer, size)
         if param is None:
             return
         if self.status == Status.INTERACTIVE:
@@ -366,7 +382,7 @@ class TAEMU:
             return self._record
 
     @require_class_attr("key", "curr_record_key")
-    def set_records(self, *, key, value: list):
+    def set_records(self, *, key, value: List[Record]):
         with self._record_lock:
             if len(value) >= self._record_max_items:
                 self.log.info(
@@ -382,7 +398,7 @@ class TAEMU:
         self,
         *,
         key,
-        single_value,
+        item: Record,
         op: Callable,
     ):
         with self._record_lock:
@@ -400,10 +416,10 @@ class TAEMU:
                     ) + 1
                     return
 
-                self._record = op(self._record, single_value)
+                self._record = op(self._record, item)
                 self._record_meta["last_accessed"] = time.time()
             else:
-                self.set_records(key=key, value=[single_value])
+                self.set_records(key=key, value=[item])
         # self.ql.log.info(f"[update_records] current records is {self.records_info()}")
 
     def records_info(self):
@@ -415,7 +431,9 @@ class TAEMU:
                 "details": self._record,
             }
 
-    def save_records_to_queue(self, checker: Optional[Callable] = None):
+    def save_records_to_queue(
+        self, checker: Optional[Callable[[List[Record]], bool]] = None
+    ):
         with self._record_lock:
             if checker is not None:
                 if not checker(self._record):
