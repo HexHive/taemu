@@ -183,7 +183,7 @@ def strncat(ql, hook_data):
     hook_data.emu.update_shm(str1, n)
     s1 = read_c_str(ql, str1)
     s2 = read_c_str(ql, str2)
-    ql.log.info(f'strncat: {hex(str1)}->{hex(str2)} {n}')
+    ql.log.info(f"strncat: {hex(str1)}->{hex(str2)} {n}")
     dest = str1 + len(s1)
     if not asan.is_access_valid(
         ql,
@@ -194,7 +194,7 @@ def strncat(ql, hook_data):
         is_write=True,
     ):
         return
-    ql.mem.write(dest, s1[: n])
+    ql.mem.write(dest, s1[:n])
     ql.os.fcall.cc.setReturnValue(dest)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
@@ -359,6 +359,7 @@ def vsnprintf(ql: Qiling, hook_data):
 
 def strlen(ql: Qiling, hook_data):
     ptr = ql.os.resolve_fcall_params({"ptr": POINTER})["ptr"]
+
     try:
         string = read_c_str(ql, ptr)
     except unicorn.unicorn_py3.unicorn.UcError:
@@ -408,7 +409,7 @@ def strcpy(ql: Qiling, hook_data):
         return
 
     # FIXME: Possible risky code move here
-    hook_data.emu.update_shm(src, len(s) + 1) # +1 for the null terminator
+    hook_data.emu.update_shm(src, len(s) + 1)  # +1 for the null terminator
     hook_data.emu.writeback_shm(dst)
     ql.os.fcall.cc.setReturnValue(dst)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -549,7 +550,6 @@ def strcmp(ql: Qiling, hook_data):
     str1 = params["str1"]
     str2 = params["str2"]
 
-
     try:
         content_1 = read_c_str(ql, str1)
         content_2 = read_c_str(ql, str2)
@@ -557,7 +557,7 @@ def strcmp(ql: Qiling, hook_data):
         crash(ql, hook_data.func_name)
         return
     # FIXME: Possible risky code move here
-    hook_data.emu.update_shm(str1, len(content_1) + 1) # +1 for the null terminator
+    hook_data.emu.update_shm(str1, len(content_1) + 1)  # +1 for the null terminator
     hook_data.emu.update_shm(str2, len(content_2) + 1)
 
     if not asan.is_access_valid(

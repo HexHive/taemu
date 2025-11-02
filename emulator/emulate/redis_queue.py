@@ -48,7 +48,7 @@ class RedisQueue:
             self.logger.info(f"Connected to Redis at {redis_host}:{redis_port}")
         except redis.ConnectionError as e:
             self.logger.error(f"Failed to connect to Redis: {e}")
-            raise
+            raise e
 
     def put(self, item: Any) -> None:
         try:
@@ -56,7 +56,7 @@ class RedisQueue:
             self.redis_client.lpush(self.queue_name, serialized_item)
         except Exception as e:
             self.logger.error(f"Failed to put item into queue: {e}")
-            raise
+            raise e
 
     def get(self, timeout: Optional[int] = None) -> Any:
         timeout = timeout or self.timeout

@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Dict, Any
 from typing import Optional
 
+
 @dataclass(frozen=True)
 class Record:
     addr: int

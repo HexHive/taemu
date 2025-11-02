@@ -51,7 +51,9 @@ def have_overlaps(records: List[Record]) -> bool:
     lines = []
     for record in records:
         if record.size is None:
-            print(f"Warning: record {record.addr} has no size, which thus we treat it as a single byte")
+            print(
+                f"Warning: record {record.addr} has no size, which thus we treat it as a single byte"
+            )
             lines.append((record.addr, record.addr + 1))
         else:
             lines.append((record.addr, record.addr + record.size))
@@ -353,7 +355,15 @@ class TAEMU:
                     if self.status in (Status.FUZZING, Status.REPLAYING):
                         self.update_records(
                             key=self.curr_record_key,
-                            item=Record(pointer, size if size is not None else None, regs={"PC": self.ql.arch.regs.read("PC")}),
+                            item=Record(
+                                pointer,
+                                size if size is not None else None,
+                                regs={
+                                    "PC": self.ql.arch.regs.read("PC"),
+                                    "ret_addr": self.ql.get_caller_pc(),
+                                    "ret_addr_offset": self.ql.get_caller_pc() - self.ql.emu.ta_base,
+                                },
+                            ),
                             op=lambda a, b: a + [b],
                         )
                     return p

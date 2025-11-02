@@ -11,10 +11,12 @@ from .redis_queue import create_redis_queue
 from qiling.const import QL_VERBOSE
 from qiling.const import QL_ARCH, QL_OS, QL_VERBOSE
 from .fuzz_record import Recorder
-
+from .redis_queue import RedisQueue
 from .emulator_no_loader import simple_diassembler, trace_block, simple_diassembler
 from .ta_mgr import TAEMU, Status
 from .custom.tc_loader import tc_load
+from concurrent_log_handler import ConcurrentRotatingFileHandler
+
 
 DIR = dir_path = os.path.dirname(os.path.realpath(__file__))
 TEE = ""
@@ -115,11 +117,11 @@ if __name__ == "__main__":
             level=logging.DEBUG if args.verbose else logging.INFO,
             format="%(asctime)s [%(levelname)s] %(message)s",
             handlers=[
-                logging.handlers.RotatingFileHandler(
+                ConcurrentRotatingFileHandler(
                     args.log_file,
                     mode="a",
                     maxBytes=10 * 1024 * 1024,
-                    backupCount=5,
+                    backupCount=1,
                     encoding="utf-8",
                 ),
                 logging.StreamHandler(),
@@ -241,13 +243,19 @@ if __name__ == "__main__":
 
     if args.fuzz or args.fuzz_replay:
         # Create Redis queue
-        record_q = create_redis_queue(
-            queue_name="ta_emulator_queue",
-            redis_host=os.environ.get("REDIS_HOST", "localhost"),
-            redis_port=int(os.environ.get("REDIS_PORT", "6379")),
-            redis_db=int(os.environ.get("REDIS_DB", "0")),
-            logger=custom_logger,
-        )
+        try:
+            record_q: RedisQueue = create_redis_queue(
+                queue_name="ta_emulator_queue_" + os.path.basename(ta_path)[:-3],
+                redis_host=os.environ.get("REDIS_HOST", "localhost"),
+                redis_port=int(os.environ.get("REDIS_PORT", "6379")),
+                redis_db=int(os.environ.get("REDIS_DB", "0")),
+                logger=custom_logger,
+            )
+        except Exception as e:
+            print(
+                f"[+] Error creating Redis queue: {e}; Disable recording feature... [+]"
+            )
+            record_q = None
     else:
         record_q = None
 
@@ -277,6 +285,10 @@ if __name__ == "__main__":
                 print(f"[+] Error occurred: {e}")
 
     def launch_recorder(curr_record_q):
+        if curr_record_q is None:
+            print(f"[+] Recorder is disabled and stopped automatically... [+]")
+            return
+
         suspicious_seeds_save_dir = os.path.join(
             os.path.dirname(args.fuzz_harness),
             "in/suspicious_inputs" + ("_replay" if args.fuzz_replay else ""),
@@ -295,25 +307,27 @@ if __name__ == "__main__":
     p1 = Process(target=launch_taemu, args=(record_q,))
     p1.start()
 
-    if args.fuzz or args.fuzz_replay:
-        p2 = Process(target=launch_recorder, args=(record_q,))
-        p2.start()
+    p2 = Process(target=launch_recorder, args=(record_q,))
+    p2.start()
 
     p1.join()
     print(f"[+] TAEMU process stopped (exit code: {p1.exitcode})")
 
-    if args.fuzz or args.fuzz_replay:
+    if record_q:
         print(f"[+] Sending STOP message to recorder process...")
         record_q.put("STOP")
-        p2.join(timeout=15.0)
 
+    p2.join(timeout=15.0)
+
+    if p2.is_alive():
+        p2.terminate()
+        p2.join(timeout=5.0)
         if p2.is_alive():
-            p2.terminate()
-            p2.join(timeout=5.0)
-            if p2.is_alive():
-                p2.kill()
-                p2.join()
+            p2.kill()
+            p2.join()
+
+    if record_q:
         record_q.close()
-        print(f"[+] Recorder process stopped (exit code: {p2.exitcode})")
+    print(f"[+] Recorder process stopped (exit code: {p2.exitcode})")
 
     print("[+] Exiting all the procedures completed successfully. [+]")

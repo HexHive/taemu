@@ -3,3 +3,4 @@ pycryptodome
 colorama
 hexdump
 redis
+concurrent-log-handler
