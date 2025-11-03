@@ -89,10 +89,8 @@ def parse_cov(tee, ta, drcov_path):
     return out
 
 
-def parse_cov_seeds(tee, ta, drcov_path_seeds):
-    out = {}
-
-    def parse_index(index):
+def parse_index(args):
+        tee, ta, drcov_path_seeds, index = args
         local_out = {}
         queue_path = os.path.join(drcov_path_seeds, index, "cov")
         if not os.path.exists(queue_path):
@@ -109,9 +107,12 @@ def parse_cov_seeds(tee, ta, drcov_path_seeds):
                 continue    
         return local_out
 
+def parse_cov_seeds(tee, ta, drcov_path_seeds):
+    out = {}
     indexes = [i for i in os.listdir(drcov_path_seeds) if os.path.isdir(os.path.join(drcov_path_seeds, i))]
     with ProcessPoolExecutor(max_workers=25) as executor:
-        futures = {executor.submit(parse_index, index): index for index in indexes}
+        tasks = [(tee, ta, drcov_path_seeds, index) for index in indexes]
+        futures = {executor.submit(parse_index, t): t[3] for t in tasks}
 
         for future in tqdm(as_completed(futures), total=len(futures),
                            desc=f"drcov parallel indexes->{ta}", unit="idx"):
