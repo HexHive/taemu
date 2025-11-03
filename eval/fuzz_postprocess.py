@@ -110,7 +110,8 @@ def parse_index(args):
 def parse_cov_seeds(tee, ta, drcov_path_seeds):
     out = {}
     indexes = [i for i in os.listdir(drcov_path_seeds) if os.path.isdir(os.path.join(drcov_path_seeds, i))]
-    with ProcessPoolExecutor(max_workers=25) as executor:
+    max_workers = min(os.cpu_count()-1, len(indexes))
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
         tasks = [(tee, ta, drcov_path_seeds, index) for index in indexes]
         futures = {executor.submit(parse_index, t): t[3] for t in tasks}
 
