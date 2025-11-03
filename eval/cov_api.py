@@ -10,7 +10,7 @@ import subprocess
 import sys
 
 from bb import build_tee_cfg
-from fuzz import FUZZ_TIME, TEES, FUZZ_ITERATIONS, FUZZ_CHUNKS
+from fuzz import FUZZ_TIME, TEES,  FUZZ_CHUNKS
 
 root = 8*"0"
 BASE = os.path.join(os.path.dirname(__file__), "..")
@@ -23,7 +23,7 @@ y-axis: coverage
 """
 
 def get_teamu_impl(tee_apis, tee):
-    emulator_path = os.path.join(BASE; "emulator", "emulate")
+    emulator_path = os.path.join(BASE, "emulator", "emulate")
     if tee == "beanpod":
         blob = open(os.path.join(emulator_path, "beanpod_api.py")).read()
     elif tee == "mitee":
@@ -45,8 +45,9 @@ def get_teamu_impl(tee_apis, tee):
     return out
 
 def do_work(harness_path, campaigns, apis, api_order_name):
-    cov_api = os.path.join(harness_path, COV_API_DIR)
-    drcov_file  = os.path.join(harness_path, "drcov.log")
+    print(f'doing {harness_path}')
+    cov_api = os.path.join(BASE, harness_path, COV_API_DIR)
+    drcov_file  = os.path.join(BASE, harness_path, "drcov.log")
     if not os.path.exists(cov_api):
         os.system(f'mkdir -p {cov_api}')
     api_order_path = os.path.join(cov_api, api_order_name)
@@ -55,15 +56,17 @@ def do_work(harness_path, campaigns, apis, api_order_name):
     os.system(f'mkdir -p {api_order_path}')
 
     # move all prior seeds into appropriate queue folder
-    out_path = os.path.join(harness_path, 'out', 'default', 'queue')
+    out_path = os.path.join(BASE, harness_path, 'out', 'default', 'queue')
     os.system(f'rm -rf {out_path}')
     for campaign in campaigns:
-        campaign_dir = os.path.join(harness_path, campaign)
+        campaign_dir = os.path.join(BASE, harness_path, campaign)
         os.system(f'mkdir -p {out_path}')
-        api_order_iteration_path = os.path.join(api_order_path, str(iteration))
+        api_order_iteration_path = os.path.join(api_order_path, campaign)
         os.system(f'mkdir -p {api_order_iteration_path}')
         if FUZZ_TIME > 60*60:
             fuzz_chunks = os.path.join(campaign_dir, FUZZ_CHUNKS)
+            if not os.path.exists(fuzz_chunks):
+                continue
             for j in os.listdir(fuzz_chunks):
                 chunk_dir = os.path.join(fuzz_chunks, j, "queue")
                 os.system(f'cp {chunk_dir}/* {out_path}/')
@@ -76,7 +79,7 @@ def do_work(harness_path, campaigns, apis, api_order_name):
         elif api_order_name == "mitee_api_order":
             first_api = "tee_se_open_spi_clk"
             tee = "mitee"
-        elif api_order_Name == "t6_api_order":
+        elif api_order_name == "t6_api_order":
             first_api = "debug_log" 
             tee = "t6"
         elif api_order_name == "teegris_api_order":
@@ -87,17 +90,20 @@ def do_work(harness_path, campaigns, apis, api_order_name):
             tee = "all"
         i = apis.index(first_api)
         implemented_apis = apis[:i]
-        tee_apis = get_teamu_impl(apis[i:])
+        tee_apis = get_teamu_impl(apis[i:], tee)
         apis = implemented_apis + tee_apis
-        tmp_path = os.path.join(harness_path, f'impl_apis.json')
-        while len(implemented_apis) <= len(apis):
-            json.dumps(open(tmp_path, "w+"), implemented_apis)
+        i = apis.index(first_api)
+        tmp_path = os.path.join(BASE, harness_path, f'impl_apis.json')
+        tmp_path_2 = os.path.join("..", harness_path, f'impl_apis.json')
+        while len(implemented_apis) < len(apis):
+            print(f'{harness_path} {len(implemented_apis)}')
+            open(tmp_path, "w+").write(json.dumps(implemented_apis))
             if os.path.exists(drcov_file):
                 os.system(f'rm {drcov_file}')
-            out_dir = os.path.join(api_order_iteration_path, str(len(implemented_apis)))
-            os.system(f'mkdir -p {out_dir}')
-            proc = subprocess.run(f'docker exec -it emu ./replay_api.sh ../{harness_path} {tmp_path}', shell=True, capture_output=True)
-            os.system(f'mv {drcov_file} {out_dir}/')
+            print(f'docker exec -it emu ./replay_api.sh ../{harness_path} ../{tmp_path_2}')
+            proc = subprocess.run(f'docker exec -it emu ./replay_api.sh ../{harness_path} ../{tmp_path_2}', shell=True, capture_output=True)
+            if os.path.exists(drcov_file):
+                os.system(f'mv {drcov_file} {api_order_iteration_path}/{i}.drcov')
             implemented_apis.append(apis[i])
             i += 1
         os.system(f'rm -rf {out_path}/*')
@@ -115,11 +121,11 @@ def thread_worker(q: queue.Queue):
 
 def main():
     campaigns = json.load(open("fuzz_config.json"))
+    subprocess.run(f'docker kill emu', shell=True)
     if 'emu' not in str(subprocess.run('docker ps', shell=True)):
         subprocess.run(f'cd {BASE}  && docker run --rm --name emu --network host -d -v .:/srv -w /srv/emulator -v /dev/shm:/dev/shm --ipc=host --shm-size=100g ta_emu tail -f', shell=True)
     num_cores = os.cpu_count() or 2
     num_threads = max(1, num_cores - 5)  # at least 1 thread
-    num_threads = 1
     print(f"Using {num_threads} threads")
     job_queue = queue.Queue()
     all_api_order = open(os.path.join(BASE, "eval", "bbs_out", f'all_order.txt')).read().split('\n')
