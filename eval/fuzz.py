@@ -11,7 +11,7 @@ COV_DIR = "cov"
 
 TEES = ["teegris", "mitee", "beanpod", "t6"]
 FUZZ_TIME = 60 * 60 * 24
-FUZZ_TIME = 60 * 60 * 2
+#FUZZ_TIME = 60 * 60 * 2
 REPLAY_TIMEOUT = 60
 
 def worker(harness_path):
