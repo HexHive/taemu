@@ -110,7 +110,7 @@ def parse_cov_seeds(tee, ta, drcov_path_seeds):
         return local_out
 
     indexes = [i for i in os.listdir(drcov_path_seeds) if os.path.isdir(os.path.join(drcov_path_seeds, i))]
-    with ThreadPoolExecutor(max_workers=25) as executor:
+    with ProcessPoolExecutor(max_workers=25) as executor:
         futures = {executor.submit(parse_index, index): index for index in indexes}
 
         for future in tqdm(as_completed(futures), total=len(futures),
