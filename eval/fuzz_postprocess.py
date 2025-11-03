@@ -53,7 +53,7 @@ def is_covered(node, bbbs):
     return False
 
 def parse_drcov(tee, ta, path):
-    bbs_out = []
+    bbs_out = set()
     raw = open(path, "rb").read()
     ta_base = raw.split(b"timestamp, path\n")[-1]
     for l in ta_base.split(b"\n"):
@@ -71,9 +71,9 @@ def parse_drcov(tee, ta, path):
         if mod_id == ta_id:
             if tee == "beanpod" or tee == "t6":
                 start = base + start
-            bbs_out.append(BB(ta, start, size))
+            bbs_out.add(BB(ta, start, size))
         bbs = bbs[8:]
-    return bbs_out
+    return list(bbs_out)
 
 def parse_cov(tee, ta, drcov_path):
     out = {}
