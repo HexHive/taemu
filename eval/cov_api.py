@@ -46,6 +46,9 @@ def get_teamu_impl(tee_apis, tee):
 
 def do_work(harness_path, campaigns, apis, api_order_name):
     print(f'doing {harness_path}')
+    log_path = os.path.join(BASE, harness_path, "logs")
+    if not os.path.exists(log_path):
+        os.system(f'mkdir -p {log_path}')
     cov_api = os.path.join(BASE, harness_path, COV_API_DIR)
     drcov_file  = os.path.join(BASE, harness_path, "drcov.log")
     if not os.path.exists(cov_api):
@@ -100,8 +103,10 @@ def do_work(harness_path, campaigns, apis, api_order_name):
             open(tmp_path, "w+").write(json.dumps(implemented_apis))
             if os.path.exists(drcov_file):
                 os.system(f'rm {drcov_file}')
-            print(f'docker exec -it emu ./replay_api.sh ../{harness_path} ../{tmp_path_2}')
-            proc = subprocess.run(f'docker exec -it emu ./replay_api.sh ../{harness_path} ../{tmp_path_2}', shell=True, capture_output=True)
+            print(f'docker exec -it emu ./replay_api.sh ../{harness_path} {tmp_path_2}')
+            proc = subprocess.run(f'docker exec -it emu ./replay_api.sh ../{harness_path} {tmp_path_2}', shell=True, capture_output=True)
+            open(os.path.join(log_path, "cov_api_stdout.txt"),"ab+").write(proc.stdout)
+            open(os.path.join(log_path, "cov_api_stderr.txt"),"ab+").write(proc.stderr)
             if os.path.exists(drcov_file):
                 os.system(f'mv {drcov_file} {api_order_iteration_path}/{i}.drcov')
             implemented_apis.append(apis[i])
