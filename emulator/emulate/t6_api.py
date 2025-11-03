@@ -10,7 +10,6 @@ from unicorn import UC_PROT_READ, UC_PROT_WRITE
 import time as pytime
 from .common import crash, crash_notimpl
 
-from .gp_api import TEE_LogvPrintf, TEE_LogPrintf, TEE_MemCompare, malloc, free
 from .gp.utils.printf import parse_fmt_str, fixup_format
 
 def GetBootSeed(ql: Qiling, hook_data):

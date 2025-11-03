@@ -9,8 +9,6 @@ from .custom import rpmb
 from unicorn import UC_PROT_READ, UC_PROT_WRITE
 from .common import crash, crash_notimpl
 
-from .gp_api import TEE_LogvPrintf, TEE_LogPrintf
-
 def TEES_GetIrsFlagValue(ql: Qiling, hook_data):
     ql.log.info(
         f'{hook_data.func_name} returning 0'

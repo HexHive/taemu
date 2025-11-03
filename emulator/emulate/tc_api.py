@@ -1,5 +1,5 @@
 from qiling.os.const import STRING, INT, BYTE, POINTER
-from .gp_api import TEE_LogvPrintf, TEE_LogPrintf, read_c_str
+from .gp_api import printf 
 
 def taskstorage_openssesion(ql, hook_data):
     ql.mem.map(0x6969000, 0x1000, info="[tc] session data (hack)")
@@ -14,7 +14,7 @@ def get_current_session_id(ql, hook_data):
 
 def uart_printf_func(ql, hook_data):
     hook_data.func_name = "printf"
-    TEE_LogPrintf(ql, hook_data)
+    printf(ql, hook_data)
 
 def quit_early(ql, hook_data):
     ql.emu_stop()

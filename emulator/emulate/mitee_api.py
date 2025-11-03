@@ -10,7 +10,7 @@ from unicorn import UC_PROT_READ, UC_PROT_WRITE
 import time as pytime
 from .common import crash
 
-from .gp_api import TEE_LogvPrintf, TEE_LogPrintf, TEE_MemCompare, malloc, free
+from .gp_api import TEE_MemCompare, malloc, free
 
 def zx_check_memory_access_rights(ql: Qiling, hook_data):
     ql.log.info(

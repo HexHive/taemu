@@ -108,7 +108,44 @@ def TEE_Wait(ql: Qiling, hook_data):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def TEE_LogPrintf(ql: Qiling, hook_data):
+def fprintf(ql: Qiling, hook_data):
+    vfprintf(ql, hook_data) 
+
+def vfprintf(ql: Qiling, hook_data):
+    try:
+        p = ql.os.resolve_fcall_params({"log_level": INT, "format": STRING})
+        log_level = p["log_level"]
+        format_param = p["format"]
+        final_params = {"log_level": INT, "format": STRING}
+        params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
+        format_param = fixup_format(format_param)
+        string_params = [params[f"{i}"] for i in range(0, len(params))]
+        try:
+            out_str = format_param % tuple(string_params)
+        except TypeError:
+            ql.log.error(f"format string not supported: {format_param}")
+            if hook_data.emu.crash_on_not_implemented:
+                crash_notimpl(ql, f'format string not supported: {format_param}')
+                return 
+        ql.log.info(f"{hook_data.func_name}: {log_level}, {out_str}")
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def puts(ql: Qiling, hook_data):
+    try:
+        out = ql.os.resolve_fcall_params({"format": STRING})["format"]
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
+    ql.log.info(f"{hook_data.func_name}: {out}")
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def printf(ql: Qiling, hook_data):
     try:
         format_param = ql.os.resolve_fcall_params({"format": STRING})["format"]
         final_params = {"format": STRING}
@@ -130,29 +167,6 @@ def TEE_LogPrintf(ql: Qiling, hook_data):
         crash(ql, hook_data.func_name)
         return
     ql.arch.regs.arch_pc = ql.arch.regs.lr
-
-
-def fprintf(ql: Qiling, hook_data):
-    TEE_LogvPrintf(ql, hook_data)
-
-
-def vfprintf(ql: Qiling, hook_data):
-    TEE_LogvPrintf(ql, hook_data)
-
-
-def puts(ql: Qiling, hook_data):
-    try:
-        out = ql.os.resolve_fcall_params({"format": STRING})["format"]
-    except unicorn.unicorn_py3.unicorn.UcError:
-        crash(ql, hook_data.func_name)
-        return
-    ql.log.info(f"{hook_data.func_name}: {out}")
-    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
-    ql.arch.regs.arch_pc = ql.arch.regs.lr
-
-
-def printf(ql: Qiling, hook_data):
-    TEE_LogPrintf(ql, hook_data)
 
 def strstr(ql, hook_data):
     params = ql.os.resolve_fcall_params({"str1": POINTER, "str2": POINTER}) 
@@ -184,27 +198,6 @@ def strncat(ql, hook_data):
     ql.os.fcall.cc.setReturnValue(dest) 
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def TEE_LogvPrintf(ql: Qiling, hook_data):
-    try:
-        p = ql.os.resolve_fcall_params({"log_level": INT, "format": STRING})
-        log_level = p["log_level"]
-        format_param = p["format"]
-        final_params = {"log_level": INT, "format": STRING}
-        params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
-        format_param = fixup_format(format_param)
-        string_params = [params[f"{i}"] for i in range(0, len(params))]
-        try:
-            out_str = format_param % tuple(string_params)
-        except TypeError:
-            ql.log.error(f"format string not supported: {format_param}")
-            if hook_data.emu.crash_on_not_implemented:
-                crash_notimpl(ql, f'format string not supported: {format_param}')
-                return 
-        ql.log.info(f"{hook_data.func_name}: {log_level}, {out_str}")
-    except unicorn.unicorn_py3.unicorn.UcError:
-        crash(ql, hook_data.func_name)
-        return
-    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def TEE_GetPropertyAsIdentity(ql: Qiling, hook_data):
     try:
@@ -225,34 +218,6 @@ def TEE_GetPropertyAsIdentity(ql: Qiling, hook_data):
         crash(ql, hook_data.func_name)
         return 
              
-
-
-def log_msg(ql: Qiling, hook_data):
-    try:
-        p = ql.os.resolve_fcall_params({"log_level": INT, "log_level_2": INT, "format": STRING})
-        log_level = p["log_level"]
-        log_level_2 = p["log_level_2"]
-        format_param = p["format"]
-        final_params = {"log_level": INT, "log_level_2": INT, "format": STRING}
-        final_params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
-        params = ql.os.resolve_fcall_params(final_params)
-        del params["format"]
-        string_params = [params[f"{i}"] for i in range(0, len(params) - 2)]
-        format_param = fixup_format(format_param)
-        try:
-            out_str = format_param % tuple(string_params)
-        except TypeError:
-            ql.log.error(f"format string not supported: {format_param}")
-            if hook_data.emu.crash_on_not_implemented:
-                crash_notimpl(ql, f'format string not supported: {format_param}')
-                return
-        ql.log.info(f"log_msg: {log_level}, {log_level_2},{out_str}")
-    except unicorn.unicorn_py3.unicorn.UcError:
-        crash(ql, hook_data.func_name)
-        return
-    ql.arch.regs.arch_pc = ql.arch.regs.lr
-
-
 def snprintf(ql: Qiling, hook_data):
     try:
         params_initial = ql.os.resolve_fcall_params({"s": POINTER, "n": INT, "format": STRING, "arg": POINTER})
@@ -576,23 +541,6 @@ def TEE_CheckMemoryAccessRights(ql: Qiling, hook_data):
             return
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
-
-
-def TEE_RpmbOpenSession(ql: Qiling, hook_data):
-    rpmb.TEE_RpmbOpenSession(ql, hook_data)
-
-
-def TEE_RpmbCloseSession(ql: Qiling, hook_data):
-    rpmb.TEE_RpmbCloseSession(ql, hook_data)
-
-
-def TEE_RpmbReadData(ql: Qiling, hook_data):
-    rpmb.TEE_RpmbReadData(ql, hook_data)
-
-
-def TEE_RpmbWriteData(ql: Qiling, hook_data):
-    rpmb.TEE_RpmbWriteData(ql, hook_data)
-
 
 def TEE_GetCallerInfo(ql: Qiling, hook_data):
     p = ql.os.resolve_fcall_params({"caller_info": POINTER})
