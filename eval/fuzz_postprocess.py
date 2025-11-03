@@ -11,7 +11,7 @@ import time
 import subprocess
 import sys
 import json
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from bb import build_tee_cfg
 from fuzz import FUZZ_TIME, TEES, FUZZ_CHUNKS, COV_DIR
