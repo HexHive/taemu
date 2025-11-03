@@ -22,7 +22,29 @@ x-axis: time
 y-axis: coverage
 """
 
-def do_work(harness_path, apis, api_order_name):
+def get_teamu_impl(tee_apis, tee):
+    emulator_path = os.path.join(BASE; "emulator", "emulate")
+    if tee == "beanpod":
+        blob = open(os.path.join(emulator_path, "beanpod_api.py")).read()
+    elif tee == "mitee":
+        blob = open(os.path.join(emulator_path, "mitee_api.py")).read()
+    elif tee == "t6":
+        blob = open(os.path.join(emulator_path, "t6_api.py")).read()
+    elif tee == "teegris":
+        blob = open(os.path.join(emulator_path, "teegris_api.py")).read()
+    elif tee == "all":
+        blob = open(os.path.join(emulator_path, "beanpod_api.py")).read()
+        blob += open(os.path.join(emulator_path, "mitee_api.py")).read()
+        blob += open(os.path.join(emulator_path, "t6_api.py")).read()
+        blob += open(os.path.join(emulator_path, "teegris_api.py")).read()
+    out = []
+    for api in tee_apis:
+        if f'def {api}(ql' in blob:
+            out.append(api)
+    print(f'teamue imlemented apis: {out}')
+    return out
+
+def do_work(harness_path, campaigns, apis, api_order_name):
     cov_api = os.path.join(harness_path, COV_API_DIR)
     drcov_file  = os.path.join(harness_path, "drcov.log")
     if not os.path.exists(cov_api):
@@ -34,20 +56,39 @@ def do_work(harness_path, apis, api_order_name):
 
     # move all prior seeds into appropriate queue folder
     out_path = os.path.join(harness_path, 'out', 'default', 'queue')
-    os.system(f'mkdir -p {out_path}')
-    campaign_dir = os.path.join(harness_path, "campaign_out")
-    for iteration in range(0, FUZZ_ITERATIONS):
+    os.system(f'rm -rf {out_path}')
+    for campaign in campaigns:
+        campaign_dir = os.path.join(harness_path, campaign)
+        os.system(f'mkdir -p {out_path}')
         api_order_iteration_path = os.path.join(api_order_path, str(iteration))
         os.system(f'mkdir -p {api_order_iteration_path}')
         if FUZZ_TIME > 60*60:
-            fuzz_chunks = os.path.join(campaign_dir, str(iteration), FUZZ_CHUNKS)
+            fuzz_chunks = os.path.join(campaign_dir, FUZZ_CHUNKS)
             for j in os.listdir(fuzz_chunks):
                 chunk_dir = os.path.join(fuzz_chunks, j, "queue")
                 os.system(f'cp {chunk_dir}/* {out_path}/')
         else:
             os.system(f'cp {campaign_dir}/{iteration}/queue/* {out_path}/')
         implemented_apis = []
-        i = 0
+        if api_order_name == "beanpod_api_order":
+            first_api = "TEE_LogPrintf"
+            tee = "beanpod"
+        elif api_order_name == "mitee_api_order":
+            first_api = "tee_se_open_spi_clk"
+            tee = "mitee"
+        elif api_order_Name == "t6_api_order":
+            first_api = "debug_log" 
+            tee = "t6"
+        elif api_order_name == "teegris_api_order":
+            first_api = "TEES_IsREESharedMemory"
+            tee = "teegris"
+        elif api_order_name == "all_api_order":
+            first_api = "TEES_IsREESharedMemory"
+            tee = "all"
+        i = apis.index(first_api)
+        implemented_apis = apis[:i]
+        tee_apis = get_teamu_impl(apis[i:])
+        apis = implemented_apis + tee_apis
         tmp_path = os.path.join(harness_path, f'impl_apis.json')
         while len(implemented_apis) <= len(apis):
             json.dumps(open(tmp_path, "w+"), implemented_apis)
@@ -68,15 +109,17 @@ def thread_worker(q: queue.Queue):
         except queue.Empty:
             break
         try:
-            do_work(job[0], job[1])
+            do_work(job[0], job[1], job[2], job[3])
         finally:
             q.task_done()
 
 def main():
+    campaigns = json.load(open("fuzz_config.json"))
     if 'emu' not in str(subprocess.run('docker ps', shell=True)):
         subprocess.run(f'cd {BASE}  && docker run --rm --name emu --network host -d -v .:/srv -w /srv/emulator -v /dev/shm:/dev/shm --ipc=host --shm-size=100g ta_emu tail -f', shell=True)
     num_cores = os.cpu_count() or 2
     num_threads = max(1, num_cores - 5)  # at least 1 thread
+    num_threads = 1
     print(f"Using {num_threads} threads")
     job_queue = queue.Queue()
     all_api_order = open(os.path.join(BASE, "eval", "bbs_out", f'all_order.txt')).read().split('\n')
@@ -95,10 +138,10 @@ def main():
                 os.symlink(os.path.join("..", "..", "tas", ta_name[:-3]+".json"), os.path.join("..", tee, "harness", harness, ta_name[:-3]+".json"))
 
             job_queue.put(
-                (os.path.join(tee, "harness", harness), tee_api_order, "tee_api_order")
+                (os.path.join(tee, "harness", harness), campaigns, tee_api_order, f"{tee}_api_order")
             )
             job_queue.put(
-                (os.path.join(tee, "harness", harness), all_api_order, "all_api_order")
+                (os.path.join(tee, "harness", harness), campaigns, all_api_order, "all_api_order")
             )
 
     threads = []
