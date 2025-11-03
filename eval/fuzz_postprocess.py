@@ -1,4 +1,5 @@
 import threading
+import os
 from tqdm import tqdm
 import numpy as np
 import matplotlib
@@ -10,6 +11,7 @@ import time
 import subprocess
 import sys
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from bb import build_tee_cfg
 from fuzz import FUZZ_TIME, TEES, FUZZ_CHUNKS, COV_DIR
@@ -86,19 +88,39 @@ def parse_cov(tee, ta, drcov_path):
         out[timestamp] = bbs
     return out
 
+
 def parse_cov_seeds(tee, ta, drcov_path_seeds):
     out = {}
-    for index in os.listdir(drcov_path_seeds):
+
+    def parse_index(index):
+        local_out = {}
         queue_path = os.path.join(drcov_path_seeds, index, "cov")
         if not os.path.exists(queue_path):
-            continue
-        for cov_file in tqdm(os.listdir(queue_path), desc=f"drcov {index}->{ta}", unit="it"):
+            return local_out
+        for cov_file in list(f for f in os.listdir(queue_path)):
             try:
-                timestamp = int(int(cov_file.split("time:")[-1].split(",")[0])/1000)
+                timestamp = int(int(cov_file.split("time:")[-1].split(",")[0]) / 1000)
+            except Exception:
+                continue
+            try:
+                bbs = parse_drcov(tee, ta, os.path.join(queue_path, cov_file))
+                local_out[timestamp + 60*60*int(index)] = bbs    
             except:
                 continue    
-            bbs = parse_drcov(tee, ta, os.path.join(queue_path, cov_file))
-            out[timestamp + 60*60*int(index)] = bbs
+        return local_out
+
+    indexes = [i for i in os.listdir(drcov_path_seeds) if os.path.isdir(os.path.join(drcov_path_seeds, i))]
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        futures = {executor.submit(parse_index, index): index for index in indexes}
+
+        for future in tqdm(as_completed(futures), total=len(futures),
+                           desc=f"drcov parallel indexes->{ta}", unit="idx"):
+            index = futures[future]
+            try:
+                result = future.result()
+                out.update(result)
+            except Exception as e:
+                print(f"[!] Error in index {index}: {e}")
     return out 
 
 def get_ys(coords, x):
