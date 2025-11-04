@@ -15,6 +15,7 @@ from fuzz import FUZZ_TIME, TEES,  FUZZ_CHUNKS
 root = 8*"0"
 BASE = os.path.join(os.path.dirname(__file__), "..")
 COV_API_DIR = "api_cov"
+REPLAY_TIMEOUT = 60
 
 """
 After a fuzzing campaign, replay all generated seeds against the emulator with different implemented APIs
@@ -103,12 +104,13 @@ def do_work(harness_path, campaigns, apis, api_order_name):
             open(tmp_path, "w+").write(json.dumps(implemented_apis))
             if os.path.exists(drcov_file):
                 os.system(f'rm {drcov_file}')
-            print(f'docker exec -it emu ./replay_api.sh ../{harness_path} {tmp_path_2}')
-            proc = subprocess.run(f'docker exec -it emu ./replay_api.sh ../{harness_path} {tmp_path_2}', shell=True, capture_output=True)
-            open(os.path.join(log_path, "cov_api_stdout.txt"),"ab+").write(proc.stdout)
-            open(os.path.join(log_path, "cov_api_stderr.txt"),"ab+").write(proc.stderr)
-            if os.path.exists(drcov_file):
-                os.system(f'mv {drcov_file} {api_order_iteration_path}/{i}.drcov')
+            if not os.path.exists(f'{api_order_iteration_path}/{i}.drcov)'):
+                print(f'docker exec -it emu ./replay_api.sh ../{harness_path} {tmp_path_2}')
+                proc = subprocess.run(f'docker exec -e REPLAY_TIMEOUT={REPLAY_TIMEOUT} -it emu ./replay_api.sh ../{harness_path} {tmp_path_2}', shell=True, capture_output=True)
+                open(os.path.join(log_path, "cov_api_stdout.txt"),"ab+").write(proc.stdout)
+                open(os.path.join(log_path, "cov_api_stderr.txt"),"ab+").write(proc.stderr)
+                if os.path.exists(drcov_file):
+                    os.system(f'mv {drcov_file} {api_order_iteration_path}/{i}.drcov')
             implemented_apis.append(apis[i])
             i += 1
         os.system(f'rm -rf {out_path}/*')
