@@ -10,7 +10,7 @@ from .qiling_extend import QilingExtend as Qiling
 from .redis_queue import create_redis_queue
 from qiling.const import QL_VERBOSE
 from qiling.const import QL_ARCH, QL_OS, QL_VERBOSE
-from .fuzz_record import AccessFlowFilterRecorder
+from .fuzz_record import AccessFlowFilterRecorder, Record
 from .redis_queue import RedisQueue
 from .emulator_no_loader import simple_diassembler, trace_block, simple_diassembler
 from .ta_mgr import TAEMU, Status
@@ -95,7 +95,6 @@ def setup_args():
 
 
 if __name__ == "__main__":
-
     arg_parser = setup_args()
     args = arg_parser.parse_args()
 

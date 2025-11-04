@@ -9,16 +9,19 @@ import sys
 from .redis_queue import RedisQueue
 from dataclasses import dataclass
 from typing import Optional, Callable, Dict, Any, List, Tuple
+from enum import Enum
 
+
+class Status(Enum):
+    FUZZING = 1
+    REPLAYING = 2
+    INTERACTIVE = 3
 
 @dataclass(frozen=True)
 class Record:
     addr: int
     size: Optional[int] = None
     regs: Optional[Dict[str, Any]] = None
-    
-    def __hash__(self):
-        return hash((self.addr, self.size, tuple(sorted(self.regs.items()))))
 
 
 class Recorder:
@@ -91,7 +94,7 @@ class Recorder:
                 continue
             
             
-    def _unfold_record(self, item: Dict[str, Any]) -> Tuple[bytes, str, List[Record], Dict[str, Any]]:
+    def _unfold_record(self, item: Dict[str, Any]) -> Tuple[bytes, str, List, Dict[str, Any]]:
         input_data = item.get("input", b"")
         key = item.get("key", "")
         records = item.get("records", [])
@@ -202,7 +205,7 @@ class AccessFlowFilterRecorder(Recorder):
 
     def _filter_handler(self, item) -> bool:
         _, _, records, _ = self._unfold_record(item)
-        control_flow_hash = hash(tuple(records))
+        control_flow_hash = hash(str(records))
         if control_flow_hash in self._seen_addresses:
             # detected duplicate control flow
             return False
@@ -210,6 +213,4 @@ class AccessFlowFilterRecorder(Recorder):
             # new control flow
             self._seen_addresses.add(control_flow_hash)
             return True
-        
-        
         

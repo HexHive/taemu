@@ -4,10 +4,8 @@ from .gp.utils.param import TEE_Param_Memref, TEE_Param_value
 import json
 import socket
 from ctypes import *
-from enum import Enum
 from .gp.utils.err import *
-from .ta_mgr import Status
-from .fuzz_record import Record
+from .fuzz_record import Record, Status
 
 min_addr = 0xBBBBB000
 

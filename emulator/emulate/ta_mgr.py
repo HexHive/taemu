@@ -33,7 +33,7 @@ from .emulator_no_loader import (
 )
 from .common import CRASH_PC, NOTIMPL_PC
 from typing import Any, Callable, Optional, List, Dict
-from .fuzz_record import Record
+from .fuzz_record import Record, Status
 
 
 def parse_msg(msg):
@@ -104,11 +104,6 @@ class FUNCS(Enum):
     func_TEEC_ReleaseSharedMemory = 5
     func_TEEC_FinalizeContext = 6
 
-
-class Status(Enum):
-    FUZZING = 1
-    REPLAYING = 2
-    INTERACTIVE = 3
 
 
 class Session:
