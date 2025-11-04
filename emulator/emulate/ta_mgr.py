@@ -56,6 +56,7 @@ def have_overlaps(records: List[Record]) -> bool:
             )
             lines.append((record.addr, record.addr + 1))
         else:
+            print(f"[{__name__}] Adding record: {record.addr} - {record.addr + record.size}")
             lines.append((record.addr, record.addr + record.size))
 
     lines.sort(key=lambda x: x[0])

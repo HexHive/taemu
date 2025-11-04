@@ -10,7 +10,7 @@ from .redis_queue import RedisQueue
 from dataclasses import dataclass
 from typing import Optional, Callable, Dict, Any, List, Tuple
 from enum import Enum
-
+import hashlib
 
 class Status(Enum):
     FUZZING = 1
@@ -205,12 +205,10 @@ class AccessFlowFilterRecorder(Recorder):
 
     def _filter_handler(self, item) -> bool:
         _, _, records, _ = self._unfold_record(item)
-        control_flow_hash = hash(str(records))
+        control_flow_hash = hashlib.sha256(str(records).encode()).hexdigest()
         if control_flow_hash in self._seen_addresses:
-            # detected duplicate control flow
             return False
         else:
             # new control flow
             self._seen_addresses.add(control_flow_hash)
             return True
-        
