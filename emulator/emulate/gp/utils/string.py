@@ -28,7 +28,7 @@ def memset_core(ql, hook_data, called_from_api_emu):
     except unicorn.unicorn_py3.unicorn.UcError as e:
         crash(ql, func_name)
         return
-    emu.writeback_shm(params["dest"])
+    emu.writeback_shm(params["dest"], params["size"])
 
     if not called_from_api_emu:
         ql.arch.regs.arch_pc = ql.arch.regs.lr

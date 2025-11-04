@@ -94,6 +94,7 @@ def TEE_GetREETime(ql: Qiling, hook_data):
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, hook_data.func_name)
         return
+    hook_data.emu.writeback_shm(time_data, 8)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
@@ -116,7 +117,9 @@ def TEE_Wait(ql: Qiling, hook_data):
 
 def TEE_LogPrintf(ql: Qiling, hook_data):
     try:
-        format_param = ql.os.resolve_fcall_params({"format": STRING})["format"]
+        format_param_ptr = ql.os.resolve_fcall_params({"format": POINTER})["format"]
+        hook_data.emu.update_shm(format_param_ptr)
+        format_param = ql.mem.string(format_param_ptr)
         final_params = {"format": STRING}
         params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
         string_params = [params[f"{i}"] for i in range(0, len(params))]
@@ -165,6 +168,8 @@ def strstr(ql, hook_data):
     params = ql.os.resolve_fcall_params({"str1": POINTER, "str2": POINTER})
     str1 = params["str1"]
     str2 = params["str2"]
+    hook_data.emu.update_shm(str1)
+    hook_data.emu.update_shm(str2)
     s1 = read_c_str(ql, str1)
     s2 = read_c_str(ql, str2)
     ql.log.info(f"strstr {s1}, {s2}")
@@ -181,6 +186,7 @@ def strncat(ql, hook_data):
     str2 = params["str2"]
     n = params["n"]
     hook_data.emu.update_shm(str1, n)
+    hook_data.emu.update_shm(str2, n)
     s1 = read_c_str(ql, str1)
     s2 = read_c_str(ql, str2)
     ql.log.info(f"strncat: {hex(str1)}->{hex(str2)} {n}")
@@ -195,15 +201,18 @@ def strncat(ql, hook_data):
     ):
         return
     ql.mem.write(dest, s1[:n])
+    hook_data.emu.writeback_shm(dest, n)
     ql.os.fcall.cc.setReturnValue(dest)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
 def TEE_LogvPrintf(ql: Qiling, hook_data):
     try:
-        p = ql.os.resolve_fcall_params({"log_level": INT, "format": STRING})
+        p = ql.os.resolve_fcall_params({"log_level": INT, "format": POINTER})
         log_level = p["log_level"]
-        format_param = p["format"]
+        format_param_ptr = p["format"]
+        hook_data.emu.update_shm(format_param_ptr)
+        format_param = ql.mem.string(format_param_ptr)
         final_params = {"log_level": INT, "format": STRING}
         params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
         format_param = fixup_format(format_param)
@@ -232,6 +241,7 @@ def TEE_GetPropertyAsIdentity(ql: Qiling, hook_data):
         value = p["value"]
         if propset == TEE_PROPSET_CURRENT_CLIENT and name == "gpd.client.identity":
             ql.mem.write(value, TEE_LOGIN_PUBLIC.to_bytes(4, "little"))
+            hook_data.emu.writeback_shm(value, 4)
             ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
             ql.arch.regs.arch_pc = ql.arch.regs.lr
             return
@@ -247,11 +257,13 @@ def TEE_GetPropertyAsIdentity(ql: Qiling, hook_data):
 def log_msg(ql: Qiling, hook_data):
     try:
         p = ql.os.resolve_fcall_params(
-            {"log_level": INT, "log_level_2": INT, "format": STRING}
+            {"log_level": INT, "log_level_2": INT, "format": POINTER}
         )
         log_level = p["log_level"]
         log_level_2 = p["log_level_2"]
-        format_param = p["format"]
+        format_param_ptr = p["format"]
+        hook_data.emu.update_shm(format_param_ptr)
+        format_param = ql.mem.string(format_param_ptr)
         final_params = {"log_level": INT, "log_level_2": INT, "format": STRING}
         final_params = parse_fmt_str(
             ql, format_param, final_params, hook_data.func_name
@@ -277,9 +289,11 @@ def log_msg(ql: Qiling, hook_data):
 def snprintf(ql: Qiling, hook_data):
     try:
         params_initial = ql.os.resolve_fcall_params(
-            {"s": POINTER, "n": INT, "format": STRING, "arg": POINTER}
+            {"s": POINTER, "n": INT, "format": POINTER, "arg": POINTER}
         )
-        format_param = params_initial["format"]
+        format_param_ptr = params_initial["format"]
+        hook_data.emu.update_shm(format_param_ptr)
+        format_param = ql.mem.string(format_param_ptr)
         n = params_initial["n"]
         s = params_initial["s"]
         arg = params_initial["arg"]
@@ -310,6 +324,7 @@ def snprintf(ql: Qiling, hook_data):
         ):
             return
         ql.mem.write(s, out_str)
+        hook_data.emu.writeback_shm(s, len(out_str))
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, hook_data.func_name)
         return
@@ -320,9 +335,11 @@ def snprintf(ql: Qiling, hook_data):
 
 def sprintf(ql: Qiling, hook_data):
     params_initial = ql.os.resolve_fcall_params(
-        {"s": POINTER, "format": STRING, "arg": POINTER}
+        {"s": POINTER, "format": POINTER, "arg": POINTER}
     )
-    format_param = params_initial["format"]
+    format_param_ptr = params_initial["format"]
+    hook_data.emu.update_shm(format_param_ptr)
+    format_param = ql.mem.string(format_param_ptr)
     s = params_initial["s"]
     arg = params_initial["arg"]
     try:
@@ -346,6 +363,7 @@ def sprintf(ql: Qiling, hook_data):
         ):
             return
         ql.mem.write(s, out_str)
+        hook_data.emu.writeback_shm(s, len(out_str))
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, hook_data.func_name)
         return
@@ -359,16 +377,13 @@ def vsnprintf(ql: Qiling, hook_data):
 
 def strlen(ql: Qiling, hook_data):
     ptr = ql.os.resolve_fcall_params({"ptr": POINTER})["ptr"]
-
+    hook_data.emu.update_shm(ptr)
     try:
         string = read_c_str(ql, ptr)
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, hook_data.func_name)
         return
     out = len(string)
-    # FIXME: Possible risky code move here
-    # FIXME: depends on the version of strlen implementation, it optimizes the calculation unit with some bitwise operation or SSE instructions, which may cause reasonable overread.
-    hook_data.emu.update_shm(ptr, out)
     ql.log.info(f"strlen {hex(ptr)}: {out}")  # , "{string}"=> {hex(out)}')
     ql.os.fcall.cc.setReturnValue(out)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -397,6 +412,7 @@ def strcpy(ql: Qiling, hook_data):
     dst = params["dst"]
     src = params["src"]
     ql.log.info(f"{hook_data.func_name} {hex(src)}->{hex(dst)}")
+    hook_data.emu.update_shm(src)  # +1 for the null terminator
     try:
         s = read_c_str(ql, src)
         if not asan.is_access_valid(
@@ -407,10 +423,7 @@ def strcpy(ql: Qiling, hook_data):
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, hook_data.func_name)
         return
-
-    # FIXME: Possible risky code move here
-    hook_data.emu.update_shm(src, len(s) + 1)  # +1 for the null terminator
-    hook_data.emu.writeback_shm(dst)
+    hook_data.emu.writeback_shm(dst, len(s)+1)
     ql.os.fcall.cc.setReturnValue(dst)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
@@ -446,7 +459,7 @@ def strncpy(ql: Qiling, hook_data):
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, hook_data.func_name)
         return
-    hook_data.emu.writeback_shm(dst)
+    hook_data.emu.writeback_shm(dst, min(len(s), num))
     ql.os.fcall.cc.setReturnValue(dst)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
@@ -487,7 +500,7 @@ def memmove(ql: Qiling, hook_data):
     except unicorn.unicorn_py3.unicorn.UcError as e:
         crash(ql, hook_data.func_name)
         return
-    hook_data.emu.writeback_shm(params["dest"])
+    hook_data.emu.writeback_shm(params["dest"], params["size"])
     ql.os.fcall.cc.setReturnValue(params["dest"])
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
@@ -549,6 +562,8 @@ def strcmp(ql: Qiling, hook_data):
     params = ql.os.resolve_fcall_params({"str1": POINTER, "str2": POINTER})
     str1 = params["str1"]
     str2 = params["str2"]
+    hook_data.emu.update_shm(str1)  # +1 for the null terminator
+    hook_data.emu.update_shm(str2)
 
     try:
         content_1 = read_c_str(ql, str1)
@@ -556,9 +571,6 @@ def strcmp(ql: Qiling, hook_data):
     except unicorn.unicorn_py3.unicorn.UcError as e:
         crash(ql, hook_data.func_name)
         return
-    # FIXME: Possible risky code move here
-    hook_data.emu.update_shm(str1, len(content_1) + 1)  # +1 for the null terminator
-    hook_data.emu.update_shm(str2, len(content_2) + 1)
 
     if not asan.is_access_valid(
         ql,
@@ -655,6 +667,7 @@ def TEE_GenerateRandom(ql: Qiling, hook_data):
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, hook_data.func_name)
         return
+    hook_data.emu.writeback_shm(params["randomBuffer"], params["randomBufferLen"])
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
@@ -715,4 +728,5 @@ def TEE_GetCallerInfo(ql: Qiling, hook_data):
     param_ci = p["caller_info"]
     # write tee_secure_info
     ql.mem.write_ptr(param_ci, 1)
+    hook_data.emu.writeback_shm(param_ci)
     ql.arch.regs.arch_pc = ql.arch.regs.lr

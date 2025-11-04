@@ -46,6 +46,7 @@ def shared_read_callback(
                     "PC": ql.arch.regs.read("PC"),
                     "ret_addr": ql.get_caller_pc(),
                     "ret_addr_offset": ql.get_caller_pc() - ql.emu.ta_base,
+                    "is_read": True
                 },
                 # TODO: add access type here
             ),
@@ -71,6 +72,7 @@ def shared_write_callback(
                     "PC": ql.arch.regs.read("PC"),
                     "ret_addr": ql.get_caller_pc(),
                     "ret_addr_offset": ql.get_caller_pc() - ql.emu.ta_base,
+                    "is_read": False
                 },
                 # TODO: add access type here
             ),

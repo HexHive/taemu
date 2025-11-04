@@ -20,6 +20,7 @@ def TEE_GetPropertyAsUUID(ql: Qiling, hook_data):
     para_propsetOrEnumerator = params["propsetOrEnumerator"]
     para_name = params["name"]
     para_value = params["value"]
+    hook_data.emu.update_shm(para_name)
 
     if para_propsetOrEnumerator == TEE_PROPSET_TEE_IMPLEMENTATION:
         name = ql.mem.string(para_name)
@@ -56,5 +57,6 @@ def TEE_GetPropertyAsUUID(ql: Qiling, hook_data):
             return
         ql.emu_stop()
 
+    hook_data.emu.writeback_shm(para_value)
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr

@@ -43,13 +43,14 @@ def ut_pf_cp_rd_random(ql: Qiling, hook_data):
     ):
         return
     ql.mem.write(buf, size * b"A")
+    hook_data.emu.writeback_shm(buf, size)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def ut_pf_ts_cp_exist(ql: Qiling, func_name):
+def ut_pf_ts_cp_exist(ql: Qiling, hook_data):
     params = ql.os.resolve_fcall_params({"name": POINTER})
     param_name = params["name"]
-
+    hook_data.emu.update_shm(param_name)
     file_name = ql.mem.string(param_name)
     ql.log.info(f"ut_pf_ts_cp_exist, name: {file_name}")
 
@@ -65,11 +66,11 @@ def ut_pf_ts_cp_exist(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def ut_pf_ts_cp_open(ql: Qiling, func_name):
+def ut_pf_ts_cp_open(ql: Qiling, hook_data):
     params = ql.os.resolve_fcall_params({"name": POINTER, "flags": UINT})
     param_name = params["name"]
     param_flags = params["flags"]
-
+    hook_data.emu.update_shm(param_name)
     file_name = ql.mem.string(param_name)
     ql.log.info(f"ut_pf_ts_cp_open: name: {file_name}, flags: {param_flags}")
 
@@ -88,7 +89,7 @@ def ut_pf_ts_cp_open(ql: Qiling, func_name):
         ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def ut_pf_ts_cp_error(ql: Qiling, func_name):
+def ut_pf_ts_cp_error(ql: Qiling, hook_data):
     # do nothing, return 0
     ql.log.info(f"ut_pf_ts_cp_error")
 
@@ -96,12 +97,13 @@ def ut_pf_ts_cp_error(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def ut_pf_ts_cp_write(ql: Qiling, func_name):
+def ut_pf_ts_cp_write(ql: Qiling, hook_data):
     params = ql.os.resolve_fcall_params({"fd": UINT, "buffer": POINTER, "len": UINT})
     param_fd = params["fd"]
     param_buffer = params["buffer"]
     param_len = params["len"]
 
+    hook_data.emu.update_shm(param_buffer, param_len)
     ql.log.info(f"ut_pf_ts_cp_write: write {param_len} bytes to file {param_fd}")
 
     ret = 0
@@ -123,7 +125,7 @@ def ut_pf_ts_cp_write(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def ut_pf_ts_cp_read(ql: Qiling, func_name):
+def ut_pf_ts_cp_read(ql: Qiling, hook_data):
     params = ql.os.resolve_fcall_params({"fd": UINT, "buffer": POINTER, "len": UINT})
     param_fd = params["fd"]
     param_buffer = params["buffer"]
@@ -147,12 +149,12 @@ def ut_pf_ts_cp_read(ql: Qiling, func_name):
             ql.mem.write(param_buffer, content)
         except:
             ret = 0
-
+    hook_data.emu.writeback_shm(param_buffer, param_len)
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def ut_pf_ts_cp_close(ql: Qiling, func_name):
+def ut_pf_ts_cp_close(ql: Qiling, hook_data):
     params = ql.os.resolve_fcall_params({"fd": UINT})
     param_fd = params["fd"]
 

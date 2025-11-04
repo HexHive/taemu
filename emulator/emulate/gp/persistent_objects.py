@@ -33,6 +33,10 @@ def TEE_CreatePersistentObject(ql: Qiling, hook_data):
     para_initialDataLen = params["initialDataLen"]
     para_object = params["object"]
 
+    hook_data.emu.update_shm(para_objectID)
+    hook_data.emu.update_shm(para_attributes)
+    hook_data.emu.update_shm(para_initialData)
+
     ql.log.info(f"TEE_CreatePersistentObject: ")
     if para_storageID == TEE_STORAGE_PRIVATE or MITEE_FILE_STORAGE:
 
@@ -69,6 +73,7 @@ def TEE_CreatePersistentObject(ql: Qiling, hook_data):
     else:
         ret = TEE_ERROR_ITEM_NOT_FOUND
 
+    hook_data.emu.writeback_shm(para_object)
     ql.log.info(f"\tret {hex(ret)}")
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -94,6 +99,7 @@ def TEE_OpenPersistentObject(ql: Qiling, hook_data):
 
     ql.log.info(f"TEE_OpenPersistentObject: ")
 
+    hook_data.emu.update_shm(para_objectID, para_objectIDLen)
     objectID = bytes(ql.mem.read(para_objectID, para_objectIDLen))
     ql.log.info(f"\tobjectID {objectID}")
 
@@ -118,6 +124,7 @@ def TEE_OpenPersistentObject(ql: Qiling, hook_data):
             return
         ql.log.info(f"\tobject handler: {obj.handler}")
 
+    hook_data.emu.writeback_shm(para_object)
     ql.log.info(f"\tret {hex(ret)}")
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -132,6 +139,8 @@ def TEE_WriteObjectData(ql: Qiling, hook_data):
     para_buffer = params["buffer"]
     para_size = params["size"]
 
+    hook_data.emu.update_shm(para_object)
+    hook_data.emu.update_shm(para_buffer, para_size)
     ql.log.info(f"{func_name}: object handler {para_object}")
 
     if para_object not in handler2perobj:
@@ -167,7 +176,8 @@ def TEE_SeekObjectData(ql: Qiling, hook_data):
     if para_object not in handler2perobj:
         ql.log.error(f"{func_name}: {para_object} not in {handler2perobj}")
         ql.emu_stop()
-
+    
+    hook_data.emu.update_shm(para_object)
     obj = handler2perobj[para_object]
     obj.seek(offset, whence)
 
@@ -253,7 +263,6 @@ def TEE_ReadObjectData(ql: Qiling, hook_data):
     ql.log.info(f"{func_name}: object handler {para_object}, size {para_size:#0x}")
 
     obj = handler2perobj[para_object]
-
     # atomic?
     data = obj.read(para_size, ql)
     try:
@@ -262,7 +271,7 @@ def TEE_ReadObjectData(ql: Qiling, hook_data):
     except unicorn.unicorn_py3.unicorn.UcError as e:
         crash(ql, func_name)
         return
-
+    hook_data.emu.writeback_shm(para_buffer, para_count)
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
@@ -302,5 +311,6 @@ def TEE_GetObjectInfo(ql: Qiling, hook_data):
         crash(ql, func_name)
         return
 
+    hook_data.emu.writeback_shm(para_objectInfo)
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr

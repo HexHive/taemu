@@ -95,6 +95,7 @@ def TEE_AllocateOperation(ql: Qiling, hook_data):
         crash(ql, hook_data.func_name)
         return
 
+    hook_data.emu.writeback_shm(param_operation)
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
@@ -118,6 +119,7 @@ def TEE_DigestUpdate(ql: Qiling, hook_data):
             ql.emu_stop()
 
         op = id2opration[param_operation]
+        hook_data.emu.update_shm(param_chunk, param_chunkSize)
         data = ql.mem.read(param_chunk, param_chunkSize)
         if type(op) == Digest_Operation:
             op.digest_update(data)
@@ -160,6 +162,7 @@ def TEE_DigestDoFinal(ql: Qiling, hook_data):
             ql.emu_stop()
 
         op = id2opration[param_operation]
+        hook_data.emu.update_shm(param_chunk, param_chunkLen)
         data = ql.mem.read(param_chunk, param_chunkLen)
         if type(op) == Digest_Operation:
             hash = op.finalize(data, param_hashLen, ql)
@@ -171,6 +174,7 @@ def TEE_DigestDoFinal(ql: Qiling, hook_data):
 
         if hash:
             ql.mem.write(param_hash, hash)
+            hook_data.emu.writeback_shm(param_hash, hash)
             ret = TEE_SUCCESS
         else:
             ret = TEE_ERROR_SHORT_BUFFER
@@ -320,7 +324,7 @@ def TEE_AsymmetricDecrypt(ql: Qiling, hook_data):
             "srcData": POINTER,
             "srcLen": UINT,
             "destData": POINTER,
-            "destLen": UINT,
+            "destLen": POINTER,
         }
     )
     param_operation = params["operation"]
@@ -351,6 +355,7 @@ def TEE_AsymmetricDecrypt(ql: Qiling, hook_data):
             return
         ql.emu_stop()
 
+    hook_data.emu.update_shm(param_srcData, param_srcLen)
     try:
         ct = ql.mem.read(param_srcData, param_srcLen)
         pt = op.decrypt(ct, ql)
@@ -360,6 +365,8 @@ def TEE_AsymmetricDecrypt(ql: Qiling, hook_data):
         else:
             ql.mem.write(param_destData, pt)
             ql.mem.write_ptr(param_destLen, len(pt))
+            hook_data.emu.writeback_shm(param_destData, len(pt))
+            hook_data.emu.writeback_shm(param_destLen, ql.arch.pointersize)
             ret = TEE_SUCCESS
     except unicorn.unicorn_py3.unicorn.UcError as e:
         crash(ql, hook_data.func_name)
@@ -385,7 +392,7 @@ def TEE_CipherInit(ql: Qiling, hook_data):
         ql.emu_stop()
 
     op = id2opration[param_operation]
-
+    hook_data.emu.update_shm(param_iv, param_ivLen)
     try:
         if type(op) == AES_ECB_NOPAD_Operation or type(op) == AES_CBC_NOPAD_Operation:
             if op.initialized and not op.active:
@@ -448,6 +455,8 @@ def TEE_CipherDoFinal(ql: Qiling, hook_data):
 
     ql.log.info(f"TEE_CipherDoFinal")
 
+    hook_data.emu.update_shm(param_src, param_srcLen)
+
     try:
         if type(op) == AES_ECB_NOPAD_Operation or type(op) == AES_CBC_NOPAD_Operation:
             if op.active:
@@ -485,6 +494,8 @@ def TEE_CipherDoFinal(ql: Qiling, hook_data):
         crash(ql, hook_data.func_name)
         return
 
+    hook_data.emu.writeback_shm(param_dst)
+    hook_data.emu.writeback_shm(param_dstLen)
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
@@ -507,7 +518,7 @@ def TEE_MACInit(ql: Qiling, hook_data):
     op = id2opration[param_operation]
 
     ql.log.info(f"TEE_MACInit")
-
+    hook_data.emu.update_shm(iv, ivLen)
     try:
         if type(op) == TEE_ALG_HMAC_SHA256_Operation:
             if op.initialized:
@@ -554,7 +565,7 @@ def TEE_MACComputeFinal(ql: Qiling, hook_data):
     op = id2opration[param_operation]
 
     ql.log.info(f"TEE_MACComputeFinal")
-
+    hook_data.emu.update_shm(message, messageLen)
     try:
         if type(op) == TEE_ALG_HMAC_SHA256_Operation:
             if op.activated:
@@ -576,5 +587,7 @@ def TEE_MACComputeFinal(ql: Qiling, hook_data):
         crash(ql, hook_data.func_name)
         return
 
+    hook_data.emu.writeback_shm(mac)
+    hook_data.emu.writeback_shm(macLen)
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr

@@ -11,7 +11,7 @@ import time as pytime
 from .common import crash, crash_notimpl
 
 from .gp_api import TEE_LogvPrintf, TEE_LogPrintf, TEE_MemCompare, malloc, free
-from .gp.utils.printf import parse_fmt_str, fixup_format
+from .gp.utils.printf import parse_fmt_str, fixup_format, read_c_str
 
 
 def GetBootSeed(ql: Qiling, hook_data):
@@ -24,6 +24,7 @@ def GetBootSeed(ql: Qiling, hook_data):
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, hook_data.func_name)
         return
+    hook_data.emu.writeback_shm(buf, size)
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
@@ -36,14 +37,14 @@ def debug_log2(ql: Qiling, hook_data):
                 "linenumber": INT,
                 "nr1": INT,
                 "nr2": INT,
-                "format": STRING,
+                "format": POINTER,
             }
         )
         linenumber = p["linenumber"]
         filename = p["filename"]
         nr1 = p["nr1"]
         nr2 = p["nr2"]
-        format_param = p["format"]
+        format_param_ptr = p["format"]
         final_params = {
             "filename": STRING,
             "linenumber": linenumber,
@@ -51,6 +52,8 @@ def debug_log2(ql: Qiling, hook_data):
             "nr2": nr2,
             "format": STRING,
         }
+        hook_data.emu.update_shm(format_param_ptr)
+        format_param = read_c_str(ql, format_param_ptr)
         params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
         format_param = fixup_format(format_param)
         string_params = [params[f"{i}"] for i in range(0, len(params))]
@@ -71,11 +74,13 @@ def debug_log2(ql: Qiling, hook_data):
 def debug_log(ql: Qiling, hook_data):
     try:
         p = ql.os.resolve_fcall_params(
-            {"log_level": INT, "filename": STRING, "format": STRING}
+            {"log_level": INT, "filename": STRING, "format": POINTER}
         )
         log_level = p["log_level"]
         filename = p["filename"]
-        format_param = p["format"]
+        format_param_ptr = p["format"]
+        hook_data.emu.update_shm(format_param_ptr)
+        format_param = read_c_str(format_param_ptr)
         final_params = {"log_level": INT, "filename": STRING, "format": STRING}
         params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
         format_param = fixup_format(format_param)
