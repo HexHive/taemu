@@ -60,6 +60,7 @@ def TEE_GetObjectBufferAttribute(ql: Qiling, hook_data):
             return
         ret = TEE_SUCCESS
 
+    hook_data.emu.writeback_shm(para_buffer, para_size)
     ql.log.info(f"\treturn {hex(ret)}")
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr

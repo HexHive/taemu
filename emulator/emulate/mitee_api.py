@@ -44,6 +44,7 @@ def TEE_KMGetHmacKey(ql: Qiling, hook_data):
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, hook_data.func_name)
         return
+    hook_data.emu.writeback_shm(buf, size)
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 

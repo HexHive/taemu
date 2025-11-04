@@ -40,6 +40,9 @@ def TEE_OpenTASession(ql: Qiling, hook_data):
     para_session = params["session"]
     para_returnOrigin = params["returnOrigin"]
 
+    hook_data.emu.update_shm(para_params)
+    hook_data.emu.update_shm(para_session)
+    hook_data.emu.update_shm(para_destination)
     ql.log.info(
         f"TEE_OpenTASession: {hex(para_destination)},{para_cancellationRequestTimeout},{para_paramTypes},{hex(para_params)},{hex(para_session)},{hex(para_returnOrigin)}"
     )
@@ -99,6 +102,10 @@ def TEE_InvokeTACommand(ql: Qiling, hook_data):
     para_paramTypes = params["paramTypes"]
     para_params = params["params"]
     para_returnOrigin = params["returnOrigin"]
+
+    hook_data.emu.update_shm(para_session)
+    hook_data.emu.update_shm(para_params)
+    hook_data.emu.update_shm(para_returnOrigin)
 
     ql.log.info(
         f"TEE_InvokeTACommand: {hex(para_session)},{para_cancellationRequestTimeout},{hex(para_commandID)},{para_paramTypes},{hex(para_params)},{hex(para_returnOrigin)}"

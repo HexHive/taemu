@@ -339,7 +339,7 @@ class TAEMU:
         else:
             self.start_interactive()
 
-    def get_shm(self, pointer, size: Optional[int] = None):
+    def get_shm(self, pointer, size: Optional[int] = None, is_read=True):
         if self.curr_params is None:
             return None
 
@@ -362,6 +362,7 @@ class TAEMU:
                                     "PC": self.ql.arch.regs.read("PC"),
                                     "ret_addr": self.ql.get_caller_pc(),
                                     "ret_addr_offset": self.ql.get_caller_pc() - self.ql.emu.ta_base,
+                                    "is_read": is_read
                                 },
                             ),
                             op=lambda a, b: a + [b],
@@ -370,16 +371,14 @@ class TAEMU:
         return None
 
     def update_shm(self, pointer, size: Optional[int] = None):
-        # self.log.info(f"[ql_update_shm] update_shm for pointer {pointer:#0x}")
-
-        param = self.get_shm(pointer, size)
+        param = self.get_shm(pointer, size, is_read=True)
         if param is None:
             return
         if self.status == Status.INTERACTIVE:
             self.ql.mem.write(param.shm_pybuf, param.shm.to_bytes()[: param.size])
 
-    def writeback_shm(self, pointer):
-        param = self.get_shm(pointer)
+    def writeback_shm(self, pointer, size: Optional[int] = None):
+        param = self.get_shm(pointer, size, is_read=False)
         if param is None:
             return
         curr_data = self.ql.mem.read(param.shm_pybuf, param.size)

@@ -30,6 +30,7 @@ def TEE_AllocateTransientObject(ql: Qiling, hook_data):
         ql.log.info(
             f"\tallocated {ObjectTypes.TEE_TYPE_RSA_KEYPAIR.name} with {hex(maxObjectSize)} bytes at {hex(new_obj.handle)}, stored at {hex(para_object)}"
         )
+        hook_data.emu.writeback_shm(para_object)
         # @TODO: error return value
         ql.os.fcall.cc.setReturnValue(0)
         ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -45,6 +46,7 @@ def TEE_AllocateTransientObject(ql: Qiling, hook_data):
             f"\tallocated {ObjectTypes.TEE_TYPE_AES.name} with {hex(maxObjectSize)} bytes at {hex(new_obj.handle)}, stored at {hex(para_object)}"
         )
         # @TODO: error return value
+        hook_data.emu.writeback_shm(para_object)
         ql.os.fcall.cc.setReturnValue(0)
         ql.arch.regs.arch_pc = ql.arch.regs.lr
     elif objectType == ObjectTypes.TEE_TYPE_HMAC_SHA256.value:
@@ -58,6 +60,7 @@ def TEE_AllocateTransientObject(ql: Qiling, hook_data):
         ql.log.info(
             f"\tallocated {ObjectTypes.TEE_TYPE_HMAC_SHA256.name} with {hex(maxObjectSize)} bytes at {hex(new_obj.handle)}, stored at {hex(para_object)}"
         )
+        hook_data.emu.writeback_shm(para_object)
         ql.os.fcall.cc.setReturnValue(0)
         ql.arch.regs.arch_pc = ql.arch.regs.lr
     else:
@@ -91,8 +94,10 @@ def TEE_GenerateKey(ql: Qiling, hook_data):
             f"TEE_GenerateKey: called with {hex(para_object)} not in {handle2obj}"
         )
         ql.emu_stop()
+    hook_data.emu.update_shm(para_object)
     obj = handle2obj[para_object]
     ret = obj.generateKey(para_keySize, para_params, para_paramCount, ql)
+    hook_data.emu.writeback_shm(para_params)
     ql.log.info(f"\treturn {hex(ret)}")
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -115,7 +120,8 @@ def TEE_PopulateTransientObject(ql: Qiling, hook_data):
         )
         ql.emu_stop()
     obj = handle2obj[para_object]
-
+    hook_data.emu.update_shm(para_object)
+    hook_data.emu.update_shm(para_attrs)
     # if object is initialized, the caller should first call TEE_ResetTransientObject before using TEE_PopulateTransientObject
     if obj.initialized:
         ql.log.error(
@@ -141,6 +147,7 @@ def TEE_ResetTransientObject(ql: Qiling, hook_data):
         )
         crash(ql, func_name)
         return
+    hook_data.emu.update_shm(para_object)
     obj = handle2obj[para_object]
     # @TODO: In any case, the function resets the key usage of the container to 0xFFFFFFFFF
     for attr in obj.attrs:
@@ -161,6 +168,7 @@ def TEE_FreeTransientObject(ql: Qiling, hook_data):
         crash(ql, func_name)
         return
     obj = handle2obj[para_object]
+    hook_data.emu.update_shm(para_object)
     for attr in obj.attrs:
         del attr
     del handle2obj[para_object]  # delete from dict
@@ -178,7 +186,7 @@ def TEE_InitRefAttribute(ql: Qiling, hook_data):
     para_attributeID = params["attributeID"]
     para_buffer = params["buffer"]
     para_length = params["length"]
-
+    hook_data.emu.update_shm(para_buffer, para_length)
     ql.log.info(f"TEE_InitRefAttribute: attributeID {hex(para_attributeID)}")
     if (para_attributeID >> 29) & 0x1 != 0:
         ql.log.error(
@@ -193,6 +201,7 @@ def TEE_InitRefAttribute(ql: Qiling, hook_data):
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, func_name)
         return
+    hook_data.emu.writeback_shm(para_attr)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
@@ -221,6 +230,7 @@ def TEE_InitValueAttribute(ql: Qiling, hook_data):
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, func_name)
         return
+    hook_data.emu.writeback_shm(para_attr)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
@@ -248,7 +258,8 @@ def TEE_CopyObjectAttributes1(ql: Qiling, hook_data):
         )
         ql.emu_stop()
     srcObj = handle2obj[para_srcObject]
-
+    hook_data.emu.update_shm(para_srcObject)
     ret = destObj.copy_from(srcObj, ql)
+    hook_data.emu.writeback_shm(para_destObject)
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr

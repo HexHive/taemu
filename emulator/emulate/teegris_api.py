@@ -25,6 +25,13 @@ def TEES_IsREESharedMemory(ql: Qiling, hook_data):
 
 
 def TEES_CheckSecureObjectCreator(ql: Qiling, hook_data):
+    p = ql.os.resolve_fcall_params({
+        "in": POINTER, 
+        "in_size": INT,
+    })
+    in_buf = p["in"]
+    in_size = p["in_size"]
+    hook_data.emu.update_shm(in_buf, in_size)
     ql.log.info(f"{hook_data.func_name} returning 1")
     ql.os.fcall.cc.setReturnValue(1)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
