@@ -6,6 +6,8 @@ import socket
 from ctypes import *
 from enum import Enum
 from .gp.utils.err import *
+from .ta_mgr import Status
+from .fuzz_record import Record
 
 min_addr = 0xBBBBB000
 
@@ -36,6 +38,21 @@ def shared_read_callback(
     assert memref.shm is not None
     # TODO make more efficient
     ql.mem.write(memref.shm_pybuf, memref.shm.to_bytes())
+    if ql.emu.status in (Status.FUZZING, Status.REPLAYING):
+        ql.emu.update_records(
+            key=ql.emu.curr_record_key,
+            item=Record(
+                address,
+                size,
+                regs={
+                    "PC": ql.arch.regs.read("PC"),
+                    "ret_addr": ql.get_caller_pc(),
+                    "ret_addr_offset": ql.get_caller_pc() - ql.emu.ta_base,
+                },
+                # TODO: add access type here
+            ),
+            op=lambda a, b: a + [b],
+        )
 
 
 def shared_write_callback(
@@ -46,6 +63,21 @@ def shared_write_callback(
     assert memref.shm is not None
     # TODO make this more efficient
     curr_data = ql.mem.read(memref.shm_pybuf, memref.size)
+    if ql.emu.status in (Status.FUZZING, Status.REPLAYING):
+        ql.emu.update_records(
+            key=ql.emu.curr_record_key,
+            item=Record(
+                address,
+                size,
+                regs={
+                    "PC": ql.arch.regs.read("PC"),
+                    "ret_addr": ql.get_caller_pc(),
+                    "ret_addr_offset": ql.get_caller_pc() - ql.emu.ta_base,
+                },
+                # TODO: add access type here
+            ),
+            op=lambda a, b: a + [b],
+        )
     memref.shm.from_bytes(curr_data)
 
 

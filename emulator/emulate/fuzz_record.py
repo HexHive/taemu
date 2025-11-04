@@ -8,8 +8,7 @@ from queue import Empty
 import sys
 from .redis_queue import RedisQueue
 from dataclasses import dataclass
-from typing import Dict, Any
-from typing import Optional
+from typing import Optional, Callable, Dict, Any, List, Tuple
 
 
 @dataclass(frozen=True)
@@ -17,6 +16,9 @@ class Record:
     addr: int
     size: Optional[int] = None
     regs: Optional[Dict[str, Any]] = None
+    
+    def __hash__(self):
+        return hash((self.addr, self.size, tuple(sorted(self.regs.items()))))
 
 
 class Recorder:
@@ -52,7 +54,7 @@ class Recorder:
         self._log.info(
             f"[{__name__}] cleanup context manager and process the final batch of {len(self._batch_items)} items"
         )
-        self._trigger_async_batch_processing()
+        self._trigger_batch_processing()
         self._log.info(f"[{__name__}] Recorder process exited gracefully")
         return False  # don't suppress exceptions
 
@@ -75,17 +77,27 @@ class Recorder:
                     break
 
                 if self._should_trigger_batch_processing():
-                    self._trigger_async_batch_processing()
+                    self._trigger_batch_processing()
 
                 with self._batch_lock:
-                    self._batch_items.append(item)
+                    if self._filter_handler(item):
+                        self._batch_items.append(item)
 
             except Empty:
-                self._trigger_async_batch_processing()
+                self._trigger_batch_processing()
                 continue
             except Exception as e:
                 self._log.error(f"[{__name__}] Error processing item: {e}")
                 continue
+            
+            
+    def _unfold_record(self, item: Dict[str, Any]) -> Tuple[bytes, str, List[Record], Dict[str, Any]]:
+        input_data = item.get("input", b"")
+        key = item.get("key", "")
+        records = item.get("records", [])
+        meta = item.get("meta", {})
+        return input_data, key, records, meta
+    
 
     def _batch_process_items(self, items: list):
         if not items:
@@ -93,10 +105,8 @@ class Recorder:
 
         def process_single_item(item):
             try:
-                input_data = item.get("input", b"")
-                key = item.get("key", "")
-                records = item.get("records", [])
-                meta = item.get("meta", {})
+                
+                input_data, key, records, meta  = self._unfold_record(item)
 
                 if not key:
                     return False, f"Empty key for item"
@@ -163,7 +173,7 @@ class Recorder:
                 and not self._batch_processing
             )
 
-    def _trigger_async_batch_processing(self):
+    def _trigger_batch_processing(self):
         with self._batch_lock:
             if self._batch_processing or not self._batch_items:
                 return
@@ -180,3 +190,26 @@ class Recorder:
                     self._batch_processing = False
 
         threading.Thread(target=batch_worker).start()
+
+    def _filter_handler(self, item) -> bool:
+        return True
+
+
+class AccessFlowFilterRecorder(Recorder):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._seen_addresses = set()
+
+    def _filter_handler(self, item) -> bool:
+        _, _, records, _ = self._unfold_record(item)
+        control_flow_hash = hash(tuple(records))
+        if control_flow_hash in self._seen_addresses:
+            # detected duplicate control flow
+            return False
+        else:
+            # new control flow
+            self._seen_addresses.add(control_flow_hash)
+            return True
+        
+        
+        

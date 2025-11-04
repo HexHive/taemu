@@ -10,7 +10,7 @@ from .qiling_extend import QilingExtend as Qiling
 from .redis_queue import create_redis_queue
 from qiling.const import QL_VERBOSE
 from qiling.const import QL_ARCH, QL_OS, QL_VERBOSE
-from .fuzz_record import Recorder
+from .fuzz_record import AccessFlowFilterRecorder
 from .redis_queue import RedisQueue
 from .emulator_no_loader import simple_diassembler, trace_block, simple_diassembler
 from .ta_mgr import TAEMU, Status
@@ -121,7 +121,7 @@ if __name__ == "__main__":
                     args.log_file,
                     mode="a",
                     maxBytes=10 * 1024 * 1024,
-                    backupCount=1,
+                    backupCount=2,
                     encoding="utf-8",
                 ),
                 logging.StreamHandler(),
@@ -298,7 +298,7 @@ if __name__ == "__main__":
 
         print(f"[+] Saving suspicious inputs at dir => {suspicious_seeds_save_dir}")
 
-        with Recorder(
+        with AccessFlowFilterRecorder(
             curr_record_q, suspicious_seeds_save_dir, custom_logger
         ) as recorder:
             recorder.start()
