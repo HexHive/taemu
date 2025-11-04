@@ -334,7 +334,7 @@ class TAEMU:
         else:
             self.start_interactive()
 
-    def get_shm(self, pointer, size: Optional[int] = None, is_read=True):
+    def get_shm(self, pointer, size: Optional[int] = None, is_read: bool = True):
         if self.curr_params is None:
             return None
 

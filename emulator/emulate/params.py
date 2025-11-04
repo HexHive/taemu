@@ -48,7 +48,6 @@ def shared_read_callback(
                     "ret_addr_offset": ql.get_caller_pc() - ql.emu.ta_base,
                     "is_read": True
                 },
-                # TODO: add access type here
             ),
             op=lambda a, b: a + [b],
         )
@@ -74,7 +73,6 @@ def shared_write_callback(
                     "ret_addr_offset": ql.get_caller_pc() - ql.emu.ta_base,
                     "is_read": False
                 },
-                # TODO: add access type here
             ),
             op=lambda a, b: a + [b],
         )
