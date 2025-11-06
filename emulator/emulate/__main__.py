@@ -239,12 +239,14 @@ if __name__ == "__main__":
         std_apis = False
     if args.no_tee_apis:
         tee_apis = False
-
+        
+        
+    print("ta_emulator_queue_{}_{}".format(os.path.basename(os.path.dirname(args.fuzz_harness)), os.path.basename(ta_path)[:-3]))
     if args.fuzz or args.fuzz_replay:
         # Create Redis queue
         try:
             record_q: RedisQueue = create_redis_queue(
-                queue_name="ta_emulator_queue_" + os.path.basename(ta_path)[:-3],
+                queue_name="ta_emulator_queue_{}_{}".format(os.path.basename(os.path.dirname(args.fuzz_harness)), os.path.basename(ta_path)[:-3]),
                 redis_host=os.environ.get("REDIS_HOST", "localhost"),
                 redis_port=int(os.environ.get("REDIS_PORT", "6379")),
                 redis_db=int(os.environ.get("REDIS_DB", "0")),

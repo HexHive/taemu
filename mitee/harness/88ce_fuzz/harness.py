@@ -5,7 +5,7 @@ from qiling import Qiling
 
 
 def place_input_callback(ql: Qiling, input: bytes, _: int):
-    print(f"8cce custom harness!!!! Placing input: {input}")
+    print(f"88ce custom harness!!!! Placing input: {input}")
 
     cmds = [0xf001, 0xf002, 0xf003, 0xf004, 0xf005, 0xf006, 0x1001, 0x1000]
     cmd = cmds[input[0] % len(cmds)]
