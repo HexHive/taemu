@@ -22,6 +22,9 @@ def place_input_callback(ql: Qiling, input: bytes, _: int):
         return False
 
     cmds = [0x1000, 0x1005, 0x1006]
+    cmd = cmds[input[0] % len(cmds)]
+    input = p32(cmd) + input[1:]
+    
     # cmd = cmds[input[0] % len(cmds)]
     # data = (0x1026).to_bytes(4, "little") + input
     # data = (0x1018).to_bytes(4, "little") + 12*b"\x00" + p32(0x8395) + input
@@ -32,7 +35,7 @@ def place_input_callback(ql: Qiling, input: bytes, _: int):
     command_params.append(NoneParam())
     ptypes = 0x9999
     setup_fuzz(
-        ql, 1, ptypes, command_params, input
+        ql, cmd, ptypes, command_params, input
     )  # assume the session is already set
 
     return True

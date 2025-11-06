@@ -2,7 +2,7 @@
 from .params import *
 from pwn import *
 from qiling import Qiling
-
+import os
 
 def place_input_callback(ql: Qiling, input: bytes, _: int):
     print(f"0266 custom harness!!!! Placing input: {input}")

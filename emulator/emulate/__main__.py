@@ -283,6 +283,8 @@ if __name__ == "__main__":
             except KeyboardInterrupt:
                 print("[+] Keyboard interrupt received...")
             except Exception as e:
+                import traceback
+                traceback.print_exc()
                 print(f"[+] Error occurred: {e}")
 
     def launch_recorder(curr_record_q):

@@ -80,7 +80,7 @@ def debug_log(ql: Qiling, hook_data):
         filename = p["filename"]
         format_param_ptr = p["format"]
         hook_data.emu.update_shm(format_param_ptr)
-        format_param = read_c_str(format_param_ptr)
+        format_param = ql.mem.string(format_param_ptr)
         final_params = {"log_level": INT, "filename": STRING, "format": STRING}
         params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
         format_param = fixup_format(format_param)

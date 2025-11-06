@@ -1,5 +1,6 @@
 # from params import *
-from .params import * from pwn import *
+from .params import * 
+from pwn import *
 from qiling import Qiling
 
 
