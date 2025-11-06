@@ -56,7 +56,7 @@ def have_overlaps(records: List[Record]) -> bool:
             )
             lines.append((record.addr, record.addr + 1))
         else:
-            print(f"[{__name__}] Adding record: {record.addr} - {record.addr + record.size}")
+            print(f"[{__name__}] Adding record: {hex(record.addr)} - {hex(record.addr + record.size)}")
             lines.append((record.addr, record.addr + record.size))
 
     lines.sort(key=lambda x: x[0])
@@ -377,8 +377,8 @@ class TAEMU:
         param = self.get_shm(pointer, size, is_read=False)
         if param is None:
             return
-        curr_data = self.ql.mem.read(param.shm_pybuf, param.size)
         if self.status == Status.INTERACTIVE:
+            curr_data = self.ql.mem.read(param.shm_pybuf, param.size)
             param.shm.from_bytes(curr_data)
 
     @require_class_attr("key", "curr_record_key")
@@ -782,18 +782,11 @@ class TAEMU:
                             return
                         # get shared content
                         self.ql.log.debug(f"SHM IN content: {shm.to_bytes()}")
-                        if (
-                            self.tee == "mitee"
-                            or self.tee == "teegris"
-                            or self.tee == "trustedcore"
-                        ):
-                            # shared memory
-                            memref = MemRefParam(shm.to_bytes(), size)
-                            memref.is_shared = True
-                            memref.shm = shm
-                            command_params.append(memref)
-                        else:
-                            command_params.append(MemRefParam(shm.to_bytes(), size))
+                        # shared memory
+                        memref = MemRefParam(shm.to_bytes(), size)
+                        memref.is_shared = True
+                        memref.shm = shm
+                        command_params.append(memref)
                     elif t == 0:
                         command_params.append(NoneParam())
                     else:

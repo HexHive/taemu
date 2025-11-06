@@ -17,7 +17,7 @@ def place_input_callback(ql: Qiling, input: bytes, _: int):
     command_params.append(NoneParam())
     command_params.append(NoneParam())
     ptypes = 0x53
-    ret, params_mem = setup_params_fuzz(
-        ql, 0x100A, ptypes, command_params
+    setup_fuzz(
+        ql, 0x100A, ptypes, command_params, input
     )  # assume the session is already set
     return True

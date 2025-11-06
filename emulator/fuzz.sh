@@ -6,9 +6,7 @@ export AFL_FORKSRV_INIT_TMOUT=99999
 export AFL_NO_FASTRESUME=1
 export AFL_AUTORESUME=1
 
-if [ -z "${FUZZTIME}" ]; then
-  FUZZTIME=99999999999
-fi
+
 
 #rm rootfs/*ta
 #rm rootfs/*json
@@ -85,7 +83,11 @@ if [ -z "$2" ]; then
 
     if [ -d "$in_path" ]; then
         echo "Fuzzing with harness $harness ..."
-        timeout -k $FUZZTIME $FUZZTIME afl-fuzz -V $FUZZTIME -t 5000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")" $log_arg
+	if [ -z "${FUZZTIME}" ]; then
+        	afl-fuzz -t 5000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")" $log_arg
+  	else
+        	timeout -k $FUZZTIME $FUZZTIME afl-fuzz -V $FUZZTIME -t 5000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")" $log_arg
+	fi
         #  --log_file "ql-emulator.log"
     else 
         timeout -k $FUZZTIME $FUZZTIME afl-fuzz -V $FUZZTIME -t 5000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ "rootfs/$(basename "$ta")" $log_arg

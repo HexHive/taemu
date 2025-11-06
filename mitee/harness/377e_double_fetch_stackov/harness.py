@@ -39,10 +39,10 @@ def place_input_callback(ql: Qiling, input: bytes, _: int):
     ptypes = generate_ptypes(0x00000003, 0x00000005, 0x00000000, 0x00000000)
 
     # initialize cache for this input
-    seed_id = f"run:id:{hashlib.md5(input).hexdigest()}"
-    ql.emu.curr_input = input
-    ql.emu.curr_record_key = seed_id
-    ql.emu.curr_params = command_params
+    #seed_id = f"run:id:{hashlib.md5(input).hexdigest()}"
+    #ql.emu.curr_input = input
+    #ql.emu.curr_record_key = seed_id
+    #ql.emu.curr_params = command_params
 
-    ret, params_mem = setup_params_fuzz(ql, 0x100B, ptypes, command_params)
+    setup_fuzz(ql, 0x100B, ptypes, command_params, input)
     return True

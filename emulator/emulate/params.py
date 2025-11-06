@@ -3,6 +3,7 @@ from . import gp_api
 from .gp.utils.param import TEE_Param_Memref, TEE_Param_value
 import json
 import socket
+import hashlib
 from ctypes import *
 from .gp.utils.err import *
 from .fuzz_record import Record, Status
@@ -20,7 +21,7 @@ class MemRefParam:
     def __init__(self, buf: bytes, size: int):
         self.buf = buf
         self.size = size
-        self.is_shared = False
+        self.is_shared = True 
         self.shm = None
         self.shm_pybuf = None
 
@@ -33,9 +34,10 @@ def shared_read_callback(
 ):
     # refetch data from the shared memory
     memref = user_data
-    assert memref.shm is not None
     # TODO make more efficient
-    ql.mem.write(memref.shm_pybuf, memref.shm.to_bytes())
+    if ql.emu.status == Status.INTERACTIVE:
+        assert memref.shm is not None
+        ql.mem.write(memref.shm_pybuf, memref.shm.to_bytes())
     if ql.emu.status in (Status.FUZZING, Status.REPLAYING):
         ql.emu.update_records(
             key=ql.emu.curr_record_key,
@@ -58,9 +60,11 @@ def shared_write_callback(
 ):
     # write data back to memory
     memref = user_data
-    assert memref.shm is not None
     # TODO make this more efficient
-    curr_data = ql.mem.read(memref.shm_pybuf, memref.size)
+    if ql.emu.status == Status.INTERACTIVE:
+        assert memref.shm is not None
+        curr_data = ql.mem.read(memref.shm_pybuf, memref.size)
+        memref.shm.from_bytes(curr_data)
     if ql.emu.status in (Status.FUZZING, Status.REPLAYING):
         ql.emu.update_records(
             key=ql.emu.curr_record_key,
@@ -76,13 +80,20 @@ def shared_write_callback(
             ),
             op=lambda a, b: a + [b],
         )
-    memref.shm.from_bytes(curr_data)
+    
 
 
 class NoneParam:
     def __init__(self):
         pass
 
+
+def setup_fuzz(ql: Qiling, cmd, ptypes, params, input):
+    ql.emu.curr_input = input
+    seed_id = f"run:id:{hashlib.md5(input).hexdigest()}"
+    ql.emu.curr_record_key = seed_id
+    ql.emu.curr_params = params 
+    setup_params_fuzz(ql, cmd, ptypes, params)
 
 def setup_params_fuzz(ql: Qiling, cmd, ptypes, params):
     return setup_params(

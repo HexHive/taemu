@@ -1,6 +1,5 @@
 # from params import *
-from .params import *
-from pwn import *
+from .params import * from pwn import *
 from qiling import Qiling
 
 
@@ -20,7 +19,7 @@ def place_input_callback(ql: Qiling, input: bytes, _: int):
     command_params.append(NoneParam())
     command_params.append(NoneParam())
     ptypes = 0x65
-    ret, params_mem = setup_params_fuzz(
-        ql, cmd, ptypes, command_params
+    setup_fuzz(
+        ql, cmd, ptypes, command_params, input
     )  # assume the session is already set
     return True
