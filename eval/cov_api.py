@@ -113,7 +113,7 @@ def do_work(harness_path, campaigns, apis, api_order_name):
                     os.system(f'mv {drcov_file} {api_order_iteration_path}/{i}.drcov')
             implemented_apis.append(apis[i])
             i += 1
-        os.system(f'rm -rf {out_path}/*')
+        os.system(f'rm -rf {out_path}')
 
 def thread_worker(q: queue.Queue):
     while True:
