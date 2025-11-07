@@ -104,6 +104,7 @@ def check_license(ql: Qiling, hook_data):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def platform_spi_write_read(ql: Qiling, hook_data):
+    ql.log.info(f"{hook_data.func_name}: {hex(ql.arch.regs.lr)}")
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
@@ -136,3 +137,8 @@ def platform_fs_write(ql: Qiling, hook_data):
     FS[path] = ql.mem.read(buf, size)
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def sensor_get_chip_id(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0x20)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+ 

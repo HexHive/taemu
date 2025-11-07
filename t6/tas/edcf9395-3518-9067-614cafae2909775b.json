@@ -199,6 +199,10 @@
         "platform_fs_write":{
             "addr": 5803872,
             "type": "tee"
+        },
+        "sensor_get_chip_id": {
+            "addr": 5772756,
+            "type": "tee"
         }
     },
     "TA_CreateEntryPoint_start": 5804648,
