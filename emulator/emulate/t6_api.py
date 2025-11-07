@@ -106,3 +106,33 @@ def check_license(ql: Qiling, hook_data):
 def platform_spi_write_read(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+FS = {}
+
+def platform_fs_read(ql: Qiling, hook_data):
+    p = ql.os.resolve_fcall_params(
+            {"path": STRING, "buf": POINTER, "size": INT}
+        )
+    path = p["path"]
+    buf = p["buf"]
+    size = p["size"]
+
+    ql.log.info(f"{hook_data.func_name}: {path}, {size}")
+    if path not in FS:
+        ql.os.fcall.cc.setReturnValue(-1)
+    else:
+        ql.mem.write(buf, FS[path][:size])
+        ql.os.fcall.cc.setReturnValue(min(size, len(FS[path])))
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def platform_fs_write(ql: Qiling, hook_data):
+    p = ql.os.resolve_fcall_params(
+            {"path": STRING, "buf": POINTER, "size": INT}
+        ) 
+    path = p["path"]
+    buf = p["buf"]
+    size = p["size"]
+    ql.log.info(f"{hook_data.func_name}: {path}, {size}")
+    FS[path] = ql.mem.read(buf, size)
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
