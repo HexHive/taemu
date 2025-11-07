@@ -9,7 +9,7 @@
             "type": "gp_api"
         },
         "TEE_SetTAPersistentTime": {
-            "addr": 5807768,
+            "addr": 5808032,
             "type": "gp_api"
         },
         "TEE_Malloc": {
@@ -34,10 +34,6 @@
         },
         "TEE_Sha256": {
             "addr": 5809248,
-            "type": "gp_api"
-        },
-        "TEE_GetTAPersistentTime": {
-            "addr": 5807768,
             "type": "gp_api"
         },
         "TEE_AllocateTransientObject": {
@@ -180,7 +176,7 @@
             "addr": 5831612,
             "type": "gp_api"
         },
-        "debug_log": {
+        "debug_log2": {
             "addr": 5843136,
             "type": "tee_std"
         },

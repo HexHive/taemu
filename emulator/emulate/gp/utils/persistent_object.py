@@ -47,6 +47,7 @@ class perObject:
             self.objectID = objectID.decode("ascii")
         else:
             self.objectID = objectID.hex()
+        self.objectID = self.objectID.replace("/", "-") 
         self.storageID = storageID
         self.file_name = f"{FILE_PREFIX}{self.storageID}/{self.objectID}"
         if self.file_name in filepaths2tranobjs:

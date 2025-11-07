@@ -478,6 +478,7 @@ class TAEMU:
 
         # _debugger = self.ql._debugger
         self.ql.debugger = False
+        #self.ql._debugger = self._debugger
         self.ql.run(begin=entrypoint)
 
         ret = self.ql.os.fcall.cc.getReturnValue()

@@ -53,7 +53,7 @@ def debug_log2(ql: Qiling, hook_data):
             "format": STRING,
         }
         hook_data.emu.update_shm(format_param_ptr)
-        format_param = read_c_str(ql, format_param_ptr)
+        format_param = ql.mem.string(format_param_ptr)
         params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
         format_param = fixup_format(format_param)
         string_params = [params[f"{i}"] for i in range(0, len(params))]
@@ -100,5 +100,9 @@ def debug_log(ql: Qiling, hook_data):
 
 
 def check_license(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def platform_spi_write_read(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr

@@ -200,6 +200,8 @@ if __name__ == "__main__":
             is_thumb = True
         if "face1d41-2636-11e1-ad9e0002a5d6c51b" in ta_path:
             is_thumb = False
+        if "edcf9395-3518-9067-614cafae2909775b" in ta_path:
+            is_thumb = False
         ql = Qiling(
             [ta_path],
             rootfs=os.path.join(DIR, "../rootfs/"),
