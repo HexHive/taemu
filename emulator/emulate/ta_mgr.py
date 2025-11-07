@@ -960,7 +960,7 @@ class TAEMU:
                 _ql,
                 input_file=input_file,
                 place_input_callback=place_input_callback,
-                exits=exit_hooks,
+                exits=exit_addr,
                 validate_crash_callback=crash_validation,
                 always_validate=True,
             )
