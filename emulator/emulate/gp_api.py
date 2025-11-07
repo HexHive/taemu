@@ -730,3 +730,39 @@ def TEE_GetCallerInfo(ql: Qiling, hook_data):
     ql.mem.write_ptr(param_ci, 1)
     hook_data.emu.writeback_shm(param_ci)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def __errno_location(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+    
+def strtol(ql: Qiling, hook_data):
+    p = ql.os.resolve_fcall_params({"str": POINTER, "endptr": POINTER, "base": INT})
+    strp = p["str"]
+    while ql.mem.read(strp,1) == b" ": 
+        strp += 1
+    base = p["base"]
+    nr = ""
+    if base == 10:
+        while True:
+            c = ql.mem.read(strp,1)
+            if c in [b"0", b"1", b"2", b"3", b"4", b"5", b"6", b"7", b"8", b"9"]:
+                nr = nr + c.decode() 
+                strp += 1
+            else:
+                break
+    elif base == 16:
+        while True:
+            c = ql.mem.read(strp,1)
+            if c in [b"A", b"B", b"C", b"D", b"E", b"F", b"a", b"b", b"c", b"d", b"e", b"f", b"0", b"1", b"2", b"3", b"4", b"5", b"6", b"7", b"8", b"9"]:
+                nr = nr + c.decode() 
+                strp += 1
+            else:
+                break
+    a = int(nr, p["base"])
+    ql.os.fcall.cc.setReturnValue(a)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+    
+def __assert_fail(ql: Qiling, hook_data):
+    p = ql.os.resolve_fcall_params({"lvl": INT, "file": STRING, "line": INT, "func": STRING})
+    ql.log.info(f'__assert_fail {p["file"]}:{p["line"]}->{p["func"]}') 
+    ql.emu.stop()

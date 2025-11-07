@@ -81,12 +81,7 @@ def get_api_impl(func_name, implmented_apis=None):
 
 
 def simple_diassembler(ql: Qiling, address: int, size: int, md: Cs) -> None:
-    buf = ql.mem.read(address, size)
-    libld_base = ql.mem.get_lib_base("libld-l4.so")
-    for insn in md.disasm(buf, address):
-        ql.log.debug(
-            f"{hex(insn.address-libld_base)}:: {insn.address:#x} : {insn.mnemonic:24s} {insn.op_str}"
-        )
+    ql.log.debug(f'PC {hex(ql.arch.regs.pc)}')
 
 
 def nop_instruction(ql: Qiling, offset, lib_name):
