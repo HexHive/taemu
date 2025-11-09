@@ -1024,6 +1024,139 @@ class TAEMU:
         self.DestroyEntryPoint()
         return
 
+    def df_fuzz(
+        self, input_file, fuzz_harness, df_seed, df_pc, df_addr, df_size, fuzz_replay=False 
+    ):
+        # df_seed: seed which triggered the double fetch 
+        # df_pc: pc at which the double fetch is happening
+        # df_addr: shm address
+        # df_size: size of double fetched data
+        self.log.info(f"df fuzz args is {input_file} {fuzz_harness} {fuzz_replay}")
+        ret = self.CreateEntryPoint()
+        if ret != TEE_SUCCESS:
+            self.ql.log.warning(f"CreateEntryPoint ret != TEE_SUCCESS {hex(ret)}")
+            return
+
+        ret, new_session = self.OpenSession()
+        if ret != TEE_SUCCESS:
+            self.ql.log.warning(
+                f"[////TA_OpenSessionEntryPoint////] return != TEE_SUCCESS {hex(ret)}"
+            )
+            return
+
+        exit_addr = []
+        exit_hooks = []
+        sid = new_session.session_id
+        cmd = 0
+        ptypes = 0
+
+        for e in self.TA_InvokeCommandEntryPoint_end:
+            exit_addr.append(e)
+        self.ql.log.debug(f"TEEC_InvokeCommand {sid} {cmd} {ptypes:#0x}")
+        session = None
+        for s in self.sessions:
+            if sid == s.session_id:
+                session = s
+                break
+        if session is None:
+            self.ql.log.error(f"unknown session {sid}")
+            return TEE_ERROR_BAD_STATE
+
+        init_fuzz = None
+        # import shit
+        spec = importlib.util.spec_from_file_location(
+            os.path.basename(fuzz_harness)[:-3],
+            os.path.abspath(fuzz_harness),
+        )
+        module = importlib.util.module_from_spec(spec)
+        module.__package__ = __package__
+        spec.loader.exec_module(module)
+        place_input_callback = getattr(module, "place_input_callback")
+        if hasattr(module, "init_fuzz"):
+            init_fuzz = getattr(module, "init_fuzz")
+
+        def crash_validation(
+            ql: Qiling, result: int, input_bytes: bytes, round: int
+        ) -> bool:
+            print("crash callback: ", result)
+            if ql.arch.regs.arch_pc == CRASH_PC or ql.arch.regs.arch_pc == NOTIMPL_PC:
+                return True
+            if result == 6:
+                return True
+            # if ql.arch.regs.arch_pc not in exit_addr:
+            # return True
+            return False
+        
+        if fuzz_replay:
+            self.ql._debugger = self._debugger
+            for e in exit_addr:
+                exit_hooks.append(
+                    self.ql.hook_address(
+                        pivot, e, user_data="TA_InvokeCommandEntryPoint"
+                    )
+                )
+            self.ql.hook_address(
+                callback=place_df_replay,
+                address=df_addr
+            ) 
+        else:
+            self.ql.hook_address(
+                callback=start_afl,
+                address=df_addr
+            )
+        
+        if init_fuzz is not None:
+            self.init_fuzz = True
+            init_fuzz(self, sid)
+            self.init_fuzz = False
+
+        df_seed_data = open(df_seed, "rb").read()
+
+        self.ql.os.fcall.cc.setRawParam(0, session.session_id_mem)
+        if not place_input_callback(df_seed_data, -1):
+            print("place_input_callback failed in setup for df fuzz..")
+            exit(-1)
+
+        
+
+        if fuzz_replay:
+            cov_path = self.get_cov_file_path(
+                os.path.basename(input_file), os.path.dirname(fuzz_harness)
+            )
+
+            with cov_utils.collect_coverage(self.ql, "drcov", cov_path):
+                self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)
+        else:
+            self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)
+
+
+        def start_afl(_ql: Qiling):
+            if fuzz_replay:
+                return
+            if self.init_fuzz:
+                return
+            self.log.info(f"[TAEMU] starting afl")
+            ql_afl_fuzz(
+                _ql,
+                input_file=input_file,
+                place_input_callback=place_df_fuzz,
+                exits=exit_addr,
+                validate_crash_callback=crash_validation,
+                always_validate=True,
+            )
+
+        ret = self.ql.os.fcall.cc.getReturnValue()
+        self.log.info(f"InvokeCommand returned: {hex(ret)}")
+
+        for e in exit_hooks:
+            self.ql.hook_del(e)
+        exit_hooks = []
+        self.ql.debugger = False
+        self.CloseSession(sid)
+
+        self.DestroyEntryPoint()
+        return 
+
     def __enter__(self):
         self.setup()
         self.hook()
