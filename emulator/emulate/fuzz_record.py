@@ -16,6 +16,8 @@ class Status(Enum):
     FUZZING = 1
     REPLAYING = 2
     INTERACTIVE = 3
+    DF_FUZZING = 4
+    DF_REPLAY = 5
 
 @dataclass(frozen=True)
 class Record:

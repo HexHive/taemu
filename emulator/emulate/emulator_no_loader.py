@@ -39,7 +39,7 @@ class HookData:
         self.func_name = func_name
 
 
-def get_api_impl(func_name, implmented_apis=None):
+def get_api_impl(func_name):
     if func_name == "write":
         func_name = "_write"
     if func_name == "open":
@@ -48,9 +48,6 @@ def get_api_impl(func_name, implmented_apis=None):
         func_name = "_close"
     if func_name == "__stack_chk_fail":
         func_name = "stack_chk_fail"
-    if implmented_apis is not None:
-        if func_name not in implmented_apis:
-            return gp_api.default_func
     api_func = getattr(gp_api, func_name, None)
     if api_func is not None:
         return api_func
@@ -116,8 +113,6 @@ def hook_ta_dl(
     emu,
     is_mitee=False,
     is_tc=False,
-    std_implemented=True,
-    tee_specific_implemented=True,
 ):
     counter = 0
     ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
@@ -150,7 +145,7 @@ def hook_ta_dl(
                 f"[mitee] hooking plt relocation function {func}, {hex(off)}, {hex(ql_resolve_mem+counter)}"
             )
             ql.hook_address(
-                get_api_impl(func, implmented_apis=emu.implemented_apis),
+                get_api_impl(func),
                 ql_resolve_mem + counter,
                 user_data=HookData(emu, func),
             )
@@ -166,7 +161,7 @@ def hook_ta_dl(
                 f"[tc] hooking inline arm call relocation function {func}, {hex(off)}, {hex(0x7000+counter)}"
             )
             ql.hook_address(
-                get_api_impl(func, implmented_apis=emu.implemented_apis),
+                get_api_impl(func),
                 0x7000 + counter,
                 user_data=HookData(emu, func),
             )
@@ -179,8 +174,6 @@ def hook_ta_custom(
     ta_path,
     ta_elf: ELF,
     emu,
-    std_implemented=True,
-    tee_specific_implemented=True,
 ):
     # inline hooks for TAs
     ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
@@ -206,13 +199,13 @@ def hook_ta_custom(
                 ql.log.info(f"hooking inline api function {fname}, {hex(addr)}")
                 if ta_elf.pie:
                     ql.hook_address(
-                        get_api_impl(fname, implmented_apis=emu.implemented_apis),
+                        get_api_impl(fname),
                         ta_base + addr,
                         user_data=HookData(emu, fname),
                     )
                 else:
                     ql.hook_address(
-                        get_api_impl(fname, implmented_apis=emu.implemented_apis),
+                        get_api_impl(fname),
                         addr,
                         user_data=HookData(emu, fname),
                     )

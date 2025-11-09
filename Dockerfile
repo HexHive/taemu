@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM ubuntu:jammy
 
 RUN rm -f /etc/apt/apt.conf.d/docker-clean && \
     echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
@@ -64,6 +64,8 @@ RUN git clone https://github.com/vanhauser-thc/drcov-merge.git && cd drcov-merge
 
 RUN pip3 install networkx 
 
+# WTFFFFFFFFF
+COPY unicornafl.py /opt/afl/unicornafl/
 
 WORKDIR /srv/
 #RUN useradd -u 1000 ctf

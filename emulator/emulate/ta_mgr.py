@@ -157,8 +157,6 @@ class TAEMU:
         tee: str,
         ta_path: str,
         ta_elf: ELF,
-        std_implemented=True,
-        tee_specific_implemented=True,
         *,
         status: Status = None,
         record_max_items=5000,
@@ -198,17 +196,6 @@ class TAEMU:
 
         self.sessions = []
         self._debugger = ql._debugger
-        self.std_implemented = std_implemented
-        self.tee_specific_implemented = tee_specific_implemented
-        self.implemented_apis = None
-        if "TAEMU_NO_STD_API" in os.environ:
-            self.std_implemented = False
-        if "TAEMU_NO_TEE_API" in os.environ:
-            self.tee_specific_implemented = False
-        if "TAEMU_IMPLEMENTED_APIS" in os.environ:
-            self.implemented_apis = json.load(
-                open(os.environ["TAEMU_IMPLEMENTED_APIS"])
-            )
 
         f = open(f"{self.ta_path[:-3]}.json", "r")
         ta_info = json.load(f)
@@ -316,22 +303,21 @@ class TAEMU:
             self,
             is_mitee=self.tee == "mitee",
             is_tc=self.tee == "trustedcore",
-            std_implemented=self.std_implemented,
-            tee_specific_implemented=self.tee_specific_implemented,
         )
         hook_ta_custom(
             self.ql,
             self.ta_path,
             self.ta_elf,
             self,
-            std_implemented=self.std_implemented,
-            tee_specific_implemented=self.tee_specific_implemented,
         )
         self.ql.do_lib_patch()
 
     def start(self, *args):
         if self.status in (Status.FUZZING, Status.REPLAYING):
-            self.start_fuzz(*args, fuzz_replay=(self.status == Status.REPLAYING))
+            print(*args)
+            self.start_fuzz(args[0], args[1], fuzz_replay=(self.status == Status.REPLAYING))
+        elif self.status in (Status.DF_FUZZING, Status.DF_REPLAY):
+            self.df_fuzz(*args, fuzz_replay=(self.status == Status.DF_REPLAY))
         else:
             self.start_interactive()
 
@@ -425,7 +411,7 @@ class TAEMU:
                 self._record_meta["last_accessed"] = time.time()
             else:
                 self.set_records(key=key, value=[item])
-        # self.ql.log.info(f"[update_records] current records is {self.records_info()}")
+        #self.ql.log.info(f"[update_records] current records is {self.records_info()}")
 
     def records_info(self):
         with self._record_lock:
@@ -1031,7 +1017,11 @@ class TAEMU:
         # df_pc: pc at which the double fetch is happening
         # df_addr: shm address
         # df_size: size of double fetched data
+        if df_seed is None or df_pc is None or df_addr is None or df_size is None:
+            self.log.info(f"df fuzz missing double fetch args")
+            exit(-1)
         self.log.info(f"df fuzz args is {input_file} {fuzz_harness} {fuzz_replay}")
+        self.log.info(f"    df@{hex(df_pc)}->{hex(df_addr)}:{hex(df_size)} from {df_seed}")
         ret = self.CreateEntryPoint()
         if ret != TEE_SUCCESS:
             self.ql.log.warning(f"CreateEntryPoint ret != TEE_SUCCESS {hex(ret)}")
@@ -1087,48 +1077,19 @@ class TAEMU:
             # return True
             return False
         
-        if fuzz_replay:
-            self.ql._debugger = self._debugger
-            for e in exit_addr:
-                exit_hooks.append(
-                    self.ql.hook_address(
-                        pivot, e, user_data="TA_InvokeCommandEntryPoint"
-                    )
-                )
-            self.ql.hook_address(
-                callback=place_df_replay,
-                address=df_addr
-            ) 
-        else:
-            self.ql.hook_address(
-                callback=start_afl,
-                address=df_addr
-            )
-        
-        if init_fuzz is not None:
-            self.init_fuzz = True
-            init_fuzz(self, sid)
-            self.init_fuzz = False
+        def df_write(ql: Qiling, df_data):
+            if len(df_data) < df_size:
+                df_data = df_data + (df_size-len(df_data))*b"\x00"
+            ql.mem.write(df_addr, df_data[:df_size])
 
-        df_seed_data = open(df_seed, "rb").read()
+        def place_df_replay(ql: Qiling):
+            if self.init_fuzz:
+                return
+            df_data = open(input_file, "rb").read()
+            df_write(df_data) 
 
-        self.ql.os.fcall.cc.setRawParam(0, session.session_id_mem)
-        if not place_input_callback(df_seed_data, -1):
-            print("place_input_callback failed in setup for df fuzz..")
-            exit(-1)
-
-        
-
-        if fuzz_replay:
-            cov_path = self.get_cov_file_path(
-                os.path.basename(input_file), os.path.dirname(fuzz_harness)
-            )
-
-            with cov_utils.collect_coverage(self.ql, "drcov", cov_path):
-                self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)
-        else:
-            self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)
-
+        def place_df_fuzz(ql: Qiling, input: bytes, _:int): 
+            df_write(input)
 
         def start_afl(_ql: Qiling):
             if fuzz_replay:
@@ -1144,6 +1105,46 @@ class TAEMU:
                 validate_crash_callback=crash_validation,
                 always_validate=True,
             )
+
+        if fuzz_replay:
+            self.ql._debugger = self._debugger
+            for e in exit_addr:
+                exit_hooks.append(
+                    self.ql.hook_address(
+                        pivot, e, user_data="TA_InvokeCommandEntryPoint"
+                    )
+                )
+            self.ql.hook_address_front(
+                callback=place_df_replay,
+                address=df_pc
+            ) 
+        else:
+            self.ql.hook_address_front(
+                callback=start_afl,
+                address=df_pc
+            )
+        
+        if init_fuzz is not None:
+            self.init_fuzz = True
+            init_fuzz(self, sid)
+            self.init_fuzz = False
+
+        df_seed_data = open(df_seed, "rb").read()
+
+        self.ql.os.fcall.cc.setRawParam(0, session.session_id_mem)
+        if not place_input_callback(df_seed_data, -1):
+            print("place_input_callback failed in setup for df fuzz..")
+            exit(-1)
+
+        if fuzz_replay:
+            cov_path = self.get_cov_file_path(
+                os.path.basename(input_file), os.path.dirname(fuzz_harness)
+            )
+
+            with cov_utils.collect_coverage(self.ql, "drcov", cov_path):
+                self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)
+        else:
+            self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)
 
         ret = self.ql.os.fcall.cc.getReturnValue()
         self.log.info(f"InvokeCommand returned: {hex(ret)}")

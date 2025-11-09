@@ -21,6 +21,8 @@ from concurrent_log_handler import ConcurrentRotatingFileHandler
 DIR = dir_path = os.path.dirname(os.path.realpath(__file__))
 TEE = ""
 
+def to_int(x):
+    return int(x, 0)
 
 def setup_args():
     """Returns an initialized argument parser."""
@@ -53,6 +55,47 @@ def setup_args():
         default=None,
     )
     parser.add_argument(
+        "-dff",
+        "--df_fuzz",
+        required=False,
+        help="fuzz a double fetch with provided file",
+        default=None
+    )
+    parser.add_argument(
+        "--df_pc",
+        required=False,
+        type=to_int,
+        help="hex of PC where double fetch is happening",
+        default=None
+    )
+    parser.add_argument(
+        "--df_ret_addr",
+        required=False,
+        type=to_int,
+        help="hex of ret address where double fetch is happening",
+        default=None
+    )
+    parser.add_argument(
+        "--df_shm_addr",
+        required=False,
+        type=to_int,
+        help="hex of shared memory address where double fetch is reading",
+        default=None
+    )
+    parser.add_argument(
+        "--df_size",
+        required=False,
+        type=to_int,
+        help="size of the double fetch",
+        default=None
+    )
+    parser.add_argument(
+        "--df_seed",
+        required=False,
+        help="path to seed that triggered the double fetch",
+        default=None
+    )
+    parser.add_argument(
         "--fuzz_harness",
         required=False,
         help="path to fuzzing harness",
@@ -62,6 +105,12 @@ def setup_args():
         "--fuzz_replay",
         required=False,
         help="path to fuzz replay seed",
+        default=None,
+    )
+    parser.add_argument(
+        "--df_replay",
+        required=False,
+        help="path to replay df seed",
         default=None,
     )
     parser.add_argument(
@@ -76,18 +125,7 @@ def setup_args():
     parser.add_argument(
         "--tee", help="specify the TEE.", required=False, default="beanpod"
     )
-    parser.add_argument(
-        "--no_std_apis",
-        help="don't hook standard (GP and libc) APIs",
-        default=False,
-        action="store_true",
-    )
-    parser.add_argument(
-        "--no_tee_apis",
-        help="don't hook standard TEE specific APIs",
-        default=False,
-        action="store_true",
-    )
+
 
     parser.add_argument("ta", help="The Trusted Application to be executed.")
 
@@ -235,13 +273,6 @@ if __name__ == "__main__":
         ql.hook_code(simple_diassembler, user_data=ql.arch.disassembler)
     if args.trace:
         ql.hook_block(trace_block)
-    std_apis = True
-    tee_apis = True
-    if args.no_std_apis:
-        std_apis = False
-    if args.no_tee_apis:
-        tee_apis = False
-        
         
     print("ta_emulator_queue_{}_{}".format(os.path.basename(os.path.dirname(args.fuzz_harness)), os.path.basename(ta_path)[:-3]))
     if args.fuzz or args.fuzz_replay:
@@ -271,17 +302,26 @@ if __name__ == "__main__":
             TEE,
             ta_path,
             ta_elf,
-            std_implemented=std_apis,
-            tee_specific_implemented=tee_apis,
             status=(
                 Status.FUZZING
                 if args.fuzz
-                else Status.REPLAYING if args.fuzz_replay else Status.INTERACTIVE
+                else Status.REPLAYING if args.fuzz_replay 
+                else Status.DF_FUZZING if args.df_fuzz
+                else Status.DF_REPLAY if args.df_replay
+                else Status.INTERACTIVE
             ),
             record_q=curr_record_q,
         ) as emu:
             try:
-                emu.start(args.fuzz or args.fuzz_replay, args.fuzz_harness)
+                emu.start(
+                    args.fuzz or args.fuzz_replay or args.df_fuzz or args.df_replay, 
+                    args.fuzz_harness,
+                    args.df_seed,
+                    args.df_pc,
+                    args.df_shm_addr,
+                    args.df_size,
+                    args.df_ret_addr
+                    )
             except KeyboardInterrupt:
                 print("[+] Keyboard interrupt received...")
             except Exception as e:
