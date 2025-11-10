@@ -339,6 +339,8 @@ if __name__ == "__main__":
     p2 = Process(target=launch_recorder, args=(record_q,))
     p2.start()
 
+    print(f"[+] children pids {p1.pid}, {p2.pid}")
+
     p1.join()
     print(f"[+] TAEMU process stopped (exit code: {p1.exitcode})")
 

@@ -35,7 +35,6 @@ from .common import CRASH_PC, NOTIMPL_PC
 from typing import Any, Callable, Optional, List, Dict
 from .fuzz_record import Record, Status
 
-
 def parse_msg(msg):
     f = int(msg[0])
     l = int(msg[1])
@@ -940,6 +939,9 @@ class TAEMU:
             # return True
             return False
 
+        def pivot2(ql: Qiling):
+            ql.arch.regs.arch_pc = 0x13370
+
         def start_afl(_ql: Qiling):
             if fuzz_replay:
                 return
@@ -950,7 +952,7 @@ class TAEMU:
                 _ql,
                 input_file=input_file,
                 place_input_callback=place_input_callback,
-                exits=exit_addr,
+                exits=[0x13370],
                 validate_crash_callback=crash_validation,
                 always_validate=True,
             )
@@ -972,14 +974,18 @@ class TAEMU:
                 address=self.TA_InvokeCommandEntryPoint_start,
             )
 
-        # set exit hooks for fuzzer's recording logics
+        # set hooks for fuzzer's recording logics
         for e in exit_addr:
             self.ql.hook_address(
                 callback=finialize_fuzzing,
                 address=e,
                 user_data="Recording suspicious inputs",
             )
-
+            self.ql.hook_address(
+                callback=pivot2,
+                address=e
+            )
+        
         if init_fuzz is not None:
             self.init_fuzz = True
             init_fuzz(self, sid)
@@ -1213,5 +1219,7 @@ class TAEMU:
     def __exit__(self, exc_type, exc_val, exc_tb):
         print("[TAEMU] Context manager cleanup...")
         self.clear_records()
+        print("[TAEMU] queue cleared")
         self.ql.stop()
+        print("[TAEMU] emulator stopped")
         return False
