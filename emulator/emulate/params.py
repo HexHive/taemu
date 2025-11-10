@@ -48,7 +48,8 @@ def shared_read_callback(
                     "PC": ql.arch.regs.read("PC"),
                     "ret_addr": ql.get_caller_pc(),
                     "ret_addr_offset": ql.get_caller_pc() - ql.emu.ta_base,
-                    "is_read": True
+                    "is_read": True,
+                    "reg_hash": ql.emu.hash_regs()
                 },
             ),
             op=lambda a, b: a + [b],
@@ -75,7 +76,8 @@ def shared_write_callback(
                     "PC": ql.arch.regs.read("PC"),
                     "ret_addr": ql.get_caller_pc(),
                     "ret_addr_offset": ql.get_caller_pc() - ql.emu.ta_base,
-                    "is_read": False
+                    "is_read": False,
+                    "reg_hash": ql.emu.hash_regs()
                 },
             ),
             op=lambda a, b: a + [b],

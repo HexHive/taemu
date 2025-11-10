@@ -1,3 +1,40 @@
+diff --git a/qiling/core_hooks.py b/qiling/core_hooks.py
+index 0b4b18a2..36808697 100644
+--- a/qiling/core_hooks.py
++++ b/qiling/core_hooks.py
+@@ -572,6 +572,32 @@ class QlCoreHooks:
+         # note: assuming 0 is not a valid hook type
+         return HookRet(self, 0, hook)
+ 
++    def hook_address_front(self, callback: AddressHookCallback, address: int, user_data: Any = None) -> HookRet:
++        """Intercept execution from a certain memory address.
++            Inserts hook to be executed first in the list
++
++        Args:
++            callback  : a method to call upon interception
++            address   : memory location to watch
++            user_data : an additional context to pass to callback (default: `None`)
++
++        Returns:
++            Hook handle
++        """
++
++        hook = HookAddr(callback, address, user_data)
++
++        if address not in self._addr_hook_fuc:
++            self._addr_hook_fuc[address] = self._ql_hook_addr_internal(self._hook_addr_cb, address)
++
++        if address not in self._addr_hook:
++            self._addr_hook[address] = []
++
++        self._addr_hook[address] = [hook] + self._addr_hook[address] 
++
++        # note: assuming 0 is not a valid hook type
++        return HookRet(self, 0, hook)
++
+     def hook_intno(self, callback: InterruptHookCallback, intno: int, user_data: Any = None) -> HookRet:
+         """Intercept interrupts.
+ 
 diff --git a/qiling/loader/elf.py b/qiling/loader/elf.py
 index a5a8ac6f..56d91a8e 100644
 --- a/qiling/loader/elf.py

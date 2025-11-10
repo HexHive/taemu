@@ -10,8 +10,6 @@ def place_input_callback(ql: Qiling, input: bytes, _: int):
     if len(input) < 8:
         return False
 
-    print(hex(ql.arch.regs.sp))
-    ql.arch.regs.sp -= 0x1000
     command_params = []
     command_params.append(MemRefParam(input, len(input)))
     command_params.append(ValueParam(0x10, 0x10))
