@@ -321,6 +321,9 @@ class TAEMU:
         else:
             self.start_interactive()
 
+    def hash_regs(self):
+        return int(hashlib.md5(str(self.ql.arch.regs.save()).encode()).hexdigest(),16)
+
     def get_shm(self, pointer, size: Optional[int] = None, is_read: bool = True):
         if self.curr_params is None:
             return None
@@ -344,7 +347,8 @@ class TAEMU:
                                     "PC": self.ql.arch.regs.read("PC"),
                                     "ret_addr": self.ql.get_caller_pc(),
                                     "ret_addr_offset": self.ql.get_caller_pc() - self.ql.emu.ta_base,
-                                    "is_read": is_read
+                                    "is_read": is_read,
+                                    "reg_hash": self.hash_regs()
                                 },
                             ),
                             op=lambda a, b: a + [b],
@@ -1011,17 +1015,50 @@ class TAEMU:
         return
 
     def df_fuzz(
-        self, input_file, fuzz_harness, df_seed, df_pc, df_addr, df_size, fuzz_replay=False 
+        self, input_file, fuzz_harness, df_seed, df_pc, df_reg_hash, fuzz_replay=False 
     ):
         # df_seed: seed which triggered the double fetch 
         # df_pc: pc at which the double fetch is happening
         # df_addr: shm address
         # df_size: size of double fetched data
-        if df_seed is None or df_pc is None or df_addr is None or df_size is None:
-            self.log.info(f"df fuzz missing double fetch args")
-            exit(-1)
+
+        meta_path = df_seed + ".meta"
+
+        if not os.path.exists(meta_path):
+            print(f'double fetch seed meta does not exist')
+            return
+
+        df_meta = json.load(open(meta_path)) 
+
+        df_records = []
+        if df_pc is not None:
+            for r in df_meta['records']:
+                if r["regs"]["PC"] == df_pc:
+                    df_records.append(r)
+
+        if len(df_records) > 1 and df_reg_hash is None:
+            print(f'multiple df record candidates: {df_records}')
+            return
+
+        if df_reg_hash is not None:
+           for r in df_meta['records']:
+                if r["regs"]["reg_hash"] == df_reg_hash:
+                    if r not in df_records:
+                        df_records.append(r)
+
+        if len(df_records) > 1:
+            print(f'multiple df record candidates: {df_records}')
+            return
+
+        if len(df_records) == 0:
+            print(f'no df record candidates from {df_meta["records"]}')
+            return
+
+        df_record = df_records[0]
+
         self.log.info(f"df fuzz args is {input_file} {fuzz_harness} {fuzz_replay}")
-        self.log.info(f"    df@{hex(df_pc)}->{hex(df_addr)}:{hex(df_size)} from {df_seed}")
+        self.log.info(f"    df@{hex(df_record['regs']['PC'])}->{hex(df_record['addr'])}:{df_record['size']} from {df_seed}")
+        
         ret = self.CreateEntryPoint()
         if ret != TEE_SUCCESS:
             self.ql.log.warning(f"CreateEntryPoint ret != TEE_SUCCESS {hex(ret)}")
@@ -1078,18 +1115,25 @@ class TAEMU:
             return False
         
         def df_write(ql: Qiling, df_data):
-            if len(df_data) < df_size:
-                df_data = df_data + (df_size-len(df_data))*b"\x00"
-            ql.mem.write(df_addr, df_data[:df_size])
+            df_size = df_record['size']
+            if df_size is None:
+                ql.mem.write(df_record['addr'], df_data)
+            else:
+                if len(df_data) < df_size:
+                    df_data = df_data + (df_size-len(df_data))*b"\x00"
+                ql.mem.write(df_record['addr'], df_data[:df_size])
 
         def place_df_replay(ql: Qiling):
             if self.init_fuzz:
                 return
+            print(self.hash_regs(), df_record['regs']['reg_hash'])
+            if self.hash_regs() != df_record['regs']['reg_hash']:
+                return
             df_data = open(input_file, "rb").read()
-            df_write(df_data) 
+            df_write(ql, df_data) 
 
         def place_df_fuzz(ql: Qiling, input: bytes, _:int): 
-            df_write(input)
+            df_write(ql, input)
 
         def start_afl(_ql: Qiling):
             if fuzz_replay:
@@ -1097,6 +1141,8 @@ class TAEMU:
             if self.init_fuzz:
                 return
             self.log.info(f"[TAEMU] starting afl")
+            if self.hash_regs() != df_record['regs']['reg_hash']:
+                return
             ql_afl_fuzz(
                 _ql,
                 input_file=input_file,
@@ -1116,12 +1162,12 @@ class TAEMU:
                 )
             self.ql.hook_address_front(
                 callback=place_df_replay,
-                address=df_pc
+                address=df_record['regs']['PC']
             ) 
         else:
             self.ql.hook_address_front(
                 callback=start_afl,
-                address=df_pc
+                address=df_record['regs']['PC']
             )
         
         if init_fuzz is not None:
@@ -1132,7 +1178,7 @@ class TAEMU:
         df_seed_data = open(df_seed, "rb").read()
 
         self.ql.os.fcall.cc.setRawParam(0, session.session_id_mem)
-        if not place_input_callback(df_seed_data, -1):
+        if not place_input_callback(self.ql, df_seed_data, -1):
             print("place_input_callback failed in setup for df fuzz..")
             exit(-1)
 

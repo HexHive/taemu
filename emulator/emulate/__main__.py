@@ -65,28 +65,14 @@ def setup_args():
         "--df_pc",
         required=False,
         type=to_int,
-        help="hex of PC where double fetch is happening",
+        help="PC where double fetch is happening",
         default=None
     )
     parser.add_argument(
-        "--df_ret_addr",
+        "--df_reg_hash",
         required=False,
         type=to_int,
-        help="hex of ret address where double fetch is happening",
-        default=None
-    )
-    parser.add_argument(
-        "--df_shm_addr",
-        required=False,
-        type=to_int,
-        help="hex of shared memory address where double fetch is reading",
-        default=None
-    )
-    parser.add_argument(
-        "--df_size",
-        required=False,
-        type=to_int,
-        help="size of the double fetch",
+        help="hash of registers at the point where double fetch is happening",
         default=None
     )
     parser.add_argument(
@@ -318,9 +304,7 @@ if __name__ == "__main__":
                     args.fuzz_harness,
                     args.df_seed,
                     args.df_pc,
-                    args.df_shm_addr,
-                    args.df_size,
-                    args.df_ret_addr
+                    args.df_reg_hash
                     )
             except KeyboardInterrupt:
                 print("[+] Keyboard interrupt received...")
