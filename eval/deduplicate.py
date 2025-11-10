@@ -85,12 +85,16 @@ def get_all_suspicious_inputs(path="/root/TA_GP_emulator"):
 
 def del_duplicate(meta_path):
     if meta_path.endswith(".meta"):
-        os.remove(meta_path)
-        os.remove(meta_path.replace(".meta", ""))
+        if os.path.exists(meta_path):
+            os.remove(meta_path)
+        if os.path.exists(meta_path.replace(".meta", "")):
+            os.remove(meta_path.replace(".meta", ""))
     else:
         input_path = meta_path
-        os.remove(input_path)
-        os.remove(input_path + ".meta")
+        if os.path.exists(input_path):
+            os.remove(input_path)
+        if os.path.exists(input_path + ".meta"):
+            os.remove(input_path + ".meta")
 
 
 def calc_bbs_and_do_deduplication(ta_dir, coverage_path, enable_del=False):
@@ -116,7 +120,7 @@ def calc_bbs_and_do_deduplication(ta_dir, coverage_path, enable_del=False):
             hash_bb = hashlib.sha256(str(bbs).encode()).hexdigest()
             if hash_bb in hash_bbs:
                 if enable_del:
-                    del_duplicate(os.path.join(ta_dir, file[: -len(".cov")]))
+                    del_duplicate(os.path.join(ta_dir, "in", "suspicious_inputs", file[: -len(".cov")]))
                 else:
                     print(f"[-] Found duplicate coverage hash: {hash_bb} for {ta_dir}\n")
                 same_cov_collection[hash_bb].append(os.path.join(coverage_path, file))
@@ -129,6 +133,7 @@ def calc_bbs_and_do_deduplication(ta_dir, coverage_path, enable_del=False):
 
 
 async def async_replay(ta_dir, input_path, container_id):
+    print(f"comm " + f'docker exec -it emu_{container_id} ./fuzz.sh {ta_dir.replace("/root/TA_GP_emulator/", "../")} {input_path.replace("/root/TA_GP_emulator/", "../")}')
     proc = await asyncio.create_subprocess_shell(
         f'docker exec -it emu_{container_id} ./fuzz.sh {ta_dir.replace("/root/TA_GP_emulator/", "../")} {input_path.replace("/root/TA_GP_emulator/", "../")}',
         stdout=asyncio.subprocess.PIPE,
@@ -153,7 +158,7 @@ async def coverage_based_deduplicate(group_dir, one_group_inputs, enable_del=Fal
     one_group_inputs = [item for item in one_group_inputs if not item.endswith(".meta")]
     
     batch_size = num_replay_containers * 10
-    for i in tqdm.tqdm(range(0, len(one_group_inputs), batch_size), desc=f"Replaying {group_dir}:"):
+    for i in tqdm.tqdm(range(0, len(one_group_inputs), batch_size), desc=f"[^] Replaying {group_dir}:"):
         if i != 0:
             await asyncio.sleep(3)
         batch = one_group_inputs[i:min(i + batch_size, len(one_group_inputs))]
@@ -161,6 +166,7 @@ async def coverage_based_deduplicate(group_dir, one_group_inputs, enable_del=Fal
         tasks = [async_replay(group_dir, input_path, (i + j) % num_replay_containers) for j, input_path in enumerate(batch)]
         results.extend(await asyncio.gather(*tasks, return_exceptions=True))
 
+    print("Result is: ", results)
     if True in results:
         calc_bbs_and_do_deduplication(
             group_dir, os.path.join(group_dir, "out", "cov"), enable_del=enable_del
@@ -219,32 +225,26 @@ def group_pair(suspicious_input_paths):
     return grouped_inputs
 
 
+def shut_down(num_replay_containers):
+    print("[+] Stopping emulator container")
+    for i in range(num_replay_containers):
+        subprocess.run(f"docker stop emu_{i}", shell=True)
+        subprocess.run(f"docker rm emu_{i}", shell=True)
+    print("[+] Emulator containers stopped")
+    exit(0)
+
+
 async def main(mode, grouped_inputs, enable_del=False, num_replay_containers=5):
-    loop = asyncio.get_running_loop()
-    
-    def shut_down():
-        print("[+] Stopping emulator container")
-        for i in range(num_replay_containers):
-            subprocess.run(f"docker stop emu_{i}", shell=True)
-            subprocess.run(f"docker rm emu_{i}", shell=True)
-        print("[+] Emulator containers stopped")
-    
-    loop.add_signal_handler(signal.SIGINT, shut_down)
-    loop.add_signal_handler(signal.SIGTERM, shut_down)
-    
-    try:
-        for key, value in grouped_inputs.items():
-            if mode == "control_flow":
-                await control_flow_based_deduplicate(
-                    key,
-                    value,
-                    conservative=not args.non_conservative,
-                    enable_del=enable_del,
-                )
-            elif mode == "coverage":
-                await coverage_based_deduplicate(key, value, enable_del=enable_del, num_replay_containers=num_replay_containers)
-    finally:
-        shut_down()
+    for key, value in grouped_inputs.items():
+        if mode == "control_flow":
+            await control_flow_based_deduplicate(
+                key,
+                value,
+                conservative=not args.non_conservative,
+                enable_del=enable_del,
+            )
+        elif mode == "coverage":
+            await coverage_based_deduplicate(key, value, enable_del=enable_del, num_replay_containers=num_replay_containers)
     print("[+] Deduplication completed")
 
 
@@ -285,12 +285,15 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
+    signal.signal(signal.SIGINT, lambda signal, frame: shut_down(args.num_replay_containers))
+    signal.signal(signal.SIGTERM, lambda signal, frame: shut_down(args.num_replay_containers))
+    
     print(
-        "[+] Processing path: {} on {}-based deduplication mode with {}conservative type and {}-del type".format(
+        "[+] Processing path: {} on {}-based deduplication mode with {}conservative type and {}del type".format(
             args.path,
             args.mode,
             "non-" if args.non_conservative else "",
-            "" if args.enable_del else "non",
+            "" if args.enable_del else "non-",
         )
     )
     validate(args)
@@ -298,3 +301,4 @@ if __name__ == "__main__":
     suspicious_input_paths = get_all_suspicious_inputs(args.path)
     grouped_inputs = group_pair(suspicious_input_paths)
     asyncio.run(main(args.mode, grouped_inputs, enable_del=args.enable_del, num_replay_containers=args.num_replay_containers))
+    shut_down(args.num_replay_containers)
