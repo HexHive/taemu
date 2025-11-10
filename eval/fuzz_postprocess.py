@@ -40,6 +40,7 @@ class BB:
 
     def __hash__(self):
         return hash((self.start, self.size, self.ta))
+    
 
 
 def get_root_ta_node(cfg, ta):
@@ -233,6 +234,7 @@ for tee in TEES:
         campaign_out = os.path.join(harness_path, CAMPAIGN_DIR)
         ta2bbs[ta] = {}
         for campaign_iteration in range(0, FUZZ_ITERATIONS):
+            print(f"processing {campaign_out} {campaign_iteration}")
             iteration_dir = os.path.join(campaign_out, campaign_iteration)
             if FUZZ_TIME > 60 * 60:
                 ta2bbs[ta][campaign_iteration] = parse_cov_seeds(
