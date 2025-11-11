@@ -133,7 +133,6 @@ def calc_bbs_and_do_deduplication(ta_dir, coverage_path, enable_del=False):
 
 
 async def async_replay(ta_dir, input_path, container_id):
-    print(f"comm " + f'docker exec -it emu_{container_id} ./fuzz.sh {ta_dir.replace("/root/TA_GP_emulator/", "../")} {input_path.replace("/root/TA_GP_emulator/", "../")}')
     proc = await asyncio.create_subprocess_shell(
         f'docker exec -it emu_{container_id} ./fuzz.sh {ta_dir.replace("/root/TA_GP_emulator/", "../")} {input_path.replace("/root/TA_GP_emulator/", "../")}',
         stdout=asyncio.subprocess.PIPE,
@@ -166,7 +165,6 @@ async def coverage_based_deduplicate(group_dir, one_group_inputs, enable_del=Fal
         tasks = [async_replay(group_dir, input_path, (i + j) % num_replay_containers) for j, input_path in enumerate(batch)]
         results.extend(await asyncio.gather(*tasks, return_exceptions=True))
 
-    print("Result is: ", results)
     if True in results:
         calc_bbs_and_do_deduplication(
             group_dir, os.path.join(group_dir, "out", "cov"), enable_del=enable_del
@@ -225,13 +223,14 @@ def group_pair(suspicious_input_paths):
     return grouped_inputs
 
 
-def shut_down(num_replay_containers):
-    print("[+] Stopping emulator container")
-    for i in range(num_replay_containers):
-        subprocess.run(f"docker stop emu_{i}", shell=True)
-        subprocess.run(f"docker rm emu_{i}", shell=True)
-    print("[+] Emulator containers stopped")
-    exit(0)
+def shut_down(num_replay_containers, mode):
+    if mode == "coverage":
+        print("[+] Stopping emulator container")
+        for i in range(num_replay_containers):
+            subprocess.run(f"docker stop emu_{i}", shell=True)
+            subprocess.run(f"docker rm emu_{i}", shell=True)
+        print("[+] Emulator containers stopped")
+        exit(0)
 
 
 async def main(mode, grouped_inputs, enable_del=False, num_replay_containers=5):
@@ -285,8 +284,8 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    signal.signal(signal.SIGINT, lambda signal, frame: shut_down(args.num_replay_containers))
-    signal.signal(signal.SIGTERM, lambda signal, frame: shut_down(args.num_replay_containers))
+    signal.signal(signal.SIGINT, lambda signal, frame: shut_down(args.num_replay_containers, args.mode))
+    signal.signal(signal.SIGTERM, lambda signal, frame: shut_down(args.num_replay_containers, args.mode))
     
     print(
         "[+] Processing path: {} on {}-based deduplication mode with {}conservative type and {}del type".format(
@@ -301,4 +300,4 @@ if __name__ == "__main__":
     suspicious_input_paths = get_all_suspicious_inputs(args.path)
     grouped_inputs = group_pair(suspicious_input_paths)
     asyncio.run(main(args.mode, grouped_inputs, enable_del=args.enable_del, num_replay_containers=args.num_replay_containers))
-    shut_down(args.num_replay_containers)
+    shut_down(args.num_replay_containers, args.mode)
