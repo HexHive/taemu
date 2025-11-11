@@ -129,7 +129,7 @@ def hook_ta_dl(
             (ql_resolve_mem + counter).to_bytes(ql.arch.pointersize, "little"),
         )
         ql.hook_address(
-            get_api_impl(func, implmented_apis=emu.implemented_apis),
+            get_api_impl(func),
             ql_resolve_mem + counter,
             user_data=HookData(emu, func),
         )
