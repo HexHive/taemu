@@ -13,6 +13,7 @@ import hashlib
 import struct
 import time
 import tqdm
+import aiofiles
 
 MIN_DRCOV_FILE_SIZE = 20
 DRCOV_VERSION = 2
@@ -173,8 +174,9 @@ async def coverage_based_deduplicate(group_dir, one_group_inputs, enable_del=Fal
 
 async def async_read_records(path, conservative=True):
     try:
-        with open(path, "r") as f:
-            data = json.load(f)
+        async with aiofiles.open(path, "r") as f:
+            data = await f.read()
+            data = json.loads(data.decode("utf-8"))
             key_data_records = list[Any](item for item in data["records"])
             if not conservative:
                 key_data_records = [record["regs"] for record in key_data_records]
