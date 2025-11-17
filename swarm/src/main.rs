@@ -82,7 +82,6 @@ fn basic_slogger() -> Logger {
     log
 }
 
-#[allow(warnings)]
 async fn run_fuzz_job(job: FuzzJob, top_directory: &Path, fuzz_script: &Path, duration: u64, job_num: usize) {
     let log = basic_slogger();  
 
@@ -112,76 +111,71 @@ async fn run_fuzz_job(job: FuzzJob, top_directory: &Path, fuzz_script: &Path, du
         .arg(&job.ta_harness_dir)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        // .spawn()
-        // .unwrap();
-        .output()                // 等价于 spawn + wait_with_output
-        .expect("failed to run");
+        .spawn()
+        .unwrap();
     
-    // stdout/stderr 是 Vec<u8>，需要转成 String
-    println!("stdout: {}", String::from_utf8_lossy(&child.stdout));
-    println!("stderr: {}", String::from_utf8_lossy(&child.stderr));
 
-    // let pid = child.id();
+    let pid = child.id();
 
-    // let child_handle: tokio::task::JoinHandle<Result<process::ExitStatus, std::io::Error>> =
-    //     tokio::task::spawn_blocking({
-    //         move || {
-    //             let mut child = child;
-    //             child.wait()
-    //         }
-    //     });
+    let child_handle: tokio::task::JoinHandle<Result<process::ExitStatus, std::io::Error>> =
+        tokio::task::spawn_blocking({
+            move || {
+                let mut child = child;
+                child.wait()
+            }
+        });
 
-    // match tokio::time::timeout(timeout_duration, child_handle).await {
-    //     Ok(Ok(Ok(status))) => {
-    //         info!(
-    //             log,
-    //             "[Job {}] Fuzz job for {} completed with status: {:?} (runtime: {:?})",
-    //             job_num,
-    //             job.ta_harness_dir.display(),
-    //             status,
-    //             start_time.elapsed(),
-    //         );
-    //     }
-    //     Ok(Ok(Err(e))) => {
-    //         error!(
-    //             log,
-    //             "[Job {}] Error waiting for process {}: {}",
-    //             job_num,
-    //             job.ta_harness_dir.display(),
-    //             e
-    //         );
-    //     }
-    //     Ok(Err(e)) => {
-    //         eprintln!(
-    //             "[Job {}] Task join error for {}: {}",
-    //             job_num,
-    //             job.ta_harness_dir.display(),
-    //             e
-    //         );
-    //     }
-    //     Err(_) => {
-    //         info!(
-    //             log,
-    //             "[Job {}] Timeout reached for {}. Stopping process (PID: {})...",
-    //             job_num,
-    //             job.ta_harness_dir.display(),
-    //             pid
-    //         );
+    match tokio::time::timeout(timeout_duration, child_handle).await {
+        Ok(Ok(Ok(status))) => {
+            info!(
+                log,
+                "[Job {}] Fuzz job for {} completed with status: {:?} (runtime: {:?})",
+                job_num,
+                job.ta_harness_dir.display(),
+                status,
+                start_time.elapsed(),
+            );
+        }
+        Ok(Ok(Err(e))) => {
+            error!(
+                log,
+                "[Job {}] Error waiting for process {}: {}",
+                job_num,
+                job.ta_harness_dir.display(),
+                e
+            );
+        }
+        Ok(Err(e)) => {
+            eprintln!(
+                "[Job {}] Task join error for {}: {}",
+                job_num,
+                job.ta_harness_dir.display(),
+                e
+            );
+        }
+        Err(_) => {
+            info!(
+                log,
+                "[Job {}] Timeout reached for {}. Stopping process (PID: {})...",
+                job_num,
+                job.ta_harness_dir.display(),
+                pid
+            );
 
-    //         // Kill the process by PID
-    //         let _ = Command::new("kill").arg("-9").arg(pid.to_string()).status();
+            // Kill the process by PID
+            let _ = Command::new("kill").arg("-9").arg(pid.to_string()).status();
 
-    //         time::sleep(Duration::from_secs(2)).await;
+            time::sleep(Duration::from_secs(2)).await;
 
-    //         info!(
-    //             log,
-    //             "[Job {}] Fuzz job for {} stopped after {} hour(s)",
-    //             job_num,
-    //             job.ta_harness_dir.display(),
-    //             duration
-    //         );
-    //     }
-    // }
+            info!(
+                log,
+                "[Job {}] Fuzz job for {} stopped after {} hour(s)",
+                job_num,
+                job.ta_harness_dir.display(),
+                duration
+            );
+        }
+    }
 }
 
 #[tokio::main]
@@ -191,7 +185,7 @@ async fn main() {
 
     let log = basic_slogger();
 
-    info!(log, r#"
+    error!(log, r#"
         {SWARM_TAG}
          _  _
         | )/ )
