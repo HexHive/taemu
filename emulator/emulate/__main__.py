@@ -321,7 +321,7 @@ if __name__ == "__main__":
             print(f"[+] Recorder is disabled and stopped automatically... [+]")
             return
         
-        custom_logger.info("[+] Recorder is enabled and working on queue: {}".format(curr_record_q.queue_name))
+
         suspicious_seeds_save_dir = os.path.join(
             os.path.dirname(args.fuzz_harness),
             "in/suspicious_inputs" + ("_replay" if args.fuzz_replay else ""),

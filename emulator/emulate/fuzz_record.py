@@ -39,6 +39,7 @@ class Recorder:
         self.q = q
         self.record_seed_dir = record_seed_dir
         self._log = log or logging.getLogger(__name__)
+        self._log.info("[+] Recorder is enabled and working on queue: {}".format(self.q.queue_name))
         if not log:
             self._log.handlers = [logging.StreamHandler(sys.stdout)]
             # self._log.setLevel(logging.INFO)
@@ -207,6 +208,7 @@ class SimpleFilterRecorder(Recorder):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._seen_addresses = set()
+        
     
     def _calc_control_flow_hash(self, records: List[Record]) -> str:
         filtered = [
