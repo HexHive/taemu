@@ -9,9 +9,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio::time;
-use walkdir::WalkDir;
-use sha2::Sha256;
-use ta_manage::{find_ta_files, get_context_via_meta, FuzzJob};
+mod ta_manage;
 
 
 static SWARM_TAG: &str = "[Sw0rm]";
@@ -47,7 +45,7 @@ fn basic_slogger() -> Logger {
     log
 }
 
-async fn run_fuzz_job(job: FuzzJob, top_directory: &Path, duration: u64, job_num: usize) {
+async fn run_fuzz_job(job: ta_manage::FuzzJob, duration: u64, job_num: usize) {
     let log = basic_slogger();  
 
     let timeout_duration = Duration::from_secs(duration * 3600);
@@ -184,7 +182,7 @@ async fn main() {
     };
     
 
-    let ta_files = find_ta_files(&args.top_directory, &args.pattern, &fuzz_script_path, &args.snapshot_based);
+    let ta_files = ta_manage::find_ta_files(&args.top_directory, &args.pattern, &fuzz_script_path, &args.snapshot_based);
     if ta_files.is_empty() {
         warn!(log, "No TAs found in: {:?}", args.top_directory);
         process::exit(0);
@@ -217,14 +215,12 @@ async fn main() {
     for (idx, job) in ta_files.into_iter().enumerate() {
         let semaphore = Arc::clone(&semaphore);
         let permit: OwnedSemaphorePermit = semaphore.acquire_owned().await.unwrap();
-        let fuzz_script = args.fuzz_script.clone();
-        let top_directory = args.top_directory.clone();
         let duration = args.duration;
         let job_num = idx + 1;
 
         let handle = tokio::spawn(async move {
             let _permit = permit; // Hold the permit for the duration of the job
-            run_fuzz_job(job, &top_directory, &fuzz_script, duration, job_num).await;
+            run_fuzz_job(job, duration, job_num).await;
         });
 
         handles.push(handle);
