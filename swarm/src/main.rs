@@ -1,7 +1,5 @@
 use clap::Parser;
 use slog::{Drain, Logger, o, info, warn, error};
-use slog_async;
-use slog_term;
 use std::path::{Path, PathBuf};
 use std::process;
 use std::process::{Command, Stdio};
@@ -29,7 +27,7 @@ struct Args {
     #[arg(short, long, default_value = "false")]
     snapshot_based: bool,
 
-    #[arg(short, long, default_value = "1")]
+    #[arg(short, long, default_value = "60", help = "Duration of the fuzzing job in minutes")]
     duration: u64,
 
     #[arg(short, long, default_value_t = num_cpus::get())]
@@ -38,17 +36,19 @@ struct Args {
 
 
 fn basic_slogger() -> Logger {
-    let decorator = slog_term::PlainSyncDecorator::new(std::io::stdout());
-    let drain = slog_term::FullFormat::new(decorator).build().fuse();
-    let drain = slog_async::Async::new(drain).build().fuse();
-    let log = Logger::root(drain, o!());
+
+    let decorator = slog_term::TermDecorator::new().build();
+    let drain = slog_term::CompactFormat::new(decorator).build();
+    let drain = std::sync::Mutex::new(drain).fuse();
+
+    let log = slog::Logger::root(drain, o!());
     log
 }
 
 async fn run_fuzz_job(job: ta_manage::FuzzJob, duration: u64, job_num: usize) {
     let log = basic_slogger();  
 
-    let timeout_duration = Duration::from_secs(duration * 3600);
+    let timeout_duration = Duration::from_secs(duration * 60);
     let start_time = Instant::now();
 
     info!(
@@ -141,7 +141,7 @@ async fn main() {
 
     let log = basic_slogger();
 
-    error!(log, r#"
+    info!(log, r#"
         {SWARM_TAG}
          _  _
         | )/ )
