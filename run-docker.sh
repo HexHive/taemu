@@ -12,6 +12,10 @@ fi
 
 docker run --rm --name emu --network host -it -v .:/srv -w /srv/emulator -v /dev/shm:/dev/shm --ipc=host --shm-size=100g ta_emu bash
 
+
+pkill python3
+
 # python3 -m emulate ../beanpod/
 # clean redis container
 docker compose -f docker-compose.redis.yml down
+

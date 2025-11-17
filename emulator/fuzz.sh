@@ -13,7 +13,7 @@ export AFL_AUTORESUME=1
 
 if [ -z "$1" ]; then 
     echo "usage: fuzzing ./fuzz.sh <path to ta|harness folder> [--log_file <file>]"
-    echo "usage: replay seed ./fuzz.sh <path to ta|harness folder> <path to seed> "
+    echo "usage: replay seed ./fuzz.sh <path to ta|harness folder> <path to seed>"
     exit 0
 fi
 
@@ -74,6 +74,10 @@ if [ -z "$2" ]; then
 
     if [ ! -e "$fuzz_in" ]; then
         mkdir $fuzz_in
+        echo "foo" > "$fuzz_in/foo"
+    fi
+
+    if [ ! -e "$fuzz_in/foo" ]; then
         echo "foo" > "$fuzz_in/foo"
     fi
 

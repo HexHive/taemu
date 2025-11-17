@@ -6,7 +6,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Empty
 import sys
-from .redis_queue import RedisQueue
+from emulate.redis_queue import RedisQueue
 from dataclasses import dataclass
 from typing import Optional, Callable, Dict, Any, List, Tuple
 from enum import Enum
@@ -200,17 +200,30 @@ class Recorder:
         return True
 
 
-class AccessFlowFilterRecorder(Recorder):
+class SimpleFilterRecorder(Recorder):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._seen_addresses = set()
+    
+    def _calc_control_flow_hash(self, records: List[Record]) -> str:
+        filtered = [
+            # remove reg_hash and size from the records
+            {**record, "size": None, "regs": {k: v for k, v in record.get("regs", {}).items() if k != "reg_hash"}}
+            if isinstance(record, dict) and "regs" in record
+            else record
+            for record in records
+        ]
+        return hashlib.sha256(json.dumps(filtered, sort_keys=True).encode()).hexdigest()
 
     def _filter_handler(self, item) -> bool:
         _, _, records, _ = self._unfold_record(item)
-        control_flow_hash = hashlib.sha256(str(records).encode()).hexdigest()
+        control_flow_hash = self._calc_control_flow_hash(records)
+        
         if control_flow_hash in self._seen_addresses:
+            self._log.info(f"[{__name__}] Skipping duplicate control flow hash: {control_flow_hash}")
             return False
-        else:
-            # new control flow
-            self._seen_addresses.add(control_flow_hash)
-            return True
+        
+        self._log.info(f"[{__name__}] Adding suspicious records to the disk: {control_flow_hash}")
+        self._seen_addresses.add(control_flow_hash)
+        return True
+    

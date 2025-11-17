@@ -10,7 +10,7 @@ from .qiling_extend import QilingExtend as Qiling
 from .redis_queue import create_redis_queue
 from qiling.const import QL_VERBOSE
 from qiling.const import QL_ARCH, QL_OS, QL_VERBOSE
-from .fuzz_record import AccessFlowFilterRecorder, Record
+from .fuzz_record import SimpleFilterRecorder, Record
 from .redis_queue import RedisQueue
 from .emulator_no_loader import simple_diassembler, trace_block, simple_diassembler
 from .ta_mgr import TAEMU, Status
@@ -20,6 +20,8 @@ from concurrent_log_handler import ConcurrentRotatingFileHandler
 
 DIR = dir_path = os.path.dirname(os.path.realpath(__file__))
 TEE = ""
+
+
 
 def to_int(x):
     return int(x, 0)
@@ -260,7 +262,7 @@ if __name__ == "__main__":
     if args.trace:
         ql.hook_block(trace_block)
         
-    print("ta_emulator_queue_{}_{}".format(os.path.basename(os.path.dirname(args.fuzz_harness)), os.path.basename(ta_path)[:-3]))
+    
     if args.fuzz or args.fuzz_replay:
         # Create Redis queue
         try:
@@ -278,7 +280,8 @@ if __name__ == "__main__":
             record_q = None
     else:
         record_q = None
-
+        
+        
     def launch_taemu(curr_record_q):
         print(
             f"[+] Loaded TA {ta_name} for TEE {TEE} with Qiling {ql.arch.type}/{ql.os.type}"
@@ -317,7 +320,8 @@ if __name__ == "__main__":
         if curr_record_q is None:
             print(f"[+] Recorder is disabled and stopped automatically... [+]")
             return
-
+        
+        custom_logger.info("[+] Recorder is enabled and working on queue: {}".format(curr_record_q.queue_name))
         suspicious_seeds_save_dir = os.path.join(
             os.path.dirname(args.fuzz_harness),
             "in/suspicious_inputs" + ("_replay" if args.fuzz_replay else ""),
@@ -325,12 +329,13 @@ if __name__ == "__main__":
         if not os.path.exists(suspicious_seeds_save_dir):
             os.makedirs(suspicious_seeds_save_dir)
 
-        print(f"[+] Saving suspicious inputs at dir => {suspicious_seeds_save_dir}")
+        print(f"[+] Saving suspicious inputs at dir: {suspicious_seeds_save_dir}")
 
-        with AccessFlowFilterRecorder(
+        with SimpleFilterRecorder(
             curr_record_q, suspicious_seeds_save_dir, custom_logger
         ) as recorder:
             recorder.start()
+
 
     print("[+] Starting all the processes... [+]")
     p1 = Process(target=launch_taemu, args=(record_q,))

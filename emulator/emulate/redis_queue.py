@@ -97,6 +97,14 @@ class RedisQueue:
             self.logger.info(f"[{__name__}] Redis connection closed")
         except Exception as e:
             self.logger.error(f"[{__name__}] Error closing Redis connection: {e}")
+            
+            
+    def command(self, command: str) -> Any:
+        try:
+            return self.redis_client.execute_command(command)
+        except Exception as e:
+            self.logger.error(f"[{__name__}] Error executing Redis command: {e}")
+            raise
 
     def _json_serializer(self, obj: Any) -> Any:
         """

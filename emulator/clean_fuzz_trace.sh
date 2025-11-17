@@ -8,11 +8,23 @@ RESET=$'\e[0m'
 
 
 if [ -z "$1" ]; then 
-    echo "Usage: ./clean_fuzz_trace.sh <path to harness folder>"
+    echo "Usage: ./clean_fuzz_trace.sh <path to harness folder| . for all harnesses>"
+    exit 0
+fi
+
+
+if [ "$1" == "." ]; then
+    for harness in $(ls -d /root/TA_GP_emulator/*/harness/*/); do
+        if [ -d "$harness" ]; then
+            echo "Cleaning fuzz traces in $harness"
+            ./clean_fuzz_trace.sh $harness
+        fi
+    done
     exit 0
 fi
 
 in_path=`realpath $1`
+echo "Cleaning fuzz traces in $in_path"
 if [ -d "$in_path" ]; then
     fuzz_out="$in_path/out"
     fuzz_in="$in_path/in"
