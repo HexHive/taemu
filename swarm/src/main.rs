@@ -8,8 +8,11 @@ use std::process::{Command, Stdio};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
-// use tokio::time;
+use tokio::time;
 use walkdir::WalkDir;
+use sha2::Sha256;
+use ta_manage::{find_ta_files, get_context_via_meta, FuzzJob};
+
 
 static SWARM_TAG: &str = "[Sw0rm]";
 
@@ -25,6 +28,9 @@ struct Args {
     #[arg(short, long, default_value = "/srv/emulator/fuzz.sh")]
     fuzz_script: PathBuf,
 
+    #[arg(short, long, default_value = "false")]
+    snapshot_based: bool,
+
     #[arg(short, long, default_value = "1")]
     duration: u64,
 
@@ -32,47 +38,6 @@ struct Args {
     max_parallel: usize,
 }
 
-#[derive(Debug)]
-struct FuzzJob {
-    ta_harness_dir: PathBuf,
-    _ta_canonical_path: PathBuf,
-    _ta_unique_name: String,
-}
-
-fn find_ta_files(top_directory: &Path, filter_pattern: &str) -> Vec<FuzzJob> {
-    let mut ta_collection = Vec::new();
-
-    for entry in WalkDir::new(top_directory)
-        .into_iter()
-        .filter_map(|i| i.ok())
-    {
-        let path = entry.path();
-        if path.is_file()
-            && path.extension().map(|s| s == "ta").unwrap_or(false)
-            && path.to_string_lossy().contains(filter_pattern)
-        {
-            let ta_unique_name = path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap()
-                .to_string();
-
-            // deduplicate by harness_dir
-            if ta_collection
-                .iter()
-                .all(|j: &FuzzJob| j.ta_harness_dir != path.parent().unwrap())
-            {
-                ta_collection.push(FuzzJob {
-                    ta_harness_dir: path.parent().unwrap().to_path_buf(),
-                    _ta_canonical_path: path.canonicalize().unwrap().to_path_buf(),
-                    _ta_unique_name: ta_unique_name,
-                });
-            }
-        }
-    }
-
-    ta_collection
-}
 
 fn basic_slogger() -> Logger {
     let decorator = slog_term::PlainSyncDecorator::new(std::io::stdout());
@@ -82,7 +47,7 @@ fn basic_slogger() -> Logger {
     log
 }
 
-async fn run_fuzz_job(job: FuzzJob, top_directory: &Path, fuzz_script: &Path, duration: u64, job_num: usize) {
+async fn run_fuzz_job(job: FuzzJob, top_directory: &Path, duration: u64, job_num: usize) {
     let log = basic_slogger();  
 
     let timeout_duration = Duration::from_secs(duration * 3600);
@@ -96,19 +61,12 @@ async fn run_fuzz_job(job: FuzzJob, top_directory: &Path, fuzz_script: &Path, du
         duration
     );
 
-    let fuzz_script_path = if fuzz_script.is_absolute() {
-        fuzz_script.to_path_buf()
-    } else {
-        let mut script_path = PathBuf::from(".");
-        script_path.push(fuzz_script);
-        script_path.canonicalize().unwrap().to_path_buf()
-    };
-    
-
     let child = Command::new("bash")
         .current_dir("/srv/emulator")
-        .arg(&fuzz_script_path)
+        .arg(&job.fuzz_script)
         .arg(&job.ta_harness_dir)
+        .arg(&job.ta_df_seed.unwrap_or(PathBuf::from("")))
+        .arg(&job.ta_df_context.unwrap_or("".to_string()))
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -216,7 +174,17 @@ async fn main() {
 
     info!(log, "{SWARM_TAG} Scanning TAs in: {:?}", args.top_directory);
 
-    let ta_files = find_ta_files(&args.top_directory, &args.pattern);
+
+    let fuzz_script_path = if args.fuzz_script.is_absolute() {
+        args.fuzz_script.to_path_buf()
+    } else {
+        let mut script_path = PathBuf::from(".");
+        script_path.push(args.fuzz_script);
+        script_path.canonicalize().unwrap().to_path_buf()
+    };
+    
+
+    let ta_files = find_ta_files(&args.top_directory, &args.pattern, &fuzz_script_path, &args.snapshot_based);
     if ta_files.is_empty() {
         warn!(log, "No TAs found in: {:?}", args.top_directory);
         process::exit(0);
@@ -267,6 +235,10 @@ async fn main() {
     for handle in handles {
         let _ = handle.await;
     }
+    
+    // kill all python3 processes and their children
+    let _ = Command::new("pkill").arg("-9").arg("-f").arg("python3").status();
+    time::sleep(Duration::from_secs(3)).await;
 
     info!(log, "{SWARM_TAG} All fuzz jobs completed!");
 }
