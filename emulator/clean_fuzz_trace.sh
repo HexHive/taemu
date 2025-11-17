@@ -17,6 +17,7 @@ if [ "$1" == "." ]; then
     for harness in $(ls -d /root/TA_GP_emulator/*/harness/*/); do
         if [ -d "$harness" ]; then
             echo "Cleaning fuzz traces in $harness"
+
             ./clean_fuzz_trace.sh $harness
         fi
     done

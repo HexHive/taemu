@@ -8,7 +8,7 @@ use std::process::{Command, Stdio};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
-use tokio::time;
+// use tokio::time;
 use walkdir::WalkDir;
 
 static SWARM_TAG: &str = "[Sw0rm]";
@@ -78,11 +78,11 @@ fn basic_slogger() -> Logger {
     let decorator = slog_term::PlainSyncDecorator::new(std::io::stdout());
     let drain = slog_term::FullFormat::new(decorator).build().fuse();
     let drain = slog_async::Async::new(drain).build().fuse();
-
     let log = Logger::root(drain, o!());
     log
 }
 
+#[allow(warnings)]
 async fn run_fuzz_job(job: FuzzJob, top_directory: &Path, fuzz_script: &Path, duration: u64, job_num: usize) {
     let log = basic_slogger();  
 
@@ -104,84 +104,101 @@ async fn run_fuzz_job(job: FuzzJob, top_directory: &Path, fuzz_script: &Path, du
         script_path.push(fuzz_script);
         script_path.canonicalize().unwrap().to_path_buf()
     };
+    
 
     let child = Command::new("bash")
+        .current_dir("/srv/emulator")
         .arg(&fuzz_script_path)
         .arg(&job.ta_harness_dir)
-        .current_dir(top_directory.join("emulator"))
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
+        // .spawn()
+        // .unwrap();
+        .output()                // 等价于 spawn + wait_with_output
+        .expect("failed to run");
+    
+    // stdout/stderr 是 Vec<u8>，需要转成 String
+    println!("stdout: {}", String::from_utf8_lossy(&child.stdout));
+    println!("stderr: {}", String::from_utf8_lossy(&child.stderr));
 
-    let pid = child.id();
+    // let pid = child.id();
 
-    let child_handle: tokio::task::JoinHandle<Result<process::ExitStatus, std::io::Error>> =
-        tokio::task::spawn_blocking({
-            move || {
-                let mut child = child;
-                child.wait()
-            }
-        });
+    // let child_handle: tokio::task::JoinHandle<Result<process::ExitStatus, std::io::Error>> =
+    //     tokio::task::spawn_blocking({
+    //         move || {
+    //             let mut child = child;
+    //             child.wait()
+    //         }
+    //     });
 
-    match tokio::time::timeout(timeout_duration, child_handle).await {
-        Ok(Ok(Ok(status))) => {
-            info!(
-                log,
-                "[Job {}] Fuzz job for {} completed with status: {:?} (runtime: {:?})",
-                job_num,
-                job.ta_harness_dir.display(),
-                status,
-                start_time.elapsed(),
-            );
-        }
-        Ok(Ok(Err(e))) => {
-            error!(
-                log,
-                "[Job {}] Error waiting for process {}: {}",
-                job_num,
-                job.ta_harness_dir.display(),
-                e
-            );
-        }
-        Ok(Err(e)) => {
-            eprintln!(
-                "[Job {}] Task join error for {}: {}",
-                job_num,
-                job.ta_harness_dir.display(),
-                e
-            );
-        }
-        Err(_) => {
-            info!(
-                log,
-                "[Job {}] Timeout reached for {}. Stopping process (PID: {})...",
-                job_num,
-                job.ta_harness_dir.display(),
-                pid
-            );
+    // match tokio::time::timeout(timeout_duration, child_handle).await {
+    //     Ok(Ok(Ok(status))) => {
+    //         info!(
+    //             log,
+    //             "[Job {}] Fuzz job for {} completed with status: {:?} (runtime: {:?})",
+    //             job_num,
+    //             job.ta_harness_dir.display(),
+    //             status,
+    //             start_time.elapsed(),
+    //         );
+    //     }
+    //     Ok(Ok(Err(e))) => {
+    //         error!(
+    //             log,
+    //             "[Job {}] Error waiting for process {}: {}",
+    //             job_num,
+    //             job.ta_harness_dir.display(),
+    //             e
+    //         );
+    //     }
+    //     Ok(Err(e)) => {
+    //         eprintln!(
+    //             "[Job {}] Task join error for {}: {}",
+    //             job_num,
+    //             job.ta_harness_dir.display(),
+    //             e
+    //         );
+    //     }
+    //     Err(_) => {
+    //         info!(
+    //             log,
+    //             "[Job {}] Timeout reached for {}. Stopping process (PID: {})...",
+    //             job_num,
+    //             job.ta_harness_dir.display(),
+    //             pid
+    //         );
 
-            // Kill the process by PID
-            let _ = Command::new("kill").arg("-9").arg(pid.to_string()).status();
+    //         // Kill the process by PID
+    //         let _ = Command::new("kill").arg("-9").arg(pid.to_string()).status();
 
-            time::sleep(Duration::from_secs(2)).await;
+    //         time::sleep(Duration::from_secs(2)).await;
 
-            info!(
-                log,
-                "[Job {}] Fuzz job for {} stopped after {} hour(s)",
-                job_num,
-                job.ta_harness_dir.display(),
-                duration
-            );
-        }
-    }
+    //         info!(
+    //             log,
+    //             "[Job {}] Fuzz job for {} stopped after {} hour(s)",
+    //             job_num,
+    //             job.ta_harness_dir.display(),
+    //             duration
+    //         );
+    //     }
+    // }
 }
 
 #[tokio::main]
 async fn main() {
+
     let args = Args::parse();
 
     let log = basic_slogger();
+
+    info!(log, r#"
+        {SWARM_TAG}
+         _  _
+        | )/ )
+    \\  |//,' __
+    (") (_)-"()))=-
+        (\\    
+    "#);
 
     if !args.top_directory.exists() {
         error!(log, "Top directory does not exist"; "path" => args.top_directory.display());
@@ -195,6 +212,11 @@ async fn main() {
 
     if !args.fuzz_script.exists() {
         error!(log, "Fuzz script does not exist"; "path" => args.fuzz_script.display());
+        process::exit(1);
+    }
+
+    if !Path::new("/.dockerenv").exists() {
+        error!(log, "Please run inside emulator Docker. Execute ./run-docker.sh first.");
         process::exit(1);
     }
 

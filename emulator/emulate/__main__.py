@@ -1,7 +1,6 @@
 from multiprocessing import Process
 import os
 import argparse
-import threading
 
 from pwn import ELF
 
@@ -315,6 +314,7 @@ if __name__ == "__main__":
                 import traceback
                 traceback.print_exc()
                 print(f"[+] Error occurred: {e}")
+
 
     def launch_recorder(curr_record_q):
         if curr_record_q is None:

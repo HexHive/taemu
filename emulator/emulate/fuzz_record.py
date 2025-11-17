@@ -48,6 +48,7 @@ class Recorder:
         self._executor = None
         self._batch_processing = False
         self._batch_lock = threading.Lock()
+        self._last_processing = time.time()
 
     def start(self):
         self._consume_records()
@@ -73,6 +74,7 @@ class Recorder:
         if not os.path.exists(self.record_seed_dir):
             os.makedirs(self.record_seed_dir)
 
+        
         while True:
             try:
                 item = self.q.get(timeout=8.0)
@@ -174,7 +176,7 @@ class Recorder:
     def _should_trigger_batch_processing(self):
         with self._batch_lock:
             return (
-                len(self._batch_items) >= self._batch_size
+                (len(self._batch_items) >= self._batch_size or time.time() - self._last_processing > 60)
                 and not self._batch_processing
             )
 
@@ -183,6 +185,7 @@ class Recorder:
             if self._batch_processing or not self._batch_items:
                 return
             self._batch_processing = True
+            self._last_processing = time.time()
             items_to_process = self._batch_items.copy()
             self._batch_items.clear()
 
