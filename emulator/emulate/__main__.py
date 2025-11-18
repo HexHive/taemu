@@ -63,13 +63,6 @@ def setup_args():
         default=None
     )
     parser.add_argument(
-        "--df_pc",
-        required=False,
-        type=to_int,
-        help="PC where double fetch is happening",
-        default=None
-    )
-    parser.add_argument(
         "--df_reg_hash",
         required=False,
         type=to_int,
@@ -305,7 +298,6 @@ if __name__ == "__main__":
                     args.fuzz or args.fuzz_replay or args.df_fuzz or args.df_replay, 
                     args.fuzz_harness,
                     args.df_seed,
-                    args.df_pc,
                     args.df_reg_hash
                     )
             except KeyboardInterrupt:

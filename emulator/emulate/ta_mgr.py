@@ -321,7 +321,8 @@ class TAEMU:
             self.start_interactive()
 
     def hash_regs(self):
-        return int(hashlib.md5(str(self.ql.arch.regs.save()).encode()).hexdigest(),16)
+        #TODO: to discuss, cause this will generate big int, which is unfriendly to parse json file later on in other languages
+        return str(int(hashlib.md5(str(self.ql.arch.regs.save()).encode()).hexdigest(),16))
 
     def get_shm(self, pointer, size: Optional[int] = None, is_read: bool = True):
         if self.curr_params is None:
@@ -1021,15 +1022,13 @@ class TAEMU:
         return
 
     def df_fuzz(
-        self, input_file, fuzz_harness, df_seed, df_pc, df_reg_hash, fuzz_replay=False 
+        self, input_file, fuzz_harness, df_seed, df_reg_hash, fuzz_replay=False 
     ):
         # df_seed: seed which triggered the double fetch 
-        # df_pc: pc at which the double fetch is happening
         # df_addr: shm address
         # df_size: size of double fetched data
 
         meta_path = df_seed + ".meta"
-
         if not os.path.exists(meta_path):
             print(f'double fetch seed meta does not exist')
             return
@@ -1037,18 +1036,10 @@ class TAEMU:
         df_meta = json.load(open(meta_path)) 
 
         df_records = []
-        if df_pc is not None:
-            for r in df_meta['records']:
-                if r["regs"]["PC"] == df_pc:
-                    df_records.append(r)
-
-        if len(df_records) > 1 and df_reg_hash is None:
-            print(f'multiple df record candidates: {df_records}')
-            return
 
         if df_reg_hash is not None:
            for r in df_meta['records']:
-                if r["regs"]["reg_hash"] == df_reg_hash:
+                if str(r["regs"]["reg_hash"]) == str(df_reg_hash):
                     if r not in df_records:
                         df_records.append(r)
 
@@ -1097,10 +1088,12 @@ class TAEMU:
 
         init_fuzz = None
         # import shit
+        
         spec = importlib.util.spec_from_file_location(
             os.path.basename(fuzz_harness)[:-3],
             os.path.abspath(fuzz_harness),
         )
+        
         module = importlib.util.module_from_spec(spec)
         module.__package__ = __package__
         spec.loader.exec_module(module)

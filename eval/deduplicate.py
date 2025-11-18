@@ -10,6 +10,7 @@ import re
 import subprocess
 import signal
 import hashlib
+import sys
 import struct
 import time
 import tqdm
@@ -140,6 +141,7 @@ async def async_replay(ta_dir, input_path, container_id):
         stderr=asyncio.subprocess.PIPE,
     )
     stdout, _ = await proc.communicate()
+    
     if proc.returncode != 0:
         print(f"[-] Error replaying {input_path} with error: {stdout.decode('utf-8')}")
         raise Exception(
@@ -176,7 +178,7 @@ async def async_read_records(path, conservative=True):
     try:
         async with aiofiles.open(path, "r") as f:
             data = await f.read()
-            data = json.loads(data.decode("utf-8"))
+            data = json.loads(data)
             key_data_records = list[Any](item for item in data["records"])
             if not conservative:
                 key_data_records = [record["regs"] for record in key_data_records]
@@ -187,31 +189,35 @@ async def async_read_records(path, conservative=True):
 
 
 async def control_flow_based_deduplicate(
-    group_dir, one_group_inputs, conservative=True, enable_del=False
+    group_dir, one_group_inputs, conservative=True, enable_del=False, max_concurrent_tasks=50
 ):
     print(f"Processing {len(one_group_inputs)} inputs under {group_dir}")
     cnt = 0
-    tasks = {}
     control_flow_hashes = set()
-    for path in one_group_inputs:
-        if not path.endswith(".meta"):
-            continue
-        tasks[path] = async_read_records(path, conservative)
-    hash_values = await asyncio.gather(*tasks.values(), return_exceptions=True)
+    
+    # Filter to only .meta files
+    meta_paths = [path for path in one_group_inputs if path.endswith(".meta")]
+    
+    # Process in batches to control concurrency
+    batch_size = max_concurrent_tasks
+    for i in tqdm.tqdm(range(0, len(meta_paths), batch_size), desc=f"[^] Reading records {group_dir}:"):
+        batch = meta_paths[i:min(i + batch_size, len(meta_paths))]
+        tasks = {path: async_read_records(path, conservative) for path in batch}
+        hash_values = await asyncio.gather(*tasks.values(), return_exceptions=True)
 
-    for path, hash_value in zip(tasks.keys(), hash_values):
-        if isinstance(hash_value, Exception):
-            print(f"[-] Error processing path: {path} with error: {hash_value}")
-            continue
+        for path, hash_value in zip(tasks.keys(), hash_values):
+            if isinstance(hash_value, Exception):
+                print(f"[-] Error processing path: {path} with error: {hash_value}")
+                continue
 
-        if hash_value in control_flow_hashes:
-            if enable_del:
-                del_duplicate(path)
+            if hash_value in control_flow_hashes:
+                if enable_del:
+                    del_duplicate(path)
+                else:
+                    print(f"[-] Found duplicate control flow hash: {hash_value} for {path}")
             else:
-                print(f"[-] Found duplicate control flow hash: {hash_value} for {path}")
-        else:
-            cnt += 1
-            control_flow_hashes.add(hash_value)
+                cnt += 1
+                control_flow_hashes.add(hash_value)
     print(f"Total unique control flow hashes: {cnt} under {group_dir}")
 
 
@@ -232,6 +238,13 @@ def shut_down(num_replay_containers, mode):
             subprocess.run(f"docker stop emu_{i}", shell=True)
             subprocess.run(f"docker rm emu_{i}", shell=True)
         print("[+] Emulator containers stopped")
+        
+        print("[+] Stopping Redis container")
+        subprocess.run("docker stop ta_emulator_redis_ui", shell=True)
+        subprocess.run("docker rm ta_emulator_redis_ui", shell=True)
+        subprocess.run("docker stop ta_emulator_redis", shell=True)
+        subprocess.run("docker rm ta_emulator_redis", shell=True)
+        print("[+] Redis container stopped")
         exit(0)
 
 
@@ -256,7 +269,17 @@ def validate(args):
 
     if args.mode == "coverage":
         ps = subprocess.run("docker ps", shell=True, capture_output=True)
-        if "emu" not in str(ps.stdout):
+        if "redis" not in str(ps.stdout):
+            print("[-] Redis container is not running")
+            print(
+                "[-] Do you want to launch the Redis container and continue? (y/N)"
+            )
+            reply = input().lower()
+            if reply == "y":
+                subprocess.run("docker compose -f docker-compose.redis.yml up -d", shell=True)
+            else:
+                print("[-] Exiting...")
+        if "emu_" not in str(ps.stdout):
             print("[-] Coverage mode is not supported with emulator container")
             print(
                 "[-] Do you want to launch the emulator container and continue? (y/N)"
@@ -288,6 +311,10 @@ if __name__ == "__main__":
     
     signal.signal(signal.SIGINT, lambda signal, frame: shut_down(args.num_replay_containers, args.mode))
     signal.signal(signal.SIGTERM, lambda signal, frame: shut_down(args.num_replay_containers, args.mode))
+    
+    if "eval" in os.getcwd() or "TA_GP_emulator" not in os.getcwd():
+        print(f"[-] Please run deduplicate.py at /{os.getlogin()}/TA_GP_emulator")
+        exit(1)
     
     print(
         "[+] Processing path: {} on {}-based deduplication mode with {}conservative type and {}del type".format(

@@ -53,13 +53,14 @@ echo "Using harness: $harness"
 echo "Using fuzz input dir: $fuzz_in"
 echo "Using fuzz output dir: $fuzz_out"
 
-
+fuzz_in="${fuzz_in}_${df_reg_hash}"
+fuzz_out="${fuzz_out}_${df_reg_hash}"
 
 if [ -z "$4" ]; then
 
     echo "starting fuzzing"
 
-    fuzz_dir="$harness_path/df_fuzz/$df_seed"
+    fuzz_dir="$harness_path/df_fuzz/${df_seed}_${df_reg_hash}"
     mkdir -p $fuzz_dir
     fuzz_in="$fuzz_dir/in"
     fuzz_out="$fuzz_dir/out"
@@ -85,9 +86,9 @@ if [ -z "$4" ]; then
     fi
     
     if [ -z "${FUZZTIME}" ]; then
-            afl-fuzz -t 5000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --df_fuzz @@ --fuzz_harness $harness --df_seed $df_seed_path --df_reg_hash $df_reg_hash $"rootfs/$(basename "$ta")" $log_arg
+            afl-fuzz -t 5000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --df_fuzz @@ --fuzz_harness $harness --df_seed $df_seed_path --df_reg_hash $df_reg_hash "rootfs/$(basename "$ta")" $log_arg
     else
-            timeout -k $FUZZTIME $FUZZTIME afl-fuzz -V $FUZZTIME -t 5000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --df_fuzz @@ --fuzz_harness $harness --df_seed $df_seed_path --df_reg_hash $df_reg_hash $"rootfs/$(basename "$ta")" $log_arg
+            timeout -k $FUZZTIME $FUZZTIME afl-fuzz -V $FUZZTIME -t 5000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --df_fuzz @@ --fuzz_harness $harness --df_seed $df_seed_path --df_reg_hash $df_reg_hash "rootfs/$(basename "$ta")" $log_arg
     fi
 else
     echo "Replaying seed $4 ..."

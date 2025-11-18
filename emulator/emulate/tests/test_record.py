@@ -141,7 +141,7 @@ def test_dedup_without_size():
                 "ret_addr": 93824992385692,
                 "ret_addr_offset": 154268,
                 "is_read": True,
-                "reg_hash": 147762692186609489026431728440300000149
+                "reg_hash": "147762692186609489026431728440300000149"
             }
             },
             {
@@ -152,7 +152,7 @@ def test_dedup_without_size():
                 "ret_addr": 93824992385816,
                 "ret_addr_offset": 154392,
                 "is_read": True,
-                "reg_hash": 11476346845161322203697195266058186263
+                "reg_hash": "11476346845161322203697195266058186263"
             }
             },
             {
@@ -163,7 +163,7 @@ def test_dedup_without_size():
                 "ret_addr": 93824992385832,
                 "ret_addr_offset": 154408,
                 "is_read": True,
-                "reg_hash": 88004697052803911198231617814777067659
+                "reg_hash": "88004697052803911198231617814777067659"
             }
             },
             {
@@ -174,7 +174,7 @@ def test_dedup_without_size():
                 "ret_addr": 93824992385852,
                 "ret_addr_offset": 154428,
                 "is_read": True,
-                "reg_hash": 235699151334603750473974899648542358277
+                "reg_hash": "235699151334603750473974899648542358277"
             }
             }
         ]
@@ -196,7 +196,7 @@ def test_dedup_without_size():
                 "ret_addr": 93824992385692,
                 "ret_addr_offset": 154268,
                 "is_read": True,
-                "reg_hash": 147762692186609489026431728440300000149
+                "reg_hash": "147762692186609489026431728440300000149"
             }
             },
             {
@@ -207,7 +207,7 @@ def test_dedup_without_size():
                 "ret_addr": 93824992385816,
                 "ret_addr_offset": 154392,
                 "is_read": True,
-                "reg_hash": 5748739078687946184450796873342422184
+                "reg_hash": "5748739078687946184450796873342422184"
             }
             },
             {
@@ -218,7 +218,7 @@ def test_dedup_without_size():
                 "ret_addr": 93824992385832,
                 "ret_addr_offset": 154408,
                 "is_read": True,
-                "reg_hash": 162871244009161107230610891699993179738
+                "reg_hash": "162871244009161107230610891699993179738"
             }
             },
             {
@@ -229,7 +229,7 @@ def test_dedup_without_size():
                 "ret_addr": 93824992385852,
                 "ret_addr_offset": 154428,
                 "is_read": True,
-                "reg_hash": 206758698884837711997471636248984211027
+                "reg_hash": "206758698884837711997471636248984211027"
             }
             }
         ]

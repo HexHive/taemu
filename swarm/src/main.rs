@@ -2,7 +2,7 @@ use clap::Parser;
 use slog::{Drain, Logger, o, info, warn, error};
 use std::path::{Path, PathBuf};
 use std::process;
-use std::process::{Command, Stdio};
+use std::process::Command;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
@@ -53,36 +53,32 @@ async fn run_fuzz_job(job: ta_manage::FuzzJob, duration: u64, job_num: usize) {
 
     info!(
         log,
-        "{SWARM_TAG} Starting fuzz job {} for: {} (timeout: {} hour(s))",
+        "{SWARM_TAG} Starting fuzz job {} for: {} (timeout: {} minute(s))",
         job_num,
         job.ta_harness_dir.display(),
         duration
     );
 
-    let child = Command::new("bash")
+    let mut child = match tokio::process::Command::new("bash")
         .current_dir("/srv/emulator")
         .arg(&job.fuzz_script)
         .arg(&job.ta_harness_dir)
-        .arg(&job.ta_df_seed.unwrap_or(PathBuf::from("")))
-        .arg(&job.ta_df_context.unwrap_or("".to_string()))
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
+        .arg(&job.ta_df_seed.unwrap_or_default())
+        .arg(&job.ta_df_context.unwrap_or_default())
+        .stdout(process::Stdio::null())
+        .stderr(process::Stdio::null())
+        .kill_on_drop(true)
+        .spawn(){
+            Ok(child) => child,
+            Err(e) => {
+                error!(log, "[Job {}] Failed to spawn process: {}", job_num, e);
+                return;
+            }
+        };
     
 
-    let pid = child.id();
-
-    let child_handle: tokio::task::JoinHandle<Result<process::ExitStatus, std::io::Error>> =
-        tokio::task::spawn_blocking({
-            move || {
-                let mut child = child;
-                child.wait()
-            }
-        });
-
-    match tokio::time::timeout(timeout_duration, child_handle).await {
-        Ok(Ok(Ok(status))) => {
+    match tokio::time::timeout(timeout_duration, child.wait()).await {
+        Ok(Ok(status)) => {
             info!(
                 log,
                 "[Job {}] Fuzz job for {} completed with status: {:?} (runtime: {:?})",
@@ -90,15 +86,6 @@ async fn run_fuzz_job(job: ta_manage::FuzzJob, duration: u64, job_num: usize) {
                 job.ta_harness_dir.display(),
                 status,
                 start_time.elapsed(),
-            );
-        }
-        Ok(Ok(Err(e))) => {
-            error!(
-                log,
-                "[Job {}] Error waiting for process {}: {}",
-                job_num,
-                job.ta_harness_dir.display(),
-                e
             );
         }
         Ok(Err(e)) => {
@@ -112,20 +99,18 @@ async fn run_fuzz_job(job: ta_manage::FuzzJob, duration: u64, job_num: usize) {
         Err(_) => {
             info!(
                 log,
-                "[Job {}] Timeout reached for {}. Stopping process (PID: {})...",
+                "[Job {}] Timeout reached for {}. Stopping process...",
                 job_num,
                 job.ta_harness_dir.display(),
-                pid
             );
 
-            // Kill the process by PID
-            let _ = Command::new("kill").arg("-9").arg(pid.to_string()).status();
-
-            time::sleep(Duration::from_secs(2)).await;
+            if let Err(e) = child.kill().await {
+                error!(log, "[Job {}] Failed to kill process: {}", job_num, e);
+            }
 
             info!(
                 log,
-                "[Job {}] Fuzz job for {} stopped after {} hour(s)",
+                "[Job {}] Fuzz job for {} stopped after {} minute(s)",
                 job_num,
                 job.ta_harness_dir.display(),
                 duration
