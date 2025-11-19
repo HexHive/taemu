@@ -24,22 +24,22 @@ def place_input_callback(ql: Qiling, input: bytes, _: int):
 
     cmds = [0, 1, 2]
     cmd = cmds[input[0] % len(cmds)]
-    input = input[1:]
+    data = input[1:]
     command_params = []
     if cmd == 0:
-        command_params.append(MemRefParam(input[1:], len(input[1:])))
-        command_params.append(ValueParam(input[0], input[0]))
+        command_params.append(MemRefParam(data[1:], len(data[1:])))
+        command_params.append(ValueParam(data[0], data[0]))
         command_params.append(NoneParam())
         command_params.append(NoneParam())
         ptypes = 0x51
     elif cmd == 1:
-        command_params.append(MemRefParam(input[1:], len(input[1:])))
+        command_params.append(MemRefParam(data[1:], len(data[1:])))
         command_params.append(MemRefParam(bytes(0x1000), 0x1000))
         command_params.append(MemRefParam(bytes(0x1000), 0x1000))
         command_params.append(MemRefParam(bytes(0x1000), 0x1000))
         ptypes = 0x6555
     elif cmd == 2:
-        command_params.append(MemRefParam(input[1:], len(input[1:])))
+        command_params.append(MemRefParam(data[1:], len(data[1:])))
         command_params.append(MemRefParam(bytes(0x1000), 0x1000))
         command_params.append(NoneParam())
         command_params.append(NoneParam())

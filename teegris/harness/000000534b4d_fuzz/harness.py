@@ -28,9 +28,9 @@ def place_input_callback(ql: Qiling, input: bytes, _: int):
     ]
     data = b""
     data += p32(cmds[input[0] % len(cmds)])
-    input = input[1:]
-    data += p32(len(input) - 8)
-    data += input
+    input2 = input[1:]
+    data += p32(len(input2) - 8)
+    data += input2
     # input = p64(input[0] + (len(input)-8-1)<<0x20) + input[1:]
     command_params = []
     command_params.append(MemRefParam(data, len(data)))

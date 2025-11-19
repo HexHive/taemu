@@ -11,13 +11,13 @@ def place_input_callback(ql: Qiling, input: bytes, _: int):
     if len(input) < 8:
         return False
 
-    input = base64.b64encode(input)
+    b64d = base64.b64encode(input)
     data = bytearray(0x4040 * b"\x00")
-    for i, b in enumerate(len(input).to_bytes(4, "little")):
+    for i, b in enumerate(len(b64d).to_bytes(4, "little")):
         data[0x10 + i] = b
     # data[0x10] =0x0
     # data[0x11] =0x40
-    for i, b in enumerate(input):
+    for i, b in enumerate(b64d):
         data[0x14 + i] = b
 
     # data += b'\x01' + cyclic(0x21c7d-1)
