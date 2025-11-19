@@ -79,6 +79,10 @@ if [ -z "$4" ]; then
     if [ ! -e "$fuzz_in" ]; then
         mkdir $fuzz_in
         echo "foo" > "$fuzz_in/foo"
+        head -c 1 /dev/zero > "$fuzz_in/foo2"
+        head -c 2 /dev/zero > "$fuzz_in/foo3"
+        head -c 4 /dev/zero > "$fuzz_in/foo4"
+        head -c 8 /dev/zero > "$fuzz_in/foo5"
     fi
 
     if [ ! -e "$fuzz_out" ]; then
