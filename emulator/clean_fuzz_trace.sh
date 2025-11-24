@@ -8,7 +8,7 @@ RESET=$'\e[0m'
 
 
 if [ -z "$1" ]; then 
-    echo "Usage: ./clean_fuzz_trace.sh <path to harness folder| . for all harnesses>"
+    echo "Usage: ./clean_fuzz_trace.sh <path to harness folder| . for all harnesses> [--force]"
     exit 0
 fi
 
@@ -18,19 +18,20 @@ if [ "$1" == "." ]; then
         if [ -d "$harness" ]; then
             echo "Cleaning fuzz traces in $harness"
 
-            ./clean_fuzz_trace.sh $harness
+            ./clean_fuzz_trace.sh $harness $2
         fi
     done
     exit 0
 fi
 
 in_path=`realpath $1`
-echo "Cleaning fuzz traces in $in_path"
+echo "Cleaning fuzz traces in $in_path ${2:+with force}"
 if [ -d "$in_path" ]; then
     fuzz_out="$in_path/out"
     fuzz_in="$in_path/in"
     fuzz_suspicious_inputs="$in_path/in/suspicious_inputs"
     fuzz_suspicious_inputs_replay="$in_path/in/suspicious_inputs_replay"
+    fuzz_df_dir="$in_path/df_fuzz"
     ql_log=$(dirname $(realpath $0))/ql-emulator.log*
 else
     echo "Provided path $in_path is not a directory"
@@ -43,26 +44,39 @@ if [ -z "${fuzz_out:-}" ] || [ -z "${fuzz_in:-}" ]; then
     exit 1
 fi
 
-echo -e "Cleaning fuzz traces in ${CYAN}$fuzz_out${RESET} and ${CYAN}$fuzz_in${RESET} and ${CYAN}$fuzz_suspicious_inputs${RESET} and ${CYAN}$fuzz_suspicious_inputs_replay${RESET}"
+echo -e "Cleaning fuzz traces of the following directories:\n
+ ${CYAN}$fuzz_out${RESET}\n
+ ${CYAN}$fuzz_in${RESET}\n
+ ${CYAN}$fuzz_suspicious_inputs${RESET}\n
+ ${CYAN}$fuzz_suspicious_inputs_replay${RESET}\n
+ ${CYAN}$ql_log${RESET}\n
+ ${CYAN}$fuzz_df_dir${RESET}"
+
 # check each directory one by one, and confirm whether to delete it
-for dir in "$fuzz_out" "$fuzz_in" "$fuzz_suspicious_inputs" "$fuzz_suspicious_inputs_replay" "$ql_log"; do
+for dir in "$fuzz_out" "$fuzz_in" "$fuzz_suspicious_inputs" "$fuzz_suspicious_inputs_replay" "$ql_log" "$fuzz_df_dir"; do
     if [ -d "$dir" ]; then
         echo -e "${CYAN}$dir${RESET} exists"
-        read -r -p "Are you sure you want to delete all files of ${YELLOW} $dir? (y/N): ${RESET}" user_input
-        user_input="${user_input:-n}"
-        user_input_lower=$(echo "$user_input" | tr '[:upper:]' '[:lower:]')
-        case "$user_input_lower" in
-            y|yes)
-                echo -e "${GREEN}Proceeding with cleanup...${RESET}"
-                rm -rf -- "${dir:?}/"* || true
-                echo -e "${GREEN}Cleanup finished.${RESET}"
-                ;;
-            n|no)
-                echo -e "${RED}Aborting cleanup and continuing with the next target.${RESET}"
-                ;;
-        esac
+        if [ -z "$2" ] || [ "$2" != "--force" ]; then
+            read -r -p "Are you sure you want to delete all files of ${YELLOW} $dir? (y/N): ${RESET}" user_input
+            user_input="${user_input:-n}"
+            user_input_lower=$(echo "$user_input" | tr '[:upper:]' '[:lower:]')
+            case "$user_input_lower" in
+                y|yes)
+                    echo -e "${GREEN}Proceeding with cleanup...${RESET}"
+                    rm -rf -- "${dir:?}/"* || true
+                    echo -e "${GREEN}Cleanup finished.${RESET}"
+                    ;;
+                n|no)
+                    echo -e "${RED}Aborting cleanup and continuing with the next target.${RESET}"
+                    ;;
+            esac
+        else
+            echo -e "${GREEN}Proceeding with cleanup...${RESET}"
+            rm -rf -- "${dir:?}/"* || true
+            echo -e "${GREEN}Cleanup finished.${RESET}"
+        fi
     else
         echo -e "${RED}$dir${RESET} does not exist"
-        exit 1
+        exit 2
     fi
 done
