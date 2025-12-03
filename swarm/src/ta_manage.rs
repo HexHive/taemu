@@ -92,7 +92,9 @@ pub fn get_context_via_meta(base_path: &Path, ta_suspicious_meta: &Path) -> Vec<
         let seed_path = base_path.join(seed_path.as_str().unwrap());
         if let Some(records) = meta_data.get("records").and_then(|v| v.as_array()) {
             for record in records.iter() {
-                context.push((PathBuf::from(seed_path.clone()), record["regs"]["reg_hash"].as_str().unwrap().to_string()));
+                if record["regs"]["is_read"].as_bool() == Some(true) {
+                    context.push((PathBuf::from(seed_path.clone()), record["regs"]["reg_hash"].as_str().unwrap().to_string()));
+                }
             }
         }
     }

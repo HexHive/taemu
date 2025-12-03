@@ -78,6 +78,15 @@ def finialize_fuzzing(ql: Qiling, user_data: Any) -> None:
     ql.emu.save_records_to_queue(checker=lambda records: have_overlaps(records))
 
 
+def pivot_df_not_hit(ql: Qiling, cur) -> None:
+    ql.log.info(
+        Fore.RED
+        + f"[{cur}] double fetch location not reproduced!"
+        + Style.RESET_ALL
+    )
+    ql.stop()
+
+
 def pivot(ql: Qiling, cur) -> None:
     ql.log.info(
         Fore.BLUE
@@ -1037,6 +1046,8 @@ class TAEMU:
 
         df_records = []
 
+        
+
         if df_reg_hash is not None:
            for r in df_meta['records']:
                 if str(r["regs"]["reg_hash"]) == str(df_reg_hash):
@@ -1051,8 +1062,16 @@ class TAEMU:
             print(f'no df record candidates from {df_meta["records"]}')
             return
 
+
         df_record = df_records[0]
 
+        if not df_record["regs"]["is_read"]:
+            print(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+            print(f'!!!!! THERE IS NO POINT IN FUZZING A WRITE TO SHARED MEMORY !!!!!!!')
+            print(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+            print(f'"-.-')
+            return
+        
         self.log.info(f"df fuzz args is {input_file} {fuzz_harness} {fuzz_replay}")
         self.log.info(f"    df@{hex(df_record['regs']['PC'])}->{hex(df_record['addr'])}:{df_record['size']} from {df_seed}")
         
@@ -1070,6 +1089,7 @@ class TAEMU:
 
         exit_addr = []
         exit_hooks = []
+        df_hook = None
         sid = new_session.session_id
         cmd = 0
         ptypes = 0
@@ -1125,9 +1145,17 @@ class TAEMU:
         def place_df_replay(ql: Qiling):
             if self.init_fuzz:
                 return
-            print(self.hash_regs(), df_record['regs']['reg_hash'])
             if self.hash_regs() != df_record['regs']['reg_hash']:
                 return
+            for e in exit_hooks:
+                self.ql.hook_del(e) 
+            for e in exit_addr:
+                exit_hooks.append(
+                    self.ql.hook_address(
+                        pivot, e, user_data="TA_InvokeCommandEntryPoint"
+                    )
+                ) 
+            self.log.info(f"placing double fetch data")
             df_data = open(input_file, "rb").read()
             df_write(ql, df_data) 
 
@@ -1139,9 +1167,13 @@ class TAEMU:
                 return
             if self.init_fuzz:
                 return
+            print(self.hash_regs(), df_record['regs']['reg_hash'])
             if self.hash_regs() != df_record['regs']['reg_hash']:
                 return
             self.log.info(f"[TAEMU] starting afl")
+            for e in exit_hooks:
+                self.ql.hook_del(e)
+            self.ql.hook_del(df_hook)
             ql_afl_fuzz(
                 _ql,
                 input_file=input_file,
@@ -1156,7 +1188,7 @@ class TAEMU:
             for e in exit_addr:
                 exit_hooks.append(
                     self.ql.hook_address(
-                        pivot, e, user_data="TA_InvokeCommandEntryPoint"
+                        pivot_df_not_hit, e, user_data="TA_InvokeCommandEntryPoint"
                     )
                 )
             self.ql.hook_address_front(
@@ -1164,7 +1196,13 @@ class TAEMU:
                 address=df_record['regs']['PC']
             ) 
         else:
-            self.ql.hook_address_front(
+            for e in exit_addr:
+                exit_hooks.append(
+                    self.ql.hook_address(
+                        pivot, e, user_data="TA_InvokeCommandEntryPoint"
+                    )
+                )
+            df_hook = self.ql.hook_address_front(
                 callback=start_afl,
                 address=df_record['regs']['PC']
             )
@@ -1189,6 +1227,14 @@ class TAEMU:
             with cov_utils.collect_coverage(self.ql, "drcov", cov_path):
                 self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)
         else:
+            for e in exit_hooks:
+                self.ql.hook_del(e) 
+            for e in exit_addr:
+                exit_hooks.append(
+                    self.ql.hook_address(
+                        pivot_df_not_hit, e, user_data="TA_InvokeCommandEntryPoint"
+                    )
+                )
             self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)
 
         ret = self.ql.os.fcall.cc.getReturnValue()

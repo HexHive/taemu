@@ -1,5 +1,4 @@
 from enum import Enum
-import time as pytime
 from qiling import Qiling
 from qiling.os.const import STRING, INT, BYTE, POINTER
 from .gp.utils.param import TEE_Param_Memref
@@ -9,8 +8,6 @@ from .gp.utils.printf import *
 from .gp.utils.const import *
 from .common import CRASH_PC, NOTIMPL_PC, crash, crash_notimpl
 import unicorn
-
-from Crypto.Random import get_random_bytes
 
 from .custom import rpmb
 from unicorn import UC_PROT_READ, UC_PROT_WRITE
@@ -89,7 +86,7 @@ def memcmp(ql: Qiling, hook_data):
 def TEE_GetREETime(ql: Qiling, hook_data):
     time_data = ql.os.resolve_fcall_params({"time": POINTER})["time"]
     try:
-        ql.mem.write(time_data, int(pytime.time()).to_bytes(4, "little"))
+        ql.mem.write(time_data, (1764773457).to_bytes(4, "little"))
         ql.mem.write(time_data + 4, (0).to_bytes(4, "little"))
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, hook_data.func_name)
@@ -661,7 +658,7 @@ def TEE_GenerateRandom(ql: Qiling, hook_data):
     params = ql.os.resolve_fcall_params(
         {"randomBuffer": POINTER, "randomBufferLen": INT}
     )
-    r = get_random_bytes(params["randomBufferLen"])
+    r = b"A" * params["randomBufferLen"]
     try:
         ql.mem.write(params["randomBuffer"], r)
     except unicorn.unicorn_py3.unicorn.UcError:

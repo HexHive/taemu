@@ -131,9 +131,7 @@ class SHA256HMAC_Obj(Object):
         key_buffer = ql.mem.map_anywhere(
             0x1000, minaddr=ATTRIBUTE_MEM, perms=3, info="TEE_Ref_Attribute"
         )
-        key = os.urandom(
-            32
-        )  # TEE_TYPE_HMAC_SHA256 allows keys up to 512 bits, but 256 bits is common
+        key = 32 * b"A"  # TEE_TYPE_HMAC_SHA256 allows keys up to 512 bits, but 256 bits is common
 
         ql.mem.write(key_buffer, key)
         self.attrs[self.__AttributeTypes__.TEE_ATTR_SECRET_VALUE.value] = (
