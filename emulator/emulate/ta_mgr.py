@@ -1139,9 +1139,9 @@ class TAEMU:
                 return
             if self.init_fuzz:
                 return
-            self.log.info(f"[TAEMU] starting afl")
             if self.hash_regs() != df_record['regs']['reg_hash']:
                 return
+            self.log.info(f"[TAEMU] starting afl")
             ql_afl_fuzz(
                 _ql,
                 input_file=input_file,
