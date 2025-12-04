@@ -22,6 +22,9 @@ if [ ! -f /.dockerenv ]; then
     exit 1 
 fi
 
+
+cd /srv/emulator
+
 OPTS=$(getopt -o l: --long log_file: -n 'fuzz.sh' -- "$@")
 eval set -- "$OPTS"
 

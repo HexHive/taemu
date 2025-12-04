@@ -44,13 +44,15 @@ if [ -z "${fuzz_out:-}" ] || [ -z "${fuzz_in:-}" ]; then
     exit 1
 fi
 
-echo -e "Cleaning fuzz traces of the following directories:\n
+echo -e "
+[-]Cleaning fuzz traces of the following directories:\n
  ${CYAN}$fuzz_out${RESET}\n
  ${CYAN}$fuzz_in${RESET}\n
  ${CYAN}$fuzz_suspicious_inputs${RESET}\n
  ${CYAN}$fuzz_suspicious_inputs_replay${RESET}\n
  ${CYAN}$ql_log${RESET}\n
- ${CYAN}$fuzz_df_dir${RESET}"
+ ${CYAN}$fuzz_df_dir${RESET}\n
+[!]"
 
 # check each directory one by one, and confirm whether to delete it
 for dir in "$fuzz_out" "$fuzz_in" "$fuzz_suspicious_inputs" "$fuzz_suspicious_inputs_replay" "$ql_log" "$fuzz_df_dir"; do
@@ -77,6 +79,5 @@ for dir in "$fuzz_out" "$fuzz_in" "$fuzz_suspicious_inputs" "$fuzz_suspicious_in
         fi
     else
         echo -e "${RED}$dir${RESET} does not exist"
-        exit 2
     fi
 done

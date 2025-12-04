@@ -26,4 +26,11 @@ find /root/TA_GP_emulator -type d -name "suspicious_inputs" | while read src; do
     cp -r "$src" "$dest/$timestamp/$pparent/$parent/"
 done
 
+find /root/TA_GP_emulator -type d -name "df_fuzz" | while read src; do
+    parent=$(basename "$(dirname "$src")")
+
+    mkdir -p "$dest/$timestamp/df_fuzz/$parent"
+    cp -r "$src" "$dest/$timestamp/df_fuzz/$parent/"
+done
+
 echo "Backup completed at $dest/$timestamp"
