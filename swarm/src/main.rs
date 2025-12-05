@@ -220,17 +220,15 @@ async fn main() {
         let permit: OwnedSemaphorePermit = semaphore.acquire_owned().await.unwrap();
         let duration = args.duration;
         
-        if job.ta_df_seed.as_ref().unwrap().to_string_lossy().contains("377e_double_fetch_stackov") {
-            job_num += 1;
-            println!("[******] Job for seed {:?}", job.ta_df_seed.as_ref().unwrap().to_string_lossy());
+        job_num = idx + 1;
+        println!("[******] Job for seed {:?}", job.ta_df_seed.as_ref().unwrap().to_string_lossy());
 
-            let handle = tokio::spawn(async move {
-                let _permit = permit; // Hold the permit for the duration of the job
-                run_fuzz_job(job, duration, job_num).await;
-            });
+        let handle = tokio::spawn(async move {
+            let _permit = permit; // Hold the permit for the duration of the job
+            run_fuzz_job(job, duration, job_num).await;
+        });
 
-            handles.push(handle);
-        }
+        handles.push(handle);
     }
 
     info!(log, "{SWARM_TAG} Waiting for all fuzz jobs to complete...");
