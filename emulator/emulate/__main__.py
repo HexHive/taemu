@@ -18,12 +18,17 @@ from concurrent_log_handler import ConcurrentRotatingFileHandler
 
 
 DIR = dir_path = os.path.dirname(os.path.realpath(__file__))
+ROOTFS_INIT_PATH = os.path.join(DIR, "../rootfs")
+ROOTFS_PATH = os.path.join(DIR, "../../../rootfs")
 TEE = ""
-
-
 
 def to_int(x):
     return int(x, 0)
+
+def setup_rootfs():
+    if os.path.exists(ROOTFS_PATH):
+        os.system(f'rm -rf {ROOTFS_PATH}')
+    os.system(f'cp -r {ROOTFS_INIT_PATH} {ROOTFS_PATH}')
 
 def setup_args():
     """Returns an initialized argument parser."""
@@ -159,6 +164,8 @@ if __name__ == "__main__":
     if TEE == "":
         TEE = args.tee
 
+    setup_rootfs()
+
     if TEE == "beanpod":
         if ta_elf.header["e_flags"] & 0x200 == 0:
             is_thumb = True
@@ -166,7 +173,7 @@ if __name__ == "__main__":
             is_thumb = False
         ql = Qiling(
             [ta_path],
-            rootfs=os.path.join(DIR, "../rootfs/"),
+            rootfs=ROOTFS_PATH,
             ostype=QL_OS.LINUX,
             archtype=QL_ARCH.ARM,
             verbose=v,
@@ -180,7 +187,7 @@ if __name__ == "__main__":
         if ta_elf.arch == "aarch64":
             ql = Qiling(
                 [ta_path],
-                rootfs=os.path.join(DIR, "../rootfs/"),
+                rootfs=ROOTFS_PATH,
                 ostype=QL_OS.LINUX,
                 archtype=QL_ARCH.ARM64,
                 verbose=v,
@@ -191,7 +198,7 @@ if __name__ == "__main__":
         else:
             ql = Qiling(
                 [ta_path],
-                rootfs=os.path.join(DIR, "../rootfs/"),
+                rootfs=ROOTFS_PATH,
                 ostype=QL_OS.LINUX,
                 archtype=QL_ARCH.ARM,
                 verbose=v,
@@ -203,7 +210,7 @@ if __name__ == "__main__":
         print("doing mitee")
         ql = Qiling(
             [ta_path],
-            rootfs=os.path.join(DIR, "../rootfs/"),
+            rootfs=ROOTFS_PATH,
             ostype=QL_OS.LINUX,
             archtype=QL_ARCH.ARM64,
             verbose=v,
@@ -222,7 +229,7 @@ if __name__ == "__main__":
             is_thumb = False
         ql = Qiling(
             [ta_path],
-            rootfs=os.path.join(DIR, "../rootfs/"),
+            rootfs=ROOTFS_PATH,
             ostype=QL_OS.LINUX,
             archtype=QL_ARCH.ARM,
             verbose=v,
@@ -234,7 +241,7 @@ if __name__ == "__main__":
     elif TEE == "trustedcore":
         ql = Qiling(
             [ta_path],
-            rootfs=os.path.join(DIR, "../rootfs/"),
+            rootfs=ROOTFS_PATH,
             ostype=QL_OS.LINUX,
             archtype=QL_ARCH.ARM,
             verbose=v,

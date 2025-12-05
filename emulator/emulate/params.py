@@ -38,7 +38,7 @@ def shared_read_callback(
     if ql.emu.status == Status.INTERACTIVE:
         assert memref.shm is not None
         ql.mem.write(memref.shm_pybuf, memref.shm.to_bytes())
-    if ql.emu.status in (Status.FUZZING, Status.REPLAYING):
+    if ql.emu.status in (Status.FUZZING, Status.REPLAYING) and not ql.emu.init_fuzz:
         ql.emu.update_records(
             key=ql.emu.curr_record_key,
             item=Record(
@@ -66,7 +66,7 @@ def shared_write_callback(
         assert memref.shm is not None
         curr_data = ql.mem.read(memref.shm_pybuf, memref.size)
         memref.shm.from_bytes(curr_data)
-    if ql.emu.status in (Status.FUZZING, Status.REPLAYING):
+    if ql.emu.status in (Status.FUZZING, Status.REPLAYING) and not ql.emu.init_fuzz:
         ql.emu.update_records(
             key=ql.emu.curr_record_key,
             item=Record(
