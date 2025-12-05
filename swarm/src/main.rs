@@ -1,5 +1,7 @@
 use clap::Parser;
 use slog::{Drain, Logger, o, info, warn, error};
+use slog_async;
+use slog_term;
 use std::path::{Path, PathBuf};
 use std::process;
 use std::process::Command;
@@ -7,7 +9,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio::time;
-mod ta_manage;
+mod job_manage;
 
 
 static SWARM_TAG: &str = "[Sw0rm]";
@@ -38,14 +40,16 @@ struct Args {
 fn basic_slogger() -> Logger {
 
     let decorator = slog_term::TermDecorator::new().build();
-    let drain = slog_term::CompactFormat::new(decorator).build();
-    let drain = std::sync::Mutex::new(drain).fuse();
+    let drain = slog_term::CompactFormat::new(decorator)
+        .build()
+        .ignore_res()   // 2. convert Err to Infallible by ignoring errors
+        .fuse();
+    let drain = slog_async::Async::new(drain).build().fuse();
 
-    let log = slog::Logger::root(drain, o!());
-    log
+    slog::Logger::root(drain, o!())
 }
 
-async fn run_fuzz_job(job: ta_manage::FuzzJob, duration: u64, job_num: usize) {
+async fn run_fuzz_job(job: job_manage::FuzzJob, duration: u64, job_num: usize) {
     let log = basic_slogger();  
 
     let timeout_duration = Duration::from_secs(duration * 60);
@@ -53,7 +57,7 @@ async fn run_fuzz_job(job: ta_manage::FuzzJob, duration: u64, job_num: usize) {
 
     info!(
         log,
-        "{SWARM_TAG} Starting fuzz job {} for: {} (timeout: {} minute(s))",
+        "{SWARM_TAG} Starting fuzz job {} for: {} (setting timeout to {} minute(s))",
         job_num,
         job.ta_harness_dir.display(),
         duration
@@ -63,8 +67,8 @@ async fn run_fuzz_job(job: ta_manage::FuzzJob, duration: u64, job_num: usize) {
         .current_dir("/srv/emulator")
         .arg(&job.fuzz_script)
         .arg(&job.ta_harness_dir)
-        .arg(&job.ta_df_seed.unwrap_or_default())
-        .arg(&job.ta_df_context.unwrap_or_default())
+        .arg(&job.ta_df_seed.clone().unwrap_or_default())
+        .arg(&job.ta_df_context.clone().unwrap_or_default())
         .stdout(process::Stdio::null())
         .stderr(process::Stdio::null())
         .kill_on_drop(true)
@@ -75,18 +79,31 @@ async fn run_fuzz_job(job: ta_manage::FuzzJob, duration: u64, job_num: usize) {
                 return;
             }
         };
-    
+    info!(log, "[Job {}] Command: bash {:?} {:?} {:?} {:?}", 
+        job_num, 
+        job.fuzz_script,
+        job.ta_harness_dir,
+        job.ta_df_seed.as_ref().unwrap_or(&PathBuf::from("")),
+        &job.ta_df_context,
+    );
 
     match tokio::time::timeout(timeout_duration, child.wait()).await {
         Ok(Ok(status)) => {
-            info!(
-                log,
-                "[Job {}] Fuzz job for {} completed with status: {:?} (runtime: {:?})",
-                job_num,
-                job.ta_harness_dir.display(),
-                status,
-                start_time.elapsed(),
-            );
+            
+            if status.success() {
+                info!(log, "[Job {}] Fuzz job completed successfully", job_num);
+            } else {
+                info!(
+                    log,
+                    "[Job {}] Fuzz job for {} on {} {} completed with status: {:?} (runtime: {} minute(s))",
+                    job_num,
+                    job.ta_harness_dir.display(),
+                    job.ta_df_seed.as_ref().unwrap().display(),
+                    job.ta_df_context.unwrap_or_default(),
+                    status,
+                    Instant::now().duration_since(start_time).as_secs() / 60,
+                );
+            }
         }
         Ok(Err(e)) => {
             eprintln!(
@@ -113,7 +130,7 @@ async fn run_fuzz_job(job: ta_manage::FuzzJob, duration: u64, job_num: usize) {
                 "[Job {}] Fuzz job for {} stopped after {} minute(s)",
                 job_num,
                 job.ta_harness_dir.display(),
-                duration
+                Instant::now().duration_since(start_time).as_secs() / 60
             );
         }
     }
@@ -167,7 +184,7 @@ async fn main() {
     };
     
 
-    let ta_files = ta_manage::find_ta_files(&args.top_directory, &args.pattern, &fuzz_script_path, &args.snapshot_based);
+    let ta_files = job_manage::find_ta_files(&args.top_directory, &args.pattern, &fuzz_script_path, &args.snapshot_based);
     if ta_files.is_empty() {
         warn!(log, "No TAs found in: {:?}", args.top_directory);
         process::exit(0);
@@ -196,19 +213,24 @@ async fn main() {
     // Create a semaphore to limit concurrent jobs
     let semaphore = Arc::new(Semaphore::new(args.max_parallel));
     let mut handles = Vec::new();
+    let mut job_num = 0;
 
     for (idx, job) in ta_files.into_iter().enumerate() {
         let semaphore = Arc::clone(&semaphore);
         let permit: OwnedSemaphorePermit = semaphore.acquire_owned().await.unwrap();
         let duration = args.duration;
-        let job_num = idx + 1;
+        
+        if job.ta_df_seed.as_ref().unwrap().to_string_lossy().contains("377e_double_fetch_stackov") {
+            job_num += 1;
+            println!("[******] Job for seed {:?}", job.ta_df_seed.as_ref().unwrap().to_string_lossy());
 
-        let handle = tokio::spawn(async move {
-            let _permit = permit; // Hold the permit for the duration of the job
-            run_fuzz_job(job, duration, job_num).await;
-        });
+            let handle = tokio::spawn(async move {
+                let _permit = permit; // Hold the permit for the duration of the job
+                run_fuzz_job(job, duration, job_num).await;
+            });
 
-        handles.push(handle);
+            handles.push(handle);
+        }
     }
 
     info!(log, "{SWARM_TAG} Waiting for all fuzz jobs to complete...");
