@@ -78,12 +78,13 @@ def finialize_fuzzing(ql: Qiling, user_data: Any) -> None:
     ql.emu.save_records_to_queue(checker=lambda records: have_overlaps(records))
 
 
-def pivot_df_not_hit(ql: Qiling, cur) -> None:
+def pivot_df_not_hit(ql: Qiling, ta_mgr) -> None:
     ql.log.info(
         Fore.RED
-        + f"[{cur}] double fetch location not reproduced!"
+        + f"double fetch location not reproduced!"
         + Style.RESET_ALL
     )
+    ta_mgr.log.info(f"double fetch location not reproduced!")
     ql.stop()
 
 
@@ -1046,8 +1047,6 @@ class TAEMU:
 
         df_records = []
 
-        
-
         if df_reg_hash is not None:
            for r in df_meta['records']:
                 if str(r["regs"]["reg_hash"]) == str(df_reg_hash):
@@ -1055,13 +1054,37 @@ class TAEMU:
                         df_records.append(r)
 
         if len(df_records) > 1:
-            print(f'multiple df record candidates: {df_records}')
-            return
+            # unicorn has an issue where the registers in a read callback stay the same for a basic block
+            # this leads to duplicate reg_hashes
+            # but since they're all in the same basic block we can just fuzz starting from there
+            print(f'multiple df record candidates: {df_records}, merging ranges')
+            ranges= []
+            for df_record in df_records:
+                addr = df_record["addr"]
+                size = df_record["size"]
+                found = False
+                for i, rangee in enumerate(ranges):
+                    if rangee[0] == addr + size:
+                        ranges[i] = (addr, rangee[1])
+                        found = True
+                        break
+                    if rangee[1] == addr:
+                        ranges[i] = (rangee[0], addr+size)
+                        found = True
+                        break
+                if not found:
+                    ranges.append((addr, addr+size))
+            if len(ranges) == 1:
+                df_records[0]["addr"] = ranges[0][0]
+                df_records[0]["size"] = ranges[0][1] - ranges[0][0]
+                self.log.info(f"merged range: {ranges[0]}")
+            else:
+                self.log.info(f"non overlapping ranges in multiple df candidates {ranges}")
+                return
 
         if len(df_records) == 0:
             print(f'no df record candidates from {df_meta["records"]}')
             return
-
 
         df_record = df_records[0]
 
@@ -1070,8 +1093,9 @@ class TAEMU:
             print(f'!!!!! THERE IS NO POINT IN FUZZING A WRITE TO SHARED MEMORY !!!!!!!')
             print(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
             print(f'"-.-')
+            self.log.info(f"trying to fuzz write double fetch!! -> returning")
             return
-        
+
         self.log.info(f"df fuzz args is {input_file} {fuzz_harness} {fuzz_replay}")
         self.log.info(f"    df@{hex(df_record['regs']['PC'])}->{hex(df_record['addr'])}:{df_record['size']} from {df_seed}")
         
@@ -1188,7 +1212,7 @@ class TAEMU:
             for e in exit_addr:
                 exit_hooks.append(
                     self.ql.hook_address(
-                        pivot_df_not_hit, e, user_data="TA_InvokeCommandEntryPoint"
+                        pivot_df_not_hit, e, user_data=self
                     )
                 )
             self.ql.hook_address_front(
@@ -1232,7 +1256,7 @@ class TAEMU:
             for e in exit_addr:
                 exit_hooks.append(
                     self.ql.hook_address(
-                        pivot_df_not_hit, e, user_data="TA_InvokeCommandEntryPoint"
+                        pivot_df_not_hit, e, user_data=self
                     )
                 )
             self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)
