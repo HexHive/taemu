@@ -10,17 +10,14 @@ def place_input_callback(ql: Qiling, input: bytes, _: int):
     if len(input) < 4:
         return False
 
-    ptypes = 0
-    cmds = list(range(0x1000, 0x1010)) + list(range(0x2000, 0x2010))
+    cmds = [0xb001, 0x2114, 0x102, 0x300, 0xff03, 0xff05, 0xff04, 0xff06, 0xff07, 0xf600, 0xff01, 0xff02, 0xf002]
     cmd = cmds[input[0] % len(cmds)]
-    data = p32(cmd) + input[1:]
+    data = input[1:]
     command_params = []
-    command_params.append(MemRefParam(data, len(data)))
-    command_params.append(MemRefParam(bytes(0x1000), 0x1000))
+    command_params.append(MemRefParam(data + (0x1008-len(data))*b"\x00", 0x1008))
+    command_params.append(MemRefParam(bytes(0x1008), 0x1008))
     command_params.append(NoneParam())
     command_params.append(NoneParam())
     ptypes = 0x65
-    setup_fuzz(
-        ql, 1, ptypes, command_params, input
-    )  # assume the session is already set
+    setup_fuzz(ql, cmd, ptypes, command_params, input)
     return True

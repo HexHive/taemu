@@ -22,6 +22,7 @@ def place_input_callback(ql: Qiling, input: bytes, _: int):
         return False
 
     cmds = [0x1000, 0x1005, 0x1006]
+    cmds += list(range(0x101b, 0x1027)) + list(range(0x2000, 0x2008))
     cmd = cmds[input[0] % len(cmds)]
     data = p32(cmd) + input[1:]
     

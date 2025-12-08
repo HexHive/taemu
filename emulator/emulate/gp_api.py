@@ -322,7 +322,8 @@ def snprintf(ql: Qiling, hook_data):
             return
         ql.mem.write(s, out_str)
         hook_data.emu.writeback_shm(s, len(out_str))
-    except unicorn.unicorn_py3.unicorn.UcError:
+    except unicorn.unicorn_py3.unicorn.UcError as e:
+        raise e
         crash(ql, hook_data.func_name)
         return
 

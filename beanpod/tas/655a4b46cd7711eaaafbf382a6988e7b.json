@@ -1,4 +1,30 @@
 {
+    "inline": {
+        "dm_data_base_init": {
+            "addr": 96916,
+            "type": "tee"
+        },
+       "tz_log": {
+            "addr": 49508,
+            "type": "tee"
+        } ,
+        "tz_dump_mem_info": {
+            "addr": 50520,
+            "type": "tee"
+        },
+        "error_set": {
+            "addr": 115484,
+            "type": "tee"
+        },
+        "dm_update_data_base": {
+            "addr": 97992,
+            "type": "tee"
+        },
+        "dm_dump_data_base": {
+            "addr": 96032,
+            "type": "tee"
+        }
+    },
     "TA_InvokeCommandEntryPoint_start": 48576,
     "TA_InvokeCommandEntryPoint_end": [
         48664,
@@ -15,10 +41,10 @@
     ],
     "TA_CloseSessionEntryPoint_start": 48936,
     "TA_CloseSessionEntryPoint_end": [
-        -999628
+        48948
     ],
     "TA_DestroyEntryPoint_start": 48952,
     "TA_DestroyEntryPoint_end": [
-        -999612
+        48964
     ]
 }
