@@ -8,9 +8,6 @@ export AFL_AUTORESUME=1
 
 
 
-#rm rootfs/*ta
-#rm rootfs/*json
-
 if [ -z "$1" ]; then 
     echo "usage: fuzzing ./fuzz.sh <path to ta|harness folder> [--log_file <file>]"
     echo "usage: replay seed ./fuzz.sh <path to ta|harness folder> <path to seed>"

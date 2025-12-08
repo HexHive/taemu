@@ -8,9 +8,6 @@ export AFL_AUTORESUME=1
 
 
 
-#rm rootfs/*ta
-#rm rootfs/*json
-
 if [ -z "$1" ]; then 
     echo "usage: fuzzing ./df_fuzz.sh <path to ta|harness folder> <path to fuzzer seed that triggered the df> <reg_hash of the df entry in .meta> [--log_file <file>]"
     exit 0
