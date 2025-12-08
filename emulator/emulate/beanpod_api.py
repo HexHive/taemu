@@ -16,7 +16,64 @@ from .gp_api import TEE_LogvPrintf, TEE_LogPrintf
 fd2file = {}
 STROAGE = "emulate/files/L2/"
 
+RPMSESSIONS = {}
+RPMSESSION_BUFFER_L2_MEM = 0x920000
 
+RPMSESSIONS_L1 = None
+RPMSESSION_BUFFER_L1_MEM = 0x980000
+
+def ut_pf_rpmb_open(ql: Qiling, func_name):
+    global RPMSESSIONS_L1
+
+    ret = TEE_SUCCESS
+    if RPMSESSIONS_L1 == None:
+        ql.log.info("ut_pf_rpmb_open: ")
+    else:
+        ql.log.info("ut_pf_rpmb_open: more than one L1 rpmb session, could be wrong!")
+    m = ql.mem.map_anywhere(
+        0x1000, minaddr=RPMSESSION_BUFFER_L1_MEM, info="Rpmsession_L1_buffer"
+    )
+    RPMSESSIONS_L1 = m
+
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def ut_pf_rpmb_read_data_blocks(ql: Qiling, func_name):
+    global RPMSESSIONS_L1
+    params = ql.os.resolve_fcall_params(
+        {"sessionID": UINT, "buf": POINTER, "size": UINT}
+    )
+    para_sessionID = params["sessionID"]
+    para_buf = params["buf"]
+    para_size = params["size"]
+
+    if RPMSESSIONS_L1 == None:
+        ql.log.info("ut_pf_rpmb_read_data_blocks: empty session")
+    else:
+        content = bytes(ql.mem.read(RPMSESSIONS_L1, para_size))
+        ql.mem.write(para_buf, content)
+
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def ut_pf_rpmb_cp_write_data_blocks(ql: Qiling, func_name):
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def ut_pf_rpmb_close(ql: Qiling, func_name):
+    global RPMSESSIONS_L1
+
+    ret = TEE_SUCCESS
+    if RPMSESSIONS_L1 == None:
+        ql.log.info("ut_pf_rpmb_close: empty session")
+    else:
+        ql.mem.unmap(RPMSESSIONS_L1, 0x1000)
+        RPMSESSIONS_L1 = None
+
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
 def ut_pf_log_msg(ql: Qiling, hook_data):
     TEE_LogvPrintf(ql, hook_data)
 
