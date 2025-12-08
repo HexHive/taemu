@@ -1173,7 +1173,7 @@ class TAEMU:
                 return
             for e in exit_hooks:
                 self.ql.hook_del(e) 
-            exit_hooks = []
+            exit_hooks.clear()
             for e in exit_addr:
                 exit_hooks.append(
                     self.ql.hook_address(
@@ -1198,7 +1198,7 @@ class TAEMU:
             self.log.info(f"[TAEMU] starting afl")
             for e in exit_hooks:
                 self.ql.hook_del(e)
-            exit_hooks = []
+            exit_hooks.clear()
             self.ql.hook_del(df_hook)
             ql_afl_fuzz(
                 _ql,
