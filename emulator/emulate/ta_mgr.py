@@ -31,7 +31,7 @@ from .emulator_no_loader import (
     hook_ta_custom,
     teegris_32_setup,
 )
-from .common import CRASH_PC, NOTIMPL_PC
+from .common import CRASH_PC, NOTIMPL_PC, CRASH_PC_2
 from typing import Any, Callable, Optional, List, Dict
 from .fuzz_record import Record, Status
 
@@ -949,8 +949,8 @@ class TAEMU:
         def crash_validation(
             ql: Qiling, result: int, input_bytes: bytes, round: int
         ) -> bool:
-            print("crash callback: ", result)
-            if ql.arch.regs.arch_pc == CRASH_PC or ql.arch.regs.arch_pc == NOTIMPL_PC:
+            print("crash callback: ", result, hex(ql.arch.regs.arch_pc))
+            if ql.arch.regs.arch_pc == CRASH_PC or ql.arch.regs.arch_pc == CRASH_PC_2 or ql.arch.regs.arch_pc == NOTIMPL_PC:
                 return True
             if result == 6:
                 return True
@@ -1157,7 +1157,7 @@ class TAEMU:
         def crash_validation(
             ql: Qiling, result: int, input_bytes: bytes, round: int
         ) -> bool:
-            print("crash callback: ", result)
+            print("crash callback: ", result, hex(ql.arch.regs.arch_pc))
             if ql.arch.regs.arch_pc == CRASH_PC or ql.arch.regs.arch_pc == NOTIMPL_PC:
                 return True
             if result == 6:

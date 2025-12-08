@@ -63,7 +63,7 @@ def parse_fmt_str(ql, format_param, final_params, func_name, arg=None):
                 final_params[f"{i}"] = INT
         params = ql.os.resolve_fcall_params(final_params)
         if (
-            func_name == "TEE_Logprintf"
+            func_name == "TEE_LogPrintf"
             or func_name == "printf"
             or func_name == "msee_ta_printf_va"
         ):

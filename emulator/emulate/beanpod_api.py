@@ -171,3 +171,19 @@ def ut_pf_ts_cp_close(ql: Qiling, hook_data):
 
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def ut_pf_km_get_hmac_key(ql: Qiling, func_name):
+    # will go into subroutine so lr needs to be recorded
+    current_lr = ql.arch.regs.lr
+    # ql.arch.regs.arch_sp -= 0x38
+
+    params = ql.os.resolve_fcall_params({"a1": UINT, "a2": POINTER})
+    a1 = params["a1"]
+    a2 = params["a2"]
+    hmac_size = ql.mem.read_ptr(a2)
+
+    ql.log.info(f"ut_pf_km_get_hmac_key {hex(a1)}, {hex(a2)}, {hex(hmac_size)}")
+
+    ql.mem.write(a1, b"a" * hmac_size)
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = current_lr
