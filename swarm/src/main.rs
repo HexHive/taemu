@@ -112,7 +112,7 @@ async fn run_fuzz_job(
         duration
     );
 
-    let container = match pool.get() {
+    let container = match pool.get_with_timeout() {
         Ok(container) => container,
         Err(e) => {
             error!(
@@ -122,16 +122,6 @@ async fn run_fuzz_job(
             return Err(format!("Failed to acquire container: {}", e));
         }
     };
-
-    debug!(
-        LOGGER,
-        "[Job {}] Command: bash {:?} {:?} {:?} {:?}",
-        job_num,
-        job.fuzz_script,
-        job.ta_harness_dir,
-        job.ta_df_seed.as_ref().unwrap_or(&PathBuf::from("")),
-        job.ta_df_context,
-    );
 
     match tokio::time::timeout(timeout_duration, async {
         let output = container

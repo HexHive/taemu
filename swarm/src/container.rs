@@ -5,6 +5,8 @@ use bollard::models::{ExecConfig, HostConfig};
 use chrono::{DateTime, Utc};
 use futures::StreamExt;
 use std::error::Error as StdError;
+use crate::LOGGER;
+use slog::debug;
 
 pub trait Management: Send + Sync + 'static {
     fn new(image_name: String, container_name: String) -> Self;
@@ -99,7 +101,7 @@ impl Management for Emulator {
 
     async fn execute_command(&self, command: Vec<String>) -> Result<String, BollardError> {
         let docker = connect_docker_client();
-        println!("Emulator executing command: {:?}", command);
+        debug!(LOGGER, "Emulator executing command: {:?}", command);
 
         let exec = docker
             .create_exec(
@@ -148,7 +150,7 @@ mod tests {
             .execute_command(vec!["echo".to_string(), "hello".to_string()])
             .await
             .unwrap();
-        eprintln!("Emulator output: {:?}", output);
+        println!("Emulator output: {:?}", output);
         container.destroy().await.unwrap();
         assert_eq!(output, "hello\n");
     }
@@ -168,7 +170,7 @@ mod tests {
             ])
             .await
             .unwrap();
-        eprintln!("Emulator output: {:?}", output);
+        println!("Emulator output: {:?}", output);
         container.destroy().await.unwrap();
     }
 }

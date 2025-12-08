@@ -5,6 +5,8 @@ use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
+use crate::LOGGER;
+use slog::error;
 
 #[derive(Debug)]
 pub struct ResourcePoolError(Option<String>);
@@ -63,6 +65,28 @@ impl<T: Management + std::fmt::Debug> ResourcePool<T> {
         ))))
     }
 
+    pub fn get_with_timeout(&self) -> Result<T, ResourcePoolError> {
+        let mut wait_time = 5;
+        loop {
+            match self.get() {
+                Ok(resource) => {
+                    return Ok(resource);
+                }
+                Err(e) => {
+                    error!(
+                        LOGGER,
+                        "Failed to acquire container from pool: {:?}", e
+                    );
+                    if e.to_string().contains("timeout") {
+                        std::thread::sleep(Duration::from_secs(10 + wait_time));
+                        wait_time *= 2;
+                        continue;
+                    }
+                }
+            }
+        }
+    }
+
     pub fn get(&self) -> Result<T, ResourcePoolError> {
         self.get_timeout(self.0.timeout)
     }
@@ -81,7 +105,7 @@ impl<T: Management + std::fmt::Debug> ResourcePool<T> {
 
             if self.0.available.wait_until(&mut resources, end).timed_out() {
                 return Err(ResourcePoolError(Some(
-                    "Failed to get resource since timeout happens. Timeout".to_string(),
+                    "Failed to get resource since timeout happens.".to_string(),
                 )));
             }
         }
