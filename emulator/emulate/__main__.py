@@ -18,17 +18,11 @@ from concurrent_log_handler import ConcurrentRotatingFileHandler
 
 
 DIR = dir_path = os.path.dirname(os.path.realpath(__file__))
-ROOTFS_INIT_PATH = os.path.join(DIR, "../rootfs")
-ROOTFS_PATH = os.path.join(DIR, "../../../rootfs")
+ROOTFS_PATH = os.path.join(DIR, "../rootfs")
 TEE = ""
 
 def to_int(x):
     return int(x, 0)
-
-def setup_rootfs():
-    if os.path.exists(ROOTFS_PATH):
-        os.system(f'rm -rf {ROOTFS_PATH}')
-    os.system(f'cp -r {ROOTFS_INIT_PATH} {ROOTFS_PATH}')
 
 def setup_args():
     """Returns an initialized argument parser."""
@@ -163,8 +157,6 @@ if __name__ == "__main__":
         TEE = "trustedcore"
     if TEE == "":
         TEE = args.tee
-
-    setup_rootfs()
 
     if TEE == "beanpod":
         if ta_elf.header["e_flags"] & 0x200 == 0:

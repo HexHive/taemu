@@ -38,6 +38,7 @@ def shared_read_callback(
     if ql.emu.status == Status.INTERACTIVE:
         assert memref.shm is not None
         ql.mem.write(memref.shm_pybuf, memref.shm.to_bytes())
+    ql.log.debug(f'shared mem read {hex(address)} pc:{hex(ql.arch.regs.arch_pc)}')
     if ql.emu.status in (Status.FUZZING, Status.REPLAYING) and not ql.emu.init_fuzz:
         ql.emu.update_records(
             key=ql.emu.curr_record_key,

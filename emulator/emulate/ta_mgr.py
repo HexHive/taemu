@@ -1173,6 +1173,7 @@ class TAEMU:
                 return
             for e in exit_hooks:
                 self.ql.hook_del(e) 
+            exit_hooks = []
             for e in exit_addr:
                 exit_hooks.append(
                     self.ql.hook_address(
@@ -1189,14 +1190,15 @@ class TAEMU:
         def start_afl(_ql: Qiling):
             if fuzz_replay:
                 return
-            if self.init_fuzz:
-                return
+            #if self.init_fuzz:
+            #    return
             print(self.hash_regs(), df_record['regs']['reg_hash'])
             if self.hash_regs() != df_record['regs']['reg_hash']:
                 return
             self.log.info(f"[TAEMU] starting afl")
             for e in exit_hooks:
                 self.ql.hook_del(e)
+            exit_hooks = []
             self.ql.hook_del(df_hook)
             ql_afl_fuzz(
                 _ql,
@@ -1209,12 +1211,7 @@ class TAEMU:
 
         if fuzz_replay:
             self.ql._debugger = self._debugger
-            for e in exit_addr:
-                exit_hooks.append(
-                    self.ql.hook_address(
-                        pivot_df_not_hit, e, user_data=self
-                    )
-                )
+            
             self.ql.hook_address_front(
                 callback=place_df_replay,
                 address=df_record['regs']['PC']
@@ -1232,9 +1229,26 @@ class TAEMU:
             )
         
         if init_fuzz is not None:
+            if fuzz_replay:
+                for e in exit_addr:
+                    exit_hooks.append(
+                        self.ql.hook_address(
+                            pivot, e, user_data=self
+                        )
+                    )
             self.init_fuzz = True
             init_fuzz(self, sid)
             self.init_fuzz = False
+            if fuzz_replay:
+                for e in exit_hooks:
+                    self.ql.hook_del(e) 
+                exit_hooks = []
+                for e in exit_addr:
+                    exit_hooks.append(
+                        self.ql.hook_address(
+                            pivot_df_not_hit, e, user_data=self
+                        )
+                    )
 
         df_seed_data = open(df_seed, "rb").read()
 
