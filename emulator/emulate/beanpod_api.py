@@ -74,9 +74,24 @@ def ut_pf_rpmb_close(ql: Qiling, func_name):
 
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def tz_log(ql: Qiling, hook_data):
+    TEE_LogvPrintf(ql, hook_data)
+
 def ut_pf_log_msg(ql: Qiling, hook_data):
     TEE_LogvPrintf(ql, hook_data)
 
+def tz_dump_mem_info(ql: Qiling, hook_data):
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def error_set(ql: Qiling, hook_data):
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def dm_update_data_base(ql: Qiling, hook_data):
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def dm_dump_data_base(ql: Qiling, hook_data):
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def mdrv_open(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(0x123)
@@ -244,3 +259,6 @@ def ut_pf_km_get_hmac_key(ql: Qiling, func_name):
     ql.mem.write(a1, b"a" * hmac_size)
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = current_lr
+
+def dm_data_base_init(ql: Qiling, func_name):
+    ql.arch.regs.arch_pc = ql.arch.regs.lr

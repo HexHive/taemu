@@ -88,6 +88,9 @@ def parse_fmt_str(ql, format_param, final_params, func_name, arg=None):
             del params["nr1"]
             del params["nr2"]
             del params["linenumber"]
+        elif func_name == "tz_log":
+            del params["format"]
+            del params["log_level"]
         else:
             ql.log.error(f"unkown printf format resolving function: {func_name}")
             ql.emu_stop()
