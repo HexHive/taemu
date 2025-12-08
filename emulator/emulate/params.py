@@ -39,6 +39,7 @@ def shared_read_callback(
         assert memref.shm is not None
         ql.mem.write(memref.shm_pybuf, memref.shm.to_bytes())
     ql.log.debug(f'shared mem read {hex(address)} pc:{hex(ql.arch.regs.arch_pc)}')
+    ql.log.debug(f'shared mem read regs: {ql.arch.regs.save()}')
     if ql.emu.status in (Status.FUZZING, Status.REPLAYING) and not ql.emu.init_fuzz:
         ql.emu.update_records(
             key=ql.emu.curr_record_key,
@@ -100,7 +101,7 @@ def setup_fuzz(ql: Qiling, cmd, ptypes, params, input):
 
 def setup_params_fuzz(ql: Qiling, cmd, ptypes, params):
     return setup_params(
-        ql, None, cmd, ptypes, params, is_32bit=ql.arch.pointersize == 4
+        ql, ql.emu.fuzz_session, cmd, ptypes, params, is_32bit=ql.arch.pointersize == 4
     )
 
 
@@ -136,7 +137,7 @@ def setup_params(ql: Qiling, session, cmd, ptypes, params, is_32bit=False):
             pybuf = ql.mem.map_anywhere(
                 size, minaddr=min_addr, perms=3, info=f"shared_memory_{i}"
             )
-            if param.is_shared:
+            if param.is_shared and not ql.emu.init_fuzz:
                 param.shm_pybuf = pybuf
                 ql.mem.write(pybuf, buf[:size])
                 ql.hook_mem_write(

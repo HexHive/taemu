@@ -11,7 +11,7 @@ from qiling.const import QL_VERBOSE
 from qiling.const import QL_ARCH, QL_OS, QL_VERBOSE
 from .fuzz_record import SimpleFilterRecorder, Record
 from .redis_queue import RedisQueue
-from .emulator_no_loader import simple_diassembler, trace_block, simple_diassembler
+from .emulator_no_loader import simple_diassembler, trace_block, simple_diassembler, unicorn_why
 from .ta_mgr import TAEMU, Status
 from .custom.tc_loader import tc_load
 from concurrent_log_handler import ConcurrentRotatingFileHandler
@@ -85,6 +85,13 @@ def setup_args():
         required=False,
         help="path to fuzz replay seed",
         default=None,
+    )
+    parser.add_argument(
+        "--sus_in_replay",
+        required=False,
+        help="replay sus input",
+        default=False,
+        action="store_true",
     )
     parser.add_argument(
         "--df_replay",
@@ -252,6 +259,8 @@ if __name__ == "__main__":
         ql.hook_code(simple_diassembler, user_data=ql.arch.disassembler)
     if args.trace:
         ql.hook_block(trace_block)
+    if args.sus_in_replay:
+        ql.hook_code(unicorn_why)
         
     
     if args.fuzz or args.fuzz_replay:

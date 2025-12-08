@@ -185,6 +185,7 @@ class TAEMU:
         self.curr_params = None
         self.session_counter = 0
         self.init_fuzz = False
+        self.df_replay_placed = False
         self.status = status
         self.log.info(f"TAEMU initialized in {self.status.name} mode")
 
@@ -194,6 +195,7 @@ class TAEMU:
             # only visiable for one thread (separate copy on the process level)
             self.curr_record_key = None
             self.curr_input = None
+            self.fuzz_session = None
             self._record_meta: Dict[str, Any] = {}
             self._record_lock = threading.RLock()
             self._record_max_items = record_max_items
@@ -324,7 +326,11 @@ class TAEMU:
     def start(self, *args):
         if self.status in (Status.FUZZING, Status.REPLAYING):
             print(*args)
-            self.start_fuzz(args[0], args[1], fuzz_replay=(self.status == Status.REPLAYING))
+            self.start_fuzz(
+                args[0], 
+                args[1], 
+                fuzz_replay=(self.status == Status.REPLAYING),
+            )
         elif self.status in (Status.DF_FUZZING, Status.DF_REPLAY):
             self.df_fuzz(*args, fuzz_replay=(self.status == Status.DF_REPLAY))
         else:
@@ -347,7 +353,7 @@ class TAEMU:
                     and pointer >= p.shm_pybuf
                     and pointer <= p.shm_pybuf + p.size
                 ):
-                    if self.status in (Status.FUZZING, Status.REPLAYING):
+                    if self.status in (Status.FUZZING, Status.REPLAYING) and not self.init_fuzz:
                         self.update_records(
                             key=self.curr_record_key,
                             item=Record(
@@ -904,6 +910,8 @@ class TAEMU:
             self.ql.log.error(f"unknown session {sid}")
             return TEE_ERROR_BAD_STATE
 
+        self.fuzz_session = session
+
         def default_place_input_callback(ql: Qiling, input: bytes, _: int):
             print(f"Placing input: {input}")
 
@@ -1130,6 +1138,7 @@ class TAEMU:
             self.ql.log.error(f"unknown session {sid}")
             return TEE_ERROR_BAD_STATE
 
+        self.fuzz_session = session
         init_fuzz = None
         # import shit
         
@@ -1166,9 +1175,14 @@ class TAEMU:
                     df_data = df_data + (df_size-len(df_data))*b"\x00"
                 ql.mem.write(df_record['addr'], df_data[:df_size])
 
+        
         def place_df_replay(ql: Qiling):
+            if self.df_replay_placed:
+                return
+            ql.log.debug(f"place_df_replay {ql.arch.regs.save()}")
             if self.init_fuzz:
                 return
+            ql.log.debug(f"hashes: {self.hash_regs()} {df_record['regs']['reg_hash']}")
             if self.hash_regs() != df_record['regs']['reg_hash']:
                 return
             for e in exit_hooks:
@@ -1180,9 +1194,11 @@ class TAEMU:
                         pivot, e, user_data="TA_InvokeCommandEntryPoint"
                     )
                 ) 
+            #self.ql.hook_del(df_hook)
             self.log.info(f"placing double fetch data")
             df_data = open(input_file, "rb").read()
             df_write(ql, df_data) 
+            self.df_replay_placed = True
 
         def place_df_fuzz(ql: Qiling, input: bytes, _:int): 
             df_write(ql, input)
@@ -1211,8 +1227,7 @@ class TAEMU:
 
         if fuzz_replay:
             self.ql._debugger = self._debugger
-            
-            self.ql.hook_address_front(
+            df_hook = self.ql.hook_address_front(
                 callback=place_df_replay,
                 address=df_record['regs']['PC']
             ) 
@@ -1252,7 +1267,6 @@ class TAEMU:
 
         df_seed_data = open(df_seed, "rb").read()
 
-        self.ql.os.fcall.cc.setRawParam(0, session.session_id_mem)
         if not place_input_callback(self.ql, df_seed_data, -1):
             print("place_input_callback failed in setup for df fuzz..")
             exit(-1)

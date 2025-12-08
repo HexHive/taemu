@@ -78,17 +78,24 @@ def get_api_impl(func_name):
 
 
 def simple_diassembler(ql: Qiling, address: int, size: int, md: Cs) -> None:
-    ql.log.debug(f'PC {hex(ql.arch.regs.pc)}')
+    ql.log.info(f'PC {hex(ql.arch.regs.pc)}')
 
+def unicorn_why(ql: Qiling, address: int, size: int):
+    return
 
 def nop_instruction(ql: Qiling, offset, lib_name):
     # nops the instructions at an address
     ql.patch(offset, b"\x00\x00\xa0\xe1", lib_name)
 
 
+def is_ql_resolve(addr):
+    if addr >= ql_resolve_mem and addr <= ql_resolve_mem+ql_resolve_mem_size:
+        return True
+    return False
+
 counter = 0
 ql_resolve_mem = 0x99999000
-
+ql_resolve_mem_size = 0x1000
 
 def fixup_got(ql: Qiling, ta_path, ta_elf: ELF, is_mitee=False):
     # ... :/
@@ -117,7 +124,7 @@ def hook_ta_dl(
     counter = 0
     ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
     ta_elf.address = ta_base
-    ql.mem.map(ql_resolve_mem, 0x1000, info="dl_resolve")
+    ql.mem.map(ql_resolve_mem, ql_resolve_mem_size, info="dl_resolve")
     for func, addr in ta_elf.plt.items():
         if func not in ta_elf.got:
             continue
