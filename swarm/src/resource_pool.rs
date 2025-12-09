@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 use crate::LOGGER;
-use slog::error;
+use slog::{error, info};
 
 #[derive(Debug)]
 pub struct ResourcePoolError(Option<String>);
@@ -132,15 +132,27 @@ pub async fn drop_resources<M>(pool: &ResourcePool<M>) -> Result<(), ResourcePoo
 where
     M: Management + std::fmt::Debug,
 {
+    info!(
+        LOGGER,
+        "Dropping resources from pool..."
+    );
+
     let mut resources = pool.0.resources.lock();
-    for resource in resources.iter() {
-        if let Err(_e) = resource.destroy().await {
-            return Err(ResourcePoolError(Some(format!(
-                "Failed to destroy resource: {:?}",
-                resource
-            ))));
+
+    for _ in 0..resources.len() {
+        if let Some(resource) = resources.pop() {
+            if let Err(_e) = resource.destroy().await {
+                return Err(ResourcePoolError(Some(format!(
+                    "Failed to destroy resource: {:?}",
+                    resource
+                ))));
+            }
         }
     }
-    resources.clear();
+
+    info!(
+        LOGGER,
+        "All resources are dropped from pool."
+    );
     Ok(())
 }

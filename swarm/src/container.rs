@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use futures::StreamExt;
 use std::error::Error as StdError;
 use crate::LOGGER;
-use slog::debug;
+use slog::{debug, info};
 
 pub trait Management: Send + Sync + 'static {
     fn new(image_name: String, container_name: String) -> Self;

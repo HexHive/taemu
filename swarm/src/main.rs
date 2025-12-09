@@ -138,7 +138,6 @@ async fn run_fuzz_job(
             ])
             .await?;
         info!(LOGGER, "Emulator: command output: {}", output);
-        pool.put_back(container);
         Ok::<(), BollardError>(())
     })
     .await
@@ -153,6 +152,7 @@ async fn run_fuzz_job(
                 job.ta_df_context.unwrap_or_default(),
                 Instant::now().duration_since(start_time).as_secs() / 60,
             );
+            pool.put_back(container);
             //TODO: check if the job is successful
             return Ok(true);
         }
@@ -161,6 +161,7 @@ async fn run_fuzz_job(
                 "[Job {}] Task join error for {:?}: {}",
                 job_num, job.ta_harness_dir, e
             );
+            pool.put_back(container);
             return Err(e.to_string());
         }
         Err(_) => {
@@ -171,7 +172,7 @@ async fn run_fuzz_job(
                 job.ta_harness_dir,
                 Instant::now().duration_since(start_time).as_secs() / 60,
             );
-
+            pool.put_back(container);
             return Ok(true);
         }
     }
