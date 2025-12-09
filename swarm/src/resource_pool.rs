@@ -65,7 +65,7 @@ impl<T: Management + std::fmt::Debug> ResourcePool<T> {
         ))))
     }
 
-    pub fn get_with_timeout(&self) -> Result<T, ResourcePoolError> {
+    pub async fn get_with_timeout(&self) -> Result<T, ResourcePoolError> {
         let mut wait_time = 5;
         loop {
             match self.get() {
@@ -78,7 +78,7 @@ impl<T: Management + std::fmt::Debug> ResourcePool<T> {
                         "Failed to acquire container from pool: {:?}", e
                     );
                     if e.to_string().contains("timeout") {
-                        std::thread::sleep(Duration::from_secs(10 + wait_time));
+                        tokio::time::sleep(Duration::from_secs(10 + wait_time)).await;
                         wait_time *= 2;
                         continue;
                     }

@@ -3,7 +3,7 @@ use crate::resource_pool::ResourcePool;
 use bollard::errors::Error as BollardError;
 use clap::Parser;
 use lazy_static::lazy_static;
-use slog::{Drain, Level, Logger, debug, error, info, o, warn};
+use slog::{Drain, Level, Logger, error, info, o, warn};
 use std::env;
 use std::path::{Path, PathBuf};
 use std::process;
@@ -112,7 +112,7 @@ async fn run_fuzz_job(
         duration
     );
 
-    let container = match pool.get_with_timeout() {
+    let container = match pool.get_with_timeout().await {
         Ok(container) => container,
         Err(e) => {
             error!(

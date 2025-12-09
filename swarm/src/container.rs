@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use futures::StreamExt;
 use std::error::Error as StdError;
 use crate::LOGGER;
-use slog::{debug, info};
+use slog::{debug};
 
 pub trait Management: Send + Sync + 'static {
     fn new(image_name: String, container_name: String) -> Self;
@@ -31,6 +31,7 @@ pub trait Management: Send + Sync + 'static {
 
 #[derive(Debug)]
 pub struct Emulator {
+    docker: Docker,
     image_name: String,
     pub container_name: String,
     container_id: Option<String>,
@@ -40,7 +41,10 @@ pub struct Emulator {
 
 impl Management for Emulator {
     fn new(image_name: String, container_name: String) -> Self {
+        let docker = connect_docker_client();
+
         Emulator {
+            docker,
             image_name,
             container_name,
             container_id: None,
@@ -50,7 +54,6 @@ impl Management for Emulator {
     }
 
     async fn create(&mut self) -> Result<(), Box<dyn StdError + 'static>> {
-        let docker = connect_docker_client();
         let config = bollard::models::ContainerCreateBody {
             image: Some(self.image_name.clone()),
             tty: Some(true),
@@ -58,7 +61,7 @@ impl Management for Emulator {
             ..Default::default()
         };
 
-        let id = docker
+        let id = self.docker
             .create_container(
                 Some(
                     bollard::query_parameters::CreateContainerOptionsBuilder::default()
@@ -70,7 +73,7 @@ impl Management for Emulator {
             .await?
             .id;
 
-        docker
+        self.docker
             .start_container(
                 &id,
                 None::<bollard::query_parameters::StartContainerOptions>,
@@ -84,8 +87,7 @@ impl Management for Emulator {
     }
 
     async fn destroy(&self) -> Result<(), Box<dyn StdError + 'static>> {
-        let docker = connect_docker_client();
-        docker
+        self.docker
             .remove_container(
                 &self.container_name.as_str(),
                 Some(
@@ -100,10 +102,9 @@ impl Management for Emulator {
     }
 
     async fn execute_command(&self, command: Vec<String>) -> Result<String, BollardError> {
-        let docker = connect_docker_client();
         debug!(LOGGER, "Emulator executing command: {:?}", command);
 
-        let exec = docker
+        let exec = self.docker
             .create_exec(
                 &self.container_name.as_str(),
                 ExecConfig {
@@ -116,7 +117,7 @@ impl Management for Emulator {
             .await?
             .id;
 
-        let ready_result = docker
+        let ready_result = self.docker
             .start_exec(&exec, None::<StartExecOptions>)
             .await
             .expect("Failed to execute command in container.");
