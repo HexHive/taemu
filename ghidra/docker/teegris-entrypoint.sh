@@ -10,7 +10,7 @@ IN=${IN:-/data}
 echo $@
 TA=${1}
 TA_PATH="/teegris_tas/$TA"
-TIMEOUT=300
+TIMEOUT=3000
 
 PROJECT="GhidraProject"
 
