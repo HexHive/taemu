@@ -103,7 +103,7 @@ async fn run_fuzz_job(
 ) -> Result<bool, String> {
     let timeout_duration = Duration::from_secs(duration * 60);
 
-    let container = match pool.get_with_timeout().await {
+    let container = match pool.get_without_timeout(Some(format!("Job {}", job_num))).await {
         Ok(container) => {
             info!(
                 LOGGER,
@@ -116,9 +116,9 @@ async fn run_fuzz_job(
         Err(e) => {
             error!(
                 LOGGER,
-                "[Job {}] Failed to acquire container from pool ({}) and stop the job.", job_num, e
+                "[Job {}] Failed to acquire container from pool ({:?}) and stop the job.", job_num, e
             );
-            return Err(format!("Error: acquire container {}", e));
+            return Err(format!("Error: acquire container {:?}", e));
         }
     };
 

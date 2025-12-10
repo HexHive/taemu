@@ -13,6 +13,8 @@ pub trait Management: Send + Sync + 'static {
         &mut self,
         host_config: Option<HostConfig>,
     ) -> Result<(), Box<dyn StdError + 'static>>;
+
+    #[allow(dead_code)]
     async fn create_with_config(
         &mut self,
         config: ContainerCreateBody,
@@ -94,7 +96,7 @@ impl Management for Emulator {
         self.container_created_at = Some(Utc::now());
         Ok(())
     }
-
+    
     async fn create_with_config(
         &mut self,
         config: ContainerCreateBody,
