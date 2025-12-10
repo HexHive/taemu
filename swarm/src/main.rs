@@ -156,7 +156,8 @@ async fn run_fuzz_job(
     .await
     {
         Ok(Ok(())) => {
-            
+
+            let _ = container.execute_command(vec!["pkill".to_string(), "-9".to_string(), "-f".to_string(), "python3".to_string()]).await;
             warn!(
                 LOGGER,
                 "[Job {}] Fuzz job for {:?} on {:?} {} completed (runtime: {} minute(s)) [Quick Exit!]",
@@ -166,12 +167,15 @@ async fn run_fuzz_job(
                 job.ta_df_context.unwrap_or_default(),
                 Instant::now().duration_since(start_time).as_secs() / 60,
             );
+
             pool.put_back(container);
             //TODO: check if the job is successful
             return Ok(true);
         }
         Ok(Err(e)) => {
-            eprintln!(
+            let _ = container.execute_command(vec!["pkill".to_string(), "-9".to_string(), "-f".to_string(), "python3".to_string()]).await;
+            error!(
+                LOGGER,
                 "[Job {}] Task join error for {:?}: {}",
                 job_num, job.ta_harness_dir, e
             );
@@ -179,6 +183,7 @@ async fn run_fuzz_job(
             return Err(e.to_string());
         }
         Err(_) => {
+            let _ = container.execute_command(vec!["pkill".to_string(), "-9".to_string(), "-f".to_string(), "python3".to_string()]).await;
             info!(
                 LOGGER,
                 "[Job {}] Timeout reached for {:?} with {} minutes running. Stopping process...",
@@ -426,19 +431,22 @@ fn _main_with_logging() -> i32 {
         error!(LOGGER, "{SWARM_TAG} Failed to drop resources: {}", e);
     }
 
-    // kill all python3 processes and their children
-    let _ = Command::new("pkill")
-        .arg("-9")
-        .arg("-f")
-        .arg("python3")
-        .status();
 
     std::thread::sleep(Duration::from_secs(3));
 
     if args.fuzz_script.to_string_lossy().to_string().contains("/fuzz.sh") {
         destroy_redis_container();
-        info!(LOGGER, "Redis container created");
+        info!(LOGGER, "Redis container destroyed");
     }
+
+
+    // kill all python3 processes and their children even inside containers
+    let _ = Command::new("pkill")
+    .arg("-9")
+    .arg("-f")
+    .arg("python3")
+    .status();
+
 
     info!(
         LOGGER,
@@ -448,6 +456,8 @@ fn _main_with_logging() -> i32 {
         error_jobs
     );
 
+
+    
     return 0;
 }
 
