@@ -1,0 +1,1 @@
+docker ps -a | grep "swarm_emu" | awk '{print $1}' | xargs docker rm -f

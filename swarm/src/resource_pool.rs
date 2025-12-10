@@ -68,6 +68,11 @@ impl<T: Management + std::fmt::Debug> ResourcePool<T> {
     pub async fn get_with_timeout(&self) -> Result<T, ResourcePoolError> {
         let mut wait_time = 5;
         loop {
+            if wait_time > 60 * 60 {
+                return Err(ResourcePoolError(Some(
+                    "Failed to acquire container from pool for too long (1 hour).".to_string(),
+                )));
+            }
             match self.get() {
                 Ok(resource) => {
                     return Ok(resource);

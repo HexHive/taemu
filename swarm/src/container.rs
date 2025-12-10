@@ -1,17 +1,17 @@
 use bollard::Docker;
 use bollard::errors::Error as BollardError;
 use bollard::exec::StartExecOptions;
-use bollard::models::{ExecConfig, HostConfig};
+use bollard::models::{ContainerCreateBody, ExecConfig, HostConfig};
 use chrono::{DateTime, Utc};
 use futures::StreamExt;
 use std::error::Error as StdError;
-use crate::LOGGER;
-use slog::{debug};
+
 
 pub trait Management: Send + Sync + 'static {
     fn new(image_name: String, container_name: String) -> Self;
 
-    async fn create(&mut self) -> Result<(), Box<dyn StdError + 'static>>;
+    async fn create(&mut self, host_config: Option<HostConfig>) -> Result<(), Box<dyn StdError + 'static>>;
+    async fn create_with_config(&mut self, config: ContainerCreateBody) -> Result<(), Box<dyn StdError + 'static>>;
     async fn destroy(&self) -> Result<(), Box<dyn StdError + 'static>>;
     async fn execute_command(&self, command: Vec<String>) -> Result<String, BollardError>;
 
@@ -53,14 +53,41 @@ impl Management for Emulator {
         }
     }
 
-    async fn create(&mut self) -> Result<(), Box<dyn StdError + 'static>> {
+    async fn create(&mut self, host_config: Option<HostConfig>) -> Result<(), Box<dyn StdError + 'static>> {
         let config = bollard::models::ContainerCreateBody {
             image: Some(self.image_name.clone()),
             tty: Some(true),
-            host_config: self._host_conf(),
+            host_config: host_config.or(self._host_conf()),
             ..Default::default()
         };
 
+        let id = self.docker
+            .create_container(
+                Some(
+                    bollard::query_parameters::CreateContainerOptionsBuilder::default()
+                        .name(&self.container_name)
+                        .build(),
+                ),
+                config,
+            )
+            .await?
+            .id;
+
+        self.docker
+            .start_container(
+                &id,
+                None::<bollard::query_parameters::StartContainerOptions>,
+            )
+            .await?;
+
+        self.container_id = Some(id);
+        self.container_status = true;
+        self.container_created_at = Some(Utc::now());
+        Ok(())
+    }
+
+
+    async fn create_with_config(&mut self, config: ContainerCreateBody) -> Result<(), Box<dyn StdError + 'static>> {
         let id = self.docker
             .create_container(
                 Some(
@@ -102,8 +129,7 @@ impl Management for Emulator {
     }
 
     async fn execute_command(&self, command: Vec<String>) -> Result<String, BollardError> {
-        debug!(LOGGER, "Emulator executing command: {:?}", command);
-
+        // debug!(LOGGER, "Emulator executing command: {:?}", command);
         let exec = self.docker
             .create_exec(
                 &self.container_name.as_str(),
@@ -138,6 +164,7 @@ fn connect_docker_client() -> Docker {
     Docker::connect_with_socket_defaults().unwrap()
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -146,7 +173,7 @@ mod tests {
     #[tokio::test]
     async fn test_execute_command() {
         let mut container = Emulator::new("ta_emu".to_string(), "test_container".to_string());
-        container.create().await.unwrap();
+        container.create(None).await.unwrap();
         let output = container
             .execute_command(vec!["echo".to_string(), "hello".to_string()])
             .await
@@ -159,7 +186,7 @@ mod tests {
     #[tokio::test]
     async fn test_create_and_destroy() {
         let mut container = Emulator::new("ta_emu".to_string(), "test_container2".to_string());
-        container.create().await.unwrap();
+        container.create(None).await.unwrap();
         assert!(container.container_id.is_some());
         let output = container
             .execute_command(vec![

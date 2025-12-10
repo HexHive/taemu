@@ -3,7 +3,7 @@ use crate::resource_pool::ResourcePool;
 use bollard::errors::Error as BollardError;
 use clap::Parser;
 use lazy_static::lazy_static;
-use slog::{Drain, Level, Logger, error, info, o, warn};
+use slog::{Drain, Level, Logger, debug, error, info, o, warn};
 use std::env;
 use std::path::{Path, PathBuf};
 use std::process;
@@ -102,7 +102,26 @@ async fn run_fuzz_job(
     pool: ResourcePool<container::Emulator>,
 ) -> Result<bool, String> {
     let timeout_duration = Duration::from_secs(duration * 60);
-    let start_time = Instant::now();
+
+
+    let container = match pool.get_with_timeout().await {
+        Ok(container) => {
+            info!(
+                LOGGER,
+                "[Job {}] Acquired container {:?} from pool successfully.",
+                job_num,
+                container.container_name
+            );
+            container
+        }
+        Err(e) => {
+            error!(
+                LOGGER,
+                "[Job {}] Failed to acquire container from pool ({}) and stop the job.", job_num, e
+            );
+            return Err(format!("Error: acquire container {}", e));
+        }
+    };
 
     info!(
         LOGGER,
@@ -112,20 +131,9 @@ async fn run_fuzz_job(
         duration
     );
 
-    let container = match pool.get_with_timeout().await {
-        Ok(container) => container,
-        Err(e) => {
-            error!(
-                LOGGER,
-                "[Job {}] Failed to acquire container from pool: {}", job_num, e
-            );
-            return Err(format!("Failed to acquire container: {}", e));
-        }
-    };
-
+    let start_time = Instant::now();
     match tokio::time::timeout(timeout_duration, async {
-        let output = container
-            .execute_command(vec![
+        let command = vec![
                 "bash".to_string(),
                 job.fuzz_script.to_string_lossy().to_string(),
                 job.ta_harness_dir.to_string_lossy().to_string(),
@@ -135,17 +143,23 @@ async fn run_fuzz_job(
                     .to_string_lossy()
                     .to_string(),
                 job.ta_df_context.clone().unwrap_or_default(),
-            ])
+        ];
+        debug!(LOGGER, "[Job {}] COMMAND => {:?}", job_num, &command);
+        let output = container
+            .execute_command(command)
             .await?;
-        info!(LOGGER, "Emulator: command output: {}", output);
+
+        // for fuzzing, basically the following code will be unreachable.
+        info!(LOGGER, "[Job {}] Emulator for command output => {:?}", job_num, output);
         Ok::<(), BollardError>(())
     })
     .await
     {
         Ok(Ok(())) => {
-            info!(
+            
+            warn!(
                 LOGGER,
-                "[Job {}] Fuzz job for {:?} on {:?} {} completed (runtime: {} minute(s))",
+                "[Job {}] Fuzz job for {:?} on {:?} {} completed (runtime: {} minute(s)) [Quick Exit!]",
                 job_num,
                 job.ta_harness_dir,
                 job.ta_df_seed.as_ref().unwrap_or(&PathBuf::from("")),
@@ -222,6 +236,7 @@ fn run_fuzz_jobs(
                 .as_ref()
                 .unwrap_or(&PathBuf::from(""))
                 .to_string_lossy()
+                .to_string()
                 .contains(args.filter_df_seed.as_str())
         {
             skipped_jobs = skipped_jobs + 1;
@@ -234,8 +249,8 @@ fn run_fuzz_jobs(
 
         handles.push(rt.spawn(async move {
             match run_fuzz_job(job, duration, current_job_num, pool_clone).await {
-                Ok(_) => false, // success
-                Err(_) => true, // error
+                Ok(_) => true, // success
+                Err(_) => false, // error
             }
         }));
     }
@@ -259,12 +274,12 @@ fn run_fuzz_jobs(
     (all_jobs, skipped_jobs, error_jobs)
 }
 
-async fn create_container_pool(args: &Args) -> Result<ResourcePool<container::Emulator>, String> {
+async fn create_container_pool(args: &Args, num_containers: usize) -> Result<ResourcePool<container::Emulator>, String> {
     let mut containers = Vec::new();
-    for i in 0..args.max_parallel {
+    for i in 0..std::cmp::min(args.max_parallel, num_containers) {
         let mut ct = container::Emulator::new("ta_emu".to_string(), format!("swarm_emu_{}", i));
 
-        ct.create()
+        ct.create(None)
             .await
             .map_err(|e| format!("Failed to create container {}: {}", i, e))?;
         containers.push(ct);
@@ -272,6 +287,44 @@ async fn create_container_pool(args: &Args) -> Result<ResourcePool<container::Em
 
     ResourcePool::new(containers, None)
         .map_err(|e| format!("Failed to create resource pool: {}", e))
+}
+
+fn create_redis_container() {
+
+    let status = Command::new("docker")
+    .arg("compose")
+    .arg("-f")
+    .arg("/root/TA_GP_emulator/docker-compose.redis.yml")
+    .arg("up")
+    .arg("-d") 
+    .stdout(std::process::Stdio::null())
+    .stderr(std::process::Stdio::null())
+    .status()
+    .expect("failed to execute docker-compose[for redis]");
+
+    if !status.success() {
+        error!(LOGGER, "docker-compose up failed with: {:?}", status);
+    } else {
+        info!(LOGGER, "docker-compose up completed");
+    }
+}
+
+fn destroy_redis_container() {
+    let status = Command::new("docker")
+    .arg("compose")
+    .arg("-f")
+    .arg("/root/TA_GP_emulator/docker-compose.redis.yml")
+    .arg("down")
+    .stdout(std::process::Stdio::null())
+    .stderr(std::process::Stdio::null())
+    .status()
+    .expect("failed to execute docker-compose[for redis stopping]");
+
+    if !status.success() {
+        error!(LOGGER, "docker-compose down failed with: {:?}", status);
+    } else {
+        info!(LOGGER, "docker-compose down completed");
+    }
 }
 
 fn _main_with_logging() -> i32 {
@@ -330,6 +383,12 @@ fn _main_with_logging() -> i32 {
         return 3;
     }
 
+
+    if args.fuzz_script.to_string_lossy().to_string().contains("/fuzz.sh") {
+        create_redis_container();
+        info!(LOGGER, "Redis container created");
+    }
+
     info!(
         LOGGER,
         "{SWARM_TAG} Starting parallel fuzzing with max {} concurrent jobs on {} TAs...",
@@ -344,7 +403,8 @@ fn _main_with_logging() -> i32 {
         .build()
         .unwrap();
 
-    let pool = match rt.block_on(create_container_pool(&args)) {
+
+    let pool = match rt.block_on(create_container_pool(&args, ta_files.len())) {
         Ok(pool) => {
             info!(
                 LOGGER,
@@ -374,6 +434,11 @@ fn _main_with_logging() -> i32 {
         .status();
 
     std::thread::sleep(Duration::from_secs(3));
+
+    if args.fuzz_script.to_string_lossy().to_string().contains("/fuzz.sh") {
+        destroy_redis_container();
+        info!(LOGGER, "Redis container created");
+    }
 
     info!(
         LOGGER,
