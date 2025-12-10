@@ -6,12 +6,17 @@ use chrono::{DateTime, Utc};
 use futures::StreamExt;
 use std::error::Error as StdError;
 
-
 pub trait Management: Send + Sync + 'static {
     fn new(image_name: String, container_name: String) -> Self;
 
-    async fn create(&mut self, host_config: Option<HostConfig>) -> Result<(), Box<dyn StdError + 'static>>;
-    async fn create_with_config(&mut self, config: ContainerCreateBody) -> Result<(), Box<dyn StdError + 'static>>;
+    async fn create(
+        &mut self,
+        host_config: Option<HostConfig>,
+    ) -> Result<(), Box<dyn StdError + 'static>>;
+    async fn create_with_config(
+        &mut self,
+        config: ContainerCreateBody,
+    ) -> Result<(), Box<dyn StdError + 'static>>;
     async fn destroy(&self) -> Result<(), Box<dyn StdError + 'static>>;
     async fn execute_command(&self, command: Vec<String>) -> Result<String, BollardError>;
 
@@ -53,7 +58,10 @@ impl Management for Emulator {
         }
     }
 
-    async fn create(&mut self, host_config: Option<HostConfig>) -> Result<(), Box<dyn StdError + 'static>> {
+    async fn create(
+        &mut self,
+        host_config: Option<HostConfig>,
+    ) -> Result<(), Box<dyn StdError + 'static>> {
         let config = bollard::models::ContainerCreateBody {
             image: Some(self.image_name.clone()),
             tty: Some(true),
@@ -61,7 +69,8 @@ impl Management for Emulator {
             ..Default::default()
         };
 
-        let id = self.docker
+        let id = self
+            .docker
             .create_container(
                 Some(
                     bollard::query_parameters::CreateContainerOptionsBuilder::default()
@@ -86,9 +95,12 @@ impl Management for Emulator {
         Ok(())
     }
 
-
-    async fn create_with_config(&mut self, config: ContainerCreateBody) -> Result<(), Box<dyn StdError + 'static>> {
-        let id = self.docker
+    async fn create_with_config(
+        &mut self,
+        config: ContainerCreateBody,
+    ) -> Result<(), Box<dyn StdError + 'static>> {
+        let id = self
+            .docker
             .create_container(
                 Some(
                     bollard::query_parameters::CreateContainerOptionsBuilder::default()
@@ -130,7 +142,8 @@ impl Management for Emulator {
 
     async fn execute_command(&self, command: Vec<String>) -> Result<String, BollardError> {
         // debug!(LOGGER, "Emulator executing command: {:?}", command);
-        let exec = self.docker
+        let exec = self
+            .docker
             .create_exec(
                 &self.container_name.as_str(),
                 ExecConfig {
@@ -143,7 +156,8 @@ impl Management for Emulator {
             .await?
             .id;
 
-        let ready_result = self.docker
+        let ready_result = self
+            .docker
             .start_exec(&exec, None::<StartExecOptions>)
             .await
             .expect("Failed to execute command in container.");
@@ -163,7 +177,6 @@ impl Management for Emulator {
 fn connect_docker_client() -> Docker {
     Docker::connect_with_socket_defaults().unwrap()
 }
-
 
 #[cfg(test)]
 mod tests {

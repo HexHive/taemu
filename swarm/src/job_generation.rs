@@ -40,7 +40,8 @@ pub fn find_ta_files(
                 .to_string();
 
             if *snapshot_based {
-                let suspicious_dir = path.parent().unwrap().join("in").join("suspicious_inputs");
+                // only check the fixed metadata json inside suspicious_inputs_replay
+                let suspicious_dir = path.parent().unwrap().join("in").join("suspicious_inputs_replay"); 
                 if suspicious_dir.exists() {
                     let suspicious_dir = suspicious_dir.canonicalize().unwrap();
                     for suspicious_meta in suspicious_dir.read_dir().unwrap() {
@@ -58,7 +59,10 @@ pub fn find_ta_files(
                                 )
                                 .unwrap(),
                                 ta_df_context: Some(reg_hash),
-                                ta_df_seed: Some(rebase_path(seed_path.to_path_buf(), &old_root, &new_root).unwrap()),
+                                ta_df_seed: Some(
+                                    rebase_path(seed_path.to_path_buf(), &old_root, &new_root)
+                                        .unwrap(),
+                                ),
                                 _ta_canonical_path: rebase_path(
                                     path.to_path_buf(),
                                     &old_root,

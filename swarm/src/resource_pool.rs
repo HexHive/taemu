@@ -1,12 +1,12 @@
+use crate::LOGGER;
 use crate::container::Management;
 use parking_lot::{Condvar, Mutex, MutexGuard};
+use slog::{error, info};
 use std::error;
 use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
-use crate::LOGGER;
-use slog::{error, info};
 
 #[derive(Debug)]
 pub struct ResourcePoolError(Option<String>);
@@ -78,10 +78,7 @@ impl<T: Management + std::fmt::Debug> ResourcePool<T> {
                     return Ok(resource);
                 }
                 Err(e) => {
-                    error!(
-                        LOGGER,
-                        "Failed to acquire container from pool: {:?}", e
-                    );
+                    error!(LOGGER, "Failed to acquire container from pool: {:?}", e);
                     if e.to_string().contains("timeout") {
                         tokio::time::sleep(Duration::from_secs(10 + wait_time)).await;
                         wait_time *= 2;
@@ -137,10 +134,7 @@ pub async fn drop_resources<M>(pool: &ResourcePool<M>) -> Result<(), ResourcePoo
 where
     M: Management + std::fmt::Debug,
 {
-    info!(
-        LOGGER,
-        "Dropping resources from pool..."
-    );
+    info!(LOGGER, "Dropping resources from pool...");
 
     let mut resources = pool.0.resources.lock();
 
@@ -155,9 +149,6 @@ where
         }
     }
 
-    info!(
-        LOGGER,
-        "All resources are dropped from pool."
-    );
+    info!(LOGGER, "All resources are dropped from pool.");
     Ok(())
 }

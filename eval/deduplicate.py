@@ -123,6 +123,7 @@ def calc_bbs_and_do_deduplication(ta_dir, coverage_path, enable_del=False):
             if hash_bb in hash_bbs:
                 if enable_del:
                     del_duplicate(os.path.join(ta_dir, "in", "suspicious_inputs", file[: -len(".cov")]))
+                    del_duplicate(os.path.join(ta_dir, "in", "suspicious_inputs_replay", file[: -len(".cov")]))
                 else:
                     print(f"[-] Found duplicate coverage hash: {hash_bb} for {ta_dir}\n")
                 same_cov_collection[hash_bb].append(os.path.join(coverage_path, file))
@@ -136,7 +137,7 @@ def calc_bbs_and_do_deduplication(ta_dir, coverage_path, enable_del=False):
 
 async def async_replay(ta_dir, input_path, container_id):
     proc = await asyncio.create_subprocess_shell(
-        f'docker exec -it emu_{container_id} ./fuzz.sh {ta_dir.replace("/root/TA_GP_emulator/", "../")} {input_path.replace("/root/TA_GP_emulator/", "../")}',
+        f'docker exec -it emu_{container_id} ./replay_sus.sh {ta_dir.replace("/root/TA_GP_emulator/", "../")} {input_path.replace("/root/TA_GP_emulator/", "../")}',
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
@@ -213,6 +214,7 @@ async def control_flow_based_deduplicate(
             if hash_value in control_flow_hashes:
                 if enable_del:
                     del_duplicate(path)
+                    # TODO: delete the corresponding suspicious_inputs_replay file
                 else:
                     print(f"[-] Found duplicate control flow hash: {hash_value} for {path}")
             else:
@@ -330,3 +332,22 @@ if __name__ == "__main__":
     grouped_inputs = group_pair(suspicious_input_paths)
     asyncio.run(main(args.mode, grouped_inputs, enable_del=args.enable_del, num_replay_containers=args.num_replay_containers))
     shut_down(args.num_replay_containers, args.mode)
+    
+    
+    
+
+# def del_duplicate(path, left_inputs):
+#     for file in os.listdir(path):
+#         if file not in left_inputs:
+#             # print(f"[-] Deleting {os.path.join(path, file)}")
+#             os.remove(os.path.join(path, file))
+
+# for dir, _, files in os.walk("/root/TA_GP_emulator"):
+#     if dir.endswith("suspicious_inputs") and not dir.endswith("suspicious_inputs_replay"):
+#         fuzz_harness_dir = dir.split("/")[-3]
+#         left_inputs = []
+#         for file in files:
+#             left_inputs.append(file)
+#         if os.path.exists(dir.replace("suspicious_inputs", "suspicious_inputs_replay")):
+#             del_duplicate(dir.replace("suspicious_inputs", "suspicious_inputs_replay"), left_inputs)
+        
