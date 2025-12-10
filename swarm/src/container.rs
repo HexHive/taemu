@@ -96,7 +96,7 @@ impl Management for Emulator {
         self.container_created_at = Some(Utc::now());
         Ok(())
     }
-    
+
     async fn create_with_config(
         &mut self,
         config: ContainerCreateBody,

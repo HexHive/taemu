@@ -103,7 +103,10 @@ async fn run_fuzz_job(
 ) -> Result<bool, String> {
     let timeout_duration = Duration::from_secs(duration * 60);
 
-    let container = match pool.get_without_timeout(Some(format!("Job {}", job_num))).await {
+    let container = match pool
+        .get_without_timeout(Some(format!("Job {}", job_num)))
+        .await
+    {
         Ok(container) => {
             info!(
                 LOGGER,
@@ -116,7 +119,9 @@ async fn run_fuzz_job(
         Err(e) => {
             error!(
                 LOGGER,
-                "[Job {}] Failed to acquire container from pool ({:?}) and stop the job.", job_num, e
+                "[Job {}] Failed to acquire container from pool ({:?}) and stop the job.",
+                job_num,
+                e
             );
             return Err(format!("Error: acquire container {:?}", e));
         }
@@ -131,6 +136,7 @@ async fn run_fuzz_job(
     );
 
     let start_time = Instant::now();
+    let mut output = String::new();
     match tokio::time::timeout(timeout_duration, async {
         let command = vec![
             "bash".to_string(),
@@ -144,7 +150,7 @@ async fn run_fuzz_job(
             job.ta_df_context.clone().unwrap_or_default(),
         ];
         debug!(LOGGER, "[Job {}] COMMAND => {:?}", job_num, &command);
-        let output = container.execute_command(command).await?;
+        output = container.execute_command(command).await?;
 
         // for fuzzing, basically the following code will be unreachable.
         info!(
@@ -170,12 +176,19 @@ async fn run_fuzz_job(
                 job_num,
                 job.ta_harness_dir,
                 job.ta_df_seed.as_ref().unwrap_or(&PathBuf::from("")),
-                job.ta_df_context.unwrap_or_default(),
+                job.ta_df_context.as_ref().unwrap_or(&String::new()),
                 Instant::now().duration_since(start_time).as_secs() / 60,
             );
 
             pool.put_back(container);
             //TODO: check if the job is successful
+            job_generation::save_quick_exit_to_crash(
+                &job.ta_harness_dir,
+                job.ta_df_seed.as_ref(),
+                job.ta_df_context.as_ref(),
+                output,
+            );
+
             return Ok(true);
         }
         Ok(Err(e)) => {

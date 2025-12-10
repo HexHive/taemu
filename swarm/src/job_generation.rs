@@ -1,6 +1,7 @@
 use serde_json::{Map, Value, from_reader};
 use std::collections::HashSet;
-use std::fs::File;
+use std::ffi::OsString;
+use std::fs::{File, copy};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
@@ -41,7 +42,11 @@ pub fn find_ta_files(
 
             if *snapshot_based {
                 // only check the fixed metadata json inside suspicious_inputs_replay
-                let suspicious_dir = path.parent().unwrap().join("in").join("suspicious_inputs_replay"); 
+                let suspicious_dir = path
+                    .parent()
+                    .unwrap()
+                    .join("in")
+                    .join("suspicious_inputs_replay");
                 if suspicious_dir.exists() {
                     let suspicious_dir = suspicious_dir.canonicalize().unwrap();
                     for suspicious_meta in suspicious_dir.read_dir().unwrap() {
@@ -135,4 +140,55 @@ pub fn rebase_path(path: PathBuf, old_root: &Path, new_root: &Path) -> Option<Pa
     let path = path.canonicalize().unwrap();
     let rel = path.strip_prefix(old_root).ok()?; // what remains after old_root
     Some(new_root.join(rel))
+}
+
+pub fn save_quick_exit_to_crash(
+    ta_harness_dir: &PathBuf,
+    ta_df_seed: Option<&PathBuf>,
+    ta_df_context: Option<&String>,
+    output: String,
+) {
+    if let Some(seed) = ta_df_seed {
+        let seed_file_name = seed.file_name().unwrap();
+        let mut df_fuzz_dir = OsString::from(seed_file_name);
+        if let Some(context) = ta_df_context {
+            df_fuzz_dir.push("_");
+            df_fuzz_dir.push(context);
+        }
+
+        let crash_dir = ta_harness_dir
+            .join("df_fuzz")
+            .join(df_fuzz_dir)
+            .join("out")
+            .join("default")
+            .join("crashes");
+
+        if !crash_dir.exists() {
+            std::fs::create_dir_all(&crash_dir).unwrap();
+        }
+        let crash_file = crash_dir.join(seed_file_name);
+        copy(seed, &crash_file).unwrap();
+        let mut output_file = crash_file.clone();
+        output_file.set_extension("output");
+        std::fs::write(output_file, output).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_save_quick_exit_to_crash() {
+        let ta_harness_dir = PathBuf::from("/root/TA_GP_emulator/t6/harness/9459_df");
+        let ta_df_seed = Some(PathBuf::from(
+            "/root/TA_GP_emulator/t6/harness/9459_df/in/suspicious_inputs_replay/run:id:d3b07384d113edec49eaa6238ad5ff00",
+        ));
+        let ta_df_context = Some("174503571334591656523560700267902478073".to_string());
+        let output = "testing_output".to_string();
+        save_quick_exit_to_crash(&ta_harness_dir, ta_df_seed.as_ref(), ta_df_context.as_ref(), output);
+        let potential_crash_file = ta_harness_dir.join("df_fuzz").join("run:id:d3b07384d113edec49eaa6238ad5ff00_174503571334591656523560700267902478073").join("out").join("default").join("crashes").join("run:id:d3b07384d113edec49eaa6238ad5ff00");
+        assert!(potential_crash_file.exists());
+        std::fs::remove_file(potential_crash_file).unwrap();
+    }
 }
