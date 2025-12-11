@@ -263,6 +263,9 @@ fn run_fuzz_jobs(
     let mut error_jobs = 0;
     let all_jobs = fuzz_jobs.len();
 
+    // let mut fuzz_jobs = fuzz_jobs;
+    // fuzz_jobs.truncate(500);
+
     for job in fuzz_jobs {
         let duration = args.duration;
 

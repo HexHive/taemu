@@ -47,6 +47,7 @@ pub fn find_ta_files(
                     .unwrap()
                     .join("in")
                     .join("suspicious_inputs_replay");
+                
                 if suspicious_dir.exists() {
                     let suspicious_dir = suspicious_dir.canonicalize().unwrap();
                     for suspicious_meta in suspicious_dir.read_dir().unwrap() {

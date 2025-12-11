@@ -1263,7 +1263,15 @@ class TAEMU:
                         self.ql.hook_address(
                             pivot_df_not_hit, e, user_data=self
                         )
+                    )       
+        else:
+            for e in exit_addr:
+                exit_hooks.append(
+                    self.ql.hook_address(
+                        pivot_df_not_hit, e, user_data=self
                     )
+                )
+        
 
         df_seed_data = open(df_seed, "rb").read()
 

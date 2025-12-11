@@ -61,18 +61,18 @@ impl<T: Management + std::fmt::Debug> ResourcePool<T> {
     pub fn new(resources: Vec<T>, timeout: Option<Duration>) -> Result<Self, ResourcePoolError> {
         Ok(ResourcePool(Arc::new(SharedPool::new(
             resources,
-            timeout.unwrap_or(Duration::from_secs(15 * 60)), // the default timeout is 15 minutes
+            timeout.unwrap_or(Duration::from_secs(10)), // the default timeout is 10 seconds
         ))))
     }
 
     pub async fn get_without_timeout(&self, tag: Option<String>) -> Result<T, ResourcePoolError> {
         let mut wait_time = 5;
         loop {
-            if wait_time > 60 * 60 {
-                return Err(ResourcePoolError(Some(
-                    "Failed to acquire container from pool for too long (1 hour).".to_string(),
-                )));
-            }
+            // if wait_time > 15 * 60 {
+            //     return Err(ResourcePoolError(Some(
+            //         "Failed to acquire container from pool for too long (1 hour).".to_string(),
+            //     )));
+            // }
             match self.get() {
                 Ok(resource) => {
                     return Ok(resource);
@@ -87,7 +87,7 @@ impl<T: Management + std::fmt::Debug> ResourcePool<T> {
                     );
                     if e.to_string().contains("timeout") {
                         tokio::time::sleep(Duration::from_secs(10 + wait_time)).await;
-                        wait_time *= 2;
+                        wait_time = std::cmp::min(60 * 15, wait_time * 2);
                         continue;
                     }
                 }
