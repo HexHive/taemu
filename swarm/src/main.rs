@@ -179,12 +179,15 @@ async fn run_fuzz_job(
                 job.ta_df_context.as_ref().unwrap_or(&String::new()),
                 Instant::now().duration_since(start_time).as_secs() / 60,
             );
-
+            
             pool.put_back(container);
+            let old_root = PathBuf::from("/root/TA_GP_emulator/emulator");
+            let new_root = PathBuf::from("/srv/emulator");
+
             //TODO: check if the job is successful
             job_generation::save_quick_exit_to_crash(
-                &job.ta_harness_dir,
-                job.ta_df_seed.as_ref(),
+                &job_generation::rebase_path(job.ta_harness_dir.clone(), &old_root, &new_root),
+                Some(&job_generation::rebase_path(job.ta_df_seed.as_ref().unwrap().clone(), &old_root, &new_root)),
                 job.ta_df_context.as_ref(),
                 output,
             );
@@ -233,7 +236,7 @@ fn generate_fuzz_jobs(args: &Args) -> Vec<job_generation::FuzzJob> {
     let old_root = PathBuf::from("/root/TA_GP_emulator/emulator");
     let new_root = PathBuf::from("/srv/emulator");
     let fuzz_script_path =
-        job_generation::rebase_path(args.fuzz_script.clone(), &old_root, &new_root).unwrap();
+        job_generation::rebase_path(args.fuzz_script.clone(), &old_root, &new_root);
 
     let ta_files = job_generation::find_ta_files(
         &args.top_directory,

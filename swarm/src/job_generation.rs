@@ -62,19 +62,16 @@ pub fn find_ta_files(
                                     path.parent().unwrap().to_path_buf(),
                                     &old_root,
                                     &new_root,
-                                )
-                                .unwrap(),
+                                ),
                                 ta_df_context: Some(reg_hash),
                                 ta_df_seed: Some(
                                     rebase_path(seed_path.to_path_buf(), &old_root, &new_root)
-                                        .unwrap(),
                                 ),
                                 _ta_canonical_path: rebase_path(
                                     path.to_path_buf(),
                                     &old_root,
                                     &new_root,
-                                )
-                                .unwrap(),
+                                ),
                                 _ta_unique_name: ta_unique_name.clone(),
                             });
                         }
@@ -137,10 +134,10 @@ pub fn get_context_via_meta(base_path: &Path, ta_suspicious_meta: &Path) -> Vec<
     context
 }
 
-pub fn rebase_path(path: PathBuf, old_root: &Path, new_root: &Path) -> Option<PathBuf> {
+pub fn rebase_path(path: PathBuf, old_root: &Path, new_root: &Path) -> PathBuf {
     let path = path.canonicalize().unwrap();
-    let rel = path.strip_prefix(old_root).ok()?; // what remains after old_root
-    Some(new_root.join(rel))
+    let rel = path.strip_prefix(old_root).unwrap(); // what remains after old_root
+    new_root.join(rel)
 }
 
 pub fn save_quick_exit_to_crash(
