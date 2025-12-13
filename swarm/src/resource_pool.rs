@@ -87,7 +87,10 @@ impl<T: Management + std::fmt::Debug> ResourcePool<T> {
                         wait_time
                     );
                     if e.to_string().contains("timeout") {
-                        tokio::time::sleep(Duration::from_secs(self.0.timeout.as_secs() + wait_time)).await;
+                        tokio::time::sleep(Duration::from_secs(
+                            self.0.timeout.as_secs() + wait_time,
+                        ))
+                        .await;
                         wait_time = std::cmp::min(60 * 5, wait_time * 2);
                         accumulated_wait_time += wait_time;
                         continue;

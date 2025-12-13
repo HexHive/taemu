@@ -4,21 +4,20 @@ use bollard::errors::Error as BollardError;
 use clap::Parser;
 use lazy_static::lazy_static;
 use slog::{Drain, Level, Logger, debug, error, info, o, warn};
-use tokio::task::JoinSet;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::process;
 use std::process::Command;
 use std::time::{Duration, Instant};
+use tokio::task::JoinSet;
 mod container;
 mod job_generation;
 mod resource_pool;
+use rayon::prelude::*;
 use slog_scope;
 use slog_stdlog;
 use std::sync::Mutex;
-use rayon::prelude::*;
 use std::sync::atomic;
-
 
 static SWARM_TAG: &str = "[Sw0rm]";
 
@@ -108,7 +107,8 @@ async fn run_fuzz_job(
     let timeout_duration = Duration::from_secs(duration * 60);
 
     let container = match pool
-        .get_without_timeout(Some(format!("Job {}", job_num))).await
+        .get_without_timeout(Some(format!("Job {}", job_num)))
+        .await
     {
         Ok(container) => {
             info!(
@@ -161,7 +161,8 @@ async fn run_fuzz_job(
             "[Job {}] Emulator for command output => {:?}", job_num, output
         );
         Ok::<(), BollardError>(())
-    }).await
+    })
+    .await
     {
         Ok(Ok(())) => {
             let _ = container
@@ -181,15 +182,19 @@ async fn run_fuzz_job(
                 job.ta_df_context.as_ref().unwrap_or(&String::new()),
                 Instant::now().duration_since(start_time).as_secs() / 60,
             );
-            
+
             pool.put_back(container);
-            let old_root = PathBuf::from("/root/TA_GP_emulator/emulator");
-            let new_root = PathBuf::from("/srv/emulator");
+            let old_root = PathBuf::from("/srv");
+            let new_root = PathBuf::from("/root/TA_GP_emulator");
 
             //TODO: check if the job is successful
             job_generation::save_quick_exit_to_crash(
                 &job_generation::rebase_path(job.ta_harness_dir.clone(), &old_root, &new_root),
-                Some(&job_generation::rebase_path(job.ta_df_seed.as_ref().unwrap().clone(), &old_root, &new_root)),
+                Some(&job_generation::rebase_path(
+                    job.ta_df_seed.as_ref().unwrap().clone(),
+                    &old_root,
+                    &new_root,
+                )),
                 job.ta_df_context.as_ref(),
                 output,
             );
@@ -260,32 +265,35 @@ fn run_fuzz_jobs(
     fuzz_jobs: Vec<job_generation::FuzzJob>,
     pool: ResourcePool<container::Emulator>,
 ) -> (usize, usize, usize) {
-
     let job_num = atomic::AtomicUsize::new(0);
     let skipped_jobs = atomic::AtomicUsize::new(0);
 
     // let mut fuzz_jobs = fuzz_jobs;
     // fuzz_jobs.truncate(500);
 
-    let filtered_fuzz_jobs: Vec<(job_generation::FuzzJob, usize)> = fuzz_jobs.into_par_iter().filter(|job| -> bool {        
-        if args.filter_df_seed.is_empty() || job
-                .ta_df_seed
-                .as_ref()
-                .unwrap_or(&PathBuf::from(""))
-                .to_string_lossy()
-                .to_string()
-                .contains(args.filter_df_seed.as_str())
-        {
-            return true;
-        }
-        skipped_jobs.fetch_add(1, atomic::Ordering::Relaxed);
-        return false;
-    }).map(|job| -> (job_generation::FuzzJob, usize) {
-        (job, job_num.fetch_add(1, atomic::Ordering::Relaxed))
-    }).collect();
+    let filtered_fuzz_jobs: Vec<(job_generation::FuzzJob, usize)> = fuzz_jobs
+        .into_par_iter()
+        .filter(|job| -> bool {
+            if args.filter_df_seed.is_empty()
+                || job
+                    .ta_df_seed
+                    .as_ref()
+                    .unwrap_or(&PathBuf::from(""))
+                    .to_string_lossy()
+                    .to_string()
+                    .contains(args.filter_df_seed.as_str())
+            {
+                return true;
+            }
+            skipped_jobs.fetch_add(1, atomic::Ordering::Relaxed);
+            return false;
+        })
+        .map(|job| -> (job_generation::FuzzJob, usize) {
+            (job, job_num.fetch_add(1, atomic::Ordering::Relaxed))
+        })
+        .collect();
 
     let all_jobs = filtered_fuzz_jobs.len();
-
 
     let res = rt.block_on(async move {
         let mut handles = JoinSet::new();
@@ -296,15 +304,14 @@ fn run_fuzz_jobs(
 
             handles.spawn(async move {
                 match run_fuzz_job(job, duration, job_num, pool_clone).await {
-                    Ok(res) => {
-                        res
-                    },   // success
+                    Ok(res) => res, // success
                     Err(e) => {
                         error!(LOGGER, "{SWARM_TAG} Task join error: {:?}", e);
                         false
-                    }, // error
+                    } // error
                 }
             });
+            tokio::time::sleep(Duration::from_secs(5)).await;
         }
 
         let mut out = Vec::new();
@@ -314,15 +321,19 @@ fn run_fuzz_jobs(
         }
         out
     });
-    
-    let error_jobs = res.iter().filter(|item | **item == false).count();
+
+    let error_jobs = res.iter().filter(|item| **item == false).count();
 
     info!(
         LOGGER,
         "{SWARM_TAG} Waiting for all fuzz jobs to complete..."
     );
 
-    (all_jobs, skipped_jobs.load(atomic::Ordering::Relaxed), error_jobs)
+    (
+        all_jobs,
+        skipped_jobs.load(atomic::Ordering::Relaxed),
+        error_jobs,
+    )
 }
 
 async fn create_container_pool(
@@ -475,7 +486,7 @@ fn _main_with_logging() -> i32 {
         }
     };
 
-    let (all_jobs, skipped_jobs, error_jobs) = run_fuzz_jobs(&rt ,&args, ta_files, pool.clone());
+    let (all_jobs, skipped_jobs, error_jobs) = run_fuzz_jobs(&rt, &args, ta_files, pool.clone());
 
     // Cleanup resources
     if let Err(e) = rt.block_on(resource_pool::drop_resources(&pool)) {

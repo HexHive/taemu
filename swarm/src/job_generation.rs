@@ -1,4 +1,6 @@
+use crate::LOGGER;
 use serde_json::{Map, Value, from_reader};
+use slog::{warn};
 use std::collections::HashSet;
 use std::ffi::OsString;
 use std::fs::{File, copy};
@@ -47,7 +49,7 @@ pub fn find_ta_files(
                     .unwrap()
                     .join("in")
                     .join("suspicious_inputs_replay");
-                
+
                 if suspicious_dir.exists() {
                     let suspicious_dir = suspicious_dir.canonicalize().unwrap();
                     for suspicious_meta in suspicious_dir.read_dir().unwrap() {
@@ -64,9 +66,11 @@ pub fn find_ta_files(
                                     &new_root,
                                 ),
                                 ta_df_context: Some(reg_hash),
-                                ta_df_seed: Some(
-                                    rebase_path(seed_path.to_path_buf(), &old_root, &new_root)
-                                ),
+                                ta_df_seed: Some(rebase_path(
+                                    seed_path.to_path_buf(),
+                                    &old_root,
+                                    &new_root,
+                                )),
                                 _ta_canonical_path: rebase_path(
                                     path.to_path_buf(),
                                     &old_root,
@@ -135,8 +139,15 @@ pub fn get_context_via_meta(base_path: &Path, ta_suspicious_meta: &Path) -> Vec<
 }
 
 pub fn rebase_path(path: PathBuf, old_root: &Path, new_root: &Path) -> PathBuf {
-    let path = path.canonicalize().unwrap();
-    let rel = path.strip_prefix(old_root).unwrap(); // what remains after old_root
+    let path = path.canonicalize().unwrap_or_else(|_| {
+        warn!(LOGGER, "path is {:?}", path);
+        path.clone()
+    });
+
+    let rel = path
+        .strip_prefix(old_root)
+        .expect("unexpected old_root for the path.");
+
     new_root.join(rel)
 }
 
@@ -184,8 +195,19 @@ mod tests {
         ));
         let ta_df_context = Some("174503571334591656523560700267902478073".to_string());
         let output = "testing_output".to_string();
-        save_quick_exit_to_crash(&ta_harness_dir, ta_df_seed.as_ref(), ta_df_context.as_ref(), output);
-        let potential_crash_file = ta_harness_dir.join("df_fuzz").join("run:id:d3b07384d113edec49eaa6238ad5ff00_174503571334591656523560700267902478073").join("out").join("default").join("crashes").join("run:id:d3b07384d113edec49eaa6238ad5ff00");
+        save_quick_exit_to_crash(
+            &ta_harness_dir,
+            ta_df_seed.as_ref(),
+            ta_df_context.as_ref(),
+            output,
+        );
+        let potential_crash_file = ta_harness_dir
+            .join("df_fuzz")
+            .join("run:id:d3b07384d113edec49eaa6238ad5ff00_174503571334591656523560700267902478073")
+            .join("out")
+            .join("default")
+            .join("crashes")
+            .join("run:id:d3b07384d113edec49eaa6238ad5ff00");
         assert!(potential_crash_file.exists());
         std::fs::remove_file(potential_crash_file).unwrap();
     }
