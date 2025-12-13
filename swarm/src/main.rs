@@ -4,6 +4,7 @@ use bollard::errors::Error as BollardError;
 use clap::Parser;
 use lazy_static::lazy_static;
 use slog::{Drain, Level, Logger, debug, error, info, o, warn};
+use tokio::task::JoinSet;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::process;
@@ -15,6 +16,9 @@ mod resource_pool;
 use slog_scope;
 use slog_stdlog;
 use std::sync::Mutex;
+use rayon::prelude::*;
+use std::sync::atomic;
+
 
 static SWARM_TAG: &str = "[Sw0rm]";
 
@@ -104,8 +108,7 @@ async fn run_fuzz_job(
     let timeout_duration = Duration::from_secs(duration * 60);
 
     let container = match pool
-        .get_without_timeout(Some(format!("Job {}", job_num)))
-        .await
+        .get_without_timeout(Some(format!("Job {}", job_num))).await
     {
         Ok(container) => {
             info!(
@@ -158,8 +161,7 @@ async fn run_fuzz_job(
             "[Job {}] Emulator for command output => {:?}", job_num, output
         );
         Ok::<(), BollardError>(())
-    })
-    .await
+    }).await
     {
         Ok(Ok(())) => {
             let _ = container
@@ -258,23 +260,15 @@ fn run_fuzz_jobs(
     fuzz_jobs: Vec<job_generation::FuzzJob>,
     pool: ResourcePool<container::Emulator>,
 ) -> (usize, usize, usize) {
-    // Create a semaphore to limit concurrent jobs
-    let mut handles = Vec::new();
-    let mut job_num = 0;
 
-    let mut skipped_jobs: usize = 0;
-    let mut error_jobs = 0;
-    let all_jobs = fuzz_jobs.len();
+    let job_num = atomic::AtomicUsize::new(0);
+    let skipped_jobs = atomic::AtomicUsize::new(0);
 
     // let mut fuzz_jobs = fuzz_jobs;
     // fuzz_jobs.truncate(500);
 
-    for job in fuzz_jobs {
-        let duration = args.duration;
-
-        // Check filter condition before acquiring permit
-        if !args.filter_df_seed.is_empty()
-            && !job
+    let filtered_fuzz_jobs: Vec<(job_generation::FuzzJob, usize)> = fuzz_jobs.into_par_iter().filter(|job| -> bool {        
+        if args.filter_df_seed.is_empty() || job
                 .ta_df_seed
                 .as_ref()
                 .unwrap_or(&PathBuf::from(""))
@@ -282,39 +276,53 @@ fn run_fuzz_jobs(
                 .to_string()
                 .contains(args.filter_df_seed.as_str())
         {
-            skipped_jobs = skipped_jobs + 1;
-            continue;
+            return true;
+        }
+        skipped_jobs.fetch_add(1, atomic::Ordering::Relaxed);
+        return false;
+    }).map(|job| -> (job_generation::FuzzJob, usize) {
+        (job, job_num.fetch_add(1, atomic::Ordering::Relaxed))
+    }).collect();
+
+    let all_jobs = filtered_fuzz_jobs.len();
+
+
+    let res = rt.block_on(async move {
+        let mut handles = JoinSet::new();
+
+        for (job, job_num) in filtered_fuzz_jobs {
+            let duration = args.duration;
+            let pool_clone: ResourcePool<container::Emulator> = pool.clone();
+
+            handles.spawn(async move {
+                match run_fuzz_job(job, duration, job_num, pool_clone).await {
+                    Ok(res) => {
+                        res
+                    },   // success
+                    Err(e) => {
+                        error!(LOGGER, "{SWARM_TAG} Task join error: {:?}", e);
+                        false
+                    }, // error
+                }
+            });
         }
 
-        job_num = job_num + 1;
-        let pool_clone = pool.clone();
-        let current_job_num = job_num;
-
-        handles.push(rt.spawn(async move {
-            match run_fuzz_job(job, duration, current_job_num, pool_clone).await {
-                Ok(_) => true,   // success
-                Err(_) => false, // error
-            }
-        }));
-    }
+        let mut out = Vec::new();
+        while let Some(res) = handles.join_next().await {
+            // res: Result<bool, JoinError>
+            out.push(res.unwrap_or(false));
+        }
+        out
+    });
+    
+    let error_jobs = res.iter().filter(|item | **item == false).count();
 
     info!(
         LOGGER,
         "{SWARM_TAG} Waiting for all fuzz jobs to complete..."
     );
 
-    for handle in handles {
-        match rt.block_on(handle) {
-            Ok(true) => {}
-            Ok(false) => error_jobs += 1,
-            Err(e) => {
-                error!(LOGGER, "{SWARM_TAG} Task join error: {:?}", e);
-                error_jobs += 1;
-            }
-        }
-    }
-
-    (all_jobs, skipped_jobs, error_jobs)
+    (all_jobs, skipped_jobs.load(atomic::Ordering::Relaxed), error_jobs)
 }
 
 async fn create_container_pool(
@@ -467,7 +475,7 @@ fn _main_with_logging() -> i32 {
         }
     };
 
-    let (all_jobs, skipped_jobs, error_jobs) = run_fuzz_jobs(&rt, &args, ta_files, pool.clone());
+    let (all_jobs, skipped_jobs, error_jobs) = run_fuzz_jobs(&rt ,&args, ta_files, pool.clone());
 
     // Cleanup resources
     if let Err(e) = rt.block_on(resource_pool::drop_resources(&pool)) {

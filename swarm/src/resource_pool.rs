@@ -67,12 +67,13 @@ impl<T: Management + std::fmt::Debug> ResourcePool<T> {
 
     pub async fn get_without_timeout(&self, tag: Option<String>) -> Result<T, ResourcePoolError> {
         let mut wait_time = 5;
+        let mut accumulated_wait_time = 0;
         loop {
-            // if wait_time > 15 * 60 {
-            //     return Err(ResourcePoolError(Some(
-            //         "Failed to acquire container from pool for too long (1 hour).".to_string(),
-            //     )));
-            // }
+            if accumulated_wait_time > 60 * 60 {
+                return Err(ResourcePoolError(Some(
+                    "Failed to acquire container from pool for too long (1 hour).".to_string(),
+                )));
+            }
             match self.get() {
                 Ok(resource) => {
                     return Ok(resource);
@@ -86,8 +87,9 @@ impl<T: Management + std::fmt::Debug> ResourcePool<T> {
                         wait_time
                     );
                     if e.to_string().contains("timeout") {
-                        tokio::time::sleep(Duration::from_secs(10 + wait_time)).await;
-                        wait_time = std::cmp::min(60 * 15, wait_time * 2);
+                        tokio::time::sleep(Duration::from_secs(self.0.timeout.as_secs() + wait_time)).await;
+                        wait_time = std::cmp::min(60 * 5, wait_time * 2);
+                        accumulated_wait_time += wait_time;
                         continue;
                     }
                 }
