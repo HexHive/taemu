@@ -80,7 +80,7 @@ def get_all_suspicious_inputs(path="/root/TA_GP_emulator"):
     for root, dirs, files in os.walk(path):
         for file in files:
             path = os.path.join(root, file)
-            if "suspicious_inputs" in path:
+            if "suspicious_inputs/" in path:
                 suspicious_inputs.append(path)
     return suspicious_inputs
 
@@ -302,6 +302,7 @@ def validate(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--path", type=str, default="/root/TA_GP_emulator")
+    parser.add_argument("--tee", type=str, default="all")
     parser.add_argument("--enable-del", action="store_true", default=False)
     parser.add_argument("--non-conservative", action="store_true", default=False)
     parser.add_argument(
@@ -330,6 +331,8 @@ if __name__ == "__main__":
 
     suspicious_input_paths = get_all_suspicious_inputs(args.path)
     grouped_inputs = group_pair(suspicious_input_paths)
+    if args.tee != "all":
+        grouped_inputs = {k: v for k, v in grouped_inputs.items() if args.tee in k}
     asyncio.run(main(args.mode, grouped_inputs, enable_del=args.enable_del, num_replay_containers=args.num_replay_containers))
     shut_down(args.num_replay_containers, args.mode)
     
@@ -339,7 +342,7 @@ if __name__ == "__main__":
 # def del_duplicate(path, left_inputs):
 #     for file in os.listdir(path):
 #         if file not in left_inputs:
-#             # print(f"[-] Deleting {os.path.join(path, file)}")
+#             # print(f"[-] Deleting {os.path.join(path, file)}")^(?!t6).+
 #             os.remove(os.path.join(path, file))
 
 # for dir, _, files in os.walk("/root/TA_GP_emulator"):
