@@ -128,5 +128,3 @@ def ut_pf_cp_close(ql: Qiling, func_name):
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def dm_data_base_init(ql: Qiling, func_name):
-    ql.arch.regs.arch_pc = ql.arch.regs.lr

@@ -579,8 +579,7 @@ class TAEMU:
                 params_mem_read += 4
                 param.b = int.from_bytes(self.ql.mem.read(params_mem_read, 4), "little")
                 params_mem_read += 4
-                if self.tee != "beanpod":
-                    # 32 bit
+                if self.ql.arch.pointersize == 4:
                     params_mem_read += 8
             elif isinstance(param, MemRefParam):
                 pybuf = self.ql.mem.read_ptr(params_mem_read)
