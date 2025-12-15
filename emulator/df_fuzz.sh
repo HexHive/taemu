@@ -55,6 +55,9 @@ echo "Using fuzz output dir: $fuzz_out"
 
 fuzz_in="${fuzz_in}_${df_reg_hash}"
 fuzz_out="${fuzz_out}_${df_reg_hash}"
+ta_name="${ta::-3}"
+cp "$ta" rootfs/
+cp "${ta_name}.json" rootfs/
 
 if [ -z "$4" ]; then
 
@@ -68,9 +71,7 @@ if [ -z "$4" ]; then
     chmod -R 777 "$fuzz_in"
     chmod -R 777 "$fuzz_out"
 
-    ta_name="${ta::-3}"
-    cp "$ta" rootfs/
-    cp "${ta_name}.json" rootfs/
+    
 
     echo "Starting fuzzing..."
     # no seed specified -> fuzz
@@ -96,5 +97,5 @@ if [ -z "$4" ]; then
     fi
 else
     echo "Replaying seed $4 ..."
-    python3 -m emulate --df_replay "$4" --fuzz_harness $harness --df_seed $df_seed_path --df_reg_hash $df_reg_hash $"rootfs/$(basename "$ta")" $log_arg  
+    python3 -m emulate -v -d --df_replay "$4" --fuzz_harness $harness --df_seed $df_seed_path --df_reg_hash $df_reg_hash $"rootfs/$(basename "$ta")" $log_arg  
 fi

