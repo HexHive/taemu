@@ -68,11 +68,6 @@ if [ -z "$4" ]; then
     fuzz_in="$fuzz_dir/in"
     fuzz_out="$fuzz_dir/out"
 
-    chmod -R 777 "$fuzz_in"
-    chmod -R 777 "$fuzz_out"
-
-    
-
     echo "Starting fuzzing..."
     # no seed specified -> fuzz
     mkdir -p $fuzz_out
@@ -89,6 +84,9 @@ if [ -z "$4" ]; then
     if [ ! -e "$fuzz_out" ]; then
         mkdir $fuzz_out
     fi
+
+    chmod -R 777 "$fuzz_in"
+    chmod -R 777 "$fuzz_out"
     
     if [ -z "${FUZZTIME}" ]; then
             afl-fuzz -t 5000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --df_fuzz @@ --fuzz_harness $harness --df_seed $df_seed_path --df_reg_hash $df_reg_hash "rootfs/$(basename "$ta")" $log_arg

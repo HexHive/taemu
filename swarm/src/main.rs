@@ -40,7 +40,7 @@ struct Args {
 
     #[arg(
         long,
-        help = "Filter by suspicious df seed name (e.g. 377e_double_fetch_stackov)",
+        help = "Filter by suspicious df seed name (e.g. run:id:xxxx)",
         default_value = ""
     )]
     filter_df_seed: String,
@@ -294,6 +294,7 @@ fn run_fuzz_jobs(
         .collect();
 
     let all_jobs = filtered_fuzz_jobs.len();
+    info!(LOGGER, "{SWARM_TAG} After seed filtering, only {} TA Jobs left for fuzzing", all_jobs);
 
     let res = rt.block_on(async move {
         let mut handles = JoinSet::new();
@@ -436,7 +437,7 @@ fn _main_with_logging() -> i32 {
 
     info!(
         LOGGER,
-        "{SWARM_TAG} Found {} TAs for fuzzing. Continue? (y/n)",
+        "{SWARM_TAG} Found {} TA Jobs for fuzzing. Continue? (y/n)",
         ta_files.len()
     );
     let mut input = String::new();

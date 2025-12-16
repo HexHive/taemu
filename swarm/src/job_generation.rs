@@ -1,11 +1,11 @@
-use crate::LOGGER;
 use serde_json::{Map, Value, from_reader};
-use slog::{warn};
+use slog::warn;
 use std::collections::HashSet;
 use std::ffi::OsString;
 use std::fs::{File, copy};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
+use crate::LOGGER;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct FuzzJob {
@@ -80,6 +80,8 @@ pub fn find_ta_files(
                             });
                         }
                     }
+                } else {
+                    warn!(LOGGER, "The dir {:?} is missing. Check whether need to run the deduplication procedure first.", suspicious_dir);
                 }
             } else {
                 if ta_collection
@@ -140,7 +142,6 @@ pub fn get_context_via_meta(base_path: &Path, ta_suspicious_meta: &Path) -> Vec<
 
 pub fn rebase_path(path: PathBuf, old_root: &Path, new_root: &Path) -> PathBuf {
     let path = path.canonicalize().unwrap_or_else(|_| {
-        warn!(LOGGER, "path is {:?}", path);
         path.clone()
     });
 
