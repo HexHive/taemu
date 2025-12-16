@@ -57,10 +57,31 @@ def ut_pf_rpmb_read_data_blocks(ql: Qiling, func_name):
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+def ut_pf_rpmb_cp_read_data_blocks(ql: Qiling, func_name):
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
 def ut_pf_rpmb_cp_write_data_blocks(ql: Qiling, func_name):
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+def ut_pf_cp_open(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def ut_pf_cp_close(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def get_device_info(ql: Qiling, hook_data):
+    params = ql.os.resolve_fcall_params(
+        {"buf": POINTER, "outsize": POINTER}
+    )
+    para_buf = params["buf"]
+    ql.mem.write_ptr(params["outsize"], 0x10)
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def ut_pf_rpmb_close(ql: Qiling, func_name):
     global RPMSESSIONS_L1

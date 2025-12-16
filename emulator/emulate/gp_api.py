@@ -461,6 +461,27 @@ def strncpy(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(dst)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+def strcat(ql: Qiling, hook_data):
+    params = ql.os.resolve_fcall_params(
+        {"dst": POINTER, "src": POINTER}
+    )
+    dst = params["dst"]
+    src = params["src"]
+    ql.log.info(f"strcat {hex(dst)} <- {hex(src)}")
+
+    hook_data.emu.update_shm(src)
+    hook_data.emu.update_shm(dst)
+    try:
+        dst_str = read_c_str(ql, dst)
+        new_dest = dst + len(dst_str)
+        src_str = read_c_str(ql, src)
+        ql.mem.write(new_dest, src_str)
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
+    hook_data.emu.writeback_shm(dst)
+    ql.os.fcall.cc.setReturnValue(dst)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def TEE_MemMove(ql: Qiling, hook_data):
     memmove(ql, hook_data)
