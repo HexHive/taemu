@@ -71,7 +71,7 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
     memset(&op, 0, sizeof(op));
         #define buf_size 0x10 
 
-    void* mem_area1 = allocate_param_mem(context, buf_size);
+    void* mem_area1 = allocate_param_mem(context, 0x1000);
     void* mem_area2 = allocate_param_mem(context, 0x1000);
     memset(mem_area1, 0, buf_size);
     //((int*)mem_area1)[1] = 0x1000;
