@@ -231,4 +231,4 @@ class SimpleFilterRecorder(Recorder):
         self._log.info(f"[{__name__}] Adding suspicious records to the disk: {control_flow_hash}")
         self._seen_addresses.add(control_flow_hash)
         return True
-    
+

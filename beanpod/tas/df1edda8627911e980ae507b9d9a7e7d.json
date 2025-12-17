@@ -3,6 +3,14 @@
         "get_device_info": {
             "addr": 38232,
             "type": "tee"
+        },
+        "paytrigger_aes_cbc": {
+            "addr": 38368,
+            "type": "tee"
+        },
+        "paytrigger_hmac": {
+            "addr": 39968,
+            "type": "tee"
         }
     },
     "TA_InvokeCommandEntryPoint_start": 36900,

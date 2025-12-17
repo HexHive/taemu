@@ -6,7 +6,7 @@ from .gp.utils.err import *
 from .gp.utils.string import *
 from .gp.utils.printf import *
 from .gp.utils.const import *
-from .common import CRASH_PC, NOTIMPL_PC, crash, crash_notimpl
+from .common import CRASH_PC, NOTIMPL_PC, crash, crash_notimpl, finalize_fuzzing
 import unicorn
 
 from .custom import rpmb
@@ -52,6 +52,7 @@ def default_func(ql: Qiling, hook_data):
         ql.arch.regs.arch_pc = NOTIMPL_PC
     else:
         ql.emu_stop()
+        finalize_fuzzing(ql, user_data="early_exit")
 
 
 def stack_chk_fail(ql: Qiling, hook_data):

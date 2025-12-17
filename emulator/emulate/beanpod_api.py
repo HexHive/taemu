@@ -140,8 +140,44 @@ def ut_pf_cp_rd_random(ql: Qiling, hook_data):
         return
     ql.mem.write(buf, size * b"A")
     hook_data.emu.writeback_shm(buf, size)
+    ql.os.fcall.cc.setReturnValue(0x0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+def paytrigger_aes_cbc(ql: Qiling, hook_data):
+    params = ql.os.resolve_fcall_params({
+        "mode1": INT, "mode2": INT, "key": POINTER, "key_size": INT,
+        "iv": POINTER, "iv_size": INT, "in_buf": POINTER, "in_buf_size": INT, "out_buf": POINTER
+    })
+    in_buf = params["in_buf"]
+    in_buf_size = params["in_buf_size"]
+    out_buf = params["out_buf"]
+    hook_data.emu.update_shm(in_buf)
+    try:
+        a = ql.mem.read(in_buf, in_buf_size) # just for checking if valid access
+        ql.mem.write(out_buf, in_buf_size*b"A")
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql. hook_data.func_name)
+        return
+    ql.os.fcall.cc.setReturnValue(0x0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def paytrigger_hmac(ql: Qiling, hook_data):
+    params = ql.os.resolve_fcall_params({
+        "key": POINTER, "key_size": INT,
+        "iv": POINTER, "iv_size": INT, "in_buf": POINTER, "in_buf_size": INT, "out_buf": POINTER
+    })
+    in_buf = params["in_buf"]
+    in_buf_size = params["in_buf_size"]
+    out_buf = params["out_buf"]
+    ql.log.info(f"paytrigger hmac in_buf: {hex(in_buf)} {hex(in_buf_size)}")
+    hook_data.emu.update_shm(in_buf)
+    try:
+        a = ql.mem.read(in_buf, in_buf_size) # just for checking if valid access
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql. hook_data.func_name)
+        return
+    ql.os.fcall.cc.setReturnValue(0x0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def ut_pf_ts_cp_exist(ql: Qiling, hook_data):
     params = ql.os.resolve_fcall_params({"name": POINTER})
