@@ -67,7 +67,8 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
 
 int main(int argc, char **argv)
 {
-    char* ta = "df1edda8627911e980ae507b9d9a7e7d";
+    //char* ta = "df1edda8627911e980ae507b9d9a7e7d";
+    char* ta = "93feffccd8ca11e796c7c7a21acb4932";
     unsigned char hex_b[0x40] = {0}; 
     hex2bytes(ta,hex_b);
     TEEC_Context context;

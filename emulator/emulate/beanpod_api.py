@@ -61,6 +61,9 @@ def ut_pf_rpmb_cp_read_data_blocks(ql: Qiling, func_name):
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+def mdrv_ioctl(ql: Qiling, func_name):
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def ut_pf_rpmb_cp_write_data_blocks(ql: Qiling, func_name):
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
