@@ -141,6 +141,8 @@ pub fn get_context_via_meta(base_path: &Path, ta_suspicious_meta: &Path) -> Vec<
 }
 
 pub fn rebase_path(path: PathBuf, old_root: &Path, new_root: &Path) -> PathBuf {
+    warn!(LOGGER, "Rebasing path: {:?} to {:?} and {:?}", path, old_root, new_root);
+
     let path = path.canonicalize().unwrap_or_else(|_| {
         path.clone()
     });

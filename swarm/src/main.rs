@@ -168,9 +168,8 @@ async fn run_fuzz_job(
             let _ = container
                 .execute_command(vec![
                     "pkill".to_string(),
-                    "-9".to_string(),
-                    "-f".to_string(),
-                    "python3".to_string(),
+                    "-2".to_string(),
+                    "afl-fuzz".to_string(),
                 ])
                 .await;
             warn!(
@@ -205,9 +204,8 @@ async fn run_fuzz_job(
             let _ = container
                 .execute_command(vec![
                     "pkill".to_string(),
-                    "-9".to_string(),
-                    "-f".to_string(),
-                    "python3".to_string(),
+                    "-2".to_string(),
+                    "afl-fuzz".to_string(),
                 ])
                 .await;
             error!(
@@ -221,9 +219,8 @@ async fn run_fuzz_job(
             let _ = container
                 .execute_command(vec![
                     "pkill".to_string(),
-                    "-9".to_string(),
-                    "-f".to_string(),
-                    "python3".to_string(),
+                    "-2".to_string(),
+                    "afl-fuzz".to_string(),
                 ])
                 .await;
             info!(
@@ -510,7 +507,7 @@ fn _main_with_logging() -> i32 {
     let _ = Command::new("pkill")
         .arg("-9")
         .arg("-f")
-        .arg("python3")
+        .arg("afl-fuzz")
         .status();
 
     info!(
