@@ -21,6 +21,11 @@ if [ "$1" == "." ]; then
             ./clean_fuzz_trace.sh $harness $2
         fi
     done
+    echo -e "${YELLOW} ============================== ${RESET}"
+    echo -e "${YELLOW} Current left files: ${RESET}"
+    find . -type f -path '*suspicious*'
+    find . -type f -path '*df_fuzz/*'
+    echo -e "${YELLOW} ============================== ${RESET}"
     exit 0
 fi
 

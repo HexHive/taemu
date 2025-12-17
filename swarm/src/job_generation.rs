@@ -33,8 +33,9 @@ pub fn find_ta_files(
     {
         let path = entry.path();
         if path.is_file()
-            && path.extension().map(|s| s == "ta").unwrap_or(false)
+            && path.extension().unwrap_or_default() == "ta"
             && path.to_string_lossy().contains(filter_pattern)
+            && path.to_string_lossy().contains("harness")
         {
             let ta_unique_name = path
                 .file_name()
@@ -141,7 +142,7 @@ pub fn get_context_via_meta(base_path: &Path, ta_suspicious_meta: &Path) -> Vec<
 }
 
 pub fn rebase_path(path: PathBuf, old_root: &Path, new_root: &Path) -> PathBuf {
-    warn!(LOGGER, "Rebasing path: {:?} to {:?} and {:?}", path, old_root, new_root);
+    // warn!(LOGGER, "Rebasing path: {:?} from {:?} to {:?}", path, old_root, new_root);
 
     let path = path.canonicalize().unwrap_or_else(|_| {
         path.clone()
