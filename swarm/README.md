@@ -33,6 +33,9 @@ Options:
 # for normal fuzz
 cargo run -- -t .. -f /root/TA_GP_emulator/emulator/fuzz.sh 
 
+# filter by pattern
+cargo run -- -t .. -f /root/TA_GP_emulator/emulator/fuzz.sh -p 377e_double_fetch_stackov,4662436b6d52_fuzz,3d08_fuzz,88ce_fuzz,a985_fuzz
+
 # for df fuzz (-s) [recommend to prolong the duration of each reg_hash fuzzing to 15mins for some init_fuzz cases]
 cargo run -- -t .. -f /root/TA_GP_emulator/emulator/df_fuzz.sh -d 15 -s -m 28
 

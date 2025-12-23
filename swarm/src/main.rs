@@ -30,10 +30,11 @@ struct Args {
     #[arg(
         short,
         long,
+        value_delimiter = ',',
         default_value = "harness",
         help = "pattern required to be contained in the TA name"
     )]
-    pattern: String,
+    pattern: Vec<String>,
 
     #[arg(short, long, default_value = "/root/TA_GP_emulator/emulator/fuzz.sh")]
     fuzz_script: PathBuf,
