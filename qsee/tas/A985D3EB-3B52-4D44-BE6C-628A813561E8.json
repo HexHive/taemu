@@ -1,0 +1,37 @@
+{
+    "inline": {
+        "sm2_encrypt": {
+            "addr": 68972,
+            "type": "tee"
+        },
+        "calcsm3": {
+            "addr": 72544,
+            "type": "tee"
+        },
+        "sm4_crypt": {
+            "addr": 76196,
+            "type": "tee"
+        }
+    },
+    "TA_DestroyEntryPoint_start": 988,
+    "TA_DestroyEntryPoint_end": [
+       1012 
+    ],
+    "TA_OpenSessionEntryPoint_start": 1020,
+    "TA_OpenSessionEntryPoint_end": [
+        1156 
+    ],
+    "TA_CreateEntryPoint_start": 928,
+    "TA_CreateEntryPoint_end": [
+        980 
+    ],
+    "TA_InvokeCommandEntryPoint_start": 1252,
+    "TA_InvokeCommandEntryPoint_end": [
+       1836 
+    ],
+    "TA_CloseSessionEntryPoint_start": 1164,
+    "TA_CloseSessionEntryPoint_end": [
+       1244,   
+        1228 
+    ]
+}

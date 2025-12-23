@@ -94,11 +94,12 @@ def teegris_log_encrypt(ql: Qiling, hook_data):
 
 
 def OPENSSL_malloc(ql: Qiling, hook_data):
-    malloc_core(ql, hook_data, False)
-
+    size = ql.os.resolve_fcall_params({"size": INT})["size"]
+    malloc_core(ql, size, hook_data, False)
 
 def OPENSSL_free(ql: Qiling, hook_data):
-    free_core(ql, hook_data, False)
+    ptr = ql.os.resolve_fcall_params({"ptr": INT})["ptr"]
+    free_core(ql, ptr, hook_data, False)
 
 
 def EVP_PKEY_free(ql: Qiling, hook_data):

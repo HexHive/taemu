@@ -52,8 +52,8 @@ void* mod_thread(void* arrg){
         if(start) break;
     }
     while(1){
-        ((char*)arg)[0] = '\t';
-        ((char*)arg)[0] = 0;
+        *(int*)arg = 9;
+        *(int*)arg = 0;
     }
 }
 
@@ -76,7 +76,7 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
 
     void* mem_area1 = allocate_param_mem(context, 0x1000);
     void* mem_area2 = allocate_param_mem(context, 0x1000);
-    memset(mem_area1, 0, buf_size);
+    memset(mem_area1, 0, 0x1000);
     ((char*)mem_area1)[0] = '\t';
 
 /*
@@ -132,7 +132,7 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
     }
     *(int*)mem_area1 = 0x112;
     start = 1;
-    for(int i=0; i<1000; i++){
+    for(int i=0; i<100000; i++){
         printf("??? %d\n", *(int*)mem_area1);
     } 
 //#endif

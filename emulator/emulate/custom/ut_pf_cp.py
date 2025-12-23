@@ -10,6 +10,9 @@ from ..gp.utils.string import malloc_core, memset_core, free_core
 ### ut_pf_cp_open, ut_pf_cp_gk_rsakey, ut_pf_cp_close
 # libuTcrypto.so
 
+"""
+DEAD CODE!!
+"""
 
 def ut_pf_cp_open(ql: Qiling, func_name):
     params = ql.os.resolve_fcall_params({"a1": POINTER, "a2": UINT, "a3": UINT})

@@ -7,6 +7,7 @@ from .gp.utils.string import *
 from .gp.utils.printf import *
 from .gp.utils.const import *
 from .common import CRASH_PC, NOTIMPL_PC, crash, crash_notimpl, finalize_fuzzing
+from .fuzz_record import Status
 import unicorn
 
 from .custom import rpmb
@@ -52,7 +53,8 @@ def default_func(ql: Qiling, hook_data):
         ql.arch.regs.arch_pc = NOTIMPL_PC
     else:
         ql.emu_stop()
-        finalize_fuzzing(ql, user_data="early_exit")
+        if ql.emu.status in (Status.REPLAYING, Status.FUZZING):
+            finalize_fuzzing(ql, user_data="early_exit")
 
 
 def stack_chk_fail(ql: Qiling, hook_data):
@@ -65,19 +67,27 @@ def malloc(ql: Qiling, hook_data):
 
 
 def calloc(ql: Qiling, hook_data):
-    calloc_core(ql, hook_data)
+    param = ql.os.resolve_fcall_params({"nmemb": INT, "size": INT})
+    calloc_core(ql, param["nmemb"] , param["size"], hook_data, False)
 
 
 def TEE_Malloc(ql: Qiling, hook_data):
-    malloc_core(ql, hook_data, False)
+    size = ql.os.resolve_fcall_params({"size": INT})["size"]
+    malloc_core(ql, size, hook_data, False)
 
 
 def TEE_Free(ql: Qiling, hook_data):
-    free_core(ql, hook_data, False)
+    ptr = ql.os.resolve_fcall_params({"ptr": INT})["ptr"]
+    free_core(ql, ptr, hook_data, False)
 
 
 def free(ql: Qiling, hook_data):
-    free_core(ql, hook_data, False)
+    ptr = ql.os.resolve_fcall_params({"ptr": INT})["ptr"]
+    free_core(ql, ptr, hook_data, False)
+
+def TEE_GetCancellationFlag(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
 def memcmp(ql: Qiling, hook_data):
