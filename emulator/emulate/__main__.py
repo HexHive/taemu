@@ -162,6 +162,8 @@ if __name__ == "__main__":
         TEE = "t6"
     elif b"com.huawei.hidisk" in open(ta_path, "rb").read():
         TEE = "trustedcore"
+    elif b"GPAppLib_handleRequest" in open(ta_path, "rb").read():
+        TEE = "qsee"
     if TEE == "":
         TEE = args.tee
 
@@ -206,7 +208,17 @@ if __name__ == "__main__":
                 log_override=custom_logger,
             )
     elif TEE == "mitee":
-        print("doing mitee")
+        ql = Qiling(
+            [ta_path],
+            rootfs=ROOTFS_PATH,
+            ostype=QL_OS.LINUX,
+            archtype=QL_ARCH.ARM64,
+            verbose=v,
+            env={"LD_LIBRARY_PATH": "/"},
+            profile="tee.ql",
+            log_override=custom_logger,
+        )
+    elif TEE == "qsee":
         ql = Qiling(
             [ta_path],
             rootfs=ROOTFS_PATH,

@@ -26,6 +26,7 @@ from .gp.utils.param import *
 from .emulator_no_loader import (
     fixup_got,
     mitee_setup,
+    qsee_setup,
     hook_ta_dl,
     hook_ta_custom,
     teegris_32_setup,
@@ -264,6 +265,8 @@ class TAEMU:
         if self.tee == "mitee":
             # handle tpidr_el0 and fix relocations
             mitee_setup(self.ql, self.ta_path, self.ta_base)
+        if self.tee == "qsee":
+            qsee_setup(self.ql, self.ta_path, self.ta_base)
         if self.tee == "teegris" and self.ql.arch.pointersize == 4:
             teegris_32_setup(self.ql, self.ta_path, self.ta_base)
 
@@ -276,6 +279,7 @@ class TAEMU:
             self,
             is_mitee=self.tee == "mitee",
             is_tc=self.tee == "trustedcore",
+            is_qsee=self.tee == "qsee",
         )
         hook_ta_custom(
             self.ql,
@@ -662,12 +666,12 @@ class TAEMU:
                 ).hex()
                 self.ql.log.debug(f"TEEC_OpenSession from uuid {uuid}")
                 if "-" in self.ta_path:
-                    if uuid != self.ta_path.replace("-", "").split("/")[-1][:-3]:
+                    if uuid != self.ta_path.replace("-", "").split("/")[-1][:-3] and uuid != self.ta_path.replace("-", "").split("/")[-1][:-3].lower():
                         self.ql.log.error(f"Inconsistent TA name!")
                         sock.close()
                         return
                 else:
-                    if uuid != self.ta_path.split("/")[-1][:-3]:
+                    if uuid != self.ta_path.split("/")[-1][:-3] and uuid != self.ta_path.split("/")[-1][:-3].lower():
                         self.ql.log.error(f"Inconsistent TA name!")
                         sock.close()
                         exit(-1)

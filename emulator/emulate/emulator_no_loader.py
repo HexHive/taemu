@@ -18,6 +18,7 @@ from . import teegris_api
 from . import mitee_api
 from . import t6_api
 from . import tc_api
+from . import qsee_api
 from .gp import (
     bigint_ops,
     crypto,
@@ -29,7 +30,7 @@ from .gp import (
 )
 from unicorn.arm64_const import UC_ARM64_INS_MRS
 from unicorn import UC_PROT_READ, UC_PROT_WRITE, UC_PROT_EXEC
-from .custom.mitee_loader import mitee_read_relocs, mitee_relr_relocs
+from .custom.mitee_loader import mitee_read_relocs, mitee_relr_relocs,qsee_read_relocs, mitee_rela_relocs
 from .custom.teegris_32_loader import teegris_32_rel
 from .custom.tc_loader import tc_read_relcall
 from keystone import Ks, KS_ARCH_ARM, KS_MODE_ARM
@@ -74,6 +75,9 @@ def get_api_impl(func_name):
     if api_func is not None:
         return api_func
     api_func = getattr(tc_api, func_name, None)
+    if api_func is not None:
+        return api_func
+    api_func = getattr(qsee_api, func_name, None)
     if api_func is not None:
         return api_func
     return gp_api.default_func
@@ -122,6 +126,7 @@ def hook_ta_dl(
     emu,
     is_mitee=False,
     is_tc=False,
+    is_qsee=False,
 ):
     hook_dict = {}
     counter = 0
@@ -147,6 +152,22 @@ def hook_ta_dl(
         counter += ql.arch.pointersize
     if is_mitee:
         to_hook = mitee_read_relocs(ta_path)
+        for func, off in to_hook:
+            ql.mem.write(
+                ta_base + off,
+                (ql_resolve_mem + counter).to_bytes(ql.arch.pointersize, "little"),
+            )
+            ql.log.info(
+                f"[mitee] hooking plt relocation function {func}, {hex(off)}, {hex(ql_resolve_mem+counter)}"
+            )
+            ql.hook_address(
+                get_api_impl(func),
+                ql_resolve_mem + counter,
+                user_data=HookData(emu, func),
+            )
+            counter += ql.arch.pointersize
+    if is_qsee:
+        to_hook = qsee_read_relocs(ta_path)
         for func, off in to_hook:
             ql.mem.write(
                 ta_base + off,
@@ -285,6 +306,16 @@ def teegris_32_setup(ql: Qiling, ta_path, ta_base):
         v = ql.mem.read_ptr(ta_base + rel)
         ql.mem.write_ptr(ta_base + rel, v + ta_base)
 
+def qsee_setup(ql: Qiling, ta_path, ta_base):
+    reloc_offsets = mitee_rela_relocs(ta_path)
+    ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
+    for off in reloc_offsets:
+        reloc_off = ql.mem.read_ptr(ta_base + off)
+        ql.log.info(f"[mitee] fixing relcation at {hex(off)} for {hex(reloc_off)}")
+        ql.mem.write_ptr(ta_base + off, ta_base + reloc_off)
+    def handle_retab(ql: Qiling, user_data):
+        ql.arch.regs.arch_pc = ql.arch.regs.lr
+    ql.hook_intno(handle_retab, 1)
 
 def mitee_setup(ql: Qiling, ta_path, ta_base):
     # 1: setup tls for mrs
