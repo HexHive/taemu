@@ -8,6 +8,14 @@ from .gp_api import malloc
 from .common import crash, crash_notimpl
 from .gp.utils.printf import parse_fmt_str, fixup_format, read_c_str
 
+def qsee_is_sw_fuse_blown(ql: Qiling, hook_data):
+    p = ql.os.resolve_fcall_params(
+            {"idk": INT, "out": POINTER}
+        )
+    ql.mem.write(p["out"], 4*b"\x00")
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
 def qsee_log_set_mask(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
