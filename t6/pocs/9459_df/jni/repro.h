@@ -23,6 +23,7 @@ void (*TEEC_CloseSession_impl)(TEEC_Session*);
 TEEC_Result (*TEEC_InvokeCommand_impl)(TEEC_Session*,uint32_t,TEEC_Operation*,uint32_t*);
 TEEC_Result (*TEEC_RegisterSharedMemory_impl)(TEEC_Context*, TEEC_SharedMemory*);
 void (*TEEC_ReleaseSharedMemory_impl)(TEEC_SharedMemory*);
+TEEC_Result (*TEEC_AllocateSharedMemory_impl)(TEEC_Context*, TEEC_SharedMemory*);
 #define PAGE_SIZE 0x1000
 
 #if EMULATE
@@ -418,6 +419,12 @@ void load_functions()
     error = dlerror();
     if (error != NULL) {
         fprintf(stderr, "Failed dlsym for TEEC_RegisterSharedMemory: %s\n", error);
+        exit(EXIT_FAILURE);
+    }
+    TEEC_AllocateSharedMemory_impl = dlsym(handle, "TEEC_AllocateSharedMemory");
+    error = dlerror();
+    if (error != NULL) {
+        fprintf(stderr, "Failed dlsym for TEEC_AllocateSharedMemory: %s\n", error);
         exit(EXIT_FAILURE);
     }
     TEEC_ReleaseSharedMemory_impl = dlsym(handle, "TEEC_ReleaseSharedMemory");
