@@ -292,7 +292,10 @@ fn run_fuzz_jobs(
         .collect();
 
     let all_jobs = filtered_fuzz_jobs.len();
-    info!(LOGGER, "{SWARM_TAG} After seed filtering, only {} TA Jobs left for fuzzing", all_jobs);
+    info!(
+        LOGGER,
+        "{SWARM_TAG} After seed filtering, only {} TA Jobs left for fuzzing", all_jobs
+    );
 
     let res = rt.block_on(async move {
         let mut handles = JoinSet::new();

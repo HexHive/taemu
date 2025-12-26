@@ -1,11 +1,11 @@
+use crate::LOGGER;
 use serde_json::{Map, Value, from_reader};
-use slog::warn;
+use slog::{error, warn};
 use std::collections::HashSet;
 use std::ffi::OsString;
 use std::fs::{File, copy};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
-use crate::LOGGER;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct FuzzJob {
@@ -32,72 +32,96 @@ pub fn find_ta_files(
         .filter_map(|i| i.ok())
     {
         let path = entry.path();
-        if path.is_file()
-            && path.extension().unwrap_or_default() == "ta"
-            && filter_pattern.iter().any(|pattern| path.to_string_lossy().contains(pattern))
-            && path.to_string_lossy().contains("harness")
-        {
-            let ta_unique_name = path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap()
-                .to_string();
 
-            if *snapshot_based {
-                // only check the fixed metadata json inside suspicious_inputs_replay
-                let suspicious_dir = path
-                    .parent()
-                    .unwrap()
-                    .join("in")
-                    .join("suspicious_inputs_replay");
+        // BASIC FILTERS
+        if !path.is_file() {
+            continue;
+        }
 
-                if suspicious_dir.exists() {
-                    let suspicious_dir = suspicious_dir.canonicalize().unwrap();
-                    for suspicious_meta in suspicious_dir.read_dir().unwrap() {
-                        let suspicious_meta = suspicious_meta.unwrap().path();
-                        let suspicious_meta_contexts =
-                            get_context_via_meta(&suspicious_dir, &suspicious_meta);
+        if path.extension().and_then(|e| e.to_str()) != Some("ta") {
+            continue;
+        }
 
-                        for (seed_path, reg_hash) in suspicious_meta_contexts {
-                            ta_collection.push(FuzzJob {
-                                fuzz_script: fuzz_script.to_path_buf(),
-                                ta_harness_dir: rebase_path(
-                                    path.parent().unwrap().to_path_buf(),
-                                    &old_root,
-                                    &new_root,
-                                ),
-                                ta_df_context: Some(reg_hash),
-                                ta_df_seed: Some(rebase_path(
-                                    seed_path.to_path_buf(),
-                                    &old_root,
-                                    &new_root,
-                                )),
-                                _ta_canonical_path: rebase_path(
-                                    path.to_path_buf(),
-                                    &old_root,
-                                    &new_root,
-                                ),
-                                _ta_unique_name: ta_unique_name.clone(),
-                            });
-                        }
-                    }
-                } else {
-                    warn!(LOGGER, "The dir {:?} is missing. Check whether need to run the deduplication procedure first.", suspicious_dir);
+        // PATTERN FILTERS
+        let path_str = path.to_string_lossy();
+
+        if !path_str.contains("harness") {
+            continue;
+        }
+
+        if !filter_pattern.iter().any(|p| path_str.contains(p)) {
+            continue;
+        }
+
+        let Some(parent) = path.parent() else {
+            error!(LOGGER, "Path {:?} has no parent; skip", path);
+            continue;
+        };
+
+        let ta_unique_name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap()
+            .to_string();
+
+        if *snapshot_based {
+            // only check the fixed metadata json inside suspicious_inputs_replay
+            let suspicious_dir = parent.join("in").join("suspicious_inputs_replay");
+            let suspicious_dir = match suspicious_dir.canonicalize() {
+                Ok(p) => p,
+                Err(_) => {
+                    warn!(
+                        LOGGER,
+                        "The dir {:?} is missing/unreadable. Check whether need to run the deduplication procedure first.",
+                        suspicious_dir
+                    );
+                    continue;
                 }
-            } else {
-                if ta_collection
-                    .iter()
-                    .all(|j: &FuzzJob| j.ta_harness_dir != path.parent().unwrap())
-                {
+            };
+
+            // df_fuzz need to container resource to launch, so we need to rebase the path here
+            let ta_harness_dir = rebase_path(parent.to_path_buf(), &old_root, &new_root);
+
+            let ta_canon_rebased = rebase_path(path.to_path_buf(), &old_root, &new_root);
+
+            for suspicious_meta in suspicious_dir
+                .read_dir()
+                .into_iter()
+                .flatten()
+                .flatten()
+                .map(|e| e.path())
+            {
+                let suspicious_meta_contexts: Vec<(PathBuf, String)> =
+                    get_context_via_meta(&suspicious_dir, &suspicious_meta);
+
+                for (seed_path, reg_hash) in suspicious_meta_contexts {
                     ta_collection.push(FuzzJob {
                         fuzz_script: fuzz_script.to_path_buf(),
-                        ta_harness_dir: path.parent().unwrap().to_path_buf(),
-                        ta_df_context: None,
-                        ta_df_seed: None,
-                        _ta_canonical_path: path.canonicalize().unwrap().to_path_buf(),
-                        _ta_unique_name: ta_unique_name,
+                        ta_harness_dir: ta_harness_dir.clone(),
+                        ta_df_context: Some(reg_hash),
+                        ta_df_seed: Some(rebase_path(
+                            seed_path.to_path_buf(),
+                            &old_root,
+                            &new_root,
+                        )),
+                        _ta_canonical_path: ta_canon_rebased.clone(),
+                        _ta_unique_name: ta_unique_name.clone(),
                     });
                 }
+            }
+        } else {
+            if ta_collection
+                .iter()
+                .all(|j: &FuzzJob| j.ta_harness_dir != parent)
+            {
+                ta_collection.push(FuzzJob {
+                    fuzz_script: fuzz_script.to_path_buf(),
+                    ta_harness_dir: parent.to_path_buf(),
+                    ta_df_context: None,
+                    ta_df_seed: None,
+                    _ta_canonical_path: path.canonicalize().unwrap().to_path_buf(),
+                    _ta_unique_name: ta_unique_name,
+                });
             }
         }
     }
@@ -106,15 +130,17 @@ pub fn find_ta_files(
 }
 
 pub fn get_context_via_meta(base_path: &Path, ta_suspicious_meta: &Path) -> Vec<(PathBuf, String)> {
-    if ta_suspicious_meta.extension().unwrap_or_default() != "meta" {
+    if ta_suspicious_meta.extension().and_then(|e| e.to_str()) != Some("meta") {
         return Vec::new();
     }
+
     let meta_data: Map<String, Value> = match from_reader(
         File::open(ta_suspicious_meta).expect("Failed to open suspicious meta file"),
     ) {
         Ok(data) => data,
         Err(e) => {
-            eprintln!(
+            error!(
+                LOGGER,
                 "Failed to parse suspicious meta file: {}. So pass it. Error: {}",
                 ta_suspicious_meta.display(),
                 e
@@ -127,14 +153,37 @@ pub fn get_context_via_meta(base_path: &Path, ta_suspicious_meta: &Path) -> Vec<
 
     if let Some(seed_path) = meta_data.get("key") {
         let seed_path = base_path.join(seed_path.as_str().unwrap());
+
         if let Some(records) = meta_data.get("records").and_then(|v| v.as_array()) {
             for record in records.iter() {
-                if record["regs"]["is_read"].as_bool() == Some(true) {
-                    context.push((
-                        PathBuf::from(seed_path.clone()),
-                        record["regs"]["reg_hash"].as_str().unwrap().to_string(),
-                    ));
+                let regs = match record.get("regs") {
+                    Some(r) => r,
+                    None => continue,
+                };
+                
+                let is_second_fetch = match record.get("is_second_fetch").and_then(|v| v.as_bool())
+                {
+                    Some(v) => v,
+                    None => continue,
+                };
+                if !is_second_fetch {
+                    continue;
                 }
+
+                let is_read = regs
+                    .get("is_read")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                if !is_read {
+                    continue;
+                }
+
+                let Some(reg_hash) = regs.get("reg_hash").and_then(|v| v.as_str()) else {
+                    continue;
+                };
+                
+                // passing all checks, so push the context to the final result
+                context.push((seed_path.clone(), reg_hash.to_string()));
             }
         }
     }
@@ -144,9 +193,7 @@ pub fn get_context_via_meta(base_path: &Path, ta_suspicious_meta: &Path) -> Vec<
 pub fn rebase_path(path: PathBuf, old_root: &Path, new_root: &Path) -> PathBuf {
     // warn!(LOGGER, "Rebasing path: {:?} from {:?} to {:?}", path, old_root, new_root);
 
-    let path = path.canonicalize().unwrap_or_else(|_| {
-        path.clone()
-    });
+    let path = path.canonicalize().unwrap_or_else(|_| path.clone());
 
     let rel = path
         .strip_prefix(old_root)
@@ -177,10 +224,22 @@ pub fn save_quick_exit_to_crash(
             .join("crashes");
 
         if !crash_dir.exists() {
-            std::fs::create_dir_all(&crash_dir).unwrap();
+            match std::fs::create_dir_all(&crash_dir) {
+                Ok(_) => (),
+                Err(e) => {
+                    error!(LOGGER, "Failed to create crash directory: {:?}", e);
+                    return;
+                }
+            }
         }
+
         let crash_file = crash_dir.join(seed_file_name);
-        copy(seed, &crash_file).unwrap();
+
+        if let Err(e) = copy(seed, &crash_file) {
+            error!(LOGGER, "Failed to copy seed to crash directory: {:?}", e);
+            return;
+        }
+
         let mut output_file = crash_file.clone();
         output_file.set_extension("output");
         std::fs::write(output_file, output).unwrap();

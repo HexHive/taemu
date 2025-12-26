@@ -19,11 +19,12 @@ class Status(Enum):
     DF_FUZZING = 4
     DF_REPLAY = 5
 
-@dataclass(frozen=True)
+# @dataclass(frozen=True)
 class Record:
     addr: int
     size: Optional[int] = None
     regs: Optional[Dict[str, Any]] = None
+    is_second_fetch: bool = False
 
 
 class Recorder:
