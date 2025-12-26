@@ -34,9 +34,8 @@ def memset_core(ql, hook_data, called_from_api_emu):
         ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def malloc_core(ql: Qiling, hook_data, called_from_custom_lib):
+def malloc_core(ql: Qiling, size, hook_data, called_from_api_emu):
     func_name = hook_data.func_name
-    size = ql.os.resolve_fcall_params({"size": INT})["size"]
 
     real_size = asan.memory_alignment_round_up(
         size + 2 * asan.ASAN_REDZONE_SIZE, 0x1000
@@ -60,14 +59,15 @@ def malloc_core(ql: Qiling, hook_data, called_from_custom_lib):
         real_size - asan.ASAN_REDZONE_SIZE - size
     )
 
-    ql.os.fcall.cc.setReturnValue(ret2user_out)
-    if not called_from_custom_lib:
+    if not called_from_api_emu:
+        ql.os.fcall.cc.setReturnValue(ret2user_out)
         ql.arch.regs.arch_pc = ql.arch.regs.lr
+        return 
+    else:
+        return ret2user_out
 
-
-def calloc_core(ql: Qiling, hook_data):
-    param = ql.os.resolve_fcall_params({"nmemb": INT, "size": INT})
-    size = param["size"] * param["nmemb"]
+def calloc_core(ql: Qiling, nmemb, size, hook_data, called_from_api_emu):
+    size = nmemb * size 
 
     real_size = asan.memory_alignment_round_up(
         size + 2 * asan.ASAN_REDZONE_SIZE, 0x1000
@@ -89,16 +89,17 @@ def calloc_core(ql: Qiling, hook_data):
     hook_data.emu.HEAP["redzones"][ret2user_out + size] = (
         real_size - asan.ASAN_REDZONE_SIZE - size
     )
+    if not called_from_api_emu:
+        ql.os.fcall.cc.setReturnValue(ret2user_out)
+        ql.arch.regs.arch_pc = ql.arch.regs.lr
+    else:
+        return ret2user_out
 
-    ql.os.fcall.cc.setReturnValue(ret2user_out)
-    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-
-def free_core(ql: Qiling, hook_data, called_from_custom_lib):
+def free_core(ql: Qiling, ptr, hook_data, called_from_api_emu):
     func_name = hook_data.func_name
-    ptr = ql.os.resolve_fcall_params({"ptr": INT})["ptr"]
     if ptr == 0:
-        if not called_from_custom_lib:
+        if not called_from_api_emu:
             ql.arch.regs.arch_pc = ql.arch.regs.lr
         return
     if ptr not in hook_data.emu.HEAP["allocated"]:
@@ -123,6 +124,6 @@ def free_core(ql: Qiling, hook_data, called_from_custom_lib):
 
     asan.asan_hook_free_mem_rw(real_ptr, size, ql)
 
-    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
-    if not called_from_custom_lib:
+    if not called_from_api_emu:
+        ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
         ql.arch.regs.arch_pc = ql.arch.regs.lr

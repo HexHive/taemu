@@ -4,3 +4,4 @@ colorama
 hexdump
 redis
 concurrent-log-handler
+gmssl

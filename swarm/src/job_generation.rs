@@ -19,7 +19,7 @@ pub struct FuzzJob {
 
 pub fn find_ta_files(
     top_directory: &Path,
-    filter_pattern: &str,
+    filter_pattern: &Vec<String>,
     fuzz_script: &Path,
     snapshot_based: &bool,
 ) -> HashSet<FuzzJob> {
@@ -34,7 +34,7 @@ pub fn find_ta_files(
         let path = entry.path();
         if path.is_file()
             && path.extension().unwrap_or_default() == "ta"
-            && path.to_string_lossy().contains(filter_pattern)
+            && filter_pattern.iter().any(|pattern| path.to_string_lossy().contains(pattern))
             && path.to_string_lossy().contains("harness")
         {
             let ta_unique_name = path
