@@ -51,6 +51,7 @@ enum funcs {
     func_TEEC_RegisterSharedMemory,
     func_TEEC_ReleaseSharedMemory,
     func_TEEC_FinalizeContext,
+    func_TEEC_AllocateSharedMemory,
 };
 
 void emu_err(const char* msg)
@@ -296,6 +297,16 @@ TEEC_Result TEEC_RegisterSharedMemory_emulate(TEEC_Context* context, TEEC_Shared
     return TEEC_SUCCESS;
 }
 
+void* allocate_param_mem(TEEC_Context* context, int mem_size);
+
+TEEC_Result TEEC_AllocateSharedMemory_emulate(TEEC_Context* context, TEEC_SharedMemory* p)
+{
+    void* buffer = allocate_param_mem(context, p->size);
+    memset(buffer, 0, p->size);
+    p->buffer = buffer;
+    return TEEC_SUCCESS;
+}
+
 void TEEC_ReleaseSharedMemory_emulate(TEEC_SharedMemory* p)
 {
     for (int i=0; i<4; i++)
@@ -375,6 +386,7 @@ void load_functions()
     TEEC_FinalizeContext_impl = TEEC_FinalizeContext_emulate;
     TEEC_RegisterSharedMemory_impl = TEEC_RegisterSharedMemory_emulate;
     TEEC_ReleaseSharedMemory_impl = TEEC_ReleaseSharedMemory_emulate;
+    TEEC_AllocateSharedMemory_impl = TEEC_AllocateSharedMemory_emulate;
     return;
 #else
     void *handle;
