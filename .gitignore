@@ -442,3 +442,4 @@ emulator/rootfs/*
 
 **/in/suspicious_inputs
 emulator/emulate/files/*
+**/Cargo.lock

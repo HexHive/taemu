@@ -19,7 +19,7 @@ class Status(Enum):
     DF_FUZZING = 4
     DF_REPLAY = 5
 
-# @dataclass(frozen=True)
+@dataclass
 class Record:
     addr: int
     size: Optional[int] = None

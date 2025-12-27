@@ -397,7 +397,7 @@ class TAEMU:
                 self._record_meta["last_accessed"] = time.time()
             else:
                 self.set_records(key=key, value=[item])
-        #self.ql.log.info(f"[update_records] current records is {self.records_info()}")
+        self.ql.log.info(f"[update_records] current records is {self.records_info()}")
 
     def records_info(self):
         with self._record_lock:
