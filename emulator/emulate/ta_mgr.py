@@ -76,7 +76,7 @@ class FUNCS(Enum):
     func_TEEC_RegisterSharedMemory = 4
     func_TEEC_ReleaseSharedMemory = 5
     func_TEEC_FinalizeContext = 6
-
+    func_TEEC_AllocateSharedMemory = 7
 
 
 class Session:
@@ -682,12 +682,13 @@ class TAEMU:
                     )
                     return
                 client_socket.send(b"ok" + p32(new_session.session_id))
-            elif f == FUNCS.func_TEEC_RegisterSharedMemory.value and l == 16:
+            elif (f == FUNCS.func_TEEC_RegisterSharedMemory.value or f == FUNCS.func_TEEC_AllocateSharedMemory.value) and l == 16:
                 shm_key = u32(d[:4])
                 size = u32(d[4:8])
                 buf = u64(d[8:])
+                func_name = "TEEC_RegisterSharedMemory" if f == FUNCS.func_TEEC_RegisterSharedMemory.value else "TEEC_AllocateSharedMemory"
                 self.ql.log.info(
-                    f"TEEC_RegisterSharedMemory {shm_key:#0x} {buf:#0x} {size:#0x}"
+                    f"{func_name} {shm_key:#0x} {buf:#0x} {size:#0x}"
                 )
 
                 class SHM(Structure):

