@@ -408,6 +408,7 @@ fn _main_with_logging() -> i32 {
 
 "#
     );
+    warn!(LOGGER, "[!!WARNING!!] Before running swarm, please make sure the ta_emu Docker image is the latest version.");
 
     if !args.top_directory.exists() {
         error!(LOGGER, "Top directory does not exist"; "path" => args.top_directory.display());

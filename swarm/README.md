@@ -44,8 +44,15 @@ cargo run -- -t .. -f /root/TA_GP_emulator/emulator/df_fuzz.sh -d 15 -s -m 2 -p 
 cargo run -- -t .. -f /root/TA_GP_emulator/emulator/df_fuzz.sh -d 3 -s -m 2 -p 9459_df
 
 # redirect to file-based logs
-echo "y" | cargo run -- -t .. -f /root/TA_GP_emulator/emulator/df_fuzz.sh -d 15 -s -m 28  > "df-output$(date +%H_%M_%S).log" 2>&1
+echo "y" | cargo run -- -t .. -f /root/TA_GP_emulator/emulator/df_fuzz.sh -d 15 -s -m 28  > "df-output$(date +day%d-%H_%M_%S).log" 2>&1
 
 ```
 
 
+## Fuzzing Campaign
+
+```shell
+cd /root/TA_GP_emulator/swarm
+./batch-fuzz.sh
+
+```
