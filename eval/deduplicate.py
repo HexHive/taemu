@@ -154,16 +154,16 @@ async def async_replay(ta_dir, input_path, container_id):
         return True
 
 
-async def coverage_based_deduplicate(group_dir, one_group_inputs, enable_del=False, num_replay_containers=5):
+async def coverage_based_deduplicate(group_dir, one_group_inputs, enable_del=False, num_replay_containers=10):
     print(f"Processing {len(one_group_inputs)} inputs under {group_dir}\n")
     group_dir = group_dir.replace("/in", "")
     results = []
     one_group_inputs = [item for item in one_group_inputs if not item.endswith(".meta")]
     
-    batch_size = num_replay_containers * 10
+    batch_size = num_replay_containers * 1
     for i in tqdm.tqdm(range(0, len(one_group_inputs), batch_size), desc=f"[^] Replaying {group_dir}:"):
         if i != 0:
-            await asyncio.sleep(3)
+            await asyncio.sleep(5)
         batch = one_group_inputs[i:min(i + batch_size, len(one_group_inputs))]
         print(f"[+] {time.strftime('%Y-%m-%d %H:%M:%S')} Replaying {i} -> {min(i + len(batch), len(one_group_inputs))} inputs under {group_dir}\n")
         tasks = [async_replay(group_dir, input_path, (i + j) % num_replay_containers) for j, input_path in enumerate(batch)]
@@ -250,7 +250,7 @@ def shut_down(num_replay_containers, mode):
         exit(0)
 
 
-async def main(mode, grouped_inputs, enable_del=False, num_replay_containers=5):
+async def main(mode, grouped_inputs, enable_del=False, num_replay_containers=10):
     for key, value in grouped_inputs.items():
         if mode == "control_flow":
             await control_flow_based_deduplicate(
@@ -292,6 +292,8 @@ def validate(args):
                     subprocess.run(
                         f"docker run -d --name emu_{i} --network host -it -v .:/srv -w /srv/emulator -v /dev/shm:/dev/shm --ipc=host --shm-size=100g ta_emu bash &>/dev/null",
                         shell=True,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
                     )
             else:
                 print("[-] Exiting...")
