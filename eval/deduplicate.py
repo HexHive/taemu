@@ -160,7 +160,8 @@ async def coverage_based_deduplicate(group_dir, one_group_inputs, enable_del=Fal
     results = []
     one_group_inputs = [item for item in one_group_inputs if not item.endswith(".meta")]
     
-    batch_size = num_replay_containers * 1
+    reuse_ratio = 1 # number of replays who reuse the same container [for stability]
+    batch_size = num_replay_containers * reuse_ratio 
     for i in tqdm.tqdm(range(0, len(one_group_inputs), batch_size), desc=f"[^] Replaying {group_dir}:"):
         if i != 0:
             await asyncio.sleep(5)
@@ -310,7 +311,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--mode", type=str, default="control_flow", choices=["control_flow", "coverage"]
     )
-    parser.add_argument("--num-replay-containers", type=int, default=5)
+    parser.add_argument("--num-replay-containers", type=int, default=10)
     
     args = parser.parse_args()
     

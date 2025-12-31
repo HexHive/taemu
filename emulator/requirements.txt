@@ -5,3 +5,4 @@ hexdump
 redis
 concurrent-log-handler
 gmssl
+aiofiles
