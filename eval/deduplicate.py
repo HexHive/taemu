@@ -137,16 +137,16 @@ def calc_bbs_and_do_deduplication(ta_dir, coverage_path, enable_del=False):
 
 async def async_replay(ta_dir, input_path, container_id):
     proc = await asyncio.create_subprocess_shell(
-        f'docker exec -it emu_{container_id} ./replay_sus.sh {ta_dir.replace("/root/TA_GP_emulator/", "../")} {input_path.replace("/root/TA_GP_emulator/", "../")}',
+        f'docker exec emu_{container_id} ./replay_sus.sh {ta_dir.replace("/root/TA_GP_emulator/", "../")} {input_path.replace("/root/TA_GP_emulator/", "../")}',
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    stdout, _ = await proc.communicate()
+    stdout, stderr = await proc.communicate()
     
     if proc.returncode != 0:
-        print(f"[-] Error replaying {input_path} with error: {stdout.decode('utf-8')}")
+        print(f"[-] Error replaying {input_path} with error: {stdout.decode('utf-8')}; {stderr.decode('utf-8')}")
         raise Exception(
-            f"Error replaying {input_path} with error: {stdout.decode('utf-8')}"
+            f"Error replaying {input_path} with error: {stdout.decode('utf-8')}; {stderr.decode('utf-8')}"
         )
     elif b"place_input returned -1" in stdout:
         return False
@@ -293,13 +293,12 @@ def validate(args):
                     subprocess.run(
                         f"docker run -d --name emu_{i} --network host -it -v .:/srv -w /srv/emulator -v /dev/shm:/dev/shm --ipc=host --shm-size=100g ta_emu bash &>/dev/null",
                         shell=True,
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
                     )
             else:
                 print("[-] Exiting...")
                 exit(2)
     time.sleep(5)
+    print("[+] Emulator containers started")
 
 
 if __name__ == "__main__":
@@ -311,7 +310,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--mode", type=str, default="control_flow", choices=["control_flow", "coverage"]
     )
-    parser.add_argument("--num-replay-containers", type=int, default=10)
+    parser.add_argument("--num-replay-containers", type=int, default=20)
     
     args = parser.parse_args()
     

@@ -28,9 +28,7 @@ echo "y" | cargo run -- -t .. -f /root/TA_GP_emulator/emulator/fuzz.sh -d $MINUT
 
 echo "2. Deduplicating original fuzzing and generating suspicious_inputs_replay..."
 cd /root/TA_GP_emulator
-echo -e "y\ny" | python3 eval/deduplicate.py --mode coverage --enable-del
-
-reset
+echo -e "y\ny" | python3 eval/deduplicate.py --mode coverage --enable-del --num-replay-containers 35
 
 cd /root/TA_GP_emulator/swarm
 echo "3. Running df fuzzing..."
