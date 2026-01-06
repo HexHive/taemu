@@ -2,6 +2,7 @@
 
 if [ -z "$1" ] || [ -z "$2" ]; then
     echo "Usage: $0 <minutes-for-original-fuzzing> <minutes-for-df-fuzzing>"
+    echo "Example: $0 1440 30" # 24 hours for original fuzzing, 30 minutes for df fuzzing
     exit 1
 fi
 

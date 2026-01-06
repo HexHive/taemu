@@ -66,7 +66,7 @@ class RedisQueue:
             result = self.redis_client.brpop(self.queue_name, timeout=timeout)
 
             if result is None:
-                raise Empty("Queue timeout")
+                raise Empty("Queue timeout since it's empty.")
 
             # result is a tuple: (queue_name, item)
             _, serialized_item = result
@@ -76,10 +76,10 @@ class RedisQueue:
             return item
 
         except redis.TimeoutError:
-            raise Empty("Queue timeout")
+            raise Empty("Queue timeout (Redis Timeout Error)")
         except Exception as e:
             self.logger.error(f"Failed to get item from queue: {e}")
-            raise
+            raise e
 
     def qsize(self) -> int:
         try:

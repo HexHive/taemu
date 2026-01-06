@@ -69,9 +69,9 @@ impl<T: Management + std::fmt::Debug> ResourcePool<T> {
         let mut wait_time = 5;
         let mut accumulated_wait_time = 0;
         loop {
-            if accumulated_wait_time > 12 * 60 * 60 {
+            if accumulated_wait_time > 96 * 60 * 60 {
                 return Err(ResourcePoolError(Some(
-                    "Failed to acquire container from pool for too long (12 hours).".to_string(),
+                    "Failed to acquire container from pool for too long (96 hours).".to_string(),
                 )));
             }
             match self.get() {
@@ -91,7 +91,7 @@ impl<T: Management + std::fmt::Debug> ResourcePool<T> {
                             self.0.timeout.as_secs() + wait_time,
                         ))
                         .await;
-                        wait_time = std::cmp::min(60 * 10, wait_time * 2);
+                        wait_time = std::cmp::min(60 * 15, wait_time * 2);
                         accumulated_wait_time += wait_time;
                         continue;
                     }
