@@ -4,6 +4,7 @@ use bollard::exec::StartExecOptions;
 use bollard::models::{ContainerCreateBody, ExecConfig, HostConfig};
 use chrono::{DateTime, Utc};
 use futures::StreamExt;
+use slog::info;
 use std::error::Error as StdError;
 
 pub trait Management: Send + Sync + 'static {

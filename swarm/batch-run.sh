@@ -24,6 +24,7 @@ if [ "$CONTINUE" != "y" ]; then
 fi
 
 if [ "$(docker ps | grep swarm_emu)" ]; then
+    echo "ERROR: "
     echo "Some old emulator containers are running."
     echo "Please stop them manually and run this script again."
     exit 2

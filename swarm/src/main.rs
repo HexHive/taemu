@@ -12,6 +12,8 @@ use std::time::{Duration, Instant};
 use tokio::task::JoinSet;
 mod container;
 mod job_generation;
+use indicatif::{ProgressBar, ProgressState, ProgressStyle};
+use std::{cmp::min, fmt::Write};
 mod resource_pool;
 use rayon::prelude::*;
 use slog_scope;
@@ -300,7 +302,15 @@ fn run_fuzz_jobs(
     let res = rt.block_on(async move {
         let mut handles = JoinSet::new();
 
+        // add progress bar
+        let pb = ProgressBar::new(all_jobs as u64);
+        pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")
+            .unwrap()
+            .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
+            .progress_chars("#>-"));
+
         for (job, job_num) in filtered_fuzz_jobs {
+            pb.inc(1);
             let duration = args.duration;
             let pool_clone: ResourcePool<container::Emulator> = pool.clone();
 
@@ -315,6 +325,7 @@ fn run_fuzz_jobs(
             });
             tokio::time::sleep(Duration::from_secs(5)).await;
         }
+        pb.finish();
 
         let mut out = Vec::new();
         while let Some(res) = handles.join_next().await {
