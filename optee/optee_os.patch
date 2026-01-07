@@ -27,7 +27,7 @@ index 6ebeaebea..5f5ad812b 100644
  
  TEE_Result TEE_GetPropertyAsString(TEE_PropSetHandle propsetOrEnumerator,
 diff --git a/lib/libutee/tee_api.c b/lib/libutee/tee_api.c
-index 1ca98e236..be4b4f27d 100644
+index 1ca98e236..923fabb43 100644
 --- a/lib/libutee/tee_api.c
 +++ b/lib/libutee/tee_api.c
 @@ -31,6 +31,67 @@ struct malloc_ctx *__ta_no_share_malloc_ctx __weak;
@@ -102,12 +102,12 @@ index 1ca98e236..be4b4f27d 100644
  		case TEE_PARAM_TYPE_MEMREF_INPUT:
  			if (!is_tmp_mem[n])
  				break;
-+            IMSG("???? allocating tmp buf");
++            EMSG("??????????????????????????????????????? allocating tmp buf");
  			s = up->vals[n * 2 + 1];
  			b = (void *)(vaddr_t)up->vals[n * 2];
  			tmp_va[n] = tb;
 diff --git a/lib/libutee/user_ta_entry.c b/lib/libutee/user_ta_entry.c
-index 13ff14c2b..bf5eb4a99 100644
+index 13ff14c2b..fa7920cb3 100644
 --- a/lib/libutee/user_ta_entry.c
 +++ b/lib/libutee/user_ta_entry.c
 @@ -275,7 +275,7 @@ static void ta_header_remove_session(uint32_t session_id)
@@ -119,7 +119,7 @@ index 13ff14c2b..bf5eb4a99 100644
  {
  	size_t n = 0;
  
-@@ -291,8 +291,22 @@ static void to_utee_params(struct utee_params *up, uint32_t param_types,
+@@ -291,8 +291,25 @@ static void to_utee_params(struct utee_params *up, uint32_t param_types,
  		case TEE_PARAM_TYPE_MEMREF_INPUT:
  		case TEE_PARAM_TYPE_MEMREF_OUTPUT:
  		case TEE_PARAM_TYPE_MEMREF_INOUT:
@@ -131,7 +131,10 @@ index 13ff14c2b..bf5eb4a99 100644
 +			    up->vals[n * 2] = (uintptr_t)params[n].memref.buffer;
 +			    up->vals[n * 2 + 1] = params[n].memref.size;
 +            } else {
-+                memcpy(origBufs[n], params[n].memref.buffer, params[n].memref.size);
++                EMSG("tmpBufs[n]= %p, origBufs[n]= %p", tmpBufs[n], origBufs[n]);
++                if(TEE_PARAM_TYPE_GET(param_types, n) != TEE_PARAM_TYPE_MEMREF_INPUT){
++                    memcpy(origBufs[n], params[n].memref.buffer, params[n].memref.size);
++                }
 +                tee_unmap(tmpBufs[n], params[n].memref.size);
 +			    up->vals[n * 2] = (uintptr_t)origBufs[n];
 +			    up->vals[n * 2 + 1] = params[n].memref.size;
@@ -143,7 +146,7 @@ index 13ff14c2b..bf5eb4a99 100644
  			break;
  		default:
  			up->vals[n * 2] = 0;
-@@ -304,7 +318,8 @@ static void to_utee_params(struct utee_params *up, uint32_t param_types,
+@@ -304,7 +321,8 @@ static void to_utee_params(struct utee_params *up, uint32_t param_types,
  
  static void from_utee_params(TEE_Param params[TEE_NUM_PARAMS],
  			     uint32_t *param_types,
@@ -153,7 +156,7 @@ index 13ff14c2b..bf5eb4a99 100644
  {
  	size_t n;
  	uint32_t types = up->types;
-@@ -323,8 +338,23 @@ static void from_utee_params(TEE_Param params[TEE_NUM_PARAMS],
+@@ -323,8 +341,30 @@ static void from_utee_params(TEE_Param params[TEE_NUM_PARAMS],
  		case TEE_PARAM_TYPE_MEMREF_INPUT:
  		case TEE_PARAM_TYPE_MEMREF_OUTPUT:
  		case TEE_PARAM_TYPE_MEMREF_INOUT:
@@ -166,9 +169,16 @@ index 13ff14c2b..bf5eb4a99 100644
 +                params[n].memref.buffer = (void *)a;
 +                params[n].memref.size = b;
 +            } else {
-+                tmpBufs[n] = tee_map_zi(b, TEE_MEMORY_ACCESS_ANY_OWNER); //TEE_Malloc(b, 0);
++                if(b == 0){
++                    tmpBufs[n] = tee_map_zi(0x1000, TEE_MEMORY_ACCESS_ANY_OWNER); //TEE_Malloc(b, 0);
++                } else {
++                    tmpBufs[n] = tee_map_zi(b, TEE_MEMORY_ACCESS_ANY_OWNER); //TEE_Malloc(b, 0);
++                }
 +                origBufs[n] = (void*)a;
-+                memcpy(tmpBufs[n], (void*)a, b);
++                EMSG("size: %p, tmpBufs[n]: %p, origBufs[n]: %p", b, tmpBufs[n], origBufs[n]);
++                if(TEE_PARAM_TYPE_GET(types, n) != TEE_PARAM_TYPE_MEMREF_OUTPUT){
++                    memcpy(tmpBufs[n], (void*)a, b);
++                }
 +                params[n].memref.buffer = tmpBufs[n];
 +                params[n].memref.size = b;
 +            }
@@ -179,7 +189,7 @@ index 13ff14c2b..bf5eb4a99 100644
  			break;
  		default:
  			break;
-@@ -342,6 +372,8 @@ static TEE_Result entry_open_session(unsigned long session_id,
+@@ -342,6 +382,8 @@ static TEE_Result entry_open_session(unsigned long session_id,
  	struct ta_session *session;
  	uint32_t param_types;
  	TEE_Param params[TEE_NUM_PARAMS];
@@ -188,7 +198,7 @@ index 13ff14c2b..bf5eb4a99 100644
  
  	res = ta_header_add_session(session_id);
  	if (res != TEE_SUCCESS)
-@@ -351,13 +383,13 @@ static TEE_Result entry_open_session(unsigned long session_id,
+@@ -351,13 +393,13 @@ static TEE_Result entry_open_session(unsigned long session_id,
  	if (!session)
  		return TEE_ERROR_BAD_STATE;
  
@@ -204,7 +214,7 @@ index 13ff14c2b..bf5eb4a99 100644
  
  	if (res != TEE_SUCCESS)
  		ta_header_remove_session(session_id);
-@@ -383,18 +415,21 @@ static TEE_Result entry_invoke_command(unsigned long session_id,
+@@ -383,18 +425,21 @@ static TEE_Result entry_invoke_command(unsigned long session_id,
  	TEE_Result res;
  	uint32_t param_types;
  	TEE_Param params[TEE_NUM_PARAMS];
@@ -228,7 +238,7 @@ index 13ff14c2b..bf5eb4a99 100644
  	return res;
  }
  
-@@ -406,7 +441,7 @@ static TEE_Result entry_dump_memstats(unsigned long session_id __unused,
+@@ -406,7 +451,7 @@ static TEE_Result entry_dump_memstats(unsigned long session_id __unused,
  	TEE_Param params[TEE_NUM_PARAMS] = { };
  	struct pta_stats_alloc stats = { };
  
@@ -237,7 +247,7 @@ index 13ff14c2b..bf5eb4a99 100644
  	ta_header_save_params(param_types, params);
  
  	if (TEE_PARAM_TYPES(TEE_PARAM_TYPE_VALUE_OUTPUT,
-@@ -422,7 +457,7 @@ static TEE_Result entry_dump_memstats(unsigned long session_id __unused,
+@@ -422,7 +467,7 @@ static TEE_Result entry_dump_memstats(unsigned long session_id __unused,
  	params[1].value.b = stats.num_alloc_fail;
  	params[2].value.a = stats.biggest_alloc_fail;
  	params[2].value.b = stats.biggest_alloc_fail_used;
