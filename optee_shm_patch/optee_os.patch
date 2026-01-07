@@ -27,10 +27,10 @@ index 6ebeaebea..5f5ad812b 100644
  
  TEE_Result TEE_GetPropertyAsString(TEE_PropSetHandle propsetOrEnumerator,
 diff --git a/lib/libutee/tee_api.c b/lib/libutee/tee_api.c
-index 1ca98e236..923fabb43 100644
+index 1ca98e236..05872d3fa 100644
 --- a/lib/libutee/tee_api.c
 +++ b/lib/libutee/tee_api.c
-@@ -31,6 +31,67 @@ struct malloc_ctx *__ta_no_share_malloc_ctx __weak;
+@@ -31,6 +31,69 @@ struct malloc_ctx *__ta_no_share_malloc_ctx __weak;
  
  static const void *tee_api_instance_data;
  
@@ -52,7 +52,7 @@ index 1ca98e236..923fabb43 100644
 +    new_shm->next = NULL;
 +    memcpy(&new_shm->params2shared, params2shared, 4*sizeof(bool));
 +    if(Invoke_Shms == NULL){
-+        EMSG("new InvokeShm structure is registered"); 
++        EMSG("new InvokeShm structure is registered for %x", commandID); 
 +        Invoke_Shms = new_shm;
 +    } else {
 +        ShmInfo_t* cur = Invoke_Shms;
@@ -80,9 +80,11 @@ index 1ca98e236..923fabb43 100644
 +        return TEE_SUCCESS;
 +    } else {
 +        ShmInfo_t* cur = Invoke_Shms;
++        EMSG("cur: %p", cur);
 +        do{
++            EMSG("cur->commandID %x, commandID %x", cur->commandID, commandID);
 +            if(cur->commandID == commandID){
-+                EMSG("matching commandID found, comparing paramTypes");
++                EMSG("matching commandID found returning %d", cur->params2shared[params_idx]);
 +                *out = cur->params2shared[params_idx]; 
 +                return TEE_SUCCESS;
 +            }
@@ -98,14 +100,6 @@ index 1ca98e236..923fabb43 100644
  /* System API - Internal Client API */
  
  static void copy_param(struct utee_params *up, uint32_t param_types,
-@@ -156,6 +217,7 @@ static TEE_Result map_tmp_param(struct utee_params *up, void **tmp_buf,
- 		case TEE_PARAM_TYPE_MEMREF_INPUT:
- 			if (!is_tmp_mem[n])
- 				break;
-+            EMSG("??????????????????????????????????????? allocating tmp buf");
- 			s = up->vals[n * 2 + 1];
- 			b = (void *)(vaddr_t)up->vals[n * 2];
- 			tmp_va[n] = tb;
 diff --git a/lib/libutee/user_ta_entry.c b/lib/libutee/user_ta_entry.c
 index 13ff14c2b..272db4e1d 100644
 --- a/lib/libutee/user_ta_entry.c
