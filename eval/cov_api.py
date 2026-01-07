@@ -9,7 +9,7 @@ import time
 import subprocess
 import sys
 
-from bb import build_tee_cfg
+from graphs.bb import build_tee_cfg
 from fuzz import FUZZ_TIME, TEES, FUZZ_ITERATIONS, FUZZ_CHUNKS
 
 root = 8 * "0"

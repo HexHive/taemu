@@ -1,12 +1,27 @@
 import argparse
 from loguru import logger
 from typing import Literal
-from common import list_tas
+from common import list_tas, RawFuzzingInfo, FuzzMode
+import matplotlib.pyplot as plt
+from dataclasses import dataclass
+from collect_cov import collect_cov_denominator
 
-def main(fuzz_mode: Literal["org", "df", "all"] = "all", tees: list[str] = None, regen_coverage: bool = False):
+@dataclass
+class FuzzingInfo:
+    raw_fuzzing_info: RawFuzzingInfo
+    cov_denominator: float
+    cov_numerator: float
+    fuzz_graphs: dict[str, plt.Figure]
+
+
+def main(fuzz_mode: FuzzMode = FuzzMode.ALL, tees: list[str] = None, regen_coverage: bool = False):
     all_tas: set[str] = list_tas()
+    tees = tees or ["mitee", "teegris", "beanpod", "t6", "qsee"]
     filtered_tas = filter(lambda ta: any(tee in ta for tee in tees), all_tas)
     
+    cov_denominators = {}
+    for ta in filtered_tas:
+        cov_denominators[ta] = collect_cov_denominator(ta)
     
     if regen_coverage:
         for ta in filtered_tas:
@@ -31,7 +46,7 @@ def main(fuzz_mode: Literal["org", "df", "all"] = "all", tees: list[str] = None,
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--fuzz_mode", choices=["org", "df", "all"], default="all")
-    parser.add_argument("--tees", nargs="+", default=None)
+    parser.add_argument("--tees", nargs="+", default=None, help="Filter by TEEs")
     parser.add_argument("--gen_coverage", action="store_true", default=False)
     args = parser.parse_args()
     

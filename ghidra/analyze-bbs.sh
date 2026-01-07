@@ -5,6 +5,7 @@ dirs=(
     "../teegris/tas"
     "../beanpod/tas"
     "../mitee/tas"
+    "../qsee/tas"
 )
 
 for dir in "${dirs[@]}"; do

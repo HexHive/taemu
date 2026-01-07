@@ -9,7 +9,7 @@ import time
 import subprocess
 import sys
 
-from bb import build_tee_cfg
+from graphs.bb import build_tee_cfg
 from fuzz import FUZZ_TIME, TEES, FUZZ_CHUNKS, FUZZ_ITERATIONS, COV_DIR, CAMPAIGN_DIR
 from fuzz_postprocess import BB, aggregate, parse_drcov
 from cov_api import COV_API_DIR
