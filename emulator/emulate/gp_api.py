@@ -75,6 +75,40 @@ def TEE_Malloc(ql: Qiling, hook_data):
     size = ql.os.resolve_fcall_params({"size": INT})["size"]
     malloc_core(ql, size, hook_data, False)
 
+def memalign(ql: Qiling, hook_data):
+    params = ql.os.resolve_fcall_params({"alignment": INT, "size": INT})
+    size = params["size"]
+    alignment = params["alignment"]
+    func_name = hook_data.func_name
+
+    real_size = asan.memory_alignment_round_up(
+        size + alignment + 2 * asan.ASAN_REDZONE_SIZE, 0x1000
+    )
+
+    out = ql.mem.map_anywhere(real_size, minaddr=HEAP_MEM, perms=3, info="malloc_chunk")
+    candidate = out + asan.ASAN_REDZONE_SIZE
+    aligned = (candidate + (alignment - 1)) & ~(alignment - 1)
+    ret2user_out = aligned 
+    ql.log.info(f"{func_name}: allocated {hex(size)} at {hex(ret2user_out)}")
+    hook_data.emu.HEAP["allocated"][ret2user_out] = size
+    if ret2user_out in hook_data.emu.HEAP["freed"]:
+        del hook_data.emu.HEAP["freed"][ret2user_out]
+
+    ql.log.info(f"redzone hook {hex(out)}")
+    asan.asan_hook_redzone_mem_rw(out, asan.ASAN_REDZONE_SIZE, ql)
+    hook_data.emu.HEAP["redzones"][out] = asan.ASAN_REDZONE_SIZE
+    ql.log.info(f"redzone hook {hex(ret2user_out + size)}")
+    asan.asan_hook_redzone_mem_rw(
+        ret2user_out + size, real_size - asan.ASAN_REDZONE_SIZE - size, ql
+    )
+    hook_data.emu.HEAP["redzones"][ret2user_out + size] = (
+        real_size - asan.ASAN_REDZONE_SIZE - size
+    )
+
+    ql.os.fcall.cc.setReturnValue(ret2user_out)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+    return 
+    
 
 def TEE_Free(ql: Qiling, hook_data):
     ptr = ql.os.resolve_fcall_params({"ptr": INT})["ptr"]

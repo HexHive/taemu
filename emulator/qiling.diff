@@ -96,3 +96,16 @@ index 2735b8b7..0774a810 100644
                  raise TypeError(f'unexpected logging device type: {type(dev).__name__}')
  
              if no_color or not __is_color_terminal(handler.stream):
+diff --git a/qiling/os/linux/linux.py b/qiling/os/linux/linux.py
+index 0313218d..ee2e9902 100644
+--- a/qiling/os/linux/linux.py
++++ b/qiling/os/linux/linux.py
+@@ -72,7 +72,7 @@ class QlOsLinux(QlOsPosix):
+         # ARM64
+         elif self.ql.arch.type == QL_ARCH.ARM64:
+             self.ql.arch.enable_vfp()
+-            self.ql.hook_intno(self.hook_syscall, 2)
++            #self.ql.hook_intno(self.hook_syscall, 2)
+             self.thread_class = thread.QlLinuxARM64Thread
+ 
+         # X86

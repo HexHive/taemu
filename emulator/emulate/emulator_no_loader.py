@@ -19,6 +19,7 @@ from . import mitee_api
 from . import t6_api
 from . import tc_api
 from . import qsee_api
+from . import optee_api
 from .gp import (
     bigint_ops,
     crypto,
@@ -42,7 +43,7 @@ class HookData:
         self.func_name = func_name
 
 
-def get_api_impl(func_name):
+def get_api_impl(func_name, strict=False):
     if func_name == "write":
         func_name = "_write"
     if func_name == "open":
@@ -80,6 +81,11 @@ def get_api_impl(func_name):
     api_func = getattr(qsee_api, func_name, None)
     if api_func is not None:
         return api_func
+    api_func = getattr(optee_api, func_name, None)
+    if api_func is not None:
+        return api_func
+    if strict:
+        return None
     return gp_api.default_func
 
 
@@ -127,6 +133,7 @@ def hook_ta_dl(
     is_mitee=False,
     is_tc=False,
     is_qsee=False,
+    is_optee=False
 ):
     hook_dict = {}
     counter = 0
@@ -198,6 +205,19 @@ def hook_ta_dl(
                 user_data=HookData(emu, func),
             )
             ql.mem.write(off, bytes(encoding))
+            counter += ql.arch.pointersize
+    if is_optee:
+        for sym, addr in ta_elf.sym.items():
+            api_func =  get_api_impl(sym, strict=True)
+            if api_func is None: continue
+            ql.log.info(
+                f"[optee] hooking {sym}@{hex(addr)}"
+            )
+            ql.hook_address(
+                api_func, 
+                addr,
+                user_data=HookData(emu, func),
+            )
             counter += ql.arch.pointersize
     if "00000000-0000-0000-0000-4b45594d5354.ta" in ta_path:
         # load libscrypto.so to emulate ASN1 stuff
@@ -305,6 +325,9 @@ def teegris_32_setup(ql: Qiling, ta_path, ta_base):
     for rel in rels:
         v = ql.mem.read_ptr(ta_base + rel)
         ql.mem.write_ptr(ta_base + rel, v + ta_base)
+
+def optee_setup(ql: Qiling, ta_path, ta_base):
+    ql.hook_intno(optee_api.optee_syscall, 2)
 
 def qsee_setup(ql: Qiling, ta_path, ta_base):
     reloc_offsets = mitee_rela_relocs(ta_path)
