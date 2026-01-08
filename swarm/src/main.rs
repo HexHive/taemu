@@ -7,7 +7,6 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::process;
 use std::time::{Duration, Instant};
-use tokio::task::JoinSet;
 use rayon::ThreadPoolBuilder;
 mod container;
 mod job_generation;
@@ -163,7 +162,7 @@ fn run_fuzz_job_blocking(
     debug!(LOGGER, "[Job {}] COMMAND => {:?}", job_num, &command);
     let start_time: Instant = Instant::now();
     let container_name = container.container_name.clone();
-    let proc = std::thread::spawn(move || {
+    let _ = std::thread::spawn(move || {
         let _ = tx.send(Msg::Start(std::thread::current().id()));
 
         // create and run command
@@ -234,8 +233,6 @@ fn run_fuzz_job_blocking(
                     pool.put_back(container);
                     return Err(format!("Error: unexpected error: {:?}", e));
                 }
-        
-
             }
             Err(RecvTimeoutError::Timeout) => {
                 let _ = container
@@ -469,7 +466,7 @@ fn run_fuzz_jobs(
 
 
     let t_pool = ThreadPoolBuilder::new()
-        .num_threads(56)
+        .num_threads(args.max_parallel)
         .build()
         .unwrap();
 
@@ -668,8 +665,8 @@ fn _main_with_logging() -> i32 {
     );
 
     let rt = tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(args.max_parallel)
-        .max_blocking_threads(56)
+        .worker_threads(args.max_parallel/2)
+        .max_blocking_threads(10)
         .enable_all()
         .build()
         .unwrap();
@@ -689,6 +686,11 @@ fn _main_with_logging() -> i32 {
         }
     };
 
+    info!(
+        LOGGER,
+        "{SWARM_TAG} Starting parallel fuzzing with max {} concurrent jobs...",
+        args.max_parallel,
+    );
     let (all_jobs, skipped_jobs, error_jobs) = run_fuzz_jobs(&&args, ta_files, pool.clone());
 
     // Cleanup resources
