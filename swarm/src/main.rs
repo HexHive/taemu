@@ -650,15 +650,15 @@ fn _main_with_logging() -> i32 {
         return 3;
     }
 
-    // if args
-    //     .fuzz_script
-    //     .to_string_lossy()
-    //     .to_string()
-    //     .contains("/fuzz.sh")
-    // {
-    //     create_redis_container();
-    //     info!(LOGGER, "Redis container created");
-    // }
+    if args
+        .fuzz_script
+        .to_string_lossy()
+        .to_string()
+        .contains("/fuzz.sh")
+    {
+        create_redis_container();
+        info!(LOGGER, "Redis container created");
+    }
 
     info!(
         LOGGER,
