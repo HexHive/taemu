@@ -27,10 +27,10 @@ index 6ebeaebea..5f5ad812b 100644
  
  TEE_Result TEE_GetPropertyAsString(TEE_PropSetHandle propsetOrEnumerator,
 diff --git a/lib/libutee/tee_api.c b/lib/libutee/tee_api.c
-index 1ca98e236..923fabb43 100644
+index 1ca98e236..05872d3fa 100644
 --- a/lib/libutee/tee_api.c
 +++ b/lib/libutee/tee_api.c
-@@ -31,6 +31,67 @@ struct malloc_ctx *__ta_no_share_malloc_ctx __weak;
+@@ -31,6 +31,69 @@ struct malloc_ctx *__ta_no_share_malloc_ctx __weak;
  
  static const void *tee_api_instance_data;
  
@@ -52,7 +52,7 @@ index 1ca98e236..923fabb43 100644
 +    new_shm->next = NULL;
 +    memcpy(&new_shm->params2shared, params2shared, 4*sizeof(bool));
 +    if(Invoke_Shms == NULL){
-+        EMSG("new InvokeShm structure is registered"); 
++        EMSG("new InvokeShm structure is registered for %x", commandID); 
 +        Invoke_Shms = new_shm;
 +    } else {
 +        ShmInfo_t* cur = Invoke_Shms;
@@ -80,9 +80,11 @@ index 1ca98e236..923fabb43 100644
 +        return TEE_SUCCESS;
 +    } else {
 +        ShmInfo_t* cur = Invoke_Shms;
++        EMSG("cur: %p", cur);
 +        do{
++            EMSG("cur->commandID %x, commandID %x", cur->commandID, commandID);
 +            if(cur->commandID == commandID){
-+                EMSG("matching commandID found, comparing paramTypes");
++                EMSG("matching commandID found returning %d", cur->params2shared[params_idx]);
 +                *out = cur->params2shared[params_idx]; 
 +                return TEE_SUCCESS;
 +            }
@@ -98,16 +100,8 @@ index 1ca98e236..923fabb43 100644
  /* System API - Internal Client API */
  
  static void copy_param(struct utee_params *up, uint32_t param_types,
-@@ -156,6 +217,7 @@ static TEE_Result map_tmp_param(struct utee_params *up, void **tmp_buf,
- 		case TEE_PARAM_TYPE_MEMREF_INPUT:
- 			if (!is_tmp_mem[n])
- 				break;
-+            EMSG("??????????????????????????????????????? allocating tmp buf");
- 			s = up->vals[n * 2 + 1];
- 			b = (void *)(vaddr_t)up->vals[n * 2];
- 			tmp_va[n] = tb;
 diff --git a/lib/libutee/user_ta_entry.c b/lib/libutee/user_ta_entry.c
-index 13ff14c2b..fa7920cb3 100644
+index 13ff14c2b..272db4e1d 100644
 --- a/lib/libutee/user_ta_entry.c
 +++ b/lib/libutee/user_ta_entry.c
 @@ -275,7 +275,7 @@ static void ta_header_remove_session(uint32_t session_id)
@@ -119,7 +113,7 @@ index 13ff14c2b..fa7920cb3 100644
  {
  	size_t n = 0;
  
-@@ -291,8 +291,25 @@ static void to_utee_params(struct utee_params *up, uint32_t param_types,
+@@ -291,8 +291,29 @@ static void to_utee_params(struct utee_params *up, uint32_t param_types,
  		case TEE_PARAM_TYPE_MEMREF_INPUT:
  		case TEE_PARAM_TYPE_MEMREF_OUTPUT:
  		case TEE_PARAM_TYPE_MEMREF_INOUT:
@@ -127,7 +121,7 @@ index 13ff14c2b..fa7920cb3 100644
 +#if SHM_MITIGATION
 +            bool isShared = false;
 +            TEE_IsShared(commandID, n, isOpenSession, &isShared);
-+            if(isShared){
++            if(isShared || (params[n].memref.buffer == 0 && params[n].memref.size == 0)){
 +			    up->vals[n * 2] = (uintptr_t)params[n].memref.buffer;
 +			    up->vals[n * 2 + 1] = params[n].memref.size;
 +            } else {
@@ -135,7 +129,11 @@ index 13ff14c2b..fa7920cb3 100644
 +                if(TEE_PARAM_TYPE_GET(param_types, n) != TEE_PARAM_TYPE_MEMREF_INPUT){
 +                    memcpy(origBufs[n], params[n].memref.buffer, params[n].memref.size);
 +                }
-+                tee_unmap(tmpBufs[n], params[n].memref.size);
++                if(params[n].memref.size == 0x0){
++                    tee_unmap(tmpBufs[n], 0x1000);
++                } else {
++                    tee_unmap(tmpBufs[n], params[n].memref.size);
++                }
 +			    up->vals[n * 2] = (uintptr_t)origBufs[n];
 +			    up->vals[n * 2 + 1] = params[n].memref.size;
 +            }
@@ -146,7 +144,7 @@ index 13ff14c2b..fa7920cb3 100644
  			break;
  		default:
  			up->vals[n * 2] = 0;
-@@ -304,7 +321,8 @@ static void to_utee_params(struct utee_params *up, uint32_t param_types,
+@@ -304,7 +325,8 @@ static void to_utee_params(struct utee_params *up, uint32_t param_types,
  
  static void from_utee_params(TEE_Param params[TEE_NUM_PARAMS],
  			     uint32_t *param_types,
@@ -156,7 +154,7 @@ index 13ff14c2b..fa7920cb3 100644
  {
  	size_t n;
  	uint32_t types = up->types;
-@@ -323,8 +341,30 @@ static void from_utee_params(TEE_Param params[TEE_NUM_PARAMS],
+@@ -323,8 +345,30 @@ static void from_utee_params(TEE_Param params[TEE_NUM_PARAMS],
  		case TEE_PARAM_TYPE_MEMREF_INPUT:
  		case TEE_PARAM_TYPE_MEMREF_OUTPUT:
  		case TEE_PARAM_TYPE_MEMREF_INOUT:
@@ -165,7 +163,7 @@ index 13ff14c2b..fa7920cb3 100644
 +#if SHM_MITIGATION
 +            bool isShared = false;
 +            TEE_IsShared(commandID, n, isOpenSession, &isShared);
-+            if(isShared){
++            if(isShared || (a == 0 && b == 0)){
 +                params[n].memref.buffer = (void *)a;
 +                params[n].memref.size = b;
 +            } else {
@@ -189,7 +187,7 @@ index 13ff14c2b..fa7920cb3 100644
  			break;
  		default:
  			break;
-@@ -342,6 +382,8 @@ static TEE_Result entry_open_session(unsigned long session_id,
+@@ -342,6 +386,8 @@ static TEE_Result entry_open_session(unsigned long session_id,
  	struct ta_session *session;
  	uint32_t param_types;
  	TEE_Param params[TEE_NUM_PARAMS];
@@ -198,7 +196,7 @@ index 13ff14c2b..fa7920cb3 100644
  
  	res = ta_header_add_session(session_id);
  	if (res != TEE_SUCCESS)
-@@ -351,13 +393,13 @@ static TEE_Result entry_open_session(unsigned long session_id,
+@@ -351,13 +397,13 @@ static TEE_Result entry_open_session(unsigned long session_id,
  	if (!session)
  		return TEE_ERROR_BAD_STATE;
  
@@ -214,7 +212,7 @@ index 13ff14c2b..fa7920cb3 100644
  
  	if (res != TEE_SUCCESS)
  		ta_header_remove_session(session_id);
-@@ -383,18 +425,21 @@ static TEE_Result entry_invoke_command(unsigned long session_id,
+@@ -383,18 +429,21 @@ static TEE_Result entry_invoke_command(unsigned long session_id,
  	TEE_Result res;
  	uint32_t param_types;
  	TEE_Param params[TEE_NUM_PARAMS];
@@ -238,7 +236,7 @@ index 13ff14c2b..fa7920cb3 100644
  	return res;
  }
  
-@@ -406,7 +451,7 @@ static TEE_Result entry_dump_memstats(unsigned long session_id __unused,
+@@ -406,7 +455,7 @@ static TEE_Result entry_dump_memstats(unsigned long session_id __unused,
  	TEE_Param params[TEE_NUM_PARAMS] = { };
  	struct pta_stats_alloc stats = { };
  
@@ -247,7 +245,7 @@ index 13ff14c2b..fa7920cb3 100644
  	ta_header_save_params(param_types, params);
  
  	if (TEE_PARAM_TYPES(TEE_PARAM_TYPE_VALUE_OUTPUT,
-@@ -422,7 +467,7 @@ static TEE_Result entry_dump_memstats(unsigned long session_id __unused,
+@@ -422,7 +471,7 @@ static TEE_Result entry_dump_memstats(unsigned long session_id __unused,
  	params[1].value.b = stats.num_alloc_fail;
  	params[2].value.a = stats.biggest_alloc_fail;
  	params[2].value.b = stats.biggest_alloc_fail_used;

@@ -18,6 +18,9 @@ beanpod: ## Run the Docker container(s) beanpod
 teegris: ## Run the Docker container(s) teegris 
 		@$(DOCKER) compose run --rm tipi /teegris-entrypoint.sh ${TARGET} 
 
+optee: ## Run the Docker container(s) teegris 
+		@$(DOCKER) compose run --rm tipi /optee-entrypoint.sh ${TARGET} 
+
 t6: ## Run the Docker container(s) t6
 		@$(DOCKER) compose run --rm tipi /t6-entrypoint.sh ${TARGET} 
 

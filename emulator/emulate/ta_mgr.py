@@ -29,7 +29,8 @@ from .emulator_no_loader import (
     qsee_setup,
     hook_ta_dl,
     hook_ta_custom,
-    teegris_32_setup,
+    teegris_32_setup, 
+    optee_setup,
 )
 from .common import CRASH_PC, NOTIMPL_PC, CRASH_PC_2, finalize_fuzzing
 from typing import Any, Callable, Optional, List, Dict
@@ -269,6 +270,8 @@ class TAEMU:
             qsee_setup(self.ql, self.ta_path, self.ta_base)
         if self.tee == "teegris" and self.ql.arch.pointersize == 4:
             teegris_32_setup(self.ql, self.ta_path, self.ta_base)
+        if self.tee == "optee":
+            optee_setup(self.ql, self.ta_path, self.ta_base)
 
     def hook(self):
         # setup api hooks
@@ -280,6 +283,7 @@ class TAEMU:
             is_mitee=self.tee == "mitee",
             is_tc=self.tee == "trustedcore",
             is_qsee=self.tee == "qsee",
+            is_optee=self.tee == "optee"
         )
         hook_ta_custom(
             self.ql,
@@ -397,7 +401,7 @@ class TAEMU:
                 self._record_meta["last_accessed"] = time.time()
             else:
                 self.set_records(key=key, value=[item])
-        self.ql.log.info(f"[update_records] current records is {self.records_info()}")
+        self.ql.log.debug(f"[update_records] current records is {self.records_info()}")
 
     def records_info(self):
         with self._record_lock:

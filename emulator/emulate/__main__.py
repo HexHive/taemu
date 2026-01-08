@@ -154,6 +154,8 @@ if __name__ == "__main__":
 
     if b"TEEGRIS" in open(ta_path, "rb").read():
         TEE = "teegris"
+    elif b"optee" in open(ta_path, "rb").read() and b"ta_head" in open(ta_path, "rb").read():
+        TEE = "optee"
     elif b"rom/libld-l4.so" in open(ta_path, "rb").read():
         TEE = "beanpod"
     elif b"ld.so.1" in open(ta_path, "rb").read():
@@ -166,7 +168,6 @@ if __name__ == "__main__":
         TEE = "qsee"
     if TEE == "":
         TEE = args.tee
-
     if TEE == "beanpod":
         if ta_elf.header["e_flags"] & 0x200 == 0:
             is_thumb = True
@@ -219,6 +220,17 @@ if __name__ == "__main__":
             log_override=custom_logger,
         )
     elif TEE == "qsee":
+        ql = Qiling(
+            [ta_path],
+            rootfs=ROOTFS_PATH,
+            ostype=QL_OS.LINUX,
+            archtype=QL_ARCH.ARM64,
+            verbose=v,
+            env={"LD_LIBRARY_PATH": "/"},
+            profile="tee.ql",
+            log_override=custom_logger,
+        )
+    elif TEE == "optee":
         ql = Qiling(
             [ta_path],
             rootfs=ROOTFS_PATH,

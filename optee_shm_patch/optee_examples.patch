@@ -1,0 +1,148 @@
+diff --git a/hello_world/host/main.c b/hello_world/host/main.c
+index dba1e96..5a3736b 100644
+--- a/hello_world/host/main.c
++++ b/hello_world/host/main.c
+@@ -3,7 +3,9 @@
+  * Copyright (c) 2016, Linaro Limited
+  * All rights reserved.
+  */
+-
++#include <unistd.h>
++#include <pthread.h>
++#include <stdlib.h>
+ #include <err.h>
+ #include <stdio.h>
+ #include <string.h>
+@@ -14,6 +16,19 @@
+ /* For the UUID (found in the TA's h-file(s)) */
+ #include <hello_world_ta.h>
+ 
++volatile int start = 0;
++
++void* mod_thread(void* arg){
++    volatile int* buf = (volatile void*) arg;
++    puts("mod thread started!");
++    start = 1;
++    while(1){
++        *buf = 0xdeadbeef;
++        *buf = 0xcafecafe;
++    }
++}
++
++
+ int main(void)
+ {
+ 	TEEC_Result res;
+@@ -53,22 +68,42 @@ int main(void)
+ 	 * Prepare the argument. Pass a value in the first parameter,
+ 	 * the remaining three parameters are unused.
+ 	 */
+-	op.paramTypes = TEEC_PARAM_TYPES(TEEC_VALUE_INOUT, TEEC_NONE,
+-					 TEEC_NONE, TEEC_NONE);
+-	op.params[0].value.a = 42;
++    TEEC_SharedMemory shm;
++    memset(&shm, 0, sizeof(shm));
++    shm.size  = 0x1000;  // must be > 0
++    shm.flags = TEEC_MEM_INPUT | TEEC_MEM_OUTPUT;
++
++    res = TEEC_AllocateSharedMemory(&ctx, &shm);
++    if (res != TEEC_SUCCESS) {
++        printf("AllocateSharedMemory failed: 0x%x\n", res);
++        return -1;
++    }
+ 
++	op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_WHOLE, TEEC_NONE,
++					 TEEC_NONE, TEEC_NONE);
++    op.params[0].memref.parent = &shm;
++    op.params[0].memref.offset = 0;
++    op.params[0].memref.size   = shm.size;
++    pthread_t tid;
++    if (pthread_create(&tid, NULL, mod_thread, shm.buffer) != 0) {
++        perror("pthread_create failed");
++        return 0;
++    }
+ 	/*
+ 	 * TA_HELLO_WORLD_CMD_INC_VALUE is the actual function in the TA to be
+ 	 * called.
+ 	 */
+-	printf("Invoking TA to increment %d\n", op.params[0].value.a);
+-	res = TEEC_InvokeCommand(&sess, TA_HELLO_WORLD_CMD_INC_VALUE, &op,
++    while(!start){
++        printf("start %d\n");
++        sleep(1);
++    }
++	printf("Invoking TA SHM_TEST_1\n");
++	printf("Invoking TA SHM_TEST_1\n");
++	res = TEEC_InvokeCommand(&sess, TA_SHM_TEST, &op,
+ 				 &err_origin);
+ 	if (res != TEEC_SUCCESS)
+ 		errx(1, "TEEC_InvokeCommand failed with code 0x%x origin 0x%x",
+ 			res, err_origin);
+-	printf("TA incremented value to %d\n", op.params[0].value.a);
+-
+ 	/*
+ 	 * We're done with the TA, close the session and
+ 	 * destroy the context.
+diff --git a/hello_world/ta/hello_world_ta.c b/hello_world/ta/hello_world_ta.c
+index b49172c..9514f94 100644
+--- a/hello_world/ta/hello_world_ta.c
++++ b/hello_world/ta/hello_world_ta.c
+@@ -16,7 +16,8 @@
+ TEE_Result TA_CreateEntryPoint(void)
+ {
+ 	DMSG("has been called");
+-
++    bool cmd_1[4] = {true, false, false, false};
++    TEE_RegisterShm(TA_SHM_TEST_2, cmd_1, false);
+ 	return TEE_SUCCESS;
+ }
+ 
+@@ -105,6 +106,25 @@ static TEE_Result dec_value(uint32_t param_types, TEE_Param params[4])
+ 
+ 	return TEE_SUCCESS;
+ }
++
++static TEE_Result shm_test(uint32_t param_types, TEE_Param params[4])
++{
++   uint32_t exp_param_types = TEE_PARAM_TYPES(TEE_PARAM_TYPE_MEMREF_INOUT,
++						   TEE_PARAM_TYPE_NONE,
++						   TEE_PARAM_TYPE_NONE,
++						   TEE_PARAM_TYPE_NONE);
++
++	IMSG("shm_test has been called %x, %x", param_types, exp_param_types);
++
++	if (param_types != exp_param_types)
++		return TEE_ERROR_BAD_PARAMETERS;
++    char* buf = params[0].memref.buffer;
++    for(int i=0; i<100; i++){
++        IMSG("wowwowo %x", *(int*)buf);
++    }
++    return TEE_SUCCESS; 
++}
++
+ /*
+  * Called when a TA is invoked. sess_ctx hold that value that was
+  * assigned by TA_OpenSessionEntryPoint(). The rest of the paramters
+@@ -119,6 +139,10 @@ TEE_Result TA_InvokeCommandEntryPoint(void __unused *sess_ctx,
+ 		return inc_value(param_types, params);
+ 	case TA_HELLO_WORLD_CMD_DEC_VALUE:
+ 		return dec_value(param_types, params);
++    case TA_SHM_TEST:
++        return shm_test(param_types, params);
++    case TA_SHM_TEST_2:
++        return shm_test(param_types, params);
+ 	default:
+ 		return TEE_ERROR_BAD_PARAMETERS;
+ 	}
+diff --git a/hello_world/ta/include/hello_world_ta.h b/hello_world/ta/include/hello_world_ta.h
+index 284fc71..6c7c2f1 100644
+--- a/hello_world/ta/include/hello_world_ta.h
++++ b/hello_world/ta/include/hello_world_ta.h
+@@ -18,5 +18,6 @@
+ /* The function IDs implemented in this TA */
+ #define TA_HELLO_WORLD_CMD_INC_VALUE		0
+ #define TA_HELLO_WORLD_CMD_DEC_VALUE		1
+-
++#define TA_SHM_TEST                         2
++#define TA_SHM_TEST_2                       3
+ #endif /*TA_HELLO_WORLD_H*/
