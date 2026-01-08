@@ -73,7 +73,7 @@ def qsee_realloc(ql :Qiling, hook_data):
         return
     free_core(ql, oldptr, hook_data, True)
     newptr = malloc_core(ql, new_size, hook_data, True)
-    ql.mem.write(newptr, olddata[:min(size, new_size)])
+    ql.mem.write(newptr, bytes(olddata[:min(size, new_size)]))
     ql.os.fcall.cc.setReturnValue(newptr)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 

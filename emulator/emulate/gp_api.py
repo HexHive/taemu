@@ -61,10 +61,52 @@ def stack_chk_fail(ql: Qiling, hook_data):
     ql.log.critical(f"stack_chk_fail ***stack smashing detected***")
     crash(ql, hook_data.func_name)
 
+def getenv(ql: Qiling, hook_data):
+    param = ql.os.resolve_fcall_params({"nmemb": STRING})
+    data = param["nmemb"]
+    ql.log.info(f'getenv: {data}')
+    if data == "RUST_LIB_BACKTRACE":
+        env_mem = ql.mem.map_anywhere(0x1000, minaddr=0x13000, info="getenv") 
+        ql.mem.write(env_mem, b"0\x00")
+        ql.os.fcall.cc.setReturnValue(env_mem)
+        ql.arch.regs.arch_pc = ql.arch.regs.lr
+    else:
+       breakpoint()
+       ql.arch.regs.arch_pc = NOTIMPL_PC 
 
 def malloc(ql: Qiling, hook_data):
     TEE_Malloc(ql, hook_data)
 
+def realloc(ql: Qiling, hook_data):
+    TEE_Realloc(ql, hook_data)
+
+def TEE_Realloc(ql: Qiling, hook_data):
+    p = ql.os.resolve_fcall_params(
+            {"oldptr": POINTER, "new_size": INT}
+        )
+    oldptr = p["oldptr"]
+    new_size = p["new_size"]
+    ql.log.info(f"realloc {hex(oldptr)} -> {hex(new_size)}")
+    if oldptr == 0:
+        malloc_core(ql, new_size, hook_data, False)
+        return
+    else:
+        if oldptr not in hook_data.emu.HEAP["allocated"]:
+            ql.log.critical(f"corrupted free realloc at: {hex(oldptr)}, {hook_data.emu.HEAP}")
+            crash(ql, hook_data.func_name)
+            return
+    size = hook_data.emu.HEAP["allocated"][oldptr]
+    hook_data.emu.update_shm(oldptr, size)
+    try:
+        olddata = ql.mem.read(oldptr, size)
+    except unicorn.unicorn_py3.unicorn.UcError as e:
+        crash(ql, hook_data.func_name)
+        return
+    free_core(ql, oldptr, hook_data, True)
+    newptr = malloc_core(ql, new_size, hook_data, True)
+    ql.mem.write(newptr, bytes(olddata[:min(size, new_size)]))
+    ql.os.fcall.cc.setReturnValue(newptr)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def calloc(ql: Qiling, hook_data):
     param = ql.os.resolve_fcall_params({"nmemb": INT, "size": INT})
