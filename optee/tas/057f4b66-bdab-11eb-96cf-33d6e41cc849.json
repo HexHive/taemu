@@ -10,10 +10,14 @@
     ],
     "TA_OpenSessionEntryPoint_start": 296,
     "TA_OpenSessionEntryPoint_end": [
-        428
+        428,
+        440
     ],
     "TA_CloseSessionEntryPoint_start": 444,
-    "TA_CloseSessionEntryPoint_end": [],
+    "TA_CloseSessionEntryPoint_end": [
+        524,
+        548
+    ],
     "TA_DestroyEntryPoint_start": 552,
     "TA_DestroyEntryPoint_end": [
         604

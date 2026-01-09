@@ -29,6 +29,10 @@ def optee_syscall(ql: Qiling, intno, emu):
             ql.emu_stop()
             return
 
+def _ZN3std9panicking20rust_panic_with_hook17h5774058f964c35abE(ql: Qiling, hook_data):
+    ql.log.info("[optee] panic handler")
+    ql.emu_stop()
+
 """
 def qsee_is_sw_fuse_blown(ql: Qiling, hook_data):
     p = ql.os.resolve_fcall_params(
