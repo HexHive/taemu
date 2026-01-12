@@ -207,18 +207,25 @@ def hook_ta_dl(
             ql.mem.write(off, bytes(encoding))
             counter += ql.arch.pointersize
     if is_optee:
+        def redirect_execution(ql: Qiling, addr):
+            ql.arch.regs.pc = addr
         for sym, addr in ta_elf.sym.items():
             api_func =  get_api_impl(sym, strict=True)
             if api_func is None: continue
+            counter += ql.arch.pointersize
             ql.log.info(
-                f"[optee] hooking {sym}@{hex(addr)}"
+                f"[optee] hooking {sym}@{hex(addr)}->{hex(ql_resolve_mem+counter)}"
+            )
+            ql.hook_address(
+                redirect_execution,
+                addr,
+                user_data=ql_resolve_mem + counter
             )
             ql.hook_address(
                 api_func, 
-                addr,
-                user_data=HookData(emu, func),
+                ql_resolve_mem+counter,
+                user_data=HookData(emu, sym),
             )
-            counter += ql.arch.pointersize
     if "00000000-0000-0000-0000-4b45594d5354.ta" in ta_path:
         # load libscrypto.so to emulate ASN1 stuff
         lib_path = os.path.join(os.path.dirname(ta_path), "lib64", "libscrypto.so")
@@ -326,8 +333,8 @@ def teegris_32_setup(ql: Qiling, ta_path, ta_base):
         v = ql.mem.read_ptr(ta_base + rel)
         ql.mem.write_ptr(ta_base + rel, v + ta_base)
 
-def optee_setup(ql: Qiling, ta_path, ta_base):
-    ql.hook_intno(optee_api.optee_syscall, 2)
+def optee_setup(ql: Qiling, ta_path, ta_base, emu):
+    ql.hook_intno(optee_api.optee_syscall, 2, user_data=emu)
 
 def qsee_setup(ql: Qiling, ta_path, ta_base):
     reloc_offsets = mitee_rela_relocs(ta_path)

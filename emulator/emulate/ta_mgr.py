@@ -271,7 +271,7 @@ class TAEMU:
         if self.tee == "teegris" and self.ql.arch.pointersize == 4:
             teegris_32_setup(self.ql, self.ta_path, self.ta_base)
         if self.tee == "optee":
-            optee_setup(self.ql, self.ta_path, self.ta_base)
+            optee_setup(self.ql, self.ta_path, self.ta_base, self)
 
     def hook(self):
         # setup api hooks
@@ -1128,7 +1128,7 @@ class TAEMU:
             ql: Qiling, result: int, input_bytes: bytes, round: int
         ) -> bool:
             print("crash callback: ", result, hex(ql.arch.regs.arch_pc))
-            if ql.arch.regs.arch_pc == CRASH_PC or ql.arch.regs.arch_pc == NOTIMPL_PC:
+            if ql.arch.regs.arch_pc == CRASH_PC or ql.arch.regs.arch_pc == CRASH_PC_2 or ql.arch.regs.arch_pc == NOTIMPL_PC:
                 return True
             if result == 6:
                 return True

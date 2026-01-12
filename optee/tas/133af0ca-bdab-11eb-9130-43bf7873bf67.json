@@ -1,22 +1,22 @@
 {
-    "TA_InvokeCommandEntryPoint_start": 488,
+    "TA_InvokeCommandEntryPoint_start": 9944,
     "TA_InvokeCommandEntryPoint_end": [
-        704
+        10020
     ],
-    "TA_CreateEntryPoint_start": 236,
+    "TA_CreateEntryPoint_start": 9692,
     "TA_CreateEntryPoint_end": [
-        292
+        9748
     ],
-    "TA_OpenSessionEntryPoint_start": 296,
+    "TA_OpenSessionEntryPoint_start": 9752,
     "TA_OpenSessionEntryPoint_end": [
-        372
+        9828
     ],
-    "TA_CloseSessionEntryPoint_start": 376,
+    "TA_CloseSessionEntryPoint_start": 9832,
     "TA_CloseSessionEntryPoint_end": [
-        428
+        9884
     ],
-    "TA_DestroyEntryPoint_start": 432,
+    "TA_DestroyEntryPoint_start": 9888,
     "TA_DestroyEntryPoint_end": [
-        484
+        9940
     ]
 }
