@@ -1,6 +1,7 @@
 # Backup side-road deduplication
 
 import json
+import random
 import os
 
 import argparse
@@ -311,6 +312,7 @@ if __name__ == "__main__":
         "--mode", type=str, default="control_flow", choices=["control_flow", "coverage"]
     )
     parser.add_argument("--num-replay-containers", type=int, default=20)
+    parser.add_argument("--per-harness-limit", type=int, required=False)
     
     args = parser.parse_args()
     
@@ -335,6 +337,11 @@ if __name__ == "__main__":
     grouped_inputs = group_pair(suspicious_input_paths)
     if args.tee != "all":
         grouped_inputs = {k: v for k, v in grouped_inputs.items() if args.tee in k}
+    if args.per_harness_limit is not None:
+        limit = args.per_harness_limit
+        grouped_inputs = {k: random.sample(v,min(len(v),limit)) for k, v in grouped_inputs.items()}
+        print(grouped_inputs)
+
     asyncio.run(main(args.mode, grouped_inputs, enable_del=args.enable_del, num_replay_containers=args.num_replay_containers))
     shut_down(args.num_replay_containers, args.mode)
     
