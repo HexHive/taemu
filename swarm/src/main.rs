@@ -634,6 +634,21 @@ fn _main_with_logging() -> i32 {
 
     let ta_files = generate_fuzz_jobs(&args);
 
+    // statistics of the ta_files
+    // let mut counts = std::collections::HashMap::new();
+    // for ta_file in &ta_files {
+    //     if let Some(df_seed) = ta_file.ta_df_seed.as_ref() {
+    //         if !args.filter_df_seed.is_empty() && !df_seed.to_string_lossy().to_string().contains(args.filter_df_seed.as_str()) {
+    //             continue;
+    //         }
+    //     }
+    //     *counts.entry(ta_file.ta_harness_dir.to_string_lossy().to_string()).or_insert(0) += 1;
+        
+    // }
+    // info!(LOGGER, "Statistics of the TA files: {:?}", counts);
+
+
+
     info!(
         LOGGER,
         "{SWARM_TAG} Found {} TA Jobs for fuzzing. Continue? (y/n)",
@@ -691,6 +706,7 @@ fn _main_with_logging() -> i32 {
         "{SWARM_TAG} Starting parallel fuzzing with max {} concurrent jobs...",
         args.max_parallel,
     );
+    
     let (all_jobs, skipped_jobs, error_jobs) = run_fuzz_jobs(&&args, ta_files, pool.clone());
 
     // Cleanup resources
