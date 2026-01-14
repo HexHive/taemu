@@ -1073,13 +1073,13 @@ class TAEMU:
             print(f'"-.-')
             self.log.info(f"trying to fuzz write double fetch!! -> returning")
             return
-        if not df_record["size"] == 0:
+        if df_record["size"] == 0:
             print(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
             print(f'!!!!! THERE IS NO POINT IN FUZZING 0 SIZE FETCH             !!!!!!!')
             print(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
             print(f'"-.-')
             self.log.info(f"trying to fuzz 0-sized double fetch!! -> returning")
-            return
+            #return
 
         self.log.info(f"df fuzz args is {input_file} {fuzz_harness} {fuzz_replay}")
         self.log.info(f"    df@{hex(df_record['regs']['PC'])}->{hex(df_record['addr'])}:{df_record['size']} from {df_seed}")
