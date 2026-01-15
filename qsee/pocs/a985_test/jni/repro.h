@@ -427,6 +427,7 @@ void load_functions()
         fprintf(stderr, "Failed dlsym for TEEC_AllocateSharedMemory: %s\n", error);
         exit(EXIT_FAILURE);
     }
+    printf("TEEC_Alloc %p\n", TEEC_AllocateSharedMemory_impl);
     TEEC_ReleaseSharedMemory_impl = dlsym(handle, "TEEC_ReleaseSharedMemory");
     error = dlerror();
     if (error != NULL) {
