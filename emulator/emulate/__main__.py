@@ -100,6 +100,12 @@ def setup_args():
         default=None,
     )
     parser.add_argument(
+        "--df_validate",
+        required=False,
+        help="path to replay+validate df seed",
+        default=None
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -321,13 +327,15 @@ if __name__ == "__main__":
                 else Status.REPLAYING if args.fuzz_replay 
                 else Status.DF_FUZZING if args.df_fuzz
                 else Status.DF_REPLAY if args.df_replay
+                else Status.DF_VALIDATE if args.df_validate
                 else Status.INTERACTIVE
             ),
             record_q=curr_record_q,
         ) as emu:
             try:
+                print(args.df_validate)
                 emu.start(
-                    args.fuzz or args.fuzz_replay or args.df_fuzz or args.df_replay, 
+                    args.fuzz or args.fuzz_replay or args.df_fuzz or args.df_replay or args.df_validate, 
                     args.fuzz_harness,
                     args.df_seed,
                     args.df_reg_hash

@@ -51,6 +51,16 @@ def pivot_df_not_hit(ql: Qiling, ta_mgr) -> None:
     ta_mgr.log.info(f"double fetch location not reproduced!")
     ql.stop()
 
+def df_validated(ql: Qiling, user_data) -> None:
+    ta_mgr, input_file = user_data
+    ql.log.info(
+        Fore.GREEN
+        + f"df validated (no crash)!"
+        + Style.RESET_ALL
+    )
+    ta_mgr.log.info(f"df validated!")
+    open(input_file + ".df", "wb+").write(open(input_file, "rb").read())
+    ql.stop()
 
 def pivot(ql: Qiling, cur) -> None:
     ql.log.info(
@@ -59,7 +69,6 @@ def pivot(ql: Qiling, cur) -> None:
         + Style.RESET_ALL
     )
     ql.stop()
-
 
 def get_n_ptype(param_type: int, n: int):
     if n >= 0 and n <= 3:
@@ -301,8 +310,11 @@ class TAEMU:
                 args[1], 
                 fuzz_replay=(self.status == Status.REPLAYING),
             )
-        elif self.status in (Status.DF_FUZZING, Status.DF_REPLAY):
-            self.df_fuzz(*args, fuzz_replay=(self.status == Status.DF_REPLAY))
+        elif self.status in (Status.DF_FUZZING, Status.DF_REPLAY, Status.DF_VALIDATE):
+            self.df_fuzz(*args, 
+                fuzz_replay=(self.status == Status.DF_REPLAY), 
+                df_validate=(self.status == Status.DF_VALIDATE)
+            )
         else:
             self.start_interactive()
 
@@ -1010,11 +1022,14 @@ class TAEMU:
         return
 
     def df_fuzz(
-        self, input_file, fuzz_harness, df_seed, df_reg_hash, fuzz_replay=False 
+        self, input_file, fuzz_harness, df_seed, df_reg_hash, fuzz_replay=False, df_validate=False
     ):
         # df_seed: seed which triggered the double fetch 
         # df_addr: shm address
         # df_size: size of double fetched data
+
+        if df_validate: assert not fuzz_replay, "fuzz_replay can not be set for df_validate!"
+        if fuzz_replay: assert not df_validate, "df_validate can not be set for fuzz_replay"
 
         meta_path = df_seed + ".meta"
         if not os.path.exists(meta_path):
@@ -1081,7 +1096,7 @@ class TAEMU:
             self.log.info(f"trying to fuzz 0-sized double fetch!! -> returning")
             #return
 
-        self.log.info(f"df fuzz args is {input_file} {fuzz_harness} {fuzz_replay}")
+        self.log.info(f"df fuzz args is {input_file} {fuzz_harness} {fuzz_replay} {df_validate}")
         self.log.info(f"    df@{hex(df_record['regs']['PC'])}->{hex(df_record['addr'])}:{df_record['size']} from {df_seed}")
         
         ret = self.CreateEntryPoint()
@@ -1183,6 +1198,8 @@ class TAEMU:
         def start_afl(_ql: Qiling):
             if fuzz_replay:
                 return
+            if df_validate:
+                return
             #if self.init_fuzz:
             #    return
             print(self.hash_regs(), df_record['regs']['reg_hash'])
@@ -1208,7 +1225,9 @@ class TAEMU:
                 callback=place_df_replay,
                 address=df_record['regs']['PC']
             ) 
-        else:
+        elif df_validate: 
+            pass
+        else: #fuzzing
             for e in exit_addr:
                 exit_hooks.append(
                     self.ql.hook_address(
@@ -1221,7 +1240,7 @@ class TAEMU:
             )
         
         if init_fuzz is not None:
-            if fuzz_replay:
+            if fuzz_replay or df_validate:
                 for e in exit_addr:
                     exit_hooks.append(
                         self.ql.hook_address(
@@ -1263,7 +1282,22 @@ class TAEMU:
 
             with cov_utils.collect_coverage(self.ql, "drcov", cov_path):
                 self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)
-        else:
+        elif df_validate:
+            # check if df fuzz data placed in beginning also triggers the crash
+            for e in exit_hooks:
+                self.ql.hook_del(e) 
+            exit_hooks = []
+            for e in exit_addr:
+                exit_hooks.append(
+                    self.ql.hook_address(
+                        df_validated, e, user_data=(self,input_file)
+                    )
+                ) 
+            self.log.info(f"placing double fetch data")
+            df_data = open(input_file, "rb").read()
+            df_write(self.ql, df_data) 
+            self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)
+        else: #fuzzing
             for e in exit_hooks:
                 self.ql.hook_del(e) 
             for e in exit_addr:

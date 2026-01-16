@@ -18,6 +18,7 @@ class Status(Enum):
     INTERACTIVE = 3
     DF_FUZZING = 4
     DF_REPLAY = 5
+    DF_VALIDATE = 6
 
 @dataclass
 class Record:
