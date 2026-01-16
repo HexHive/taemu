@@ -20,14 +20,20 @@ import aiofiles
 
 def get_all_crashes(path="/root/TA_GP_emulator"):
     df_crashes = []
+    invalid_exits = []
     for root, dirs, files in os.walk(path):
         for file in files:
             path = os.path.join(root, file)
             if "df_fuzz" in path and "out/default/crashes" in path:
-                if path.endswith(".output"): continue
+                if path.endswith(".output"): 
+                    afl_crash = open(path, "rb").read()
+                    if b"Fork server handshake failed" in afl_crash:
+                        invalid_exits.append(path.strip(".output"))
+                    continue
                 if path.endswith("README.txt"): continue
                 if path.endswith(".df"): continue
                 df_crashes.append(path)
+    df_crashes = list(set(df_crashes)-set(invalid_exits))
     return df_crashes
 
 def df_seed_from_crash(ta_dir, df_fuzz_crash):
