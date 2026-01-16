@@ -27,7 +27,7 @@ def get_all_crashes(path="/root/TA_GP_emulator"):
             if "df_fuzz" in path and "out/default/crashes" in path:
                 if path.endswith(".output"): 
                     afl_crash = open(path, "rb").read()
-                    if b"Fork server handshake failed" in afl_crash:
+                    if b"Fork server handshake failed" in afl_crash or b"Fork server crashed with signal 7" in afl_crash:
                         invalid_exits.append(path.strip(".output"))
                     continue
                 if path.endswith("README.txt"): continue
