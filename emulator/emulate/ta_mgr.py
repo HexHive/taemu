@@ -50,6 +50,8 @@ def pivot_df_not_hit(ql: Qiling, ta_mgr) -> None:
     )
     ta_mgr.log.info(f"double fetch location not reproduced!")
     ql.stop()
+    if ta_mgr.status == Status.DF_FUZZING:
+        open(os.path.join(ta_mgr.df_fuzz_out, "out", "default", "DF_NOT_REPRODUCED"), "w+").write("double fetch not reproduced")
 
 def df_validated(ql: Qiling, user_data) -> None:
     ta_mgr, input_file = user_data
@@ -160,6 +162,7 @@ class TAEMU:
         self.init_fuzz = False
         self.df_replay_placed = False
         self.status = status
+        self.df_fuzz_out = None
         self.log.info(f"TAEMU initialized in {self.status.name} mode")
 
         # Simple process management for recorder
@@ -1030,6 +1033,8 @@ class TAEMU:
 
         if df_validate: assert not fuzz_replay, "fuzz_replay can not be set for df_validate!"
         if fuzz_replay: assert not df_validate, "df_validate can not be set for fuzz_replay"
+
+        self.df_fuzz_out = os.path.join(os.path.dirname(fuzz_harness), "df_fuzz", f"{os.path.basename(df_seed)}_{df_reg_hash}")
 
         meta_path = df_seed + ".meta"
         if not os.path.exists(meta_path):

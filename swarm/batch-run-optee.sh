@@ -44,6 +44,9 @@ cd /root/TA_GP_emulator/swarm
 echo "3. Running df fuzzing..."
 echo "y" | cargo run -- -t .. -f /root/TA_GP_emulator/emulator/df_fuzz.sh -d $MINUTES_DF_FUZZING -s -p optee > "df-fuzz-output$(date +day%d-%H_%M_%S).log" 2>&1
 
+cd /root/TA_GP_emulator
+echo -e "y" | python3 eval/df_validate.py
+
 end_time=$(date +%s)
 duration=$((end_time - start_time))
 echo "Total time: $((duration / 60)) minutes $((duration % 60)) seconds"
