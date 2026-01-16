@@ -38,6 +38,9 @@ echo "2. Deduplicating original fuzzing and generating suspicious_inputs_replay.
 cd /root/TA_GP_emulator
 echo -e "y\ny" | python3 eval/deduplicate.py --mode coverage --enable-del --num-replay-containers 35
 
+python3 eval/annotate_fetches.py
+
+
 cd /root/TA_GP_emulator/swarm
 echo "3. Running df fuzzing..."
 echo "y" | cargo run -- -t .. -f /root/TA_GP_emulator/emulator/df_fuzz.sh -d $MINUTES_DF_FUZZING -s > "df-fuzz-output$(date +day%d-%H_%M_%S).log" 2>&1
