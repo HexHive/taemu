@@ -40,7 +40,6 @@ class BB:
 
     def __hash__(self):
         return hash((self.start, self.size, self.ta))
-    
 
 
 def get_root_ta_node(cfg, ta):

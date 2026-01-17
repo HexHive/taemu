@@ -119,6 +119,7 @@ for tee in TEES:
                 ta2bbs[ta][campaign_iteration][nr_apis] = bbs
                 unique_bbs.add(bbs)
         ta2bbs_merged[ta] = list(unique_bbs)
+
     tas = list(set(tas))
     print(f"{tee}, {tas}")
     out[tee]["nr_tas"] = len(tas)

@@ -4,8 +4,7 @@ import json
 import os
 import sys
 import matplotlib.pyplot as plt
-from networkx.drawing.nx_agraph import graphviz_layout
-from multiprocessing import Pool, cpu_count
+from multiprocessing import Pool
 
 ta_fw = [
     "TA_CreateEntryPoint",
