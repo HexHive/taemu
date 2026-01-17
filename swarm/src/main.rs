@@ -1,25 +1,26 @@
 use crate::container::Management;
 use crate::resource_pool::ResourcePool;
-use bollard::errors::Error as BollardError;
 use clap::Parser;
 use lazy_static::lazy_static;
 use slog::{Drain, Level, Logger, debug, error, info, o, warn};
 use std::env;
 use std::path::{Path, PathBuf};
 use std::process;
-use std::process::Command;
 use std::time::{Duration, Instant};
-use tokio::task::JoinSet;
+use rayon::ThreadPoolBuilder;
 mod container;
 mod job_generation;
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
-use std::{cmp::min, fmt::Write};
+use std::fmt::Write;
 mod resource_pool;
 use rayon::prelude::*;
 use slog_scope;
 use slog_stdlog;
 use std::sync::Mutex;
+use crossbeam::channel::RecvTimeoutError;
 use std::sync::atomic;
+use bollard::errors::Error as BollardError;
+use std::thread::ThreadId;
 
 static SWARM_TAG: &str = "[Sw0rm]";
 
@@ -101,6 +102,163 @@ pub fn init_logging() {
     *guard_store = Some(guard);
 }
 
+enum Msg {
+    Start(ThreadId),
+    End(Result<std::process::Output, std::io::Error>),
+ }
+
+fn run_fuzz_job_blocking(
+    job: job_generation::FuzzJob,
+    duration: u64,
+    job_num: usize,
+    pool: ResourcePool<container::Emulator>,
+) -> Result<bool, String> {
+    let timeout_duration = Duration::from_secs(duration * 60);
+    let (tx, rx) = crossbeam::channel::unbounded();
+
+    let container = match pool
+        .get_busy_wait(Some(format!("Job {}", job_num)))
+    {
+        Ok(container) => {
+            info!(
+                LOGGER,
+                "[Job {}] Acquired container {:?} from pool successfully.",
+                job_num,
+                container.container_name
+            );
+            container
+        }
+        Err(e) => {
+            error!(
+                LOGGER,
+                "[Job {}] Failed to acquire container from pool ({:?}) and stop the job.",
+                job_num,
+                e
+            );
+            return Err(format!("Error: acquire container {:?}", e));
+        }
+    };
+
+    info!(
+        LOGGER,
+        "{SWARM_TAG} Starting fuzz job {} for: {} (setting timeout to {} minute(s))",
+        job_num,
+        job.ta_harness_dir.display(),
+        duration
+    );
+
+    let command = vec![
+        "bash".to_string(),
+        job.fuzz_script.to_string_lossy().to_string(),
+        job.ta_harness_dir.to_string_lossy().to_string(),
+        job.ta_df_seed
+            .as_ref()
+            .unwrap_or(&PathBuf::from(""))
+            .to_string_lossy()
+            .to_string(),
+        job.ta_df_context.clone().unwrap_or_default(),
+    ];
+
+    debug!(LOGGER, "[Job {}] COMMAND => {:?}", job_num, &command);
+    let start_time: Instant = Instant::now();
+    let container_name = container.container_name.clone();
+    let _ = std::thread::spawn(move || {
+        let _ = tx.send(Msg::Start(std::thread::current().id()));
+
+        // create and run command
+        let child = process::Command::new("docker")
+        .arg("exec")
+        .arg(container_name)
+        .args(command)
+        .stdin(process::Stdio::null())
+        .stdout(process::Stdio::piped())
+        .stderr(process::Stdio::piped())
+        .spawn().unwrap();
+        // wait on the output
+        let out = child.wait_with_output();
+        let _ = tx.send(Msg::End(out));
+    });
+
+    loop {
+        match rx.recv_timeout(timeout_duration) {
+            Ok(Msg::Start(id)) => { 
+                let tid = id; 
+                info!(LOGGER, "[Job {}] Obtain the start signal and run on tid {:?}", job_num, tid);
+            }
+            Ok(Msg::End(output)) => {
+                // quick exit
+                let _ = container
+                .execute_command_blocking(vec![
+                    "pkill".to_string(),
+                    "-2".to_string(),
+                    "afl-fuzz".to_string(),
+                ]);
+
+                warn!(
+                    LOGGER,
+                    "[Job {}] Fuzz job for {:?} on {:?} {} completed (runtime: {} minute(s)) [Quick Exit!]",
+                    job_num,
+                    job.ta_harness_dir,
+                    job.ta_df_seed.as_ref().unwrap_or(&PathBuf::from("")),
+                    job.ta_df_context.as_ref().unwrap_or(&String::new()),
+                    Instant::now().duration_since(start_time).as_secs() / 60,
+                );
+                let old_root = PathBuf::from("/srv");
+                let new_root = PathBuf::from("/root/TA_GP_emulator");
+                if let Ok(output) = output {
+                    job_generation::save_quick_exit_to_crash(
+                        &job_generation::rebase_path(job.ta_harness_dir.clone(), &old_root, &new_root),
+                        Some(&job_generation::rebase_path(
+                            job.ta_df_seed.as_ref().unwrap().clone(),
+                            &old_root,
+                            &new_root,
+                        )),
+                        job.ta_df_context.as_ref(),
+                        format!("status: {:?} , output: {:?} , error: {:?}", output.status.code().unwrap_or(-1), String::from_utf8_lossy(&output.stdout).trim().to_string(), String::from_utf8_lossy(&output.stderr).trim().to_string()),
+                    );
+                    pool.put_back(container);
+                    return Ok(true);
+                } else if let Err(e) = output {
+                    error!(LOGGER, "[Job {}] Unexpected error: {:?}", job_num, e);
+                    job_generation::save_quick_exit_to_crash(
+                        &job_generation::rebase_path(job.ta_harness_dir.clone(), &old_root, &new_root),
+                        Some(&job_generation::rebase_path(
+                            job.ta_df_seed.as_ref().unwrap().clone(),
+                            &old_root,
+                            &new_root,
+                        )),
+                        job.ta_df_context.as_ref(),
+                        format!("error: {:?}", e),
+                    );
+                    pool.put_back(container);
+                    return Err(format!("Error: unexpected error: {:?}", e));
+                }
+            }
+            Err(RecvTimeoutError::Timeout) => {
+                let _ = container
+                .execute_command_blocking(vec![
+                    "pkill".to_string(),
+                    "-2".to_string(),
+                    "afl-fuzz".to_string(),
+                ]);
+                info!(
+                    LOGGER,
+                    "[Job {}] Timeout reached for {:?} with {} minutes running. Stopping process...",
+                    job_num,
+                    job.ta_harness_dir,
+                    Instant::now().duration_since(start_time).as_secs() / 60,
+                );
+                pool.put_back(container);
+                return Ok(true);
+            }
+            Err(RecvTimeoutError::Disconnected) => {
+                return Err(format!("Error: channel disconnected"));
+            }
+        }
+    }
+}
+
+#[allow(unused)]
 async fn run_fuzz_job(
     job: job_generation::FuzzJob,
     duration: u64,
@@ -110,7 +268,7 @@ async fn run_fuzz_job(
     let timeout_duration = Duration::from_secs(duration * 60);
 
     let container = match pool
-        .get_without_timeout(Some(format!("Job {}", job_num)))
+        .get_async(Some(format!("Job {}", job_num)))
         .await
     {
         Ok(container) => {
@@ -239,6 +397,7 @@ async fn run_fuzz_job(
     }
 }
 
+
 fn generate_fuzz_jobs(args: &Args) -> Vec<job_generation::FuzzJob> {
     let old_root = PathBuf::from("/root/TA_GP_emulator/emulator");
     let new_root = PathBuf::from("/srv/emulator");
@@ -260,7 +419,7 @@ fn generate_fuzz_jobs(args: &Args) -> Vec<job_generation::FuzzJob> {
 }
 
 fn run_fuzz_jobs(
-    rt: &tokio::runtime::Runtime,
+    // rt: &tokio::runtime::Runtime,
     args: &Args,
     fuzz_jobs: Vec<job_generation::FuzzJob>,
     pool: ResourcePool<container::Emulator>,
@@ -298,44 +457,69 @@ fn run_fuzz_jobs(
         LOGGER,
         "{SWARM_TAG} After seed filtering, only {} TA Jobs left for fuzzing", all_jobs
     );
+            // add progress bar
+    let pb = ProgressBar::new(all_jobs as u64);
+    pb.set_style(ProgressStyle::with_template("\n{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})\n")
+        .unwrap()
+        .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
+        .progress_chars("#>-"));
 
-    let res = rt.block_on(async move {
-        let mut handles = JoinSet::new();
 
-        // add progress bar
-        let pb = ProgressBar::new(all_jobs as u64);
-        pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")
-            .unwrap()
-            .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
-            .progress_chars("#>-"));
+    let t_pool = ThreadPoolBuilder::new()
+        .num_threads(args.max_parallel)
+        .build()
+        .unwrap();
 
-        for (job, job_num) in filtered_fuzz_jobs {
-            pb.inc(1);
-            let duration = args.duration;
-            let pool_clone: ResourcePool<container::Emulator> = pool.clone();
-
-            handles.spawn(async move {
-                match run_fuzz_job(job, duration, job_num, pool_clone).await {
-                    Ok(res) => res, // success
-                    Err(e) => {
-                        error!(LOGGER, "{SWARM_TAG} Task join error: {:?}", e);
-                        false
-                    } // error
-                }
-            });
-            tokio::time::sleep(Duration::from_secs(5)).await;
-        }
-        pb.finish();
-
-        let mut out = Vec::new();
-        while let Some(res) = handles.join_next().await {
-            // res: Result<bool, JoinError>
-            out.push(res.unwrap_or(false));
-        }
-        out
+    // let res = rt.block_on(async {
+        // let mut handles = JoinSet::new();
+    let results = t_pool.install(|| {
+        filtered_fuzz_jobs.into_par_iter()
+            .map(|(job, job_num)| {
+                let res = run_fuzz_job_blocking(job, args.duration, job_num, pool.clone());
+                pb.inc(1);
+                res
+            })
+            .collect::<Vec<_>>()
     });
 
-    let error_jobs = res.iter().filter(|item| **item == false).count();
+    let error_jobs = results.iter().filter(|item| (**item).is_err() || **item == Ok(false)).count();
+
+        // for (job, job_num) in filtered_fuzz_jobs {
+        //     pb.inc(1);
+        //     let duration = args.duration;
+        //     let pool_clone: ResourcePool<container::Emulator> = pool.clone();
+
+        //     // handles.spawn(async move {
+        //     //     match run_fuzz_job(job, duration, job_num, pool_clone).await {
+        //     //         Ok(res) => res, // success
+        //     //         Err(e) => {
+        //     //             error!(LOGGER, "{SWARM_TAG} Task join error: {:?}", e);
+        //     //             false
+        //     //         } // error
+        //     //     }
+        //     // });
+        //     // handles.spawn_blocking(move || {
+        //     //     match run_fuzz_job_blocking(job, duration, job_num, pool_clone) {
+        //     //         Ok(res) => res, // success
+        //     //         Err(e) => {
+        //     //             error!(LOGGER, "{SWARM_TAG} Task join error: {:?}", e);
+        //     //             false
+        //     //         } // error
+        //     //     }
+        //     // });
+
+        // }
+
+        // let mut out = Vec::new();
+        // while let Some(res) = handles.join_next().await {
+        //     // res: Result<bool, JoinError>
+        //     out.push(res.unwrap_or(false));
+        // }
+        // out
+    // });
+
+    // let error_jobs = res.iter().filter(|item| **item == false).count();
+    pb.finish();
 
     info!(
         LOGGER,
@@ -363,19 +547,21 @@ async fn create_container_pool(
         containers.push(ct);
     }
 
-    ResourcePool::new(containers, None)
-        .map_err(|e| format!("Failed to create resource pool: {}", e))
+    let pool =ResourcePool::new(containers, None)
+        .map_err(|e| format!("Failed to create resource pool: {}", e));
+
+    pool
 }
 
 fn create_redis_container() {
-    let status = Command::new("docker")
+    let status = process::Command::new("docker")
         .arg("compose")
         .arg("-f")
         .arg("/root/TA_GP_emulator/docker-compose.redis.yml")
         .arg("up")
         .arg("-d")
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
+        .stdout(process::Stdio::null())
+        .stderr(process::Stdio::null())
         .status()
         .expect("failed to execute docker-compose[for redis]");
 
@@ -387,13 +573,13 @@ fn create_redis_container() {
 }
 
 fn destroy_redis_container() {
-    let status = Command::new("docker")
+    let status = process::Command::new("docker")
         .arg("compose")
         .arg("-f")
         .arg("/root/TA_GP_emulator/docker-compose.redis.yml")
         .arg("down")
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
+        .stdout(process::Stdio::null())
+        .stderr(process::Stdio::null())
         .status()
         .expect("failed to execute docker-compose[for redis stopping]");
 
@@ -448,6 +634,21 @@ fn _main_with_logging() -> i32 {
 
     let ta_files = generate_fuzz_jobs(&args);
 
+    // statistics of the ta_files
+    // let mut counts = std::collections::HashMap::new();
+    // for ta_file in &ta_files {
+    //     if let Some(df_seed) = ta_file.ta_df_seed.as_ref() {
+    //         if !args.filter_df_seed.is_empty() && !df_seed.to_string_lossy().to_string().contains(args.filter_df_seed.as_str()) {
+    //             continue;
+    //         }
+    //     }
+    //     *counts.entry(ta_file.ta_harness_dir.to_string_lossy().to_string()).or_insert(0) += 1;
+        
+    // }
+    // info!(LOGGER, "Statistics of the TA files: {:?}", counts);
+
+
+
     info!(
         LOGGER,
         "{SWARM_TAG} Found {} TA Jobs for fuzzing. Continue? (y/n)",
@@ -479,8 +680,8 @@ fn _main_with_logging() -> i32 {
     );
 
     let rt = tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(args.max_parallel)
-        .max_blocking_threads(64)
+        .worker_threads(args.max_parallel/2)
+        .max_blocking_threads(10)
         .enable_all()
         .build()
         .unwrap();
@@ -500,7 +701,13 @@ fn _main_with_logging() -> i32 {
         }
     };
 
-    let (all_jobs, skipped_jobs, error_jobs) = run_fuzz_jobs(&rt, &args, ta_files, pool.clone());
+    info!(
+        LOGGER,
+        "{SWARM_TAG} Starting parallel fuzzing with max {} concurrent jobs...",
+        args.max_parallel,
+    );
+    
+    let (all_jobs, skipped_jobs, error_jobs) = run_fuzz_jobs(&&args, ta_files, pool.clone());
 
     // Cleanup resources
     if let Err(e) = rt.block_on(resource_pool::drop_resources(&pool)) {
@@ -520,7 +727,7 @@ fn _main_with_logging() -> i32 {
     }
 
     // kill all python3 processes and their children even inside containers
-    let _ = Command::new("pkill")
+    let _ = process::Command::new("pkill")
         .arg("-9")
         .arg("-f")
         .arg("afl-fuzz")

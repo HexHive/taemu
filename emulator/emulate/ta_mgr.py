@@ -29,7 +29,8 @@ from .emulator_no_loader import (
     qsee_setup,
     hook_ta_dl,
     hook_ta_custom,
-    teegris_32_setup,
+    teegris_32_setup, 
+    optee_setup,
 )
 from .common import CRASH_PC, NOTIMPL_PC, CRASH_PC_2, finalize_fuzzing
 from typing import Any, Callable, Optional, List, Dict
@@ -49,7 +50,19 @@ def pivot_df_not_hit(ql: Qiling, ta_mgr) -> None:
     )
     ta_mgr.log.info(f"double fetch location not reproduced!")
     ql.stop()
+    if ta_mgr.status == Status.DF_FUZZING:
+        open(os.path.join(ta_mgr.df_fuzz_out, "out", "default", "DF_NOT_REPRODUCED"), "w+").write("double fetch not reproduced")
 
+def df_validated(ql: Qiling, user_data) -> None:
+    ta_mgr, input_file = user_data
+    ql.log.info(
+        Fore.GREEN
+        + f"df validated (no crash)!"
+        + Style.RESET_ALL
+    )
+    ta_mgr.log.info(f"df validated!")
+    open(input_file + ".df", "wb+").write(open(input_file, "rb").read())
+    ql.stop()
 
 def pivot(ql: Qiling, cur) -> None:
     ql.log.info(
@@ -58,7 +71,6 @@ def pivot(ql: Qiling, cur) -> None:
         + Style.RESET_ALL
     )
     ql.stop()
-
 
 def get_n_ptype(param_type: int, n: int):
     if n >= 0 and n <= 3:
@@ -150,6 +162,7 @@ class TAEMU:
         self.init_fuzz = False
         self.df_replay_placed = False
         self.status = status
+        self.df_fuzz_out = None
         self.log.info(f"TAEMU initialized in {self.status.name} mode")
 
         # Simple process management for recorder
@@ -269,6 +282,8 @@ class TAEMU:
             qsee_setup(self.ql, self.ta_path, self.ta_base)
         if self.tee == "teegris" and self.ql.arch.pointersize == 4:
             teegris_32_setup(self.ql, self.ta_path, self.ta_base)
+        if self.tee == "optee":
+            optee_setup(self.ql, self.ta_path, self.ta_base, self)
 
     def hook(self):
         # setup api hooks
@@ -280,6 +295,7 @@ class TAEMU:
             is_mitee=self.tee == "mitee",
             is_tc=self.tee == "trustedcore",
             is_qsee=self.tee == "qsee",
+            is_optee=self.tee == "optee"
         )
         hook_ta_custom(
             self.ql,
@@ -297,8 +313,11 @@ class TAEMU:
                 args[1], 
                 fuzz_replay=(self.status == Status.REPLAYING),
             )
-        elif self.status in (Status.DF_FUZZING, Status.DF_REPLAY):
-            self.df_fuzz(*args, fuzz_replay=(self.status == Status.DF_REPLAY))
+        elif self.status in (Status.DF_FUZZING, Status.DF_REPLAY, Status.DF_VALIDATE):
+            self.df_fuzz(*args, 
+                fuzz_replay=(self.status == Status.DF_REPLAY), 
+                df_validate=(self.status == Status.DF_VALIDATE)
+            )
         else:
             self.start_interactive()
 
@@ -397,7 +416,7 @@ class TAEMU:
                 self._record_meta["last_accessed"] = time.time()
             else:
                 self.set_records(key=key, value=[item])
-        self.ql.log.info(f"[update_records] current records is {self.records_info()}")
+        self.ql.log.debug(f"[update_records] current records is {self.records_info()}")
 
     def records_info(self):
         with self._record_lock:
@@ -1006,11 +1025,16 @@ class TAEMU:
         return
 
     def df_fuzz(
-        self, input_file, fuzz_harness, df_seed, df_reg_hash, fuzz_replay=False 
+        self, input_file, fuzz_harness, df_seed, df_reg_hash, fuzz_replay=False, df_validate=False
     ):
         # df_seed: seed which triggered the double fetch 
         # df_addr: shm address
         # df_size: size of double fetched data
+
+        if df_validate: assert not fuzz_replay, "fuzz_replay can not be set for df_validate!"
+        if fuzz_replay: assert not df_validate, "df_validate can not be set for fuzz_replay"
+
+        self.df_fuzz_out = os.path.join(os.path.dirname(fuzz_harness), "df_fuzz", f"{os.path.basename(df_seed)}_{df_reg_hash}")
 
         meta_path = df_seed + ".meta"
         if not os.path.exists(meta_path):
@@ -1069,8 +1093,15 @@ class TAEMU:
             print(f'"-.-')
             self.log.info(f"trying to fuzz write double fetch!! -> returning")
             return
+        if df_record["size"] == 0:
+            print(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+            print(f'!!!!! THERE IS NO POINT IN FUZZING 0 SIZE FETCH             !!!!!!!')
+            print(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+            print(f'"-.-')
+            self.log.info(f"trying to fuzz 0-sized double fetch!! -> returning")
+            #return
 
-        self.log.info(f"df fuzz args is {input_file} {fuzz_harness} {fuzz_replay}")
+        self.log.info(f"df fuzz args is {input_file} {fuzz_harness} {fuzz_replay} {df_validate}")
         self.log.info(f"    df@{hex(df_record['regs']['PC'])}->{hex(df_record['addr'])}:{df_record['size']} from {df_seed}")
         
         ret = self.CreateEntryPoint()
@@ -1124,7 +1155,7 @@ class TAEMU:
             ql: Qiling, result: int, input_bytes: bytes, round: int
         ) -> bool:
             print("crash callback: ", result, hex(ql.arch.regs.arch_pc))
-            if ql.arch.regs.arch_pc == CRASH_PC or ql.arch.regs.arch_pc == NOTIMPL_PC:
+            if ql.arch.regs.arch_pc == CRASH_PC or ql.arch.regs.arch_pc == CRASH_PC_2 or ql.arch.regs.arch_pc == NOTIMPL_PC:
                 return True
             if result == 6:
                 return True
@@ -1172,6 +1203,8 @@ class TAEMU:
         def start_afl(_ql: Qiling):
             if fuzz_replay:
                 return
+            if df_validate:
+                return
             #if self.init_fuzz:
             #    return
             print(self.hash_regs(), df_record['regs']['reg_hash'])
@@ -1197,7 +1230,9 @@ class TAEMU:
                 callback=place_df_replay,
                 address=df_record['regs']['PC']
             ) 
-        else:
+        elif df_validate: 
+            pass
+        else: #fuzzing
             for e in exit_addr:
                 exit_hooks.append(
                     self.ql.hook_address(
@@ -1210,7 +1245,7 @@ class TAEMU:
             )
         
         if init_fuzz is not None:
-            if fuzz_replay:
+            if fuzz_replay or df_validate:
                 for e in exit_addr:
                     exit_hooks.append(
                         self.ql.hook_address(
@@ -1252,7 +1287,22 @@ class TAEMU:
 
             with cov_utils.collect_coverage(self.ql, "drcov", cov_path):
                 self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)
-        else:
+        elif df_validate:
+            # check if df fuzz data placed in beginning also triggers the crash
+            for e in exit_hooks:
+                self.ql.hook_del(e) 
+            exit_hooks = []
+            for e in exit_addr:
+                exit_hooks.append(
+                    self.ql.hook_address(
+                        df_validated, e, user_data=(self,input_file)
+                    )
+                ) 
+            self.log.info(f"placing double fetch data")
+            df_data = open(input_file, "rb").read()
+            df_write(self.ql, df_data) 
+            self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)
+        else: #fuzzing
             for e in exit_hooks:
                 self.ql.hook_del(e) 
             for e in exit_addr:

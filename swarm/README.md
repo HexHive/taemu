@@ -1,4 +1,5 @@
 ## Usage
+
 Swarm is a tool for fuzzing TAs in a batch mode
 
 ```shell
@@ -8,11 +9,11 @@ Options:
   -t, --top-directory <TOP_DIRECTORY>
           
   -p, --pattern <PATTERN>
-          pattern required to be contained in the TA name [default: harness]
+          pattern required to be contained in the TA name (e.g. 377e_double_fetch_stackov) [default: harness]
   -f, --fuzz-script <FUZZ_SCRIPT>
           [default: /root/TA_GP_emulator/emulator/fuzz.sh]
       --filter-df-seed <FILTER_DF_SEED>
-          Filter by suspicious df seed name (e.g. 377e_double_fetch_stackov) [default: ]
+          Filter by suspicious df seed name (e.g. run:id:xxxx) [default: ]
   -s, --snapshot-based
           
   -d, --duration <DURATION>
@@ -24,7 +25,6 @@ Options:
   -V, --version
           Print version
 ```
-
 
 ## Suggested Commands
 

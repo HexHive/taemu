@@ -149,7 +149,7 @@ pub fn get_context_via_meta(base_path: &Path, ta_suspicious_meta: &Path) -> Vec<
         }
     };
 
-    let mut context: Vec<(PathBuf, String)> = Vec::new();
+    let mut context: Vec<(PathBuf, String, u64, u64, u64, u64)> = Vec::new();
 
     if let Some(seed_path) = meta_data.get("key") {
         let seed_path = base_path.join(seed_path.as_str().unwrap());
@@ -178,16 +178,41 @@ pub fn get_context_via_meta(base_path: &Path, ta_suspicious_meta: &Path) -> Vec<
                     continue;
                 }
 
+                let size = record.get("size").and_then(|v| v.as_u64()).unwrap_or(0);
+                let addr = record.get("addr").and_then(|v| v.as_u64()).unwrap_or(0);
+                let pc = regs.get("PC").and_then(|v| v.as_u64()).unwrap_or(0);
+                let ret = regs.get("ret_addr").and_then(|v| v.as_u64()).unwrap_or(0);
+
+
                 let Some(reg_hash) = regs.get("reg_hash").and_then(|v| v.as_str()) else {
                     continue;
                 };
                 
                 // passing all checks, so push the context to the final result
-                context.push((seed_path.clone(), reg_hash.to_string()));
+                context.push((seed_path.clone(), reg_hash.to_string(), addr, size, pc, ret));
             }
         }
     }
-    context
+
+    
+    merge_contiguous_df_seet(context)
+}
+
+fn merge_contiguous_df_seet(mut context_vec: Vec<(PathBuf, String, u64, u64, u64, u64)>) -> Vec<(PathBuf, String)> {
+    context_vec.sort_by_key(|(_, _, addr, _size, _pc, _ret)| *addr);
+    let mut out: Vec<(PathBuf, String, u64, u64, u64, u64)> = Vec::with_capacity(context_vec.len());
+
+    for (path, hash, addr, size, pc, ret) in context_vec {
+        match out.last_mut() {
+            Some((_, _, prev_addr, prev_size, prev_pc, prev_ret)) 
+                if (*prev_addr + *prev_size == addr && *prev_pc == pc && *prev_ret == ret) => {
+                    *prev_size += size;
+                }
+            _ => out.push((path, hash, addr, size, pc, ret)),
+        }
+    }
+
+    out.into_iter().map(|(path, hash, _, _, _, _)| (path, hash)).collect()
 }
 
 pub fn rebase_path(path: PathBuf, old_root: &Path, new_root: &Path) -> PathBuf {

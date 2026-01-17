@@ -100,6 +100,12 @@ def setup_args():
         default=None,
     )
     parser.add_argument(
+        "--df_validate",
+        required=False,
+        help="path to replay+validate df seed",
+        default=None
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -154,6 +160,8 @@ if __name__ == "__main__":
 
     if b"TEEGRIS" in open(ta_path, "rb").read():
         TEE = "teegris"
+    elif b"optee" in open(ta_path, "rb").read() and b"ta_head" in open(ta_path, "rb").read():
+        TEE = "optee"
     elif b"rom/libld-l4.so" in open(ta_path, "rb").read():
         TEE = "beanpod"
     elif b"ld.so.1" in open(ta_path, "rb").read():
@@ -166,7 +174,6 @@ if __name__ == "__main__":
         TEE = "qsee"
     if TEE == "":
         TEE = args.tee
-
     if TEE == "beanpod":
         if ta_elf.header["e_flags"] & 0x200 == 0:
             is_thumb = True
@@ -219,6 +226,17 @@ if __name__ == "__main__":
             log_override=custom_logger,
         )
     elif TEE == "qsee":
+        ql = Qiling(
+            [ta_path],
+            rootfs=ROOTFS_PATH,
+            ostype=QL_OS.LINUX,
+            archtype=QL_ARCH.ARM64,
+            verbose=v,
+            env={"LD_LIBRARY_PATH": "/"},
+            profile="tee.ql",
+            log_override=custom_logger,
+        )
+    elif TEE == "optee":
         ql = Qiling(
             [ta_path],
             rootfs=ROOTFS_PATH,
@@ -309,13 +327,15 @@ if __name__ == "__main__":
                 else Status.REPLAYING if args.fuzz_replay 
                 else Status.DF_FUZZING if args.df_fuzz
                 else Status.DF_REPLAY if args.df_replay
+                else Status.DF_VALIDATE if args.df_validate
                 else Status.INTERACTIVE
             ),
             record_q=curr_record_q,
         ) as emu:
             try:
+                print(args.df_validate)
                 emu.start(
-                    args.fuzz or args.fuzz_replay or args.df_fuzz or args.df_replay, 
+                    args.fuzz or args.fuzz_replay or args.df_fuzz or args.df_replay or args.df_validate, 
                     args.fuzz_harness,
                     args.df_seed,
                     args.df_reg_hash

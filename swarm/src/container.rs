@@ -4,9 +4,8 @@ use bollard::exec::StartExecOptions;
 use bollard::models::{ContainerCreateBody, ExecConfig, HostConfig};
 use chrono::{DateTime, Utc};
 use futures::StreamExt;
-use slog::info;
 use std::error::Error as StdError;
-
+use std::process::{Command, Stdio};
 pub trait Management: Send + Sync + 'static {
     fn new(image_name: String, container_name: String) -> Self;
 
@@ -46,6 +45,7 @@ pub struct Emulator {
     container_status: bool, // true if running, false if stopped
     container_created_at: Option<DateTime<Utc>>,
 }
+
 
 impl Management for Emulator {
     fn new(image_name: String, container_name: String) -> Self {
@@ -145,7 +145,7 @@ impl Management for Emulator {
 
     async fn execute_command(&self, command: Vec<String>) -> Result<String, BollardError> {
         // debug!(LOGGER, "Emulator executing command: {:?}", command);
-        let exec = self
+        let exec: String = self
             .docker
             .create_exec(
                 &self.container_name.as_str(),
@@ -174,6 +174,26 @@ impl Management for Emulator {
         }
 
         Ok("no output".to_string())
+    }
+
+}
+
+
+impl Emulator {
+    pub fn execute_command_blocking(&self, command: Vec<String>) -> Result<bool, String> {
+        let out = Command::new("docker")
+        .arg("exec")
+        .arg(&self.container_name.as_str())
+        .args(&command)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .status().unwrap();
+
+        if !out.success() {
+            return Err(format!("Command failed with code: {}", out.code().unwrap_or(-1)));
+        }
+        Ok(true)
     }
 }
 

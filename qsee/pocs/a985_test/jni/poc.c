@@ -41,19 +41,20 @@ typedef struct bs{
 int start = 0;
 
 void* mod_thread(void* arrg){
+    /*
     bs* bsss = (bs*) arrg;
     int* arg = bsss->buf0;
     int* arg2 = bsss->buf1;
+    */
     cpu_set_t set;
     CPU_ZERO(&set);
     CPU_SET(1, &set);
     puts("mod thread straing");
     while(1){
-        if(start) break;
-    }
-    while(1){
-        *(int*)arg = 9;
-        *(int*)arg = 0;
+        *(volatile int*)arrg = 9;
+        //printf("??? %d\n", *(int*)arrg);
+        *(volatile int*)arrg = 0;
+        //printf("??? %d\n", *(int*)arrg);
     }
 }
 
@@ -77,30 +78,31 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
     void* mem_area1 = allocate_param_mem(context, 0x1000);
     void* mem_area2 = allocate_param_mem(context, 0x1000);
     memset(mem_area1, 0, 0x1000);
-    ((char*)mem_area1)[0] = '\t';
+    *(int*)mem_area1 = 0;
+    //((char*)mem_area1)[0] = '\t';
 
-/*
 #ifndef EMULATE 
-    TEEC_SharedMemory in_mem;
-    in_mem.buffer = mem_area1;
-    in_mem.size = buf_size;
-    in_mem.flags = TEEC_MEM_INPUT; // | TEEC_MEM_OUTPUT;
-    res = TEEC_RegisterSharedMemory_impl(context, &in_mem);
+    TEEC_SharedMemory shm;
+    memset(&shm, 0, sizeof(shm));
+    shm.size  = 0x1000;  // must be > 0
+    shm.flags = TEEC_MEM_INPUT | TEEC_MEM_OUTPUT;
+
+    res = TEEC_AllocateSharedMemory_impl(context, &shm);
     if (res != TEEC_SUCCESS) {
-        printf("Failed to register shared memory 1 %d\n", res);
-        exit(-1);
+        printf("AllocateSharedMemory failed: 0x%x\n", res);
+        return;
     }
-    pls* wow = (pls*)&in_mem;
-    pls* wow2 = (pls*)wow->ptr;
-    void* shm = (void*)wow2->ptr;
-    printf("shm ptr %p\n", shm);
-    op.params[0].memref.parent = &in_mem;  // the keyblock buffer
+
+    op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_WHOLE, TEEC_NONE,
+                     TEEC_NONE, TEEC_NONE);
+    op.params[0].memref.parent = &shm;
+    op.params[0].memref.offset = 0;
+    op.params[0].memref.size   = shm.size;
+    op.params[1].tmpref.buffer = mem_area2;  // the keyblock buffer
+    op.params[1].tmpref.size =  0x1000; 
 
     pthread_t tid;
-    bs someshit;
-    someshit.buf0 = (int*)mem_area1;
-    someshit.buf1 = (int*)mem_area1;
-    if (pthread_create(&tid, NULL, mod_thread, &someshit) != 0) {
+    if (pthread_create(&tid, NULL, mod_thread, shm.buffer) != 0) {
         perror("pthread_create failed");
         return;
     }
@@ -108,9 +110,12 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
                                      TEEC_NONE, TEEC_NONE);
     printf("params: 0x%lx\n", op.paramTypes);
     
-
+    start = 1;
+    volatile int wow = *(int*)shm.buffer;
+    while(wow == *(int*)shm.buffer){
+        printf("WHYYY %d\n", *(int*)shm.buffer);
+    }
 #else
-*/
     op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INPUT, TEEC_MEMREF_TEMP_OUTPUT,
                                      TEEC_NONE, TEEC_NONE);
     printf("params: 0x%lx\n", op.paramTypes);
@@ -122,11 +127,8 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
     op.params[1].tmpref.size =  0x1000; 
 
     pthread_t tid;
-    bs someshit;
-    someshit.buf0 = mem_area1;
-    someshit.buf1 = mem_area1;
     
-    if (pthread_create(&tid, NULL, mod_thread, &someshit) != 0) {
+    if (pthread_create(&tid, NULL, mod_thread, mem_area1) != 0) {
         perror("pthread_create failed");
         return;
     }
@@ -134,12 +136,11 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
     start = 1;
     for(int i=0; i<100000; i++){
         printf("??? %d\n", *(int*)mem_area1);
-    } 
-//#endif
-    while(1){
-        res = TEEC_InvokeCommand_impl(session, 4, &op, &err_origin);
-        printf("TEEC_Result: %x origin: err_origin: %x\n", res, err_origin);
     }
+#endif
+    
+    res = TEEC_InvokeCommand_impl(session, 4, &op, &err_origin);
+    printf("TEEC_Result: %x origin: err_origin: %x\n", res, err_origin);
 }
 
 

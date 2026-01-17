@@ -62,9 +62,20 @@ def _write(ql: Qiling, hook_data):
     p = ql.os.resolve_fcall_params({"fd": INT, "buf": POINTER, "len": INT})
     fd = p["fd"]
     if fd not in fds:
-        ql.log.warning(f"fd {fd} not in {fds}")
-        crash(ql, hook_data.func_name)
-        return
+        if hook_data.emu.tee == "optee":
+            ql.log.info(f"write: fd {fd}")
+            if fd == 2:
+                buf = p["buf"]
+                lenn = p["len"]
+                data = ql.mem.read(buf, lenn)
+                ql.log.info(f"[optee write to stderr] {data}")
+                ql.os.fcall.cc.setReturnValue(p["len"])
+                ql.arch.regs.arch_pc = ql.arch.regs.lr
+                return
+        else:
+            ql.log.warning(f"fd {fd} not in {fds}")
+            crash(ql, hook_data.func_name)
+            return
     if fds[fd] == "/dev/kmsg":
         ql.os.fcall.cc.setReturnValue(p["len"])
         ql.arch.regs.arch_pc = ql.arch.regs.lr

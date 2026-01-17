@@ -19,6 +19,7 @@ from . import mitee_api
 from . import t6_api
 from . import tc_api
 from . import qsee_api
+from . import optee_api
 from .gp import (
     bigint_ops,
     crypto,
@@ -42,7 +43,7 @@ class HookData:
         self.func_name = func_name
 
 
-def get_api_impl(func_name):
+def get_api_impl(func_name, strict=False):
     if func_name == "write":
         func_name = "_write"
     if func_name == "open":
@@ -80,6 +81,11 @@ def get_api_impl(func_name):
     api_func = getattr(qsee_api, func_name, None)
     if api_func is not None:
         return api_func
+    api_func = getattr(optee_api, func_name, None)
+    if api_func is not None:
+        return api_func
+    if strict:
+        return None
     return gp_api.default_func
 
 
@@ -127,6 +133,7 @@ def hook_ta_dl(
     is_mitee=False,
     is_tc=False,
     is_qsee=False,
+    is_optee=False
 ):
     hook_dict = {}
     counter = 0
@@ -199,6 +206,26 @@ def hook_ta_dl(
             )
             ql.mem.write(off, bytes(encoding))
             counter += ql.arch.pointersize
+    if is_optee:
+        def redirect_execution(ql: Qiling, addr):
+            ql.arch.regs.pc = addr
+        for sym, addr in ta_elf.sym.items():
+            api_func =  get_api_impl(sym, strict=True)
+            if api_func is None: continue
+            counter += ql.arch.pointersize
+            ql.log.info(
+                f"[optee] hooking {sym}@{hex(addr)}->{hex(ql_resolve_mem+counter)}"
+            )
+            ql.hook_address(
+                redirect_execution,
+                addr,
+                user_data=ql_resolve_mem + counter
+            )
+            ql.hook_address(
+                api_func, 
+                ql_resolve_mem+counter,
+                user_data=HookData(emu, sym),
+            )
     if "00000000-0000-0000-0000-4b45594d5354.ta" in ta_path:
         # load libscrypto.so to emulate ASN1 stuff
         lib_path = os.path.join(os.path.dirname(ta_path), "lib64", "libscrypto.so")
@@ -305,6 +332,9 @@ def teegris_32_setup(ql: Qiling, ta_path, ta_base):
     for rel in rels:
         v = ql.mem.read_ptr(ta_base + rel)
         ql.mem.write_ptr(ta_base + rel, v + ta_base)
+
+def optee_setup(ql: Qiling, ta_path, ta_base, emu):
+    ql.hook_intno(optee_api.optee_syscall, 2, user_data=emu)
 
 def qsee_setup(ql: Qiling, ta_path, ta_base):
     reloc_offsets = mitee_rela_relocs(ta_path)

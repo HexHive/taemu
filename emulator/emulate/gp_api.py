@@ -61,10 +61,52 @@ def stack_chk_fail(ql: Qiling, hook_data):
     ql.log.critical(f"stack_chk_fail ***stack smashing detected***")
     crash(ql, hook_data.func_name)
 
+def getenv(ql: Qiling, hook_data):
+    param = ql.os.resolve_fcall_params({"nmemb": STRING})
+    data = param["nmemb"]
+    ql.log.info(f'getenv: {data}')
+    if data == "RUST_LIB_BACKTRACE":
+        env_mem = ql.mem.map_anywhere(0x1000, minaddr=0x13000, info="getenv") 
+        ql.mem.write(env_mem, b"0\x00")
+        ql.os.fcall.cc.setReturnValue(env_mem)
+        ql.arch.regs.arch_pc = ql.arch.regs.lr
+    else:
+       breakpoint()
+       ql.arch.regs.arch_pc = NOTIMPL_PC 
 
 def malloc(ql: Qiling, hook_data):
     TEE_Malloc(ql, hook_data)
 
+def realloc(ql: Qiling, hook_data):
+    TEE_Realloc(ql, hook_data)
+
+def TEE_Realloc(ql: Qiling, hook_data):
+    p = ql.os.resolve_fcall_params(
+            {"oldptr": POINTER, "new_size": INT}
+        )
+    oldptr = p["oldptr"]
+    new_size = p["new_size"]
+    ql.log.info(f"realloc {hex(oldptr)} -> {hex(new_size)}")
+    if oldptr == 0:
+        malloc_core(ql, new_size, hook_data, False)
+        return
+    else:
+        if oldptr not in hook_data.emu.HEAP["allocated"]:
+            ql.log.critical(f"corrupted free realloc at: {hex(oldptr)}, {hook_data.emu.HEAP}")
+            crash(ql, hook_data.func_name)
+            return
+    size = hook_data.emu.HEAP["allocated"][oldptr]
+    hook_data.emu.update_shm(oldptr, size)
+    try:
+        olddata = ql.mem.read(oldptr, size)
+    except unicorn.unicorn_py3.unicorn.UcError as e:
+        crash(ql, hook_data.func_name)
+        return
+    free_core(ql, oldptr, hook_data, True)
+    newptr = malloc_core(ql, new_size, hook_data, True)
+    ql.mem.write(newptr, bytes(olddata[:min(size, new_size)]))
+    ql.os.fcall.cc.setReturnValue(newptr)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def calloc(ql: Qiling, hook_data):
     param = ql.os.resolve_fcall_params({"nmemb": INT, "size": INT})
@@ -75,6 +117,40 @@ def TEE_Malloc(ql: Qiling, hook_data):
     size = ql.os.resolve_fcall_params({"size": INT})["size"]
     malloc_core(ql, size, hook_data, False)
 
+def memalign(ql: Qiling, hook_data):
+    params = ql.os.resolve_fcall_params({"alignment": INT, "size": INT})
+    size = params["size"]
+    alignment = params["alignment"]
+    func_name = hook_data.func_name
+
+    real_size = asan.memory_alignment_round_up(
+        size + alignment + 2 * asan.ASAN_REDZONE_SIZE, 0x1000
+    )
+
+    out = ql.mem.map_anywhere(real_size, minaddr=HEAP_MEM, perms=3, info="malloc_chunk")
+    candidate = out + asan.ASAN_REDZONE_SIZE
+    aligned = (candidate + (alignment - 1)) & ~(alignment - 1)
+    ret2user_out = aligned 
+    ql.log.info(f"{func_name}: allocated {hex(size)} at {hex(ret2user_out)}")
+    hook_data.emu.HEAP["allocated"][ret2user_out] = size
+    if ret2user_out in hook_data.emu.HEAP["freed"]:
+        del hook_data.emu.HEAP["freed"][ret2user_out]
+
+    ql.log.info(f"redzone hook {hex(out)}")
+    asan.asan_hook_redzone_mem_rw(out, asan.ASAN_REDZONE_SIZE, ql)
+    hook_data.emu.HEAP["redzones"][out] = asan.ASAN_REDZONE_SIZE
+    ql.log.info(f"redzone hook {hex(ret2user_out + size)}")
+    asan.asan_hook_redzone_mem_rw(
+        ret2user_out + size, real_size - asan.ASAN_REDZONE_SIZE - size, ql
+    )
+    hook_data.emu.HEAP["redzones"][ret2user_out + size] = (
+        real_size - asan.ASAN_REDZONE_SIZE - size
+    )
+
+    ql.os.fcall.cc.setReturnValue(ret2user_out)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+    return 
+    
 
 def TEE_Free(ql: Qiling, hook_data):
     ptr = ql.os.resolve_fcall_params({"ptr": INT})["ptr"]

@@ -5,7 +5,7 @@ export AFL_SKIP_CPUFREQ=1
 export AFL_FORKSRV_INIT_TMOUT=1999999
 export AFL_NO_FASTRESUME=1
 export AFL_AUTORESUME=1
-
+export AFL_NO_AFFINITY=1
 
 
 if [ -z "$1" ]; then 

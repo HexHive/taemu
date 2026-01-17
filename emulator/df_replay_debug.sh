@@ -32,6 +32,9 @@ if [ -z "$ta" ]; then
     echo "Could not find TA in $in_path"
     exit
 fi
+ta_name="${ta::-3}"
+cp "$ta" rootfs/
+cp "${ta_name}.json" rootfs/
 df_seed=$(basename "$df_seed_path")
 
 
