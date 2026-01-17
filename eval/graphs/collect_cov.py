@@ -85,7 +85,8 @@ def collect_cov_denominator(
     all_fuzzing_info = []
     # vanilla fuzzing
     org_fuzzing_info = get_fuzzing_basic_info(ta, FuzzMode.ORG)
-    partial_cov = _analyze_cfg_ta(org_fuzzing_info)
+    assert len(org_fuzzing_info) == 1, f"Expected 1 fuzzing info for {ta} during vanilla fuzzing, got {len(org_fuzzing_info)}"
+    partial_cov = _analyze_cfg_ta(org_fuzzing_info[0])
     all_fuzzing_info.extend(org_fuzzing_info)
 
     if fuzz_mode == FuzzMode.DF or fuzz_mode == FuzzMode.ALL:

@@ -84,68 +84,65 @@ def parse_drcov(tee, ta, path):
         bbs = bbs[8:]
     return bbs_out
 
-
+_pattern = re.compile(r"^/root/TA_GP_emulator/(?P<tee>[^/]+)/harness/(?P<harness_name>[^/]+)/(?P<ta_name>.*)$")
 def get_fuzzing_basic_info(ta: str, fuzz_mode: FuzzMode) -> list[RawFuzzingInfo]:
     all = []
-    matches = re.search(
-        r"^/root/TA_GP_emulator/(?P<tee>[^/]+)/harness/(?P<harness_name>[^/]+)/(?P<ta_name>.*)$",
-        ta,
-    )
-    if matches is None:
+    match = _pattern.match(ta)
+    if match is None:
         raise ValueError(f"Invalid ta path: {ta}")
-    for match in matches:
-        tee = match.group("tee")
-        harness_name = match.group("harness_name")
-        ta_name = match.group("ta_name")
-        if fuzz_mode == FuzzMode.ORG:
+    
+    tee = match.group("tee")
+    harness_name = match.group("harness_name")
+    ta_name = match.group("ta_name")
+    if fuzz_mode == FuzzMode.ORG:
+        all.append(
+            RawFuzzingInfo(
+                id=f"{tee}_{harness_name}",
+                tee=tee,
+                ta_name=ta_name,
+                ta_path=ta,
+                ta_rpath=os.path.realpath(ta),
+                tee_path=f"/root/TA_GP_emulator/{tee}",
+                harness_path=f"/root/TA_GP_emulator/{tee}/harness/{harness_name}",
+                fuzz_mode=fuzz_mode,
+                cov_dir=f"/root/TA_GP_emulator/{tee}/harness/{harness_name}/out/cov",
+                queue_dir=f"/root/TA_GP_emulator/{tee}/harness/{harness_name}/out/default/queue",
+            )
+        )
+    elif fuzz_mode == FuzzMode.DF:
+        cov_dir_tmp = "/root/TA_GP_emulator/{tee}/harness/{harness_name}/df_fuzz/{df_seed_with_context}/out/cov"
+        queue_dir_tmp = "/root/TA_GP_emulator/{tee}/harness/{harness_name}/df_fuzz/{df_seed_with_context}/out/default/queue"
+        for df_seed_with_context in os.listdir(
+            f"/root/TA_GP_emulator/{tee}/harness/{harness_name}/df_fuzz"
+        ):
+            cov_dir = cov_dir_tmp.format(
+                tee=tee,
+                harness_name=harness_name,
+                df_seed_with_context=df_seed_with_context,
+            )
+
+            queue_dir = queue_dir_tmp.format(
+                tee=tee,
+                harness_name=harness_name,
+                df_seed_with_context=df_seed_with_context,
+            )
+
             all.append(
                 RawFuzzingInfo(
-                    id=f"{tee}_{harness_name}",
+                    id=f"{tee}_{harness_name}_{df_seed_with_context}",
                     tee=tee,
                     ta_name=ta_name,
                     ta_path=ta,
                     ta_rpath=os.path.realpath(ta),
                     tee_path=f"/root/TA_GP_emulator/{tee}",
-                    harness_path=f"/root/TA_GP_emulator/{tee}/harness/{harness_name}",
                     fuzz_mode=fuzz_mode,
-                    cov_dir=f"/root/TA_GP_emulator/{tee}/harness/{harness_name}/out/cov",
-                    queue_dir=f"/root/TA_GP_emulator/{tee}/harness/{harness_name}/out/default/queue",
+                    harness_path=f"/root/TA_GP_emulator/{tee}/harness/{harness_name}",
+                    cov_dir=cov_dir,
+                    queue_dir=queue_dir,
                 )
             )
-        elif fuzz_mode == FuzzMode.DF:
-            cov_dir_tmp = "/root/TA_GP_emulator/{tee}/harness/{harness_name}/df_fuzz/{df_seed_with_context}/out/cov"
-            queue_dir_tmp = "/root/TA_GP_emulator/{tee}/harness/{harness_name}/df_fuzz/{df_seed_with_context}/out/default/queue"
-            for df_seed_with_context in os.listdir(
-                f"/root/TA_GP_emulator/{tee}/harness/{harness_name}/df_fuzz"
-            ):
-                cov_dir = cov_dir_tmp.format(
-                    tee=tee,
-                    harness_name=harness_name,
-                    df_seed_with_context=df_seed_with_context,
-                )
-
-                queue_dir = queue_dir_tmp.format(
-                    tee=tee,
-                    harness_name=harness_name,
-                    df_seed_with_context=df_seed_with_context,
-                )
-
-                all.append(
-                    RawFuzzingInfo(
-                        id=f"{tee}_{harness_name}_{df_seed_with_context}",
-                        tee=tee,
-                        ta_name=ta_name,
-                        ta_path=ta,
-                        ta_rpath=os.path.realpath(ta),
-                        tee_path=f"/root/TA_GP_emulator/{tee}",
-                        fuzz_mode=fuzz_mode,
-                        harness_path=f"/root/TA_GP_emulator/{tee}/harness/{harness_name}",
-                        cov_dir=cov_dir,
-                        queue_dir=queue_dir,
-                    )
-                )
-        else:
-            raise ValueError(f"Invalid fuzz mode: {fuzz_mode}")
+    else:
+        raise ValueError(f"Invalid fuzz mode: {fuzz_mode}")
     return all
 
 

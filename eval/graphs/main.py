@@ -9,6 +9,9 @@ from typing import List
 from graphing import FuzzingInfo
 from collect_cov import linking
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import os
+from tqdm import tqdm
 
 
 def main(
@@ -21,16 +24,23 @@ def main(
     filtered_tas = filter(lambda ta: any(tee in ta for tee in tees), all_tas)
 
     ## get the cfg and basic raw fuzzing info
+    logger.info(f"[+] Collecting cfg and basic raw fuzzing info for each TA")
     fuzzing_info_list: List[FuzzingInfo] = []
-    for ta in filtered_tas:
-        raw_covs, raw_fuzzing_infos = collect_cov_denominator(ta)
-        for raw_fuzzing_info in raw_fuzzing_infos:
-            fuzzing_info_list.append(FuzzingInfo(raw_fuzzing_info, raw_covs, 0, 0, {}))
-        if fuzz_mode == FuzzMode.DF or fuzz_mode == FuzzMode.ALL:
-            linking(fuzzing_info_list)
+    with ThreadPoolExecutor(max_workers=os.cpu_count()) as ex:
+        future_to_idx = {ex.submit(collect_cov_denominator, ta, fuzz_mode): i for i, ta in enumerate(filtered_tas)}
+        
+        for fut in tqdm(as_completed(future_to_idx, total=len(filtered_tas), desc="Collecting cfg for each TA")):
+            _i = future_to_idx[fut]
+            raw_covs, raw_fuzzing_infos = fut.result()
+            for raw_fuzzing_info in raw_fuzzing_infos:
+                fuzzing_info_list.append(FuzzingInfo(raw_fuzzing_info, raw_covs, 0, 0, {}))
+    
+    if fuzz_mode == FuzzMode.DF or fuzz_mode == FuzzMode.ALL:
+        linking(fuzzing_info_list)
 
     ## generate coverage files based on queue
     if regen_coverage:
+        logger.info(f"[+] Generating coverage files for each TA")
         ### spawn docker pools
         with DockerPool(
             image_name="emu",
@@ -44,13 +54,16 @@ def main(
                     pre_clean=True,
                 )
 
+    logger.info(f"[+] Parsing unique bbs for each TA")
     parse_unique_bbs(fuzzing_info_list)
 
     ## generate graphs for each ta
     if fuzz_mode == FuzzMode.ORG or fuzz_mode == FuzzMode.ALL:
+        logger.info(f"[+] Generating org graph for each TA")
         org_graph = org_control_flow_graph(fuzzing_info_list)
 
     if fuzz_mode == FuzzMode.DF or fuzz_mode == FuzzMode.ALL:
+        logger.info(f"[+] Generating df graph for each TA")
         df_graph = df_control_flow_graph(fuzzing_info_list)
 
     # if fuzz_mode == FuzzMode.ALL:
