@@ -65,9 +65,20 @@ def handle_in(in_path):
     return all_dfs
 
 def handle_meta(meta_path):
-    meta_data = json.load(open(meta_path))
-    meta_data, fetches = annotate_dfs(meta_data)
-    open(meta_path, "w+").write(json.dumps(meta_data, indent=4))
+    try:
+        meta_data = json.load(open(meta_path))
+        meta_data, fetches = annotate_dfs(meta_data)
+        open(meta_path, "w+").write(json.dumps(meta_data, indent=4))
+    except Exception as e:
+        print("=======================[+] ERROR =======================")
+        print(meta_path)
+        print(e)
+        print("=======================[+] ERROR=======================")
+        with open("annotate_fetches_error.txt", "a") as f:
+            f.write(meta_path + "\n")
+            f.write(str(e) + "\n")
+            f.write("=======================[+] ERROR=======================\n")
+        return 0
     return fetches
 
 def main(in_paths):
