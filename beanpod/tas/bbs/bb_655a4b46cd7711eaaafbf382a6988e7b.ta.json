@@ -191,7 +191,7 @@
                         "api_type": "tee"
                     },
                     {
-                        "func": "dump_data_base",
+                        "func": "dm_dump_data_base",
                         "api": true,
                         "api_type": "tee"
                     }
