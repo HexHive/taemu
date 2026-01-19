@@ -24,7 +24,7 @@ def get_all_crashes(path="/root/TA_GP_emulator"):
     for root, dirs, files in os.walk(path):
         for file in files:
             path = os.path.join(root, file)
-            if "df_fuzz" in path and "out/default/crashes" in path:
+            if "/df_fuzz/" in path and "out/default/crashes" in path:
                 if path.endswith(".output"): 
                     afl_crash = open(path, "rb").read()
                     if b"Fork server handshake failed" in afl_crash or b"Fork server crashed with signal 7" in afl_crash:
