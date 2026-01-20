@@ -49,5 +49,5 @@ fuzz_out="${fuzz_out}_${df_reg_hash}"
 if [ ! -z "$4" ]; then
     echo "Replaying seed $4 ..."
     echo -m emulate $5 --df_replay "$4" --fuzz_harness $harness --df_seed $df_seed_path --df_reg_hash $df_reg_hash $"rootfs/$(basename "$ta")" $log_arg  
-    python3 -m emulate $5 --df_replay "$4" --fuzz_harness $harness --df_seed $df_seed_path --df_reg_hash $df_reg_hash $"rootfs/$(basename "$ta")" $log_arg  
+    python3 -m emulate -v $5 --df_replay "$4" --fuzz_harness $harness --df_seed $df_seed_path --df_reg_hash $df_reg_hash $"rootfs/$(basename "$ta")" $log_arg  
 fi
