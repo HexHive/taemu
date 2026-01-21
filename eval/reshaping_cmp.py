@@ -75,6 +75,7 @@ def gather_jobs(args):
             if os.path.basename(root) == "df_fuzz":
                 harness_path = os.path.normpath(os.path.join(root, ".."))
                 if ignore_harness in harness_path: continue
+                if not os.path.exists(os.path.join(harness_path, 'harness.py')): continue
                 num_dfs = len(os.listdir(root))
                 print(f'[^] {harness_path} num dfs: {num_dfs}', flush=True)
                 q.put(Job(harness_path, num_dfs * args.df_fuzz_time, root))
