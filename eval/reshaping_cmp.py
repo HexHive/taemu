@@ -75,15 +75,13 @@ def gather_jobs(args):
                 q.put(Job(harness_path, num_dfs * args.df_fuzz_time))
     else:
         path = os.path.join(args.fuzz_backup, 'df_fuzz')
-        for root, dirs, files in os.walk(path):
-            if os.path.basename(root) == "df_fuzz":
-                harness_dir = os.path.basename(os.path.normpath(os.path.join(root, "..")))
-                harness_path = get_harness_path(args.path, harness_dir) 
-                assert harness_path is not None
-                if ignore_harness in harness_path: continue
-                num_dfs = len(os.listdir(root))
-                print(f'[^] {harness_path} num dfs: {num_dfs}', flush=True)
-                q.put(Job(harness_path, num_dfs * args.df_fuzz_time)) 
+        for harness in os.listdir(path):
+            harness_path = get_harness_path(args.path, harness) 
+            assert harness_path is not None
+            if ignore_harness in harness_path: continue
+            num_dfs = len(os.listdir(os.path.join(path, harness, 'df_fuzz')))
+            print(f'[^] {harness_path} num dfs: {num_dfs}', flush=True)
+            q.put(Job(harness_path, num_dfs * args.df_fuzz_time)) 
 
 def validate(args):
     if os.path.exists("/.dockerenv"):
