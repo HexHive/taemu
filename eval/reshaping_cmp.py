@@ -46,6 +46,8 @@ def fuzz(i, job):
     proc = subprocess.run(
         f'timeout -k {fuzz_time} {fuzz_time} docker exec {emu_name} ./{fuzz_script} {job.harness_path.replace("/root/TA_GP_emulator/", "../")}', shell=True, capture_output=True
     )
+    print(proc.stdout, flush=True)
+    print(proc.stderr, flush=True)
     elapsed = time.time() - t1
     print(f'fuzzed {job.harness_path} {fuzz_time} -> {elapsed}', flush=True)
 
