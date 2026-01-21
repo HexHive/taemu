@@ -23,3 +23,21 @@ def test_clean_cov():
     result = subprocess.run(f"find {test_path} -path \"*/harness/*/out/cov\" -type d", shell=True, capture_output=True, text=True)
     assert result.returncode == 0
     assert result.stdout == ""
+    
+def test_get_foo_only_queue():
+    all_tas: set[str] = list_tas(test_path)
+    all_foo_only_ta_dirs = []
+    for ta in all_tas:
+        ta_dir_name = os.path.dirname(ta)
+        queue_dir = os.path.join(test_path, ta_dir_name, "out", "default", "queue")
+        foo_only_flag = True
+        if os.path.exists(queue_dir):
+            for file in os.listdir(queue_dir):
+                # print(file)
+                if "foo" not in file and ".state" != file:
+                    foo_only_flag = False
+                    break
+        if foo_only_flag:
+            all_foo_only_ta_dirs.append(ta_dir_name)
+    print(all_foo_only_ta_dirs)
+    

@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 from tqdm import tqdm
 import time
+import matplotlib.pyplot as plt
 
 
 logger.add("graphs.log", rotation="100 MB", retention="10 days")
@@ -21,6 +22,8 @@ def main(
     path: str = "/root/TA_GP_emulator",
     tees: list[str] = None,
     regen_coverage: bool = False,
+    show_plots: bool = True,
+    save_plots: bool = True,
 ):
     all_tas: set[str] = list_tas(path)
     tees = tees or ["mitee", "teegris", "beanpod", "t6", "qsee"]
@@ -66,12 +69,34 @@ def main(
 
     ## generate graphs for each ta
     if fuzz_mode == FuzzMode.ORG or fuzz_mode == FuzzMode.ALL:
-        logger.info(f"[+] Generating org graph for each TA")
-        org_graph = org_control_flow_graph(fuzzing_info_list)
+        org_fuzzing_info_list = [each for each in fuzzing_info_list if each.raw_fuzzing_info.fuzz_mode == FuzzMode.ORG]
+        logger.info(f"[+] Generating org graph for {len(org_fuzzing_info_list)} TA")
+        org_graph = org_control_flow_graph(org_fuzzing_info_list)
+        if org_graph:
+            if save_plots:
+                # Save the figure
+                output_path = os.path.join(path, "eval/graphs/org_control_flow_graph.png")
+                os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                org_graph.savefig(output_path, dpi=300, bbox_inches='tight')
+                logger.info(f"[+] Saved org graph to {output_path}")
+            if show_plots:
+                # Display the figure
+                plt.show()
 
     if fuzz_mode == FuzzMode.DF or fuzz_mode == FuzzMode.ALL:
-        logger.info(f"[+] Generating df graph for each TA")
-        df_graph = df_control_flow_graph(fuzzing_info_list)
+        df_fuzzing_info_list = [each for each in fuzzing_info_list if each.raw_fuzzing_info.fuzz_mode == FuzzMode.DF]
+        logger.info(f"[+] Generating df graph for {len(df_fuzzing_info_list)} TA")
+        df_graph = df_control_flow_graph(df_fuzzing_info_list)
+        # if df_graph:
+        #     if save_plots:
+        #         # Save the figure
+        #         output_path = os.path.join(path, "eval/graphs/df_control_flow_graph.png")
+        #         os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        #         df_graph.savefig(output_path, dpi=300, bbox_inches='tight')
+        #         logger.info(f"[+] Saved df graph to {output_path}")
+        #     if show_plots:
+        #         # Display the figure
+        #         plt.show()
 
     # if fuzz_mode == FuzzMode.ALL:
     #     uniq_trace = compare_graphs(org_graph, df_graph)
@@ -91,4 +116,5 @@ if __name__ == "__main__":
     
     
     args = parser.parse_args()
-    main(fuzz_mode=FuzzMode(args.fuzz_mode), path =args.path, tees=args.tees, regen_coverage=args.regen_coverage)
+    main(fuzz_mode=FuzzMode(args.fuzz_mode), path=args.path, tees=args.tees, 
+         regen_coverage=args.regen_coverage, show_plots=False, save_plots=True)

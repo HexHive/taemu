@@ -19,9 +19,22 @@ case "$user_input_lower" in
         ;;
 esac
 
+
+find /root/TA_GP_emulator -type d -name "out" | grep -v "/df_fuzz/" | grep "harness" | while read src; do
+    parent=$(basename "$(dirname "$src")")
+
+    mkdir -p "$dest/$timestamp/vanilla/$parent"
+    cp -r "$src" "$dest/$timestamp/vanilla/$parent/"
+done
+
+echo "finish the backup for vanilla out dir"
+
 find /root/TA_GP_emulator -type d -name "suspicious_inputs" | while read src; do
     parent=$(basename "$(dirname "$(dirname "$src")")")
     pparent=$(basename "$(dirname "$(dirname "$(dirname "$src")")")")
+
+    vanilla=$(realpath "$(dirname "$src")"/../out)
+
     mkdir -p "$dest/$timestamp/$pparent/$parent"
     cp -r "$src" "$dest/$timestamp/$pparent/$parent/"
 done
