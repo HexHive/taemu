@@ -120,6 +120,8 @@ def validate(args):
 
 
 if __name__ == "__main__":
+    os.system(f'docker rm -f $(docker ps -aq)')
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--path", type=str, default="/root/TA_GP_emulator")
     parser.add_argument("--fuzz-backup", type=str, required=False, help="if set will use fuzzing backup data from this path")
