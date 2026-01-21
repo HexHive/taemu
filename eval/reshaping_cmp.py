@@ -80,7 +80,7 @@ def gather_jobs(args):
             assert harness_path is not None
             if ignore_harness in harness_path: continue
             num_dfs = len(os.listdir(os.path.join(path, harness, 'df_fuzz')))
-            print(f'[^] {harness_path} num dfs: {num_dfs}', flush=True)
+            print(f'[^] {harness_path} num dfs: {num_dfs} {num_dfs * args.df_fuzz_time}', flush=True)
             q.put(Job(harness_path, num_dfs * args.df_fuzz_time)) 
 
 def validate(args):
