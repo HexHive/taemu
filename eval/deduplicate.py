@@ -225,8 +225,8 @@ def shut_down(num_replay_containers, mode):
     if mode == "coverage":
         print("[+] Stopping emulator container")
         for i in range(num_replay_containers):
-            # subprocess.run(f"docker stop emu_{i}", shell=True)
-            subprocess.run(f"docker rm -f emu_{i}", shell=True)
+            subprocess.run(f"docker stop emu_{i}", shell=True)
+            subprocess.run(f"docker rm emu_{i}", shell=True)
         print("[+] Emulator containers stopped")
 
         print("[+] Stopping Redis container")

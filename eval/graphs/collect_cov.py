@@ -1,3 +1,4 @@
+from functools import cache
 from common import get_fuzzing_basic_info, RawFuzzingInfo
 from common import FuzzMode
 from bb import build_tee_cfg, cfg_ta, trim_cfg, root, get_apis, reachable_nodes
@@ -14,7 +15,9 @@ import shutil
 from common import BB
 from tqdm import tqdm
 from concurrent.futures import as_completed
+from cachetools import TTLCache, cached
 
+only_foo_under_queue_cache = TTLCache(maxsize=100, ttl=60*60)
 
 @dataclass
 class Coverage:
@@ -76,6 +79,10 @@ def gen_coverage_files(
             return False, harness_path, seed_path
         else:
             return True, "", ""
+    
+    @cached(only_foo_under_queue_cache)
+    def _only_foo_under_queue(queue_dir: str):
+        return all("foo" in file for file in os.listdir(queue_dir))
         
         
     logger.info(f"[+] Replaying seeds from queue")
@@ -107,11 +114,12 @@ def gen_coverage_files(
     cnt = 0
     accpted_bad_harnesses = [each[0] for each in bad_cases]
     for each in raw_fuzzing_infos:
-        if not slient and each.harness_path not in accpted_bad_harnesses:
+        if not slient and each.harness_path not in accpted_bad_harnesses and not _only_foo_under_queue(each.queue_dir):
                 assert os.path.exists(each.cov_dir), f"Coverage file {each.cov_dir} does not exist"
-        else:
+        elif not _only_foo_under_queue(each.queue_dir):
             if not os.path.exists(each.cov_dir):
                 cnt += 1
+        
             # assert os.path.exists(each.cov_dir), f"Coverage file {each.cov_dir} does not exist"
     logger.warning(f"[-] in total, {cnt} coverage files are missing")
     return 
