@@ -86,7 +86,7 @@ def gather_jobs(args):
             if ignore_harness in harness_path: continue
             num_dfs = len(os.listdir(os.path.join(path, harness, 'df_fuzz')))
             print(f'[^] {harness_path} num dfs: {num_dfs} {num_dfs * args.df_fuzz_time}', flush=True)
-            q.put(Job(harness_path, num_dfs * args.df_fuzz_time, os.paht.join(path, harness, 'df_fuzz'))) 
+            q.put(Job(harness_path, num_dfs * args.df_fuzz_time, os.path.join(path, harness, 'df_fuzz'))) 
 
 def validate(args):
     if os.path.exists("/.dockerenv"):
@@ -122,6 +122,14 @@ def validate(args):
     time.sleep(5)
     print("[+] Emulator containers started")
 
+def get_execs(afl_path):
+    if not os.path.exists(os.path.join(afl_path, 'fuzzer_stats')):
+        return 0
+    a = open(os.path.join(afl_path, 'fuzzer_stats')).read()
+    for l in a.split('\n'):
+        if 'execs_done' in l:
+            return int(l.split(':')[-1])
+    assert False
 
 def analyze_task(job):
     fuzzed_sus2reghash = {} 
@@ -130,22 +138,22 @@ def analyze_task(job):
     dff_execs_2 = 0
     done = []
     for df_out in os.listdir(job.df_out_path):
-        df_seed, reg_hash = df_out.split("/")
-        dff_execs += get_execs(os.path.join(df_out, 'out', 'default')) 
+        df_seed, reg_hash = df_out.split("_")
+        dff_execs += get_execs(os.path.join(job.df_out_path, df_out, 'out', 'default')) 
         if df_seed not in done:
             done.append(df_seed)
-            dff_execs_2 += get_execs(os.path.join(df_out, 'out', 'default'))
-    print(f'{job.harness} {dff_execs} {dff_execs_2}')
+            dff_execs_2 += get_execs(os.path.join(job.df_out_path, df_out, 'out', 'default'))
+    print(f'DF: {job.harness_path} {dff_execs} {dff_execs_2}')
     rsh_execs = 0
     rsh_execs_df = 0
     for out in os.listdir(os.path.join(job.harness_path, 'out')):
         rsh_execs += get_execs(os.path.join(job.harness_path, 'out', out))
     for jsson in os.listdir(os.path.join(job.harness_path, 'record_meta')):
         if jsson.endswith('hash2count.json'):
-            a = json.load(os.path.join(job.harness_path, 'record_meta', jsson))
+            a = json.load(open(os.path.join(job.harness_path, 'record_meta', jsson)))
             for k,v in a.items():
                 rsh_execs_df  += v
-    print(f'{job.harness} {rsh_execs} {rsh_execs_df}')
+    print(f'RHP: {job.harness_path} {rsh_execs} {rsh_execs_df}')
 
 def print_numbers(args):
     gather_jobs(args)  
