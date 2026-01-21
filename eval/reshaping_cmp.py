@@ -36,10 +36,10 @@ def fuzz(i, job):
     emu_name = to_emu_name(i)
     if job.duration > 21600:
         fuzz_time = job.duration // 10
-        fuzz_script = 'fuzz_multicore.sh'
+        fuzz_script = 'fuzz_hack_multicore.sh'
     else:
         fuzz_time = job.duration
-        fuzz_script = 'fuzz.sh'
+        fuzz_script = 'fuzz_hack.sh'
     print(f'fuzzing {job.harness_path}', flush=True)
     t1 = time.time()
     print(f'timeout -k {fuzz_time} {fuzz_time} docker exec {emu_name} ./{fuzz_script} {job.harness_path.replace("/root/TA_GP_emulator/", "../")}', flush=True)
