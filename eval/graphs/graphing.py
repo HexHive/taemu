@@ -7,7 +7,7 @@ from collect_cov import FuzzingInfo
 def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo]):
     for fuzzing_info in fuzzing_info_list:
         raw_fuzzing_info: RawFuzzingInfo = fuzzing_info.raw_fuzzing_info
-        unique_bbs_ts_based = []
+        unique_bbs_ts_based = {}
         cov_bbs: dict[str, list[BB]] = parse_cov(
             raw_fuzzing_info.tee,
             raw_fuzzing_info.ta_name,

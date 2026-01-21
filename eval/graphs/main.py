@@ -8,29 +8,34 @@ from common import DockerPool
 from typing import List
 from graphing import FuzzingInfo
 from collect_cov import linking
-import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 from tqdm import tqdm
+import time
 
+
+logger.add("graphs.log", rotation="100 MB", retention="10 days")
 
 def main(
     fuzz_mode: FuzzMode = FuzzMode.ALL,
+    path: str = "/root/TA_GP_emulator",
     tees: list[str] = None,
     regen_coverage: bool = False,
 ):
-    all_tas: set[str] = list_tas()  # TODO
+    all_tas: set[str] = list_tas(path)
     tees = tees or ["mitee", "teegris", "beanpod", "t6", "qsee"]
     filtered_tas = filter(lambda ta: any(tee in ta for tee in tees), all_tas)
+    filtered_tas = list(filtered_tas)[:2]
 
     ## get the cfg and basic raw fuzzing info
     logger.info(f"[+] Collecting cfg and basic raw fuzzing info for each TA")
     fuzzing_info_list: List[FuzzingInfo] = []
     with ThreadPoolExecutor(max_workers=os.cpu_count()) as ex:
-        future_to_idx = {ex.submit(collect_cov_denominator, ta, fuzz_mode): i for i, ta in enumerate(filtered_tas)}
+        future_to_idx = {ex.submit(collect_cov_denominator, ta, fuzz_mode, path): i for i, ta in enumerate(filtered_tas)}
         
-        for fut in tqdm(as_completed(future_to_idx, total=len(filtered_tas), desc="Collecting cfg for each TA")):
+        for fut in tqdm(as_completed(future_to_idx), total=len(filtered_tas), desc="Collecting cfg for each TA"):
             _i = future_to_idx[fut]
+            ## TODO: add a TRY-EXCEPT block here
             raw_covs, raw_fuzzing_infos = fut.result()
             for raw_fuzzing_info in raw_fuzzing_infos:
                 fuzzing_info_list.append(FuzzingInfo(raw_fuzzing_info, raw_covs, 0, 0, {}))
@@ -41,18 +46,21 @@ def main(
     ## generate coverage files based on queue
     if regen_coverage:
         logger.info(f"[+] Generating coverage files for each TA")
+        num_containers = 40
         ### spawn docker pools
         with DockerPool(
-            image_name="emu",
-            num_containers=10,
-            param_str="--network host -it -v .:/srv -w /srv/emulator -v /dev/shm:/dev/shm --ipc=host --shm-size=100g",
+            image_name="ta_emu",
+            num_containers=num_containers,
+            param_str=f"--network host -it -v {path}:/srv -w /srv/emulator -v /dev/shm:/dev/shm --ipc=host --shm-size=100g",
         ):
-            for each_fuzzing_info in fuzzing_info_list:
-                gen_coverage_files(
-                    each_fuzzing_info.raw_fuzzing_info,
-                    image_name="ta_emu",
-                    pre_clean=True,
-                )
+            time.sleep(1)
+            gen_coverage_files(
+                [each.raw_fuzzing_info for each in fuzzing_info_list],
+                image_name="ta_emu",
+                num_containers=num_containers,
+                path=path,
+                pre_clean=True,
+            )
 
     logger.info(f"[+] Parsing unique bbs for each TA")
     parse_unique_bbs(fuzzing_info_list)
@@ -77,9 +85,10 @@ def main(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--fuzz_mode", choices=["org", "df", "all"], default="all")
+    parser.add_argument("--fuzz_mode", choices=[mode.value for mode in FuzzMode], default=FuzzMode.ALL.value)
     parser.add_argument("--tees", nargs="+", default=None, help="Filter by TEEs")
     parser.add_argument("--regen_coverage", action="store_true", default=False)
-    args = parser.parse_args()
-    logger.info(f"[+] {sys.argv[0]} Args: {args}")
-    main(fuzz_mode=args.fuzz_mode, tees=args.tees, regen_coverage=args.regen_coverage)
+    parser.add_argument("--path", type=str, default="/root/TA_GP_emulator")
+    
+    args = parser.parse_args()    
+    main(fuzz_mode=FuzzMode(args.fuzz_mode), path =args.path, tees=args.tees, regen_coverage=args.regen_coverage)

@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import subprocess
 import re
 from enum import Enum
+from loguru import logger
 
 
 class FuzzMode(Enum):
@@ -50,7 +51,7 @@ class BB:
         return self.start < other.start
 
 
-def list_tas(path="/root/TA_GP_emulator"):
+def list_tas(path: str):
     return set(
         [
             os.path.join(dir_path, filename)
@@ -84,8 +85,8 @@ def parse_drcov(tee, ta, path):
         bbs = bbs[8:]
     return bbs_out
 
-_pattern = re.compile(r"^/root/TA_GP_emulator/(?P<tee>[^/]+)/harness/(?P<harness_name>[^/]+)/(?P<ta_name>.*)$")
-def get_fuzzing_basic_info(ta: str, fuzz_mode: FuzzMode) -> list[RawFuzzingInfo]:
+_pattern = re.compile(r"^(?P<path>.*)/(?P<tee>[^/]+)/harness/(?P<harness_name>[^/]+)/(?P<ta_name>.*)$")
+def get_fuzzing_basic_info(ta: str, fuzz_mode: FuzzMode, path: str) -> list[RawFuzzingInfo]:
     all = []
     match = _pattern.match(ta)
     if match is None:
@@ -102,18 +103,21 @@ def get_fuzzing_basic_info(ta: str, fuzz_mode: FuzzMode) -> list[RawFuzzingInfo]
                 ta_name=ta_name,
                 ta_path=ta,
                 ta_rpath=os.path.realpath(ta),
-                tee_path=f"/root/TA_GP_emulator/{tee}",
-                harness_path=f"/root/TA_GP_emulator/{tee}/harness/{harness_name}",
+                tee_path=f"{path}/{tee}",
+                harness_path=f"{path}/{tee}/harness/{harness_name}",
                 fuzz_mode=fuzz_mode,
-                cov_dir=f"/root/TA_GP_emulator/{tee}/harness/{harness_name}/out/cov",
-                queue_dir=f"/root/TA_GP_emulator/{tee}/harness/{harness_name}/out/default/queue",
+                cov_dir=f"{path}/{tee}/harness/{harness_name}/out/cov",
+                queue_dir=f"{path}/{tee}/harness/{harness_name}/out/default/queue",
             )
         )
     elif fuzz_mode == FuzzMode.DF:
-        cov_dir_tmp = "/root/TA_GP_emulator/{tee}/harness/{harness_name}/df_fuzz/{df_seed_with_context}/out/cov"
-        queue_dir_tmp = "/root/TA_GP_emulator/{tee}/harness/{harness_name}/df_fuzz/{df_seed_with_context}/out/default/queue"
+        cov_dir_tmp = f"{path}/{{tee}}/harness/{{harness_name}}/df_fuzz/{{df_seed_with_context}}/out/cov"
+        queue_dir_tmp = f"{path}/{{tee}}/harness/{{harness_name}}/df_fuzz/{{df_seed_with_context}}/out/default/queue"
+        df_fuzz_dir = f"{path}/{tee}/harness/{harness_name}/df_fuzz"
+        if not os.path.exists(df_fuzz_dir):
+            return all
         for df_seed_with_context in os.listdir(
-            f"/root/TA_GP_emulator/{tee}/harness/{harness_name}/df_fuzz"
+            df_fuzz_dir
         ):
             cov_dir = cov_dir_tmp.format(
                 tee=tee,
@@ -134,9 +138,9 @@ def get_fuzzing_basic_info(ta: str, fuzz_mode: FuzzMode) -> list[RawFuzzingInfo]
                     ta_name=ta_name,
                     ta_path=ta,
                     ta_rpath=os.path.realpath(ta),
-                    tee_path=f"/root/TA_GP_emulator/{tee}",
+                    tee_path=f"{path}/{tee}",
                     fuzz_mode=fuzz_mode,
-                    harness_path=f"/root/TA_GP_emulator/{tee}/harness/{harness_name}",
+                    harness_path=f"{path}/{tee}/harness/{harness_name}",
                     cov_dir=cov_dir,
                     queue_dir=queue_dir,
                 )
@@ -176,22 +180,22 @@ class DockerPool:
         self.num_containers = num_containers
         self.param_str = param_str
 
-        ps = subprocess.run("docker ps", shell=True, capture_output=True)
-        if image_name in str(ps.stdout):
-            print(f"[-] {image_name}-related containers are not running")
-            print(
-                f"[-] Do you want to remove the {image_name}-related containers and continue? (y/N)"
+        ps = subprocess.run(f"docker ps -q --filter ancestor={self.image_name}", shell=True, capture_output=True)
+        if ps.stdout.strip():
+            logger.info(f"[-] {self.image_name}-related containers are running")
+            logger.info(
+                f"[-] Do you want to remove the {self.image_name}-related containers and continue? (y/N)"
             )
             reply = input().lower()
             if reply == "y":
                 subprocess.run(
-                    "docker ps | grep {image_name} | awk '{print $1}' | xargs docker rm -f",
+                    f"docker ps | grep {self.image_name} | awk '{{print $1}}' | xargs docker rm -f",
                     shell=True,
                     capture_output=True,
                 )
 
     def __enter__(self):
-        print(
+        logger.info(
             f"[+] Spawning docker pool for {self.image_name} with {self.num_containers} containers"
         )
         for i in range(self.num_containers):
@@ -200,7 +204,7 @@ class DockerPool:
                 shell=True,
             )
 
-    def __exit__(self):
+    def __exit__(self, exc_type, exc_value, traceback):
         for i in range(self.num_containers):
             subprocess.run(
                 f"docker rm -f {self.image_name}_{i}",

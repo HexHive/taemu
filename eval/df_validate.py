@@ -24,7 +24,7 @@ def get_all_crashes(path="/root/TA_GP_emulator"):
     for root, dirs, files in os.walk(path):
         for file in files:
             path = os.path.join(root, file)
-            if "df_fuzz" in path and "out/default/crashes" in path:
+            if "/df_fuzz/" in path and "out/default/crashes" in path:
                 if path.endswith(".output"): 
                     afl_crash = open(path, "rb").read()
                     if b"Fork server handshake failed" in afl_crash or b"Fork server crashed with signal 7" in afl_crash:
@@ -92,6 +92,8 @@ async def validate_df_crashes(group_dir, one_group_inputs, num_replay_containers
         for df_fuzz_crash in batch:
             df_seed = df_seed_from_crash(ta_dir, df_fuzz_crash)
             reg_hash = reg_hash_from_crash(ta_dir, df_fuzz_crash)
+            if df_seed is None or reg_hash is None:
+                print("WHYYYYYYYYYYY", ta_dir, df_fuzz_crash)
             print(f'docker exec emu ./df_validate.sh {ta_dir.replace("/root/TA_GP_emulator/", "../")} {df_seed.replace("/root/TA_GP_emulator/", "../")} {reg_hash} {df_fuzz_crash.replace("/root/TA_GP_emulator", "../")}')
         tasks = [async_validate(ta_dir, arg, df_seed_from_crash(ta_dir, arg), reg_hash_from_crash(ta_dir, arg), (i + j) % num_replay_containers) for j, arg in enumerate(batch)]
         results.extend(await asyncio.gather(*tasks, return_exceptions=True))
