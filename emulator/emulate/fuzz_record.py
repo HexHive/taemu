@@ -33,6 +33,7 @@ class Recorder:
         self,
         q: RedisQueue,
         record_seed_dir,
+        record_meta_dir = None,
         log: logging.Logger = None,
         *,
         batch_size: int = 50,
@@ -40,6 +41,7 @@ class Recorder:
     ):
         self.q = q
         self.record_seed_dir = record_seed_dir
+        self.record_meta_dir = record_meta_dir
         self._log = log or logging.getLogger(__name__)
         self._log.info("[+] Recorder is enabled and working on queue: {}".format(self.q.queue_name))
         if not log:
@@ -76,7 +78,8 @@ class Recorder:
 
         if not os.path.exists(self.record_seed_dir):
             os.makedirs(self.record_seed_dir)
-
+        if self.record_meta_dir is not None and not os.path.exists(self.record_meta_dir):
+            os.makedirs(self.record_meta_dir)
         
         while True:
             try:
@@ -196,6 +199,7 @@ class Recorder:
         def batch_worker():
             try:
                 self._batch_process_items(items_to_process)
+                self._dump_info()
             finally:
                 with self._batch_lock:
                     self._batch_processing = False
@@ -205,11 +209,15 @@ class Recorder:
     def _filter_handler(self, item) -> bool:
         return True
 
+    def _dump_info(self):
+        pass
 
 class SimpleFilterRecorder(Recorder):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._seen_addresses = set()
+        self._seen_addresses_2_count = {}
+        self._seen_addresses_2_data = {}
         
     
     def _calc_control_flow_hash(self, records: List[Record]) -> str:
@@ -227,10 +235,17 @@ class SimpleFilterRecorder(Recorder):
         control_flow_hash = self._calc_control_flow_hash(records)
         
         if control_flow_hash in self._seen_addresses:
+            self._seen_addresses_2_count[control_flow_hash] += 1
             self._log.info(f"[{__name__}] Skipping duplicate control flow hash: {control_flow_hash}")
             return False
         
         self._log.info(f"[{__name__}] Adding suspicious records to the disk: {control_flow_hash}")
         self._seen_addresses.add(control_flow_hash)
+        self._seen_addresses_2_count[control_flow_hash] = 1
+        self._seen_addresses_2_data[control_flow_hash] = records
         return True
 
+    def _dump_info(self):
+        if self.record_meta_dir is not None:
+            open(os.path.join(self.record_meta_dir, f'{os.getpid()}_hash2count.json'),'w+').write(json.dumps(self._seen_addresses_2_count, indent=2))
+            open(os.path.join(self.record_meta_dir, f'{os.getpid()}_hash2data.json'),'w+').write(json.dumps(self._seen_addresses_2_data, indent=2))

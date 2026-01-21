@@ -50,9 +50,8 @@ if [ -d "$in_path" ]; then
         exit
     fi
 else
-    ta="$in_path"
-    fuzz_in="/tmp/in"
-    fuzz_out="tmp/out"
+    echo "specify harenss"
+    exit -1
 fi
 
 echo ""Using TA: $ta
@@ -70,6 +69,8 @@ cp "${ta_name}.json" rootfs/
 if [ -z "$2" ]; then
     echo "Starting fuzzing..."
     # no seed specified -> fuzz
+    rm -rf "$in_path/record_meta/"
+
     mkdir -p $fuzz_out
 
     if [ ! -e "$fuzz_in" ]; then
@@ -88,11 +89,55 @@ if [ -z "$2" ]; then
         mkdir $fuzz_out
     fi
 
-	if [ -z "${FUZZTIME}" ]; then
-        	afl-fuzz -t 5000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")" $log_arg
-  	else
-        	timeout -k $FUZZTIME $FUZZTIME afl-fuzz -V $FUZZTIME -t 5000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")" $log_arg
-	fi
+    NUM_INSTANCES=2
+
+    run_afl() {
+        ROLE=$1
+        ID=$2
+
+        if [ -z "${FUZZTIME}" ]; then
+            afl-fuzz \
+                -t 5000 \
+                -i "$fuzz_in" \
+                -o "$fuzz_out" \
+                -m none \
+                -U \
+                $ROLE "$ID" \
+                -- python3 -m emulate \
+                    --fuzz @@ \
+                    --fuzz_harness "$harness" \
+                    "rootfs/$(basename "$ta")" \
+                    $log_arg
+        else
+            timeout -k "$FUZZTIME" "$FUZZTIME" afl-fuzz \
+                -V "$FUZZTIME" \
+                -t 5000 \
+                -i "$fuzz_in" \
+                -o "$fuzz_out" \
+                -m none \
+                -U \
+                $ROLE "$ID" \
+                -- python3 -m emulate \
+                    --fuzz @@ \
+                    --fuzz_harness "$harness" \
+                    "rootfs/$(basename "$ta")" \
+                    $log_arg
+        fi
+    }
+
+    echo "Starting AFL with $NUM_INSTANCES parallel instances..."
+
+    # Master
+    run_afl -M fuzzer00 &
+
+    # Slaves
+    for i in $(seq 1 $((NUM_INSTANCES - 1))); do
+        ID=$(printf "fuzzer%02d" "$i")
+        run_afl -S "$ID" &
+    done
+
+    wait
+
 else 
     echo "Replaying seed $2 ..."
     if [ -d "$in_path" ]; then

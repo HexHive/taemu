@@ -14,16 +14,14 @@ def place_input_callback(ql: Qiling, input: bytes, _: int):
     # TODO: check the input size? whether should be at least 0x80 bytes?
     if len(input) < 2:
         return False
-
-    cmd = input[0] 
-    data = input[1:]
     cmd2ptypes = {
         0x100A: 0x53,
         0x100B: 0x53,
         0x100C: 0x6553,
-    }
-    if cmd not in cmd2ptypes:
-        return False
+    } 
+    cmd = list(cmd2ptypes.keys())[input[0] % len(cmd2ptypes.keys())]
+    data = input[1:]
+    print(hex(cmd)) 
     ptypes = cmd2ptypes[cmd]
     command_params = []
     if cmd == 0x100B:
