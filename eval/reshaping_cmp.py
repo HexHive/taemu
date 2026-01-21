@@ -159,20 +159,21 @@ def print_numbers(args):
      
 
 if __name__ == "__main__":
-    os.system(f'docker rm -f $(docker ps -aq)')
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--path", type=str, default="/root/TA_GP_emulator")
     parser.add_argument("--fuzz-backup", type=str, required=False, help="if set will use fuzzing backup data from this path")
     parser.add_argument("--df-fuzz-time", type=int, default=15*60, required=False, help="time for df-fuzzing")
     parser.add_argument("--num-containers", type=int, default=5)
-    parser.add_argument("--print-numbers", type=bool, action="store_true", default=False)
+    parser.add_argument("--print-numbers", action="store_true", default=False)
     
     args = parser.parse_args()
     
     if "eval" in os.getcwd() or "TA_GP_emulator" not in os.getcwd():
         print(f"[-] Please run deduplicate.py at /{os.getlogin()}/TA_GP_emulator")
         exit(1)
+    
+    os.system(f'docker rm -f $(docker ps -aq)')
 
     if args.print_numbers:
         print_numbers(args)
