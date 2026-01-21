@@ -19,6 +19,8 @@ import aiofiles
 import threading
 import queue
 
+ignore_harness = "86f6_fuzz"
+
 
 q = queue.Queue() 
 
@@ -67,6 +69,7 @@ def gather_jobs(args):
         for root, dirs, files in os.walk(path):
             if os.path.basename(root) == "df_fuzz":
                 harness_path = os.path.normpath(os.path.join(root, ".."))
+                if ignore_harness in harness_path: continue
                 num_dfs = len(os.listdir(root))
                 print(f'[^] {harness_path} num dfs: {num_dfs}', flush=True)
                 q.put(Job(harness_path, num_dfs * args.df_fuzz_time))
@@ -77,6 +80,7 @@ def gather_jobs(args):
                 harness_dir = os.path.basename(os.path.normpath(os.path.join(root, "..")))
                 harness_path = get_harness_path(args.path, harness_dir) 
                 assert harness_path is not None
+                if ignore_harness in harness_path: continue
                 num_dfs = len(os.listdir(root))
                 print(f'[^] {harness_path} num dfs: {num_dfs}', flush=True)
                 q.put(Job(harness_path, num_dfs * args.df_fuzz_time)) 
