@@ -24,8 +24,7 @@ def main(
 ):
     all_tas: set[str] = list_tas(path)
     tees = tees or ["mitee", "teegris", "beanpod", "t6", "qsee"]
-    filtered_tas = filter(lambda ta: any(tee in ta for tee in tees), all_tas)
-    filtered_tas = list(filtered_tas)[:2]
+    filtered_tas = list(filter(lambda ta: any(tee in ta for tee in tees), all_tas))
 
     ## get the cfg and basic raw fuzzing info
     logger.info(f"[+] Collecting cfg and basic raw fuzzing info for each TA")
@@ -90,5 +89,6 @@ if __name__ == "__main__":
     parser.add_argument("--regen_coverage", action="store_true", default=False)
     parser.add_argument("--path", type=str, default="/root/TA_GP_emulator")
     
-    args = parser.parse_args()    
+    
+    args = parser.parse_args()
     main(fuzz_mode=FuzzMode(args.fuzz_mode), path =args.path, tees=args.tees, regen_coverage=args.regen_coverage)

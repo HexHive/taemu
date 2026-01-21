@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 import subprocess
 from loguru import logger
-from typing import List
+from typing import List, Any
 import pdb
 import matplotlib.pyplot as plt
 import shutil
@@ -31,6 +31,7 @@ class FuzzingInfo:
     raw_fuzzing_info: RawFuzzingInfo
     raw_covs: Coverage
     fuzz_graphs: dict[str, plt.Figure]
+    # key: timestamp, value: set of bbs
     unique_cov_bbs: dict[str, set[BB]]
     linked_ta_finfo: RawFuzzingInfo
 
@@ -46,7 +47,8 @@ def gen_coverage_files(
     replay_tasks = [
         (fuzzing_info.harness_path, os.path.join(fuzzing_info.queue_dir, file))
         for fuzzing_info in raw_fuzzing_infos
-        for file in os.listdir(fuzzing_info.queue_dir) if ".state" not in file
+        for file in os.listdir(fuzzing_info.queue_dir) 
+        if ".state" not in file
     ]
 
     def _replay_seed(container_name, harness_path, seed_path) -> tuple[bool, str, str]:
@@ -54,26 +56,26 @@ def gen_coverage_files(
             org_seed_file = seed_path.split("/")[5].split("_")[0]
             org_seed_path = os.path.join(harness_path, "in/suspicious_inputs_replay", org_seed_file)
             df_reg_hash = seed_path.split("/")[5].split("_")[1]
-            logger.info(f"[+] Docker command: docker exec -it {container_name} ./df_fuzz.sh {harness_path} {org_seed_path} {df_reg_hash} {seed_path}")
+            # logger.info(f"[+] Docker command: docker exec -it {container_name} ./df_fuzz.sh {harness_path} {org_seed_path} {df_reg_hash} {seed_path}")
             result = subprocess.run(
                 f"docker exec -it {container_name} ./df_fuzz.sh {harness_path} {org_seed_path} {df_reg_hash} {seed_path}",
                 shell=True,
-                stdout=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
             )
         else:
-            logger.info(f"[+] Docker command: docker exec -it {container_name} ./fuzz.sh {harness_path} {seed_path}")
+            # logger.info(f"[+] Docker command: docker exec -it {container_name} ./fuzz.sh {harness_path} {seed_path}")
             result = subprocess.run(
                 f"docker exec -it {container_name} ./fuzz.sh {harness_path} {seed_path}",
                 shell=True,
-                stdout=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
             )
             
-        logger.info(f"[+] Replaying seed {seed_path} from {harness_path} on container {container_name}")
+        # logger.info(f"[+] Replaying seed {seed_path} from {harness_path} on container {container_name}")
         stderr = result.stderr.decode("utf-8").strip()
-        stdout = result.stdout.decode("utf-8").strip()
-        logger.info(f"[+][+][+][+] {seed_path} Stdout: {stdout} [+][+][+][+]")
+        # stdout = result.stdout.decode("utf-8").strip()
+        # logger.info(f"[+][+][+][+] {seed_path} Stdout: {stdout} [+][+][+][+]")
         if stderr != "":
             logger.error(f"Error on replaying seed {seed_path} from {harness_path}: {stderr}")
             return False, harness_path, seed_path
@@ -133,7 +135,7 @@ def linking(fuzzing_info_list: List[FuzzingInfo]):
                 f"{df_fuzzing_info.raw_fuzzing_info.tee}_{df_fuzzing_info.raw_fuzzing_info.harness_path.split('/')[-1]}"
                 == org_fuzzing_info.raw_fuzzing_info.id
             ):
-                df_fuzzing_info.linked_ta_finfo = org_fuzzing_info
+                df_fuzzing_info.linked_ta_finfo = org_fuzzing_info.raw_fuzzing_info
                 break
 
 

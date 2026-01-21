@@ -36,7 +36,8 @@ def df_control_flow_graph(fuzzing_info_list: List[FuzzingInfo]):
         curr_linked_ta_finfo: RawFuzzingInfo = fuzzing_info.linked_ta_finfo
         if curr_linked_ta_finfo.id not in grouped_df_bbs:
             grouped_df_bbs[curr_linked_ta_finfo.id] = []
-        grouped_df_bbs[curr_linked_ta_finfo.id].add(fuzzing_info.unique_cov_bbs)
+            
+        grouped_df_bbs[curr_linked_ta_finfo.id].append(fuzzing_info.unique_cov_bbs)
 
     # paint the grouped_df_bbs
     whole_fig = plt.figure()

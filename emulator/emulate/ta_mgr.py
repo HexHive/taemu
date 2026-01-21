@@ -1281,8 +1281,9 @@ class TAEMU:
             exit(-1)
 
         if fuzz_replay:
+            df_fuzz_dir = os.path.dirname(input_file)[:os.path.dirname(input_file).find("/out/")]
             cov_path = self.get_cov_file_path(
-                os.path.basename(input_file), os.path.dirname(fuzz_harness)
+                os.path.basename(input_file), df_fuzz_dir
             )
 
             with cov_utils.collect_coverage(self.ql, "drcov", cov_path):

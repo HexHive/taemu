@@ -12,4 +12,6 @@ cd ghidra
 ```shell
 cd eval/graphs
 uv run main.py
+# more configuration
+uv run main.py --regen_coverage --tees qsee
 ``` 
