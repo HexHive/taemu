@@ -42,6 +42,7 @@ def fuzz(i, job):
         fuzz_script = 'fuzz.sh'
     print(f'fuzzing {job.harness_path}', flush=True)
     t1 = time.time()
+    print(f'timeout -k {fuzz_time} {fuzz_time} docker exec {emu_name} ./{fuzz_script} {job.harness_path.replace("/root/TA_GP_emulator/", "../")}', flush=True)
     proc = subprocess.run(
         f'timeout -k {fuzz_time} {fuzz_time} docker exec {emu_name} ./{fuzz_script} {job.harness_path.replace("/root/TA_GP_emulator/", "../")}', shell=True, capture_output=True
     )
