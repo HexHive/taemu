@@ -89,7 +89,7 @@ if [ -z "$2" ]; then
         mkdir $fuzz_out
     fi
 
-    NUM_INSTANCES=2
+    NUM_INSTANCES=10
 
     run_afl() {
         ROLE=$1

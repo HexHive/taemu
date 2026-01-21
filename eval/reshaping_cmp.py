@@ -126,7 +126,7 @@ if __name__ == "__main__":
     parser.add_argument("--path", type=str, default="/root/TA_GP_emulator")
     parser.add_argument("--fuzz-backup", type=str, required=False, help="if set will use fuzzing backup data from this path")
     parser.add_argument("--df-fuzz-time", type=int, default=15*60, required=False, help="time for df-fuzzing")
-    parser.add_argument("--num-containers", type=int, default=15)
+    parser.add_argument("--num-containers", type=int, default=5)
     
     args = parser.parse_args()
     
