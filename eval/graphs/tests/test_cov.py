@@ -2,6 +2,7 @@ from common import list_tas
 import os
 import shutil
 import subprocess
+from common import parse_drcov
 
 test_path = "/root/TA_GP_emulator"
 
@@ -41,3 +42,13 @@ def test_get_foo_only_queue():
             all_foo_only_ta_dirs.append(ta_dir_name)
     print(all_foo_only_ta_dirs)
     
+    
+def test_parse_cov():
+    
+    cov_path = "/root/TA_GP_emulator/qsee/harness/3d08_fuzz/out/cov/id:000005,src:000004,time:1789,execs:153,op:havoc,rep:2,+cov.cov"
+    tee = "qsee"
+    ta = "/srv/emulator/rootfs/3D08821C-33A6-11E6-A1FA-089E01C83AA2.ta"
+    
+    bbs = parse_drcov(tee, ta, cov_path)
+    print([str(bb) for bb in bbs])
+    print(len(bbs))

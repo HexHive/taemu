@@ -69,10 +69,10 @@ def main(
 
     ## generate graphs for each ta
     if fuzz_mode == FuzzMode.ORG or fuzz_mode == FuzzMode.ALL:
-        org_fuzzing_info_list = [each for each in fuzzing_info_list if each.raw_fuzzing_info.fuzz_mode == FuzzMode.ORG]
-        logger.info(f"[+] Generating org graph for {len(org_fuzzing_info_list)} TA")
-        org_graph = org_control_flow_graph(org_fuzzing_info_list)
+        logger.info(f"[+] Generating org graph")
+        org_graph = org_control_flow_graph(fuzzing_info_list)
         if org_graph:
+            logger.info(f"[+] Finished generating org graph")
             if save_plots:
                 # Save the figure
                 output_path = os.path.join(path, "eval/graphs/org_control_flow_graph.png")
@@ -84,19 +84,19 @@ def main(
                 plt.show()
 
     if fuzz_mode == FuzzMode.DF or fuzz_mode == FuzzMode.ALL:
-        df_fuzzing_info_list = [each for each in fuzzing_info_list if each.raw_fuzzing_info.fuzz_mode == FuzzMode.DF]
-        logger.info(f"[+] Generating df graph for {len(df_fuzzing_info_list)} TA")
-        df_graph = df_control_flow_graph(df_fuzzing_info_list)
-        # if df_graph:
-        #     if save_plots:
-        #         # Save the figure
-        #         output_path = os.path.join(path, "eval/graphs/df_control_flow_graph.png")
-        #         os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        #         df_graph.savefig(output_path, dpi=300, bbox_inches='tight')
-        #         logger.info(f"[+] Saved df graph to {output_path}")
-        #     if show_plots:
-        #         # Display the figure
-        #         plt.show()
+        logger.info(f"[+] Generating df graph")
+        df_graph = df_control_flow_graph(fuzzing_info_list)
+        if df_graph:
+            logger.info(f"[+] Finished generating df graph")
+            if save_plots:
+                # Save the figure
+                output_path = os.path.join(path, "eval/graphs/df_control_flow_graph.png")
+                os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                df_graph.savefig(output_path, dpi=300, bbox_inches='tight')
+                logger.info(f"[+] Saved df graph to {output_path}")
+            if show_plots:
+                # Display the figure
+                plt.show()
 
     # if fuzz_mode == FuzzMode.ALL:
     #     uniq_trace = compare_graphs(org_graph, df_graph)

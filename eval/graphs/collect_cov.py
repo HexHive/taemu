@@ -32,7 +32,8 @@ class FuzzingInfo:
     raw_covs: Coverage
     fuzz_graphs: dict[str, plt.Figure]
     # key: timestamp, value: set of bbs
-    unique_cov_bbs: dict[str, set[BB]]
+    unique_cov_bbs_distribution: dict[str, set[BB]]
+    accumulated_cov_bbs: set[BB]
     linked_ta_finfo: RawFuzzingInfo
 
 
