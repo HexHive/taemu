@@ -153,12 +153,13 @@ def analyze_task(job):
     for df_out in os.listdir(job.df_out_path):
         df_seed, reg_hash = df_out.split("_")
         dff_execs += get_execs(os.path.join(job.df_out_path, df_out, 'out', 'default')) 
-        df_to_crashes_execs += get_crash_execs(os.path.join(
+        df_to_crash_execs += get_crash_execs(os.path.join(
                             job.df_out_path, df_out, 'out', 'default', 'crashes'))
         if df_seed not in done:
             done.append(df_seed)
             dff_execs_2 += get_execs(os.path.join(job.df_out_path, df_out, 'out', 'default'))
     print(f'DF: {job.harness_path} {dff_execs} {dff_execs_2}')
+    print(f'DF exec until crash: {df_to_crash_execs}')
     rsh_execs = 0
     rsh_execs_df = 0
     for out in os.listdir(os.path.join(job.harness_path, 'out')):
