@@ -132,15 +132,29 @@ def get_execs(afl_path):
             return int(l.split(':')[-1])
     assert False
 
+def get_crash_execs(crash_path):
+    if not os.path.exists(crash_path):
+        return []
+    out = []
+    for f in os.listdir(crash_path):
+        if f.endswith(".df"):
+            execs = f.split("execs:")[-1].split(",")[0]
+            out.append(int(execs))
+    return out 
+             
+
 def analyze_task(job):
     fuzzed_sus2reghash = {} 
     fuzzed_controlflowhashes = []
     dff_execs = 0
     dff_execs_2 = 0
+    df_to_crash_execs = []
     done = []
     for df_out in os.listdir(job.df_out_path):
         df_seed, reg_hash = df_out.split("_")
         dff_execs += get_execs(os.path.join(job.df_out_path, df_out, 'out', 'default')) 
+        df_to_crashes_execs += get_crash_execs(os.path.join(
+                            job.df_out_path, df_out, 'out', 'default', 'crashes'))
         if df_seed not in done:
             done.append(df_seed)
             dff_execs_2 += get_execs(os.path.join(job.df_out_path, df_out, 'out', 'default'))
@@ -155,6 +169,7 @@ def analyze_task(job):
             for k,v in a.items():
                 rsh_execs_df  += v
     print(f'RHP: {job.harness_path} {rsh_execs} {rsh_execs_df}')
+    
 
 def print_numbers(args):
     gather_jobs(args)  
@@ -182,11 +197,14 @@ if __name__ == "__main__":
         print(f"[-] Please run deduplicate.py at /{os.getlogin()}/TA_GP_emulator")
         exit(1)
     
-    os.system(f'docker rm -f $(docker ps -aq)')
-
     if args.print_numbers:
         print_numbers(args)
         exit(0)
+   
+    a = input("killing all dockers go (y|N)?")
+    if a != "y": exit(0)
+ 
+    os.system(f'docker rm -f $(docker ps -aq)')
     
     validate(args)
 
