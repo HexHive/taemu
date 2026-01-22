@@ -57,10 +57,9 @@ class RedisQueue:
         except Exception as e:
             self.logger.error(f"Failed to put item into queue: {e}")
             raise e
-
+    
     def get(self, timeout: Optional[int] = None) -> Any:
         timeout = timeout or self.timeout
-
         try:
             # blocking pop from right side of list (FIFO)
             result = self.redis_client.brpop(self.queue_name, timeout=timeout)

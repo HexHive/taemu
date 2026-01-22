@@ -65,6 +65,7 @@ class Recorder:
         self._log.info(
             f"[{__name__}] cleanup context manager and process the final batch of {len(self._batch_items)} items"
         )
+        self._dump_info()
         self._trigger_batch_processing()
         self._log.info(f"[{__name__}] Recorder process exited gracefully")
         return False  # don't suppress exceptions

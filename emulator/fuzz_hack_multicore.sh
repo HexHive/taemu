@@ -20,6 +20,7 @@ if [ ! -f /.dockerenv ]; then
     exit 1
 fi
 
+pkill python3
 
 cd /srv/emulator
 
@@ -45,6 +46,8 @@ if [ -d "$in_path" ]; then
     fuzz_in="$in_path/fuzz_in"
     sus_in="$in_path/in"
     fuzz_out="$in_path/out"
+    rm -rf "$in_path/record_meta"
+    rm -rf $fuzz_out
 
     if [ -z "$ta" ]; then
         echo "Could not find TA in $in_path"
