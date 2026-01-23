@@ -4,7 +4,14 @@ import subprocess
 import re
 from enum import Enum
 from loguru import logger
+from cachetools import TTLCache, cached
 
+
+only_foo_under_queue_cache = TTLCache(maxsize=100, ttl=60*60)
+@cached(only_foo_under_queue_cache)
+def only_foo_under_queue(queue_dir: str):
+    return all("foo" in file for file in os.listdir(queue_dir))
+    
 
 class FuzzMode(Enum):
     ORG = "ORG"
@@ -152,6 +159,10 @@ def get_fuzzing_basic_info(ta: str, fuzz_mode: FuzzMode, path: str) -> list[RawF
 
 def parse_cov(tee, ta, drcov_path) -> dict[int, list[BB]]:
     out = {}
+    if not os.path.exists(drcov_path):
+        if not only_foo_under_queue(os.path.join(os.path.dirname(drcov_path), "default","queue")):
+            logger.warning(f"[-] Coverage file {drcov_path} does not exist")
+        return out
     for cov_file in os.listdir(drcov_path):
         try:
             timestamp = int(int(cov_file.split("time:")[-1].split(",")[0]) / 1000)
@@ -172,7 +183,6 @@ def calc_bbs(fuzzing_infos: list[RawFuzzingInfo]):
                     exit(-1)
                 else:
                     print(f"[+] Coverage file {cov_dir} is {cov_size} bytes")
-
 
 class DockerPool:
     def __init__(self, image_name: str, *, num_containers: int, param_str: str):
@@ -200,7 +210,7 @@ class DockerPool:
         )
         for i in range(self.num_containers):
             subprocess.run(
-                f"docker run -d --name {self.image_name}_{i} {self.param_str} {self.image_name} bash &>/dev/null",
+                f"docker run -it -e TERM=xterm-256color -d --name {self.image_name}_{i} {self.param_str} {self.image_name} bash &>/dev/null",
                 shell=True,
             )
 

@@ -40,7 +40,7 @@ def main(
             ## TODO: add a TRY-EXCEPT block here
             raw_covs, raw_fuzzing_infos = fut.result()
             for raw_fuzzing_info in raw_fuzzing_infos:
-                fuzzing_info_list.append(FuzzingInfo(raw_fuzzing_info, raw_covs, 0, 0, {}))
+                fuzzing_info_list.append(FuzzingInfo(raw_fuzzing_info, raw_covs, 0, 0, set(),{}))
     
     if fuzz_mode == FuzzMode.DF or fuzz_mode == FuzzMode.ALL:
         linking(fuzzing_info_list)
@@ -53,7 +53,7 @@ def main(
         with DockerPool(
             image_name="ta_emu",
             num_containers=num_containers,
-            param_str=f"--network host -it -v {path}:/srv -w /srv/emulator -v /dev/shm:/dev/shm --ipc=host --shm-size=100g",
+            param_str=f"--network host -v {path}:/srv -w /srv/emulator -v /dev/shm:/dev/shm --ipc=host --shm-size=5g ",
         ):
             time.sleep(1)
             gen_coverage_files(

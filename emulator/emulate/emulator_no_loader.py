@@ -90,7 +90,8 @@ def get_api_impl(func_name, strict=False):
 
 
 def simple_diassembler(ql: Qiling, address: int, size: int, md: Cs) -> None:
-    ql.log.info(f'PC {hex(ql.arch.regs.pc)} {ql.mem.read(ql.arch.regs.pc, 4).hex()}')
+    # ql.log.info(f'PC {hex(ql.arch.regs.pc)} {ql.mem.read(ql.arch.regs.pc, 4).hex()}')
+    pass
 
 def unicorn_why(ql: Qiling, address: int, size: int):
     return
@@ -164,9 +165,9 @@ def hook_ta_dl(
                 ta_base + off,
                 (ql_resolve_mem + counter).to_bytes(ql.arch.pointersize, "little"),
             )
-            ql.log.info(
-                f"[mitee] hooking plt relocation function {func}, {hex(off)}, {hex(ql_resolve_mem+counter)}"
-            )
+            # ql.log.info(
+            #     f"[mitee] hooking plt relocation function {func}, {hex(off)}, {hex(ql_resolve_mem+counter)}"
+            # )
             ql.hook_address(
                 get_api_impl(func),
                 ql_resolve_mem + counter,
@@ -180,9 +181,9 @@ def hook_ta_dl(
                 ta_base + off,
                 (ql_resolve_mem + counter).to_bytes(ql.arch.pointersize, "little"),
             )
-            ql.log.info(
-                f"[mitee] hooking plt relocation function {func}, {hex(off)}, {hex(ql_resolve_mem+counter)}"
-            )
+            # ql.log.info(
+            #     f"[mitee] hooking plt relocation function {func}, {hex(off)}, {hex(ql_resolve_mem+counter)}"
+            # )
             ql.hook_address(
                 get_api_impl(func),
                 ql_resolve_mem + counter,
@@ -312,7 +313,7 @@ def hook_ta_custom(
             addr = info["addr"]
             hook_type = info["type"]
             if hook_type == "gp_api" or hook_type == "tee" or hook_type == "tee_std":
-                ql.log.info(f"hooking inline api function {fname}, {hex(addr)}")
+                # ql.log.info(f"hooking inline api function {fname}, {hex(addr)}")
                 if ta_elf.pie:
                     ql.hook_address(
                         get_api_impl(fname),
@@ -341,7 +342,7 @@ def qsee_setup(ql: Qiling, ta_path, ta_base):
     ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
     for off in reloc_offsets:
         reloc_off = ql.mem.read_ptr(ta_base + off)
-        ql.log.info(f"[mitee] fixing relcation at {hex(off)} for {hex(reloc_off)}")
+        # ql.log.info(f"[mitee] fixing relcation at {hex(off)} for {hex(reloc_off)}")
         ql.mem.write_ptr(ta_base + off, ta_base + reloc_off)
     def handle_retab(ql: Qiling, user_data):
         ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -379,7 +380,7 @@ def mitee_setup(ql: Qiling, ta_path, ta_base):
     ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
     for off in reloc_offsets:
         reloc_off = ql.mem.read_ptr(ta_base + off)
-        ql.log.info(f"[mitee] fixing relcation at {hex(off)} for {hex(reloc_off)}")
+        # ql.log.info(f"[mitee] fixing relcation at {hex(off)} for {hex(reloc_off)}")
         ql.mem.write_ptr(ta_base + off, ta_base + reloc_off)
 
 

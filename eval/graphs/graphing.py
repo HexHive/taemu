@@ -4,10 +4,10 @@ from common import RawFuzzingInfo, BB, parse_cov, FuzzMode
 from typing import List
 from collect_cov import FuzzingInfo
 from loguru import logger
-
+from tqdm import tqdm
 
 def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo]):
-    for fuzzing_info in fuzzing_info_list:
+    for fuzzing_info in tqdm(fuzzing_info_list, desc="Parsing unique bbs for each TA"):
         raw_fuzzing_info: RawFuzzingInfo = fuzzing_info.raw_fuzzing_info
         unique_bbs_ts_based = {}
         cov_bbs: dict[str, list[BB]] = parse_cov(
@@ -89,7 +89,7 @@ def org_control_flow_graph(fuzzing_info_list: List[FuzzingInfo]):
             x_values = range(len(timestamp_strs_sorted))
             x_labels = timestamp_strs_sorted
         
-        # Plot curve with beautiful styling
+        # Plot curve
         ax.plot(x_values, counts, 
                 color=color, 
                 linewidth=2.5, 
@@ -105,7 +105,7 @@ def org_control_flow_graph(fuzzing_info_list: List[FuzzingInfo]):
         # Formatting
         ax.set_xlabel('Timestamp', fontsize=10, fontweight='bold')
         ax.set_ylabel('Unique BB Count', fontsize=10, fontweight='bold')
-        ax.set_title(f"{fuzzing_info.raw_fuzzing_info.ta_name}", fontsize=11, fontweight='bold', pad=10)
+        ax.set_title(f"{fuzzing_info.raw_fuzzing_info.id}", fontsize=11, fontweight='bold', pad=10)
         ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.8)
         ax.tick_params(axis='y', labelsize=9)
         
@@ -175,7 +175,7 @@ def df_control_flow_graph(fuzzing_info_list: List[FuzzingInfo]):
         axes = axes.flatten() if hasattr(axes, 'flatten') else [axes]
     
     # Color palette for the three segments
-    old_color = '#E63946'       # Red for old coverage (lost from vanilla)
+    old_color = '#E63946'
     overlapped_color = '#2E86AB'  # Blue for overlapped coverage
     new_color = '#A23B72'      # Purple for new coverage
     
@@ -195,7 +195,6 @@ def df_control_flow_graph(fuzzing_info_list: List[FuzzingInfo]):
         
         # Calculate total unique BBs from vanilla (across all timestamps)
         vanilla_all_bbs = vanilla_fuzzing_info.accumulated_cov_bbs
-        vanilla_count = len(vanilla_all_bbs)
         
         # Prepare data for bars
         bar_labels = []
@@ -206,8 +205,8 @@ def df_control_flow_graph(fuzzing_info_list: List[FuzzingInfo]):
         for df_fuzzing_info in df_fuzzing_infos:
             # Calculate total unique BBs from DF fuzzing_info
             each_df_all_bbs = set()
-            if df_fuzzing_info.unique_cov_bbs:
-                for bbs_set in df_fuzzing_info.unique_cov_bbs.values():
+            if df_fuzzing_info.unique_cov_bbs_distribution:
+                for bbs_set in df_fuzzing_info.unique_cov_bbs_distribution.values():
                     each_df_all_bbs.update(bbs_set)
             
             # Calculate new unique BBs (those in DF but not in vanilla)
@@ -217,7 +216,7 @@ def df_control_flow_graph(fuzzing_info_list: List[FuzzingInfo]):
             old_count = len(old_bbs)
             
             # Store data
-            bar_labels.append(df_fuzzing_info.raw_fuzzing_info.ta_name)
+            bar_labels.append(df_fuzzing_info.raw_fuzzing_info.id)
             overlapped_count = len(each_df_all_bbs & vanilla_all_bbs)
             overlapped_segments.append(overlapped_count)
             new_segments.append(new_count)
@@ -243,12 +242,16 @@ def df_control_flow_graph(fuzzing_info_list: List[FuzzingInfo]):
                        bottom=[old + ovl for old, ovl in zip(old_segments, overlapped_segments)], 
                        label='New Coverage', color=new_color, alpha=0.8)
         
+        # Calculate max bar height and set y-axis limit with some padding
+        max_bar_height = max(old + ovl + new for old, ovl, new in zip(old_segments, overlapped_segments, new_segments))
+        
         # Formatting
-        ax.set_xlabel('DF Fuzzing Info', fontsize=10, fontweight='bold')
+        ax.set_xlabel('DF Fuzzing Info ID', fontsize=10, fontweight='bold')
         ax.set_ylabel('Unique BB Count', fontsize=10, fontweight='bold')
         ax.set_title(f"Group: {vanilla_id}", fontsize=11, fontweight='bold', pad=10)
         ax.set_xticks(x_pos)
         ax.set_xticklabels(bar_labels, rotation=45, ha='right', fontsize=8)
+        ax.set_ylim(0, max_bar_height * 1.1)  # Add 10% padding at the top
         ax.legend(loc='upper right', fontsize=9)
         ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.8, axis='y')
         ax.tick_params(axis='y', labelsize=9)

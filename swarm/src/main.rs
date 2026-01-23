@@ -647,8 +647,6 @@ fn _main_with_logging() -> i32 {
     // }
     // info!(LOGGER, "Statistics of the TA files: {:?}", counts);
 
-
-
     info!(
         LOGGER,
         "{SWARM_TAG} Found {} TA Jobs for fuzzing. Continue? (y/n)",

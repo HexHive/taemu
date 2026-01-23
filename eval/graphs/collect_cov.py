@@ -12,12 +12,10 @@ from typing import List, Any
 import pdb
 import matplotlib.pyplot as plt
 import shutil
-from common import BB
+from common import BB, only_foo_under_queue
 from tqdm import tqdm
 from concurrent.futures import as_completed
-from cachetools import TTLCache, cached
-
-only_foo_under_queue_cache = TTLCache(maxsize=100, ttl=60*60)
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 @dataclass
 class Coverage:
@@ -40,6 +38,7 @@ class FuzzingInfo:
 def gen_coverage_files(
     raw_fuzzing_infos: list[RawFuzzingInfo], image_name: str, num_containers: int, path: str, pre_clean: bool = False, slient: bool = True
 ):
+    logger.info(f"[+] Generating coverage files for {len(raw_fuzzing_infos)} fuzzing infos")
     if pre_clean:
         for each in raw_fuzzing_infos:
             if os.path.exists(each.cov_dir):
@@ -52,40 +51,43 @@ def gen_coverage_files(
         if ".state" not in file
     ]
 
+    @retry(
+        retry=retry_if_exception_type(RuntimeError),
+        stop=stop_after_attempt(10),               
+        wait=wait_exponential(multiplier=1.5, min=1, max=10),
+        reraise=True,
+    )
     def _replay_seed(container_name, harness_path, seed_path) -> tuple[bool, str, str]:
         if "/df_fuzz/" in seed_path:
             org_seed_file = seed_path.split("/")[5].split("_")[0]
             org_seed_path = os.path.join(harness_path, "in/suspicious_inputs_replay", org_seed_file)
             df_reg_hash = seed_path.split("/")[5].split("_")[1]
-            # logger.info(f"[+] Docker command: docker exec -it {container_name} ./df_fuzz.sh {harness_path} {org_seed_path} {df_reg_hash} {seed_path}")
+            logger.info(f"[+] Docker command: docker exec {container_name} ./df_fuzz.sh {harness_path} {org_seed_path} {df_reg_hash} {seed_path}")
             result = subprocess.run(
-                f"docker exec -it {container_name} ./df_fuzz.sh {harness_path} {org_seed_path} {df_reg_hash} {seed_path}",
+                f"docker exec {container_name} ./df_fuzz.sh {harness_path} {org_seed_path} {df_reg_hash} {seed_path}",
                 shell=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
             )
         else:
-            # logger.info(f"[+] Docker command: docker exec -it {container_name} ./fuzz.sh {harness_path} {seed_path}")
+            logger.info(f"[+] Docker command: docker exec {container_name} ./fuzz.sh {harness_path} {seed_path}")
             result = subprocess.run(
-                f"docker exec -it {container_name} ./fuzz.sh {harness_path} {seed_path}",
+                f"docker exec {container_name} ./fuzz.sh {harness_path} {seed_path}",
                 shell=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
             )
             
         # logger.info(f"[+] Replaying seed {seed_path} from {harness_path} on container {container_name}")
-        stderr = result.stderr.decode("utf-8").strip()
-        # stdout = result.stdout.decode("utf-8").strip()
-        # logger.info(f"[+][+][+][+] {seed_path} Stdout: {stdout} [+][+][+][+]")
-        if stderr != "":
-            logger.error(f"Error on replaying seed {seed_path} from {harness_path}: {stderr}")
-            return False, harness_path, seed_path
+        if result.returncode != 0:
+            stderr = result.stderr.decode("utf-8").strip()
+            logger.error(f"[-] Error {result.returncode} on replaying seed {seed_path} from {harness_path}: {stderr}")
+            if "Bus error" in stderr:
+                raise RuntimeError(f"replay seed {seed_path} from {harness_path} failed with bus error")
+            else:
+                return False, harness_path, seed_path
         else:
             return True, "", ""
-    
-    @cached(only_foo_under_queue_cache)
-    def _only_foo_under_queue(queue_dir: str):
-        return all("foo" in file for file in os.listdir(queue_dir))
         
         
     logger.info(f"[+] Replaying seeds from queue")
@@ -117,14 +119,14 @@ def gen_coverage_files(
     cnt = 0
     accpted_bad_harnesses = [each[0] for each in bad_cases]
     for each in raw_fuzzing_infos:
-        if not slient and each.harness_path not in accpted_bad_harnesses and not _only_foo_under_queue(each.queue_dir):
+        if not slient and each.harness_path not in accpted_bad_harnesses and not only_foo_under_queue(each.queue_dir):
                 assert os.path.exists(each.cov_dir), f"Coverage file {each.cov_dir} does not exist"
-        elif not _only_foo_under_queue(each.queue_dir):
+        elif not only_foo_under_queue(each.queue_dir):
             if not os.path.exists(each.cov_dir):
                 cnt += 1
         
             # assert os.path.exists(each.cov_dir), f"Coverage file {each.cov_dir} does not exist"
-    logger.warning(f"[-] in total, {cnt} coverage files are missing")
+    logger.warning(f"[-] In total, {cnt} coverage files are missing")
     return 
 
 def linking(fuzzing_info_list: List[FuzzingInfo]):

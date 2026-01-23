@@ -1,6 +1,6 @@
 use crate::LOGGER;
 use serde_json::{Map, Value, from_reader};
-use slog::{error, warn};
+use slog::{error, info, warn};
 use std::collections::HashSet;
 use std::ffi::OsString;
 use std::fs::{File, copy};
@@ -45,7 +45,7 @@ pub fn find_ta_files(
         // PATTERN FILTERS
         let path_str = path.to_string_lossy();
 
-        if !path_str.contains("harness") {
+        if !path_str.contains("/harness/") {
             continue;
         }
 
