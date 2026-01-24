@@ -1,4 +1,4 @@
-pwntools
+pwntools==4.15.0
 pycryptodome
 colorama
 hexdump
