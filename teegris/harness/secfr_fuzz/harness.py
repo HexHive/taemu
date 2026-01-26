@@ -12,7 +12,7 @@ def place_input_callback(ql: Qiling, input: bytes, _: int):
 
     cmds = list(range(0, 0x66))
     cmd = cmds[input[0] % len(cmds)]
-    data = bytearray(input[1:])
+    data = bytes(bytearray(input[1:]))
     #data[0x82004]
     # data += b'\x01' + cyclic(0x21c7d-1)
     # data = bytearray(data)

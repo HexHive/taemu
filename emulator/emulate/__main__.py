@@ -363,8 +363,16 @@ if __name__ == "__main__":
 
         print(f"[+] Saving suspicious inputs at dir: {suspicious_seeds_save_dir}")
 
+        record_meta_dir = os.path.join(
+            os.path.dirname(args.fuzz_harness),
+            "record_meta"
+        ) if args.fuzz else None
+
+        if record_meta_dir is not None and not os.path.exists(record_meta_dir):
+            os.makedirs(record_meta_dir)
+
         with SimpleFilterRecorder(
-            curr_record_q, suspicious_seeds_save_dir, custom_logger
+            curr_record_q, suspicious_seeds_save_dir, record_meta_dir, custom_logger
         ) as recorder:
             recorder.start()
 
