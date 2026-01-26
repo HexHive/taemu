@@ -210,7 +210,7 @@ class DockerPool:
         )
         for i in range(self.num_containers):
             subprocess.run(
-                f"docker run -it -e TERM=xterm-256color -d --name {self.image_name}_{i} {self.param_str} {self.image_name} bash &>/dev/null",
+                f"docker run -it -e TERM=xterm-256color -d --name {self.image_name}_{i} {self.param_str} --ulimit core=-1 {self.image_name} bash &>/dev/null",
                 shell=True,
             )
 

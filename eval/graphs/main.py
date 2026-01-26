@@ -53,7 +53,7 @@ def main(
         with DockerPool(
             image_name="ta_emu",
             num_containers=num_containers,
-            param_str=f"--network host -v {path}:/srv -w /srv/emulator -v /dev/shm:/dev/shm --ipc=host --shm-size=5g ",
+            param_str=f"--network host -v /tmp:/tmp -v {path}:/srv -w /srv/emulator -v /dev/shm:/dev/shm --ipc=host --shm-size=5g ",
         ):
             time.sleep(1)
             gen_coverage_files(
