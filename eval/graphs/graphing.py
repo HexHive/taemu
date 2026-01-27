@@ -2,19 +2,41 @@ import matplotlib.pyplot as plt
 import numpy as np
 from common import RawFuzzingInfo, BB, parse_cov, FuzzMode
 from typing import List
-from collect_cov import FuzzingInfo
+from collect_cov import FuzzingInfo, GroupedFuzzingInfo, Coverage
 from loguru import logger
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import os
+from typing import Optional, Callable
+
+
+def naming_change(names: list[str] | str) -> list[str] | str:
+    names_map = {
+        "qsee": "QSEE",
+        "mitee": "Mitee",
+        "teegris": "TeeGris",
+        "beanpod": "Beanpod",
+        "mitee": "MiTEE",
+    }
+    new_names = []
+    if isinstance(names, str):
+        names = [names]
+    for name in names:
+        name_lower = name.lower()
+        for key, value in names_map.items():
+            if key in name_lower:
+                idx = name_lower.index(key)
+                name = name[:idx] + value + name[idx + len(value) :]
+        new_names.append(name)
+    return new_names if len(new_names) > 1 else new_names[0]
+
 
 def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo]):
-    
+
     def _worker(fuzzing_info: FuzzingInfo):
         raw_fuzzing_info: RawFuzzingInfo = fuzzing_info.raw_fuzzing_info
         unique_bbs_ts_based = {}
-        unique_bbs_ts_based["0"] = set()
-        cov_bbs: dict[str, list[BB]] = parse_cov(
+        unique_bbs_ts_based[0] = set()
+        cov_bbs: dict[int, list[BB]] = parse_cov(
             raw_fuzzing_info.tee,
             raw_fuzzing_info.ta_name,
             raw_fuzzing_info.cov_dir,
@@ -24,283 +46,480 @@ def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo]):
                 unique_bbs_ts_based[timestamp] = set()
             unique_bbs_ts_based[timestamp].update(bbs)
         fuzzing_info.unique_cov_bbs_distribution = unique_bbs_ts_based
-    
+
     with ThreadPoolExecutor(max_workers=30) as ex:
-        futures = [ex.submit(_worker, fuzzing_info) for fuzzing_info in fuzzing_info_list]
-        for fut in tqdm(as_completed(futures), total=len(fuzzing_info_list), desc="Parsing unique bbs for each TA"):
+        futures = [
+            ex.submit(_worker, fuzzing_info) for fuzzing_info in fuzzing_info_list
+        ]
+        for fut in tqdm(
+            as_completed(futures),
+            total=len(fuzzing_info_list),
+            desc="Parsing unique bbs for each TA",
+        ):
             _ = fut.result()
     logger.info(f"[+] Finished parsing unique bbs for all TAs")
 
 
-        
-def org_control_flow_graph(fuzzing_info_list: List[FuzzingInfo], max_timestamps: str):
-    num_plots = len([each for each in fuzzing_info_list if each.raw_fuzzing_info.fuzz_mode == FuzzMode.ORG])
+def _merge(
+    new: GroupedFuzzingInfo,
+    old: FuzzingInfo,
+    cov_update_func: Callable[[Coverage, Coverage], Coverage] = lambda x, y: Coverage(
+        uniq_identity=f"{x.uniq_identity}_{y.uniq_identity}",
+        max_nodes=max(x.max_nodes, y.max_nodes),
+        cfg=None,
+    ),
+):
+    def _merge_distribution(
+        distribution1: dict[str, set[BB]], distribution2: dict[str, set[BB]]
+    ):
+        for timestamp, bbs in distribution2.items():
+            if timestamp not in distribution1:
+                distribution1[timestamp] = set()
+            distribution1[timestamp].update(bbs)
+        return distribution1
+
+    new.unique_cov_bbs_distribution = _merge_distribution(
+        new.unique_cov_bbs_distribution,
+        old.unique_cov_bbs_distribution,
+    )
+    new.fuzzing_infos.append(old)
+    new.accumulated_cov_bbs = new.accumulated_cov_bbs | old.accumulated_cov_bbs
+    new.raw_covs = cov_update_func(
+        new.raw_covs,
+        old.raw_covs,
+    )
+
+
+def _group_fuzzing_info_list(
+    fuzzing_info_list: List[FuzzingInfo],
+    field_name: str,
+) -> dict[str, GroupedFuzzingInfo]:
+
+    new_fuzzing_imap_by_field: dict[str, GroupedFuzzingInfo] = {}
+    for fuzzing_info in fuzzing_info_list:
+        field_value = getattr(fuzzing_info.raw_fuzzing_info, field_name)
+        if field_value not in new_fuzzing_imap_by_field:
+            new_fuzzing_imap_by_field[field_value] = GroupedFuzzingInfo(
+                RawFuzzingInfo(id=field_value),
+                Coverage(uniq_identity=field_value, max_nodes=0, cfg=None),
+                [],
+                {},
+                set(),
+            )
+        _merge(new_fuzzing_imap_by_field[field_value], fuzzing_info)
+    return new_fuzzing_imap_by_field
+
+
+def org_control_flow_graph(
+    fuzzing_info_list: List[FuzzingInfo],
+    max_timestamps: int,
+    *,
+    grouping_field_name: Optional[str] = None,
+    show_rate: bool = False,
+):
+    fuzzing_info_list = [
+        each
+        for each in fuzzing_info_list
+        if each.raw_fuzzing_info.fuzz_mode == FuzzMode.ORG
+    ]
+    if grouping_field_name is not None:
+        fuzzing_info_list = _group_fuzzing_info_list(
+            fuzzing_info_list, grouping_field_name
+        ).values()
+
+    num_plots = len(fuzzing_info_list)
     if num_plots == 0:
         return plt.figure()
-    
+
     # Calculate grid dimensions for subplots
     cols = int(np.ceil(np.sqrt(num_plots)))
     rows = int(np.ceil(num_plots / cols))
-    
+
     # Adjust figure size based on number of subplots to avoid tight_layout warnings
     base_width = 15
     base_height = 10
-    
+
     # Increase height for more rows
     fig_height = base_height + (rows - 1) * 3
     fig_width = base_width + (cols - 1) * 2
-    
-    whole_fig, axes = plt.subplots(rows, cols, figsize=(fig_width, fig_height), 
-                                    constrained_layout=True)
-    whole_fig.suptitle('Unique Coverage Basic Blocks Over Time', fontsize=16, fontweight='bold')
-    
+
+    whole_fig, axes = plt.subplots(
+        rows, cols, figsize=(fig_width, fig_height), constrained_layout=True
+    )
+    whole_fig.suptitle(
+        "Unique Coverage Basic Blocks Over Time", fontsize=16, fontweight="bold"
+    )
+
     # Flatten axes array if needed
     if num_plots == 1:
         axes = [axes]
     else:
-        axes = axes.flatten() if hasattr(axes, 'flatten') else [axes]
-    
+        axes = axes.flatten() if hasattr(axes, "flatten") else [axes]
+
     colors = plt.cm.viridis(np.linspace(0, 1, num_plots))
-    
+
     idx = 0
     for fuzzing_info in fuzzing_info_list:
-        if fuzzing_info.raw_fuzzing_info.fuzz_mode != FuzzMode.ORG:
-            continue
         ax = axes[idx]
         color = colors[idx]
         idx += 1
         unique_cov_bbs = fuzzing_info.unique_cov_bbs_distribution
-        
+
         if not unique_cov_bbs:
-            ax.text(0.5, 0.5, 'No data', ha='center', va='center', transform=ax.transAxes)
-            ax.set_title(f"{fuzzing_info.raw_fuzzing_info.ta_name}", fontsize=10)
-            ax.axis('off')
+            ax.text(
+                0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes
+            )
+            ax.set_title(
+                f"{naming_change(fuzzing_info.raw_fuzzing_info.id)}", fontsize=10
+            )
+            ax.axis("off")
             continue
-        
+
         # Extract timestamps and counts, convert timestamps to int for proper sorting
         timestamp_strs = list(unique_cov_bbs.keys())
         # Sort by integer value of timestamp
-        timestamp_strs_sorted = sorted(timestamp_strs, key=lambda x: int(x) if str(x).isdigit() else 0)
+        timestamp_strs_sorted = sorted(
+            timestamp_strs, key=lambda x: int(x) if str(x).isdigit() else 0
+        )
         accumulated_bbs = set()
         counts = []
         for ts in timestamp_strs_sorted:
             accumulated_bbs.update(unique_cov_bbs[ts])
             counts.append(len(accumulated_bbs))
-        
+
         # add end point
         timestamp_strs_sorted.append(max_timestamps)
         counts.append(len(accumulated_bbs))
-        
+
         fuzzing_info.accumulated_cov_bbs = accumulated_bbs
-        # Convert to numeric for better plotting (use indices if timestamps are not numeric)
-        try:
-            # Try to convert timestamps to integers for x-axis
-            timestamp_ints = [int(ts) for ts in timestamp_strs_sorted]
-            x_values = timestamp_ints
-            x_labels = timestamp_strs_sorted
-        except (ValueError, TypeError):
-            # If conversion fails, use string indices
-            x_values = list(range(len(timestamp_strs_sorted)))
-            x_labels = timestamp_strs_sorted
-        
-        # Determine if we should use log scale (when data range is large)
-        use_log_scale = False
-        if len(x_values) > 1:
-            x_min = min(v for v in x_values if v > 0) if any(v > 0 for v in x_values) else 1
-            x_max = max(x_values)
-            # Use log scale if the range spans more than 2 orders of magnitude
-            if x_max > 0 and x_min > 0 and x_max / x_min > 100:
-                use_log_scale = True
-        
+
+        timestamp_ints = [int(ts) for ts in timestamp_strs_sorted]
+        x_values = [ts / 3600.0 for ts in timestamp_ints]  # Convert seconds to hours
+
         # Plot curve
-        ax.plot(x_values, counts, 
-                color=color, 
-                linewidth=2.5, 
-                marker='o', 
-                markersize=5,
-                markerfacecolor=color,
-                markeredgecolor='white',
-                markeredgewidth=1,
-                alpha=0.85,
-                linestyle='-',
-                label=f"{fuzzing_info.raw_fuzzing_info.ta_name}")
-        
+        y_values = (
+            counts
+            if not show_rate
+            else [count / fuzzing_info.raw_covs.max_nodes * 100 for count in counts]
+        )
+        ax.plot(
+            x_values,
+            y_values,
+            color=color,
+            linewidth=2.5,
+            # marker="o",
+            # markersize=5,
+            # markerfacecolor=color,
+            # markeredgecolor="white",
+            # markeredgewidth=1,
+            alpha=0.85,
+            linestyle="-",
+            label=f"{naming_change(fuzzing_info.raw_fuzzing_info.id)}",
+        )
+
         # Formatting
-        if use_log_scale:
-            ax.set_xscale('log', base=2)
-            ax.set_xlabel('Timestamp', fontsize=10, fontweight='bold')
-        else:
-            ax.set_xlabel('Timestamp', fontsize=10, fontweight='bold')
-        ax.set_ylabel('Unique BB Count', fontsize=10, fontweight='bold')
-        ax.set_title(f"{fuzzing_info.raw_fuzzing_info.id}", fontsize=11, fontweight='bold', pad=10)
-        ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.8)
-        ax.tick_params(axis='y', labelsize=9)
-        
-        # Handle x-axis labels
-        if len(x_labels) > 15:
-            # Show fewer labels to avoid crowding
-            step = max(1, len(x_labels) // 15)
-            tick_positions = x_values[::step]
-            tick_labels = [x_labels[i] for i in range(0, len(x_labels), step)]
-            ax.set_xticks(tick_positions)
-            ax.set_xticklabels(tick_labels, rotation=45, ha='right', fontsize=8)
-        else:
-            ax.set_xticks(x_values)
-            ax.set_xticklabels(x_labels, rotation=45, ha='right', fontsize=8)
-    
-    
+        ax.set_xlabel("Duration (hour(s))", fontsize=10, fontweight="bold")
+        ax.set_ylabel(
+            "Unique Basic Block Count" if not show_rate else "Coverage Rate (%)",
+            fontsize=10,
+            fontweight="bold",
+        )
+        ax.set_title(
+            f"{fuzzing_info.raw_fuzzing_info.id}",
+            fontsize=11,
+            fontweight="bold",
+            pad=10,
+        )
+        ax.grid(True, alpha=0.3, linestyle="--", linewidth=0.8)
+        ax.tick_params(axis="y", labelsize=9)
+
+        # Format y-axis as percentage when show_rate is enabled
+        if show_rate:
+            ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.0f}%"))
+
+        ax.set_xlim(0, 24)
+
+        # Set x-axis ticks at 4 hour intervals: 0, 4, 8, 12, 16, 20, 24
+        tick_positions = list(range(0, 25, 4))
+        ax.set_xticks(tick_positions)
+        ax.set_xticklabels(
+            [str(t) for t in tick_positions], rotation=45, ha="right", fontsize=8
+        )
+
     # Hide unused subplots
     for idx in range(num_plots, len(axes)):
-        axes[idx].axis('off')
-    
+        axes[idx].axis("off")
+
     plt.tight_layout()
     return whole_fig
 
 
-def df_control_flow_graph(fuzzing_info_list: List[FuzzingInfo], max_timestamps: str):
+def _group_df_fuzzing_info_list(
+    fuzzing_info_list: List[FuzzingInfo], field_name: str, bar_field_name: str
+) -> tuple[dict[str, GroupedFuzzingInfo], dict[str, dict[str, GroupedFuzzingInfo]]]:
     # key: vanilla id, value: list of df fuzzing_info objects
     grouped_df_bbs = {}
-    # Create a mapping from id to vanilla FuzzingInfo for quick lookup
+
     vanilla_fuzzing_info_map = {}
     for fuzzing_info in fuzzing_info_list:
         if fuzzing_info.raw_fuzzing_info.fuzz_mode == FuzzMode.ORG:
-            vanilla_fuzzing_info_map[fuzzing_info.raw_fuzzing_info.id] = fuzzing_info
-    
+            field_value = getattr(fuzzing_info.raw_fuzzing_info, field_name)
+            if field_value not in vanilla_fuzzing_info_map:
+                vanilla_fuzzing_info_map[field_value] = GroupedFuzzingInfo(
+                    RawFuzzingInfo(id=field_value),
+                    Coverage(uniq_identity=field_value, max_nodes=0, cfg=None),
+                    [],
+                    {},
+                    set(),
+                )
+            _merge(vanilla_fuzzing_info_map[field_value], fuzzing_info)
+
     for fuzzing_info in fuzzing_info_list:
         if fuzzing_info.raw_fuzzing_info.fuzz_mode != FuzzMode.DF:
             continue
-        curr_linked_ta_finfo: RawFuzzingInfo = fuzzing_info.linked_ta_finfo
-        if curr_linked_ta_finfo.id not in grouped_df_bbs:
-            grouped_df_bbs[curr_linked_ta_finfo.id] = []
-            
-        grouped_df_bbs[curr_linked_ta_finfo.id].append(fuzzing_info)
+        curr_linked_ta_finfo: RawFuzzingInfo = fuzzing_info.linked_ta_finfo # org
+        field_value = getattr(curr_linked_ta_finfo, field_name)
+        if field_value not in grouped_df_bbs:
+            grouped_df_bbs[field_value] = {}
+        bar_field_value = getattr(fuzzing_info.raw_fuzzing_info, bar_field_name)
+        if bar_field_value not in grouped_df_bbs[field_value]:
+            grouped_df_bbs[field_value][bar_field_value] = GroupedFuzzingInfo(
+                RawFuzzingInfo(id=bar_field_value),
+                Coverage(uniq_identity=bar_field_value, max_nodes=0, cfg=None),
+                [],
+                {},
+                set(),
+            )
+        _merge(grouped_df_bbs[field_value][bar_field_value], fuzzing_info)
+
+    return vanilla_fuzzing_info_map, grouped_df_bbs
+
+
+def df_control_flow_graph(
+    fuzzing_info_list: List[FuzzingInfo],
+    *,
+    grouping_field_name: str,
+    bar_field_name: str,
+    show_rate: bool = False,
+):
+    # vanilla_fuzzing_info_map: merged sth in same subgraph
+    # grouped_df_bbs: merged sth in same bar
+    vanilla_fuzzing_info_map, grouped_df_bbs = _group_df_fuzzing_info_list(
+        fuzzing_info_list, grouping_field_name, bar_field_name
+    )
 
     # paint the grouped_df_bbs
     num_groups = len(grouped_df_bbs)
     if num_groups == 0:
         return plt.figure()
-    
+
     # Calculate grid dimensions for subplots
     cols = int(np.ceil(np.sqrt(num_groups)))
     rows = int(np.ceil(num_groups / cols))
-    
+
     # Adjust figure size based on number of subplots
     base_width = 15
     base_height = 10
     fig_height = base_height + (rows - 1) * 3
     fig_width = base_width + (cols - 1) * 2
-    
-    whole_fig, axes = plt.subplots(rows, cols, figsize=(fig_width, fig_height), 
-                                    constrained_layout=True)
-    
-    whole_fig.suptitle('DF Fuzzing Coverage Comparison', fontsize=16, fontweight='bold')
-    
+
+    whole_fig, axes = plt.subplots(
+        rows, cols, figsize=(fig_width, fig_height), constrained_layout=True
+    )
+
+    # whole_fig.suptitle("DF Fuzzing Coverage Comparison", fontsize=16, fontweight="bold")
+
     # Flatten axes array if needed
     if num_groups == 1:
         axes = [axes]
     else:
-        axes = axes.flatten() if hasattr(axes, 'flatten') else [axes]
-    
+        axes = axes.flatten() if hasattr(axes, "flatten") else [axes]
+
     # Color palette for the three segments
-    old_color = '#E63946'
-    overlapped_color = '#2E86AB'  # Blue for overlapped coverage
-    new_color = '#A23B72'      # Purple for new coverage
-    
-    for idx, (vanilla_id, df_fuzzing_infos) in enumerate(grouped_df_bbs.items()):
+    old_color = "#E63946"
+    overlapped_color = "#2E86AB"  # Blue for overlapped coverage
+    new_color = "#A23B72"  # Purple for new coverage
+
+    for idx, (vanilla_id, df_fuzzing_dir) in enumerate(grouped_df_bbs.items()):
         # put all df jobs of one ta harness inside a subplot
         ax = axes[idx]
-        
+
         # Find the vanilla FuzzingInfo
-        vanilla_fuzzing_info: FuzzingInfo | None = vanilla_fuzzing_info_map.get(vanilla_id)
+        vanilla_fuzzing_info: FuzzingInfo | None = vanilla_fuzzing_info_map.get(
+            vanilla_id
+        )
         if vanilla_fuzzing_info is None:
             logger.error(f"[-] No vanilla fuzzing info for {vanilla_id}")
-            ax.text(0.5, 0.5, f'No vanilla fuzzing info\nfor {vanilla_id}', 
-                   ha='center', va='center', transform=ax.transAxes)
+            ax.text(
+                0.5,
+                0.5,
+                f"No vanilla fuzzing info\nfor {vanilla_id}",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+            )
             ax.set_title(f"Group: {vanilla_id}", fontsize=10)
-            ax.axis('off')
+            ax.axis("off")
             continue
-        
+
         # Calculate total unique BBs from vanilla (across all timestamps)
         vanilla_all_bbs = vanilla_fuzzing_info.accumulated_cov_bbs
-        
+
         # Prepare data for bars
         bar_labels = []
+        bar_id = 0
+        bar_prefix = "S" if bar_field_name == "id" else "H"
+        
         overlapped_segments = []
         new_segments = []
         old_segments = []
-        
-        for df_fuzzing_info in df_fuzzing_infos:
+
+        for df_bar_key in df_fuzzing_dir:
             # Calculate total unique BBs from DF fuzzing_info
-            each_df_all_bbs = set()
-            if df_fuzzing_info.unique_cov_bbs_distribution:
-                for bbs_set in df_fuzzing_info.unique_cov_bbs_distribution.values():
-                    each_df_all_bbs.update(bbs_set)
+            each_bar_all_bbs = df_fuzzing_dir[df_bar_key].accumulated_cov_bbs
             
             # Calculate new unique BBs (those in DF but not in vanilla)
-            new_bbs = each_df_all_bbs - vanilla_all_bbs
-            old_bbs = vanilla_all_bbs - each_df_all_bbs
+            new_bbs = each_bar_all_bbs - vanilla_all_bbs
+            old_bbs = vanilla_all_bbs - each_bar_all_bbs
             new_count = len(new_bbs)
             old_count = len(old_bbs)
-            
+
             # Store data
-            bar_labels.append(df_fuzzing_info.raw_fuzzing_info.id)
-            overlapped_count = len(each_df_all_bbs & vanilla_all_bbs)
+            bar_labels.append(f"{bar_prefix}{bar_id}")
+            bar_id += 1
+            overlapped_count = len(each_bar_all_bbs & vanilla_all_bbs)
             overlapped_segments.append(overlapped_count)
             new_segments.append(new_count)
             old_segments.append(old_count)
-            
+
         if len(bar_labels) == 0:
-            ax.text(0.5, 0.5, 'No DF fuzzing info', 
-                   ha='center', va='center', transform=ax.transAxes)
+            ax.text(
+                0.5,
+                0.5,
+                "No DF fuzzing info",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+            )
             ax.set_title(f"Group: {vanilla_id}", fontsize=10)
-            ax.axis('off')
+            ax.axis("off")
             continue
-        
+
         # Create stacked bar chart
         x_pos = np.arange(len(bar_labels))
         width = 0.6
-        
+
         # Plot stacked bars: old (bottom), overlapped (middle), new (top)
-        bars1 = ax.bar(x_pos, old_segments, width, label='Old Coverage', 
-                       color=old_color, alpha=0.8)
-        bars2 = ax.bar(x_pos, overlapped_segments, width, bottom=old_segments, 
-                       label='Overlapped Coverage', color=overlapped_color, alpha=0.8)
-        bars3 = ax.bar(x_pos, new_segments, width, 
-                       bottom=[old + ovl for old, ovl in zip(old_segments, overlapped_segments)], 
-                       label='New Coverage', color=new_color, alpha=0.8)
-        
+        bars1 = ax.bar(
+            x_pos,
+            old_segments,
+            width,
+            label="Exploration-only Coverage",
+            color=old_color,
+            alpha=0.8,
+        )
+        bars2 = ax.bar(
+            x_pos,
+            overlapped_segments,
+            width,
+            bottom=old_segments,
+            label="Exploration-Snapshot Shared Coverage",
+            color=overlapped_color,
+            alpha=0.8,
+        )
+        bars3 = ax.bar(
+            x_pos,
+            new_segments,
+            width,
+            bottom=[old + ovl for old, ovl in zip(old_segments, overlapped_segments)],
+            label="Snapshot Fuzzing-only Coverage",
+            color=new_color,
+            alpha=0.8,
+        )
+
         # Calculate max bar height and set y-axis limit with some padding
-        max_bar_height = max(old + ovl + new for old, ovl, new in zip(old_segments, overlapped_segments, new_segments))
-        
+        max_bar_height = max(
+            old + ovl + new
+            for old, ovl, new in zip(old_segments, overlapped_segments, new_segments)
+        )
+
         # Formatting
-        ax.set_xlabel('DF Fuzzing Info ID', fontsize=10, fontweight='bold')
-        ax.set_ylabel('Unique BB Count', fontsize=10, fontweight='bold')
-        ax.set_title(f"Group: {vanilla_id}", fontsize=11, fontweight='bold', pad=10)
+        ax.set_xlabel(
+            "Double Fetch Snapshot IDs", fontsize=10, fontweight="bold", labelpad=10
+        )
+        ax.set_ylabel(
+            "Unique Basic Block Count" if not show_rate else "Coverage Rate (%)",
+            fontsize=10,
+            fontweight="bold",
+        )
+        ax.set_title(
+            f"Harness: {naming_change(vanilla_id)}",
+            fontsize=11,
+            fontweight="bold",
+            pad=10,
+        )
         ax.set_xticks(x_pos)
-        ax.set_xticklabels(bar_labels, rotation=45, ha='right', fontsize=8)
-        ax.set_ylim(0, max_bar_height * 1.1)  # Add 10% padding at the top
-        ax.legend(loc='upper right', fontsize=9)
-        ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.8, axis='y')
-        ax.tick_params(axis='y', labelsize=9)
-        
+        ax.set_xticklabels(bar_labels, rotation=50, ha="right", fontsize=8)
+
+        # Stagger x-axis labels when there are many bars to avoid overlap
+        if len(bar_labels) > 25:
+            tick_labels = ax.get_xticklabels()
+            for i, label in enumerate(tick_labels):
+                if i % 2 == 1:
+                    label.set_y(label.get_position()[1] - 0.03)
+                    # label.set_rotation(90)
+
+        ax.set_ylim(0, max_bar_height * 1.15)  # Add some padding at the top
+        ax.legend(loc="upper right", fontsize=9)
+        ax.grid(True, alpha=0.3, linestyle="--", linewidth=0.8, axis="y")
+        ax.tick_params(axis="y", labelsize=9)
+
         # Add value labels on bars
-        for i, (old, ovl, new) in enumerate(zip(old_segments, overlapped_segments, new_segments)):
+        """
+        for i, (old, ovl, new) in enumerate(
+            zip(old_segments, overlapped_segments, new_segments)
+        ):
             # Old segment label
             if old > 0:
-                ax.text(i, old / 2, str(old), ha='center', va='center', 
-                       fontsize=8, fontweight='bold', color='white')
+                ax.text(
+                    i,
+                    old / 2,
+                    str(old),
+                    ha="center",
+                    va="center",
+                    fontsize=8,
+                    fontweight="bold",
+                    color="white",
+                )
             # Overlapped segment label
             if ovl > 0:
-                ax.text(i, old + ovl / 2, str(ovl), ha='center', va='center', 
-                       fontsize=8, fontweight='bold', color='white')
+                ax.text(
+                    i,
+                    old + ovl / 2,
+                    str(ovl),
+                    ha="center",
+                    va="center",
+                    fontsize=8,
+                    fontweight="bold",
+                    color="white",
+                )
             # New segment label
             if new > 0:
-                ax.text(i, old + ovl + new / 2, str(new), ha='center', va='center', 
-                       fontsize=8, fontweight='bold', color='white')
-    
+                ax.text(
+                    i,
+                    old + ovl + new / 2,
+                    str(new),
+                    ha="center",
+                    va="center",
+                    fontsize=8,
+                    fontweight="bold",
+                    color="white",
+                )
+        """
+
     # Hide unused subplots
     for idx in range(num_groups, len(axes)):
-        axes[idx].axis('off')
-    
+        axes[idx].axis("off")
+
     plt.tight_layout()
     return whole_fig

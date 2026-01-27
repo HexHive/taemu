@@ -35,7 +35,7 @@ def get_all_suspicious_inputs(path="/root/TA_GP_emulator"):
     for root, dirs, files in os.walk(path):
         for file in files:
             path = os.path.join(root, file)
-            if "suspicious_inputs/" in path:
+            if "suspicious_inputs/" in path and "harness_dev" not in path:
                 suspicious_inputs.append(path)
     return suspicious_inputs
 
