@@ -5,7 +5,9 @@ import re
 from enum import Enum
 from loguru import logger
 from cachetools import TTLCache, cached
-
+from typing import Iterable, Dict
+import json
+import time
 
 only_foo_under_queue_cache = TTLCache(maxsize=100, ttl=60*60)
 @cached(only_foo_under_queue_cache)
@@ -64,7 +66,7 @@ def list_tas(path: str):
             os.path.join(dir_path, filename)
             for dir_path, _, filenames in os.walk(path)
             for filename in filenames
-            if filename.endswith(".ta") and "harness" in dir_path
+            if filename.endswith(".ta") and "harness" in dir_path and "harness_dev" not in dir_path
         ]
     )
 
@@ -203,16 +205,56 @@ class DockerPool:
                     shell=True,
                     capture_output=True,
                 )
+                
+    def _inspect_state(self, name: str) -> dict:
+        out = subprocess.check_output(["docker", "inspect", name], text=True)
+        return json.loads(out)[0]["State"]
+
+    def wait_all_healthy(
+        self,
+        containers: Iterable[str],
+        timeout_s: float = 300.0,
+        interval_s: float = 2.0,
+    ) -> bool:
+        containers = list(containers)
+        deadline = time.time() + timeout_s
+
+        while True:
+            statuses: Dict[str, str] = {}
+
+            for name in containers:
+                st = self._inspect_state(name)
+                if not st.get("Running", False):
+                    statuses[name] = "not-running"
+                else:
+                    statuses[name] = "healthy"
+
+            if all(st == "healthy" for st in statuses.values()):
+                return True
+
+            if time.time() > deadline:
+                raise TimeoutError(f"Timed out waiting for health. Statuses={statuses}")
+
+            time.sleep(interval_s)
 
     def __enter__(self):
         logger.info(
             f"[+] Spawning docker pool for {self.image_name} with {self.num_containers} containers"
         )
+        container_names = []
         for i in range(self.num_containers):
+            container_name = f"{self.image_name}_{i}"
             subprocess.run(
-                f"docker run -it -e TERM=xterm-256color -d --name {self.image_name}_{i} {self.param_str} --ulimit core=-1 {self.image_name} bash &>/dev/null",
+                f"docker run -it -e TERM=xterm-256color -d --name {container_name} {self.param_str} --ulimit core=-1 {self.image_name} bash &>/dev/null",
                 shell=True,
             )
+            container_names.append(container_name)
+
+        while self.image_name not in subprocess.check_output(["docker", "ps"]).decode():
+            time.sleep(2)
+        
+        logger.info(f"[+] All {self.num_containers} containers are created")
+        self.wait_all_healthy(container_names)
 
     def __exit__(self, exc_type, exc_value, traceback):
         for i in range(self.num_containers):

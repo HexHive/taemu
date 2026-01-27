@@ -53,7 +53,7 @@ def main(
         with DockerPool(
             image_name="ta_emu",
             num_containers=num_containers,
-            param_str=f"--network host -v /tmp:/tmp -v {path}:/srv -w /srv/emulator -v /dev/shm:/dev/shm --ipc=host --shm-size=5g ",
+            param_str=f"--network host -v {path}:/srv -w /srv/emulator -v /dev/shm:/dev/shm --ipc=host --shm-size=5g ",
         ):
             time.sleep(1)
             gen_coverage_files(
@@ -70,7 +70,7 @@ def main(
     ## generate graphs for each ta
     if fuzz_mode == FuzzMode.ORG or fuzz_mode == FuzzMode.ALL:
         logger.info(f"[+] Generating org graph")
-        org_graph = org_control_flow_graph(fuzzing_info_list)
+        org_graph = org_control_flow_graph(fuzzing_info_list, max_timestamps="86400")
         if org_graph:
             logger.info(f"[+] Finished generating org graph")
             if save_plots:
@@ -85,7 +85,7 @@ def main(
 
     if fuzz_mode == FuzzMode.DF or fuzz_mode == FuzzMode.ALL:
         logger.info(f"[+] Generating df graph")
-        df_graph = df_control_flow_graph(fuzzing_info_list)
+        df_graph = df_control_flow_graph(fuzzing_info_list, max_timestamps="900")
         if df_graph:
             logger.info(f"[+] Finished generating df graph")
             if save_plots:
@@ -114,7 +114,7 @@ if __name__ == "__main__":
     parser.add_argument("--regen_coverage", action="store_true", default=False)
     parser.add_argument("--path", type=str, default="/root/TA_GP_emulator")
     
-    
     args = parser.parse_args()
+    
     main(fuzz_mode=FuzzMode(args.fuzz_mode), path=args.path, tees=args.tees, 
          regen_coverage=args.regen_coverage, show_plots=False, save_plots=True)

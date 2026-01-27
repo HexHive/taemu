@@ -61,6 +61,7 @@ def gen_coverage_files(
         if "/df_fuzz/" in seed_path:
             org_seed_file = seed_path.split("/")[5].split("_")[0]
             org_seed_path = os.path.join(harness_path, "in/suspicious_inputs_replay", org_seed_file)
+            
             df_reg_hash = seed_path.split("/")[5].split("_")[1]
             logger.info(f"[+] Docker command: docker exec {container_name} ./df_fuzz.sh {harness_path} {org_seed_path} {df_reg_hash} {seed_path}")
             result = subprocess.run(
@@ -98,6 +99,7 @@ def gen_coverage_files(
         _futures = [
             ex.submit(_replay_seed, f"{image_name}_{i%num_containers}", harness_path.replace(path, ".."), seed_path.replace(path, ".."))
             for i, (harness_path, seed_path) in enumerate(replay_tasks)
+            if "/df_fuzz/" not in seed_path or os.path.exists(os.path.join(harness_path, "in", "suspicious_inputs_replay"))
         ]
         
         for fut in tqdm(as_completed(_futures), total=len(replay_tasks), desc="Replaying seeds"):

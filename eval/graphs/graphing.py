@@ -5,11 +5,15 @@ from typing import List
 from collect_cov import FuzzingInfo
 from loguru import logger
 from tqdm import tqdm
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import os
 
 def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo]):
-    for fuzzing_info in tqdm(fuzzing_info_list, desc="Parsing unique bbs for each TA"):
+    
+    def _worker(fuzzing_info: FuzzingInfo):
         raw_fuzzing_info: RawFuzzingInfo = fuzzing_info.raw_fuzzing_info
         unique_bbs_ts_based = {}
+        unique_bbs_ts_based["0"] = set()
         cov_bbs: dict[str, list[BB]] = parse_cov(
             raw_fuzzing_info.tee,
             raw_fuzzing_info.ta_name,
@@ -20,10 +24,16 @@ def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo]):
                 unique_bbs_ts_based[timestamp] = set()
             unique_bbs_ts_based[timestamp].update(bbs)
         fuzzing_info.unique_cov_bbs_distribution = unique_bbs_ts_based
+    
+    with ThreadPoolExecutor(max_workers=30) as ex:
+        futures = [ex.submit(_worker, fuzzing_info) for fuzzing_info in fuzzing_info_list]
+        for fut in tqdm(as_completed(futures), total=len(fuzzing_info_list), desc="Parsing unique bbs for each TA"):
+            _ = fut.result()
+    logger.info(f"[+] Finished parsing unique bbs for all TAs")
 
 
         
-def org_control_flow_graph(fuzzing_info_list: List[FuzzingInfo]):
+def org_control_flow_graph(fuzzing_info_list: List[FuzzingInfo], max_timestamps: str):
     num_plots = len([each for each in fuzzing_info_list if each.raw_fuzzing_info.fuzz_mode == FuzzMode.ORG])
     if num_plots == 0:
         return plt.figure()
@@ -77,6 +87,10 @@ def org_control_flow_graph(fuzzing_info_list: List[FuzzingInfo]):
             accumulated_bbs.update(unique_cov_bbs[ts])
             counts.append(len(accumulated_bbs))
         
+        # add end point
+        timestamp_strs_sorted.append(max_timestamps)
+        counts.append(len(accumulated_bbs))
+        
         fuzzing_info.accumulated_cov_bbs = accumulated_bbs
         # Convert to numeric for better plotting (use indices if timestamps are not numeric)
         try:
@@ -86,8 +100,17 @@ def org_control_flow_graph(fuzzing_info_list: List[FuzzingInfo]):
             x_labels = timestamp_strs_sorted
         except (ValueError, TypeError):
             # If conversion fails, use string indices
-            x_values = range(len(timestamp_strs_sorted))
+            x_values = list(range(len(timestamp_strs_sorted)))
             x_labels = timestamp_strs_sorted
+        
+        # Determine if we should use log scale (when data range is large)
+        use_log_scale = False
+        if len(x_values) > 1:
+            x_min = min(v for v in x_values if v > 0) if any(v > 0 for v in x_values) else 1
+            x_max = max(x_values)
+            # Use log scale if the range spans more than 2 orders of magnitude
+            if x_max > 0 and x_min > 0 and x_max / x_min > 100:
+                use_log_scale = True
         
         # Plot curve
         ax.plot(x_values, counts, 
@@ -103,7 +126,11 @@ def org_control_flow_graph(fuzzing_info_list: List[FuzzingInfo]):
                 label=f"{fuzzing_info.raw_fuzzing_info.ta_name}")
         
         # Formatting
-        ax.set_xlabel('Timestamp', fontsize=10, fontweight='bold')
+        if use_log_scale:
+            ax.set_xscale('log', base=2)
+            ax.set_xlabel('Timestamp', fontsize=10, fontweight='bold')
+        else:
+            ax.set_xlabel('Timestamp', fontsize=10, fontweight='bold')
         ax.set_ylabel('Unique BB Count', fontsize=10, fontweight='bold')
         ax.set_title(f"{fuzzing_info.raw_fuzzing_info.id}", fontsize=11, fontweight='bold', pad=10)
         ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.8)
@@ -130,7 +157,7 @@ def org_control_flow_graph(fuzzing_info_list: List[FuzzingInfo]):
     return whole_fig
 
 
-def df_control_flow_graph(fuzzing_info_list: List[FuzzingInfo]):
+def df_control_flow_graph(fuzzing_info_list: List[FuzzingInfo], max_timestamps: str):
     # key: vanilla id, value: list of df fuzzing_info objects
     grouped_df_bbs = {}
     # Create a mapping from id to vanilla FuzzingInfo for quick lookup
