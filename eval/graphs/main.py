@@ -139,8 +139,8 @@ if __name__ == "__main__":
     parser.add_argument("--regen_coverage", action="store_true", default=False)
     parser.add_argument("--path", type=str, default="/root/TA_GP_emulator")
     parser.add_argument("--org_group_field", type=str, default=None)
-    parser.add_argument("--df_group_field", type=str, default=None)
-    parser.add_argument("--df_bar_field", type=str, default=None)
+    parser.add_argument("--df_group_field", type=str, default="harness_path")
+    parser.add_argument("--df_bar_field", type=str, default="id")
     parser.add_argument("--show_rate", action="store_true", default=False)
     args = parser.parse_args()
 

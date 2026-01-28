@@ -4,8 +4,6 @@ from common import RawFuzzingInfo, BB, parse_cov, FuzzMode
 from typing import List
 from collect_cov import FuzzingInfo, GroupedFuzzingInfo, Coverage
 from loguru import logger
-from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, Callable
 
 
@@ -26,79 +24,48 @@ def naming_change(names: list[str] | str) -> list[str] | str:
             if key in name_lower:
                 idx = name_lower.index(key)
                 name = name[:idx] + value + name[idx + len(value) :]
-                
-        if isinstance(name, str) and "/" in name:
-            name = name.split("/")[-1]
         new_names.append(name)
     return new_names if len(new_names) > 1 else new_names[0]
 
 
-def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo]):
 
-    def _worker(fuzzing_info: FuzzingInfo):
-        raw_fuzzing_info: RawFuzzingInfo = fuzzing_info.raw_fuzzing_info
-        unique_bbs_ts_based = {}
-        unique_bbs_ts_based[0] = set()
-        cov_bbs: dict[int, list[BB]] = parse_cov(
-            raw_fuzzing_info.tee,
-            raw_fuzzing_info.ta_name,
-            raw_fuzzing_info.cov_dir,
-        )
-        for timestamp, bbs in cov_bbs.items():
-            if timestamp not in unique_bbs_ts_based:
-                unique_bbs_ts_based[timestamp] = set()
-            unique_bbs_ts_based[timestamp].update(bbs)
-        fuzzing_info.unique_cov_bbs_distribution = unique_bbs_ts_based
-        
-        
-        timestamp_strs = list(unique_bbs_ts_based.keys())
-        timestamp_strs_sorted = sorted(
-            timestamp_strs, key=lambda x: int(x) if str(x).isdigit() else 0
-        )
-        accumulated_bbs = set()
-        for ts in timestamp_strs_sorted:
-            accumulated_bbs.update(unique_bbs_ts_based[ts])
-        fuzzing_info.accumulated_cov_bbs = accumulated_bbs
-
-    with ThreadPoolExecutor(max_workers=30) as ex:
-        futures = [
-            ex.submit(_worker, fuzzing_info) for fuzzing_info in fuzzing_info_list
-        ]
-        for fut in tqdm(
-            as_completed(futures),
-            total=len(fuzzing_info_list),
-            desc="Parsing unique bbs for each TA",
-        ):
-            _ = fut.result()
-    logger.info(f"[+] Finished parsing unique bbs for all TAs")
-
-
-def _merge(
+def _sum_finfo(
     new: GroupedFuzzingInfo,
     old: FuzzingInfo,
+    max_timestamps: int = 86400,
     cov_update_func: Callable[[Coverage, Coverage], Coverage] = lambda x, y: Coverage(
         uniq_identity=f"{x.uniq_identity}_{y.uniq_identity}",
-        max_nodes=max(x.max_nodes, y.max_nodes),
+        max_nodes=x.max_nodes + y.max_nodes,
         cfg=None,
-    ),
+    )
 ):
     def _merge_distribution(
-        distribution1: dict[str, set[BB]], distribution2: dict[str, set[BB]]
+        org: dict[int, list[BB]], distribution2: dict[int, set[BB]]
     ):
-        for timestamp, bbs in distribution2.items():
-            if timestamp not in distribution1:
-                distribution1[timestamp] = set()
-            distribution1[timestamp].update(bbs)
-        return distribution1
+        distribution = {ts: [] for ts in range(0, max_timestamps)}
+        for ts in range(0, max_timestamps+1):
+            if ts in org:
+                distribution[ts].extend(org[ts])
+            else:
+                if ts != 0:
+                    distribution[ts] = distribution[ts - 1]
+
+        for ts in range(0, max_timestamps + 1):
+            if ts in distribution2:
+                distribution[ts].extend(distribution2[ts])
+            else:
+                distribution[ts] = distribution[ts - 1]
+        
+        # keep only changed distribution
+        distribution = {ts: distribution[ts] for ts in distribution if ts == 0 or ts == max_timestamps or distribution[ts] != distribution[ts - 1]}
+        return distribution
 
     new.unique_cov_bbs_distribution = _merge_distribution(
         new.unique_cov_bbs_distribution,
         old.unique_cov_bbs_distribution,
     )
     new.fuzzing_infos.append(old)
-    print(f"new.accumulated_cov_bbs: {new.accumulated_cov_bbs}")
-    print(f"old.accumulated_cov_bbs: {old.accumulated_cov_bbs}")
-    new.accumulated_cov_bbs = new.accumulated_cov_bbs | old.accumulated_cov_bbs
+    new.accumulated_cov_bbs = list(new.accumulated_cov_bbs) + list(old.accumulated_cov_bbs)
     new.raw_covs = cov_update_func(
         new.raw_covs,
         old.raw_covs,
@@ -107,7 +74,8 @@ def _merge(
 
 def _group_fuzzing_info_list(
     fuzzing_info_list: List[FuzzingInfo],
-    field_name: str,
+    field_name: str, # tee
+    max_timestamps: int = 86400,
 ) -> dict[str, GroupedFuzzingInfo]:
 
     new_fuzzing_imap_by_field: dict[str, GroupedFuzzingInfo] = {}
@@ -115,22 +83,28 @@ def _group_fuzzing_info_list(
         field_value = getattr(fuzzing_info.raw_fuzzing_info, field_name)
         if field_value not in new_fuzzing_imap_by_field:
             new_fuzzing_imap_by_field[field_value] = GroupedFuzzingInfo(
-                RawFuzzingInfo(id=field_value),
+                RawFuzzingInfo(
+                    id=field_value,
+                    harness_path=fuzzing_info.raw_fuzzing_info.harness_path,
+                ),
                 Coverage(uniq_identity=field_value, max_nodes=0, cfg=None),
                 [],
                 {},
                 set(),
             )
-        _merge(new_fuzzing_imap_by_field[field_value], fuzzing_info)
+        _sum_finfo(new_fuzzing_imap_by_field[field_value], fuzzing_info, max_timestamps)
+        # import json
+        # print("fuzzing_info", json.dumps({each: len(fuzzing_info.unique_cov_bbs_distribution[each]) for each in fuzzing_info.unique_cov_bbs_distribution}, indent=4))
+        # print("new", json.dumps([{each: len(new_fuzzing_imap_by_field[field_value].unique_cov_bbs_distribution[each])} for each in new_fuzzing_imap_by_field[field_value].unique_cov_bbs_distribution], indent=4))
     return new_fuzzing_imap_by_field
 
 
 def org_control_flow_graph(
     fuzzing_info_list: List[FuzzingInfo],
-    max_timestamps: int,
     *,
-    grouping_field_name: Optional[str] = None,
+    grouping_field_name: Optional[str] = None,  #
     show_rate: bool = False,
+    max_timestamps: int = 86400,
 ):
     fuzzing_info_list = [
         each
@@ -139,7 +113,7 @@ def org_control_flow_graph(
     ]
     if grouping_field_name is not None:
         fuzzing_info_list = _group_fuzzing_info_list(
-            fuzzing_info_list, grouping_field_name
+            fuzzing_info_list, grouping_field_name, max_timestamps
         ).values()
 
     num_plots = len(fuzzing_info_list)
@@ -178,9 +152,9 @@ def org_control_flow_graph(
         ax = axes[idx]
         color = colors[idx]
         idx += 1
-        unique_cov_bbs = fuzzing_info.unique_cov_bbs_distribution
+        cov_distribution = fuzzing_info.unique_cov_bbs_distribution
 
-        if not unique_cov_bbs:
+        if not cov_distribution:
             ax.text(
                 0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes
             )
@@ -190,49 +164,14 @@ def org_control_flow_graph(
             ax.axis("off")
             continue
 
-        """
-        # check for bbs not in ghidra cfg
-        def in_cfg(bb, cfg):
-            nodes = cfg.nodes # ONLY WORKS FOR TA  ONLY
-            for n in nodes:
-                if not "start" in cfg.nodes[n] or not "end" in cfg.nodes[n]: 
-                    continue
-                if bb.start == int(cfg.nodes[n]["start"],16) or bb.start + bb.size == int(cfg.nodes[n]["start"],16) or bb.start >= int(cfg.nodes[n]["start"],16) and bb.start + bb.size<= int(cfg.nodes[n]["end"],16):
-                    return True
-            return False
-        print("helllo???????")
-        unique_bbs = set()
-        for ts, bbs in fuzzing_info.unique_cov_bbs_distribution.items():
-            for bb in bbs:
-                unique_bbs.add(bb)
-        print(fuzzing_info.raw_fuzzing_info)
-        if "a985_fuzz" in fuzzing_info.raw_fuzzing_info.harness_path:
-            for bb in unique_bbs:
-                if not in_cfg(bb, fuzzing_info.raw_covs.cfg):
-                    print(f'not in cfg {bb}')
-            print(fuzzing_info.raw_covs.cfg.nodes)
-        """
-
-        # Extract timestamps and counts, convert timestamps to int for proper sorting
-        timestamp_strs = list(unique_cov_bbs.keys())
-        # Sort by integer value of timestamp
-        timestamp_strs_sorted = sorted(
-            timestamp_strs, key=lambda x: int(x) if str(x).isdigit() else 0
-        )
-        accumulated_bbs = set()
         counts = []
+        timestamp_strs_sorted = list(cov_distribution.keys())
+        timestamp_strs_sorted.sort(key=lambda x: int(x) if str(x).isdigit() else 0)
         for ts in timestamp_strs_sorted:
-            accumulated_bbs.update(unique_cov_bbs[ts])
-            counts.append(len(accumulated_bbs))
+            counts.append(len(cov_distribution[ts]))
 
-        # add end point
-        timestamp_strs_sorted.append(max_timestamps)
-        counts.append(len(accumulated_bbs))
 
-        fuzzing_info.accumulated_cov_bbs = accumulated_bbs # update for org graph
-
-        timestamp_ints = [int(ts) for ts in timestamp_strs_sorted]
-        x_values = [ts / 3600.0 for ts in timestamp_ints]  # Convert seconds to hours
+        x_values = [ts / 3600.0 for ts in timestamp_strs_sorted] 
 
         # Plot curve
         y_values = (
@@ -293,7 +232,10 @@ def org_control_flow_graph(
 
 
 def _group_df_fuzzing_info_list(
-    fuzzing_info_list: List[FuzzingInfo], field_name: str, bar_field_name: str
+    fuzzing_info_list: List[FuzzingInfo], 
+    field_name: str, # tee, harness_path
+    bar_field_name: str, # harness_path, id
+    max_timestamps: int = 900,
 ) -> tuple[dict[str, GroupedFuzzingInfo], dict[str, dict[str, GroupedFuzzingInfo]]]:
     # key: vanilla id, value: list of df fuzzing_info objects
     grouped_df_bbs = {}
@@ -304,31 +246,37 @@ def _group_df_fuzzing_info_list(
             field_value = getattr(fuzzing_info.raw_fuzzing_info, field_name)
             if field_value not in vanilla_fuzzing_info_map:
                 vanilla_fuzzing_info_map[field_value] = GroupedFuzzingInfo(
-                    RawFuzzingInfo(id=field_value, harness_path=fuzzing_info.raw_fuzzing_info.harness_path),
+                    RawFuzzingInfo(
+                        id=field_value,
+                        harness_path=fuzzing_info.raw_fuzzing_info.harness_path,
+                    ),
                     Coverage(uniq_identity=field_value, max_nodes=0, cfg=None),
                     [],
                     {},
                     set(),
                 )
-            _merge(vanilla_fuzzing_info_map[field_value], fuzzing_info)
+            _sum_finfo(vanilla_fuzzing_info_map[field_value], fuzzing_info, max_timestamps=max_timestamps)
 
     for fuzzing_info in fuzzing_info_list:
         if fuzzing_info.raw_fuzzing_info.fuzz_mode != FuzzMode.DF:
             continue
-        curr_linked_ta_finfo: RawFuzzingInfo = fuzzing_info.linked_ta_finfo # org
+        curr_linked_ta_finfo: RawFuzzingInfo = fuzzing_info.linked_ta_finfo  # org
         field_value = getattr(curr_linked_ta_finfo, field_name)
         if field_value not in grouped_df_bbs:
             grouped_df_bbs[field_value] = {}
         bar_field_value = getattr(fuzzing_info.raw_fuzzing_info, bar_field_name)
         if bar_field_value not in grouped_df_bbs[field_value]:
             grouped_df_bbs[field_value][bar_field_value] = GroupedFuzzingInfo(
-                RawFuzzingInfo(id=bar_field_value, harness_path=fuzzing_info.raw_fuzzing_info.harness_path),
+                RawFuzzingInfo(
+                    id=bar_field_value,
+                    harness_path=fuzzing_info.raw_fuzzing_info.harness_path,
+                ),
                 Coverage(uniq_identity=bar_field_value, max_nodes=0, cfg=None),
                 [],
                 {},
                 set(),
             )
-        _merge(grouped_df_bbs[field_value][bar_field_value], fuzzing_info)
+        _sum_finfo(grouped_df_bbs[field_value][bar_field_value], fuzzing_info, max_timestamps=max_timestamps)
 
     return vanilla_fuzzing_info_map, grouped_df_bbs
 
@@ -336,8 +284,8 @@ def _group_df_fuzzing_info_list(
 def df_control_flow_graph(
     fuzzing_info_list: List[FuzzingInfo],
     *,
-    grouping_field_name: str,
-    bar_field_name: str,
+    grouping_field_name: str, # tee, harness_path
+    bar_field_name: str, # harness_path, id
     show_rate: bool = False,
 ):
     # vanilla_fuzzing_info_map: merged sth in same subgraph
@@ -400,12 +348,11 @@ def df_control_flow_graph(
             ax.axis("off")
             continue
 
-
         # Prepare data for bars
         bar_labels = []
         bar_id = 0
-        bar_prefix = "S" if bar_field_name == "id" else ""
-        
+        bar_prefix = "S" if bar_field_name == "id" else "H"
+
         overlapped_segments = []
         new_segments = []
         old_segments = []
@@ -422,10 +369,9 @@ def df_control_flow_graph(
                 if vanilla_field_value == current_harness_path:
                     vanilla_all_bbs.update(each_vanilla.accumulated_cov_bbs)
 
-
             # Calculate total unique BBs from DF fuzzing_info
             each_bar_all_bbs = df_fuzzing_dir[df_bar_key].accumulated_cov_bbs
-            
+
             # Calculate new unique BBs (those in DF but not in vanilla)
             new_bbs = each_bar_all_bbs - vanilla_all_bbs
             old_bbs = vanilla_all_bbs - each_bar_all_bbs
@@ -433,7 +379,7 @@ def df_control_flow_graph(
             old_count = len(old_bbs)
 
             # Store data
-            bar_labels.append(f"{bar_prefix}{bar_id if bar_field_name == 'id' else naming_change(df_bar_key)}")
+            bar_labels.append(f"{bar_prefix}{bar_id}")
             bar_id += 1
             overlapped_count = len(each_bar_all_bbs & vanilla_all_bbs)
             overlapped_segments.append(overlapped_count)
@@ -501,7 +447,7 @@ def df_control_flow_graph(
             fontweight="bold",
         )
         ax.set_title(
-            f"{grouping_field_name}: {naming_change(vanilla_id)}",
+            f"Harness: {naming_change(vanilla_id)}",
             fontsize=11,
             fontweight="bold",
             pad=10,
