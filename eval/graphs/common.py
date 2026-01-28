@@ -175,7 +175,9 @@ def parse_cov(tee, ta, drcov_path) -> dict[int, list[BB]]:
         if not os.path.exists(
             os.path.join(os.path.dirname(drcov_path), "default", "queue")
         ):
-            logger.warning(f'[-] Queue dir {os.path.join(os.path.dirname(drcov_path), "default", "queue")} does not exist')
+            logger.warning(
+                f'[-] Queue dir {os.path.join(os.path.dirname(drcov_path), "default", "queue")} does not exist'
+            )
         elif not only_foo_under_queue(
             os.path.join(os.path.dirname(drcov_path), "default", "queue")
         ):

@@ -26,7 +26,7 @@ def naming_change(names: list[str] | str) -> list[str] | str:
             if key in name_lower:
                 idx = name_lower.index(key)
                 name = name[:idx] + value + name[idx + len(value) :]
-                
+
         if isinstance(name, str) and "/" in name:
             name = name.split("/")[-1]
         new_names.append(name)
@@ -49,8 +49,7 @@ def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo]):
                 unique_bbs_ts_based[timestamp] = set()
             unique_bbs_ts_based[timestamp].update(bbs)
         fuzzing_info.unique_cov_bbs_distribution = unique_bbs_ts_based
-        
-        
+
         timestamp_strs = list(unique_bbs_ts_based.keys())
         timestamp_strs_sorted = sorted(
             timestamp_strs, key=lambda x: int(x) if str(x).isdigit() else 0
@@ -78,7 +77,7 @@ def _merge(
     old: FuzzingInfo,
     cov_update_func: Callable[[Coverage, Coverage], Coverage] = lambda x, y: Coverage(
         uniq_identity=f"{x.uniq_identity}_{y.uniq_identity}",
-        max_nodes=max(x.max_nodes, y.max_nodes),
+        max_nodes=x.max_nodes + y.max_nodes,
         cfg=None,
     ),
 ):
@@ -96,8 +95,6 @@ def _merge(
         old.unique_cov_bbs_distribution,
     )
     new.fuzzing_infos.append(old)
-    print(f"new.accumulated_cov_bbs: {new.accumulated_cov_bbs}")
-    print(f"old.accumulated_cov_bbs: {old.accumulated_cov_bbs}")
     new.accumulated_cov_bbs = new.accumulated_cov_bbs | old.accumulated_cov_bbs
     new.raw_covs = cov_update_func(
         new.raw_covs,
@@ -115,7 +112,10 @@ def _group_fuzzing_info_list(
         field_value = getattr(fuzzing_info.raw_fuzzing_info, field_name)
         if field_value not in new_fuzzing_imap_by_field:
             new_fuzzing_imap_by_field[field_value] = GroupedFuzzingInfo(
-                RawFuzzingInfo(id=field_value),
+                RawFuzzingInfo(
+                    id=field_value,
+                    harness_path=fuzzing_info.raw_fuzzing_info.harness_path,
+                ),
                 Coverage(uniq_identity=field_value, max_nodes=0, cfg=None),
                 [],
                 {},
@@ -229,7 +229,7 @@ def org_control_flow_graph(
         timestamp_strs_sorted.append(max_timestamps)
         counts.append(len(accumulated_bbs))
 
-        fuzzing_info.accumulated_cov_bbs = accumulated_bbs # update for org graph
+        fuzzing_info.accumulated_cov_bbs = accumulated_bbs  # update for org graph
 
         timestamp_ints = [int(ts) for ts in timestamp_strs_sorted]
         x_values = [ts / 3600.0 for ts in timestamp_ints]  # Convert seconds to hours
@@ -304,7 +304,10 @@ def _group_df_fuzzing_info_list(
             field_value = getattr(fuzzing_info.raw_fuzzing_info, field_name)
             if field_value not in vanilla_fuzzing_info_map:
                 vanilla_fuzzing_info_map[field_value] = GroupedFuzzingInfo(
-                    RawFuzzingInfo(id=field_value, harness_path=fuzzing_info.raw_fuzzing_info.harness_path),
+                    RawFuzzingInfo(
+                        id=field_value,
+                        harness_path=fuzzing_info.raw_fuzzing_info.harness_path,
+                    ),
                     Coverage(uniq_identity=field_value, max_nodes=0, cfg=None),
                     [],
                     {},
@@ -315,14 +318,17 @@ def _group_df_fuzzing_info_list(
     for fuzzing_info in fuzzing_info_list:
         if fuzzing_info.raw_fuzzing_info.fuzz_mode != FuzzMode.DF:
             continue
-        curr_linked_ta_finfo: RawFuzzingInfo = fuzzing_info.linked_ta_finfo # org
+        curr_linked_ta_finfo: RawFuzzingInfo = fuzzing_info.linked_ta_finfo  # org
         field_value = getattr(curr_linked_ta_finfo, field_name)
         if field_value not in grouped_df_bbs:
             grouped_df_bbs[field_value] = {}
         bar_field_value = getattr(fuzzing_info.raw_fuzzing_info, bar_field_name)
         if bar_field_value not in grouped_df_bbs[field_value]:
             grouped_df_bbs[field_value][bar_field_value] = GroupedFuzzingInfo(
-                RawFuzzingInfo(id=bar_field_value, harness_path=fuzzing_info.raw_fuzzing_info.harness_path),
+                RawFuzzingInfo(
+                    id=bar_field_value,
+                    harness_path=fuzzing_info.raw_fuzzing_info.harness_path,
+                ),
                 Coverage(uniq_identity=bar_field_value, max_nodes=0, cfg=None),
                 [],
                 {},
@@ -400,12 +406,11 @@ def df_control_flow_graph(
             ax.axis("off")
             continue
 
-
         # Prepare data for bars
         bar_labels = []
         bar_id = 0
         bar_prefix = "S" if bar_field_name == "id" else ""
-        
+
         overlapped_segments = []
         new_segments = []
         old_segments = []
@@ -414,18 +419,27 @@ def df_control_flow_graph(
             current_harness_path = df_fuzzing_dir[
                 df_bar_key
             ].raw_fuzzing_info.harness_path
+            print(f"current_harness_path: {current_harness_path}")
+            print(f"df_bar_key: {df_bar_key}")
 
             # Calculate total unique BBs from vanilla (across all timestamps)
             vanilla_all_bbs = set()
+            coverage_denominator = 0
             for each_vanilla in vanilla_fuzzing_info.fuzzing_infos:
                 vanilla_field_value = each_vanilla.raw_fuzzing_info.harness_path
                 if vanilla_field_value == current_harness_path:
                     vanilla_all_bbs.update(each_vanilla.accumulated_cov_bbs)
+                    coverage_denominator += each_vanilla.raw_covs.max_nodes
 
+            # tmp_1 ='\n'.join([str(bb) for bb in vanilla_all_bbs])
+            # print(f"vanilla_all_bbs: {tmp_1}")
 
             # Calculate total unique BBs from DF fuzzing_info
             each_bar_all_bbs = df_fuzzing_dir[df_bar_key].accumulated_cov_bbs
-            
+
+            # tmp_2 ='\n'.join([str(bb) for bb in each_bar_all_bbs])
+            # print(f"each_bar_all_bbs: {tmp_2}")
+
             # Calculate new unique BBs (those in DF but not in vanilla)
             new_bbs = each_bar_all_bbs - vanilla_all_bbs
             old_bbs = vanilla_all_bbs - each_bar_all_bbs
@@ -433,7 +447,9 @@ def df_control_flow_graph(
             old_count = len(old_bbs)
 
             # Store data
-            bar_labels.append(f"{bar_prefix}{bar_id if bar_field_name == 'id' else naming_change(df_bar_key)}")
+            bar_labels.append(
+                f"{bar_prefix}{bar_id if bar_field_name == 'id' else naming_change(df_bar_key)}"
+            )
             bar_id += 1
             overlapped_count = len(each_bar_all_bbs & vanilla_all_bbs)
             overlapped_segments.append(overlapped_count)
@@ -460,7 +476,11 @@ def df_control_flow_graph(
         # Plot stacked bars: old (bottom), overlapped (middle), new (top)
         bars1 = ax.bar(
             x_pos,
-            old_segments,
+            (
+                old_segments
+                if not show_rate
+                else [old / coverage_denominator * 100 for old in old_segments]
+            ),
             width,
             label="Exploration-only Coverage",
             color=old_color,
@@ -468,28 +488,57 @@ def df_control_flow_graph(
         )
         bars2 = ax.bar(
             x_pos,
-            overlapped_segments,
+            (
+                overlapped_segments
+                if not show_rate
+                else [ovl / coverage_denominator * 100 for ovl in overlapped_segments]
+            ),
             width,
-            bottom=old_segments,
+            bottom=(
+                old_segments
+                if not show_rate
+                else [old / coverage_denominator * 100 for old in old_segments]
+            ),
             label="Exploration-Snapshot Shared Coverage",
             color=overlapped_color,
             alpha=0.8,
         )
         bars3 = ax.bar(
             x_pos,
-            new_segments,
+            (
+                new_segments
+                if not show_rate
+                else [new / coverage_denominator * 100 for new in new_segments]
+            ),
             width,
-            bottom=[old + ovl for old, ovl in zip(old_segments, overlapped_segments)],
+            bottom=(
+                [old + ovl for old, ovl in zip(old_segments, overlapped_segments)]
+                if not show_rate
+                else [
+                    (old + ovl) / coverage_denominator * 100
+                    for old, ovl in zip(old_segments, overlapped_segments)
+                ]
+            ),
             label="Snapshot Fuzzing-only Coverage",
             color=new_color,
             alpha=0.8,
         )
 
         # Calculate max bar height and set y-axis limit with some padding
-        max_bar_height = max(
-            old + ovl + new
-            for old, ovl, new in zip(old_segments, overlapped_segments, new_segments)
-        )
+        if not show_rate:
+            max_bar_height = max(
+                old + ovl + new
+                for old, ovl, new in zip(
+                    old_segments, overlapped_segments, new_segments
+                )
+            )
+        else:
+            max_bar_height = max(
+                (old + ovl + new) / coverage_denominator * 100
+                for old, ovl, new in zip(
+                    old_segments, overlapped_segments, new_segments
+                )
+            )
 
         # Formatting
         ax.set_xlabel(
@@ -517,6 +566,8 @@ def df_control_flow_graph(
                     label.set_y(label.get_position()[1] - 0.03)
                     # label.set_rotation(90)
 
+        if show_rate:
+            ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.0f}%"))
         ax.set_ylim(0, max_bar_height * 1.15)  # Add some padding at the top
         ax.legend(loc="upper right", fontsize=9)
         ax.grid(True, alpha=0.3, linestyle="--", linewidth=0.8, axis="y")

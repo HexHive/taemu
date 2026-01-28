@@ -31,7 +31,7 @@ def main(
     all_tas: set[str] = list_tas(path)
     tees = tees or ["mitee", "teegris", "beanpod", "t6", "qsee"]
     filtered_tas = list(filter(lambda ta: any(tee in ta for tee in tees), all_tas))
-    
+
     ## get the cfg and basic raw fuzzing info
     logger.info(f"[+] Collecting cfg and basic raw fuzzing info for each TA")
     fuzzing_info_list: List[FuzzingInfo] = []
@@ -104,7 +104,12 @@ def main(
 
     if fuzz_mode == FuzzMode.DF or fuzz_mode == FuzzMode.ALL:
         logger.info(f"[+] Generating df graph")
-        df_graph = df_control_flow_graph(fuzzing_info_list, grouping_field_name=grouping_field_names[1], bar_field_name=grouping_field_names[2], show_rate=show_rate)
+        df_graph = df_control_flow_graph(
+            fuzzing_info_list,
+            grouping_field_name=grouping_field_names[1],
+            bar_field_name=grouping_field_names[2],
+            show_rate=show_rate,
+        )
         if df_graph:
             logger.info(f"[+] Finished generating df graph")
             if save_plots:
@@ -149,7 +154,11 @@ if __name__ == "__main__":
         path=args.path,
         tees=args.tees,
         regen_coverage=args.regen_coverage,
-        grouping_field_names=[args.org_group_field, args.df_group_field, args.df_bar_field],
+        grouping_field_names=[
+            args.org_group_field,
+            args.df_group_field,
+            args.df_bar_field,
+        ],
         show_rate=args.show_rate,
         show_plots=False,
         save_plots=True,
@@ -158,4 +167,3 @@ if __name__ == "__main__":
 # uv run main.py --path /home/sp1der/code/TA_GP_emulator --show_rate --tees qsee beanpod --fuzz_mode ORG --regen_coverage
 # uv run main.py   --path /home/sp1der/code/TA_GP_emulator --show_rate --tees qsee beanpod --df_group_field tee --df_bar_field id
 #  uv run main.py   --path /home/sp1der/code/TA_GP_emulator --show_rate --tees qsee beanpod --df_group_field tee --df_bar_field harness_path
-

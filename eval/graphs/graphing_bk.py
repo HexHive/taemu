@@ -28,7 +28,6 @@ def naming_change(names: list[str] | str) -> list[str] | str:
     return new_names if len(new_names) > 1 else new_names[0]
 
 
-
 def _sum_finfo(
     new: GroupedFuzzingInfo,
     old: FuzzingInfo,
@@ -37,13 +36,13 @@ def _sum_finfo(
         uniq_identity=f"{x.uniq_identity}_{y.uniq_identity}",
         max_nodes=x.max_nodes + y.max_nodes,
         cfg=None,
-    )
+    ),
 ):
     def _merge_distribution(
         org: dict[int, list[BB]], distribution2: dict[int, set[BB]]
     ):
         distribution = {ts: [] for ts in range(0, max_timestamps)}
-        for ts in range(0, max_timestamps+1):
+        for ts in range(0, max_timestamps + 1):
             if ts in org:
                 distribution[ts].extend(org[ts])
             else:
@@ -55,9 +54,15 @@ def _sum_finfo(
                 distribution[ts].extend(distribution2[ts])
             else:
                 distribution[ts] = distribution[ts - 1]
-        
+
         # keep only changed distribution
-        distribution = {ts: distribution[ts] for ts in distribution if ts == 0 or ts == max_timestamps or distribution[ts] != distribution[ts - 1]}
+        distribution = {
+            ts: distribution[ts]
+            for ts in distribution
+            if ts == 0
+            or ts == max_timestamps
+            or distribution[ts] != distribution[ts - 1]
+        }
         return distribution
 
     new.unique_cov_bbs_distribution = _merge_distribution(
@@ -65,7 +70,9 @@ def _sum_finfo(
         old.unique_cov_bbs_distribution,
     )
     new.fuzzing_infos.append(old)
-    new.accumulated_cov_bbs = list(new.accumulated_cov_bbs) + list(old.accumulated_cov_bbs)
+    new.accumulated_cov_bbs = list(new.accumulated_cov_bbs) + list(
+        old.accumulated_cov_bbs
+    )
     new.raw_covs = cov_update_func(
         new.raw_covs,
         old.raw_covs,
@@ -74,7 +81,7 @@ def _sum_finfo(
 
 def _group_fuzzing_info_list(
     fuzzing_info_list: List[FuzzingInfo],
-    field_name: str, # tee
+    field_name: str,  # tee
     max_timestamps: int = 86400,
 ) -> dict[str, GroupedFuzzingInfo]:
 
@@ -170,8 +177,7 @@ def org_control_flow_graph(
         for ts in timestamp_strs_sorted:
             counts.append(len(cov_distribution[ts]))
 
-
-        x_values = [ts / 3600.0 for ts in timestamp_strs_sorted] 
+        x_values = [ts / 3600.0 for ts in timestamp_strs_sorted]
 
         # Plot curve
         y_values = (
@@ -232,9 +238,9 @@ def org_control_flow_graph(
 
 
 def _group_df_fuzzing_info_list(
-    fuzzing_info_list: List[FuzzingInfo], 
-    field_name: str, # tee, harness_path
-    bar_field_name: str, # harness_path, id
+    fuzzing_info_list: List[FuzzingInfo],
+    field_name: str,  # tee, harness_path
+    bar_field_name: str,  # harness_path, id
     max_timestamps: int = 900,
 ) -> tuple[dict[str, GroupedFuzzingInfo], dict[str, dict[str, GroupedFuzzingInfo]]]:
     # key: vanilla id, value: list of df fuzzing_info objects
@@ -255,7 +261,11 @@ def _group_df_fuzzing_info_list(
                     {},
                     set(),
                 )
-            _sum_finfo(vanilla_fuzzing_info_map[field_value], fuzzing_info, max_timestamps=max_timestamps)
+            _sum_finfo(
+                vanilla_fuzzing_info_map[field_value],
+                fuzzing_info,
+                max_timestamps=max_timestamps,
+            )
 
     for fuzzing_info in fuzzing_info_list:
         if fuzzing_info.raw_fuzzing_info.fuzz_mode != FuzzMode.DF:
@@ -276,7 +286,11 @@ def _group_df_fuzzing_info_list(
                 {},
                 set(),
             )
-        _sum_finfo(grouped_df_bbs[field_value][bar_field_value], fuzzing_info, max_timestamps=max_timestamps)
+        _sum_finfo(
+            grouped_df_bbs[field_value][bar_field_value],
+            fuzzing_info,
+            max_timestamps=max_timestamps,
+        )
 
     return vanilla_fuzzing_info_map, grouped_df_bbs
 
@@ -284,8 +298,8 @@ def _group_df_fuzzing_info_list(
 def df_control_flow_graph(
     fuzzing_info_list: List[FuzzingInfo],
     *,
-    grouping_field_name: str, # tee, harness_path
-    bar_field_name: str, # harness_path, id
+    grouping_field_name: str,  # tee, harness_path
+    bar_field_name: str,  # harness_path, id
     show_rate: bool = False,
 ):
     # vanilla_fuzzing_info_map: merged sth in same subgraph
