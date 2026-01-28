@@ -1,0 +1,11 @@
+# environment variables:
+AFL_AUTORESUME=1
+AFL_CUSTOM_INFO_PROGRAM=python3
+AFL_CUSTOM_INFO_PROGRAM_ARGV=-m emulate --fuzz @@ --fuzz_harness /srv/mitee/harness/655a_fuzz/harness.py rootfs/655a4b46-cd77-11ea-aafbf382a6988e7b.ta
+AFL_CUSTOM_INFO_OUT=/srv/mitee/harness/655a_fuzz/out/default
+AFL_FORKSRV_INIT_TMOUT=99999
+AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
+AFL_SKIP_CPUFREQ=1
+AFL_NO_FASTRESUME=1
+# command line:
+'afl-fuzz' '-V' '99999999999' '-t' '5000' '-i' '/srv/mitee/harness/655a_fuzz/in' '-o' '/srv/mitee/harness/655a_fuzz/out' '-m' 'none' '-U' '--' 'python3' '-m' 'emulate' '--fuzz' '@@' '--fuzz_harness' '/srv/mitee/harness/655a_fuzz/harness.py' 'rootfs/655a4b46-cd77-11ea-aafbf382a6988e7b.ta'

@@ -1,0 +1,4 @@
+pwntools
+pycryptodome
+colorama
+hexdump

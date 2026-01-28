@@ -1,0 +1,3 @@
+# Firmware
+
+SM-S921B_SFR_S921BXXS9BYH2_fac

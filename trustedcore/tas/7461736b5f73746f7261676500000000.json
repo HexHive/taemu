@@ -1,0 +1,24 @@
+{
+    "inline": {
+        "taskstorage_openssesion": {
+            "addr": 13200,
+            "type": "tee"
+        },
+        "quit_early": {
+            "addr": 15668,
+            "type": "tee"
+        }
+    },
+    "TA_CreateEntryPoint_start": 16884,
+    "TA_CreateEntryPoint_end": [16944],
+    "TA_OpenSessionEntryPoint_start": 13200,
+    "TA_OpenSessionEntryPoint_end": [13292],
+    "TA_InvokeCommandEntryPoint_start": 14176,
+    "TA_InvokeCommandEntryPoint_end": [14340],
+    "TA_CloseSessionEntryPoint_start": 16884,
+    "TA_CloseSessionEntryPoint_end": [16944],
+    "TA_DestroyEntryPoint_start": 16884,
+    "TA_DestroyEntryPoint_end": [16944]
+}
+
+    

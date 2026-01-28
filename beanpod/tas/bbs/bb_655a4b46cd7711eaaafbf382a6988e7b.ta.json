@@ -1,0 +1,263 @@
+{
+    "0xbd84": {
+        "function": "0xbd84",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "0000bd84",
+                "end": "0000bda3",
+                "calls": [
+                    {
+                        "func": "ut_pf_log_msg",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "dm_data_base_init",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "0xbda4": {
+        "function": "0xbda4",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "0000bda4",
+                "end": "0000bdbf",
+                "calls": [
+                    {
+                        "func": "ut_pf_log_msg",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "0xbdc0": {
+        "function": "0xbdc0",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "0000bdc0",
+                "end": "0000bdf7",
+                "calls": [
+                    {
+                        "func": "tz_show_current_time",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "tz_dump_mem_info",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "tz_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_2",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "0000bdf8",
+                "end": "0000be1b",
+                "calls": [
+                    {
+                        "func": "tz_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_2",
+                "start": "0000be1c",
+                "end": "0000be2b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_4",
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "0000be2c",
+                "end": "0000be6b",
+                "calls": [
+                    {
+                        "func": "ut_pf_log_msg",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_4",
+                "start": "0000be6c",
+                "end": "0000be83",
+                "calls": [
+                    {
+                        "func": "json_loads",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_8",
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_5",
+                "start": "0000be84",
+                "end": "0000be8f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_8",
+                    "BB_6"
+                ]
+            },
+            {
+                "name": "BB_6",
+                "start": "0000be90",
+                "end": "0000bedb",
+                "calls": [
+                    {
+                        "func": "json_object_iter",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "json_object_iter_key",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "tz_log",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "json_object_get",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "OTrP_handle_message",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "strlen",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_7",
+                "start": "0000bedc",
+                "end": "0000beef",
+                "calls": [
+                    {
+                        "func": "dm_update_data_base",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "dump_data_base",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_8",
+                "start": "0000bef0",
+                "end": "0000bf23",
+                "calls": [
+                    {
+                        "func": "tz_log",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "memset",
+                        "api": true,
+                        "api_type": "libc"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_7"
+                ]
+            }
+        ]
+    },
+    "0xbf28": {
+        "function": "0xbf28",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "0000bf28",
+                "end": "0000bf37",
+                "calls": [
+                    {
+                        "func": "ut_pf_log_msg",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "0xbf38": {
+        "function": "0xbf38",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "0000bf38",
+                "end": "0000bf47",
+                "calls": [
+                    {
+                        "func": "ut_pf_log_msg",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    }
+}

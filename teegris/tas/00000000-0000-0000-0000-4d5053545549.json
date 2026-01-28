@@ -1,0 +1,28 @@
+{
+    "inline": {
+	"mpos_ICCC_check": {
+		"addr": 38148,
+		"type": "tee"
+	}	
+    },
+    "TA_InvokeCommandEntryPoint_start": 96172,
+    "TA_InvokeCommandEntryPoint_end": [
+        96476
+    ],
+    "TA_CreateEntryPoint_start": 95672,
+    "TA_CreateEntryPoint_end": [
+        95792
+    ],
+    "TA_OpenSessionEntryPoint_start": 95920,
+    "TA_OpenSessionEntryPoint_end": [
+        96036
+    ],
+    "TA_CloseSessionEntryPoint_start": 96044,
+    "TA_CloseSessionEntryPoint_end": [
+   	96164 
+    ],
+    "TA_DestroyEntryPoint_start": 95800,
+    "TA_DestroyEntryPoint_end": [
+   	95912 
+    ]
+}

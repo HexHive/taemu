@@ -1,0 +1,88 @@
+{
+    "inline": {
+        "TEE_Malloc": {
+            "addr": 855040,
+            "type": "gp_api"
+        },
+        "TEE_SeekObjectData": {
+            "addr": 857240,
+            "type": "gp_api"
+        },
+        "TEE_GetREETime": {
+            "addr": 854952,
+            "type": "gp_api"
+        },
+        "TEE_ReadObjectData": {
+            "addr": 856656,
+            "type": "gp_api"
+        },
+        "TEE_GenerateRandom": {
+            "addr": 857592,
+            "type": "gp_api"
+        },
+        "TEE_CloseAndDeletePersistentObject": {
+            "addr": 856288,
+            "type": "gp_api"
+        },
+        "TEE_CreatePersistentObject": {
+            "addr": 855936,
+            "type": "gp_api"
+        },
+        "TEE_GetObjectInfo": {
+            "addr": 855408,
+            "type": "gp_api"
+        },
+        "TEE_OpenPersistentObject": {
+            "addr": 855608,
+            "type": "gp_api"
+        },
+        "TEE_WriteObjectData": {
+            "addr": 856896,
+            "type": "gp_api"
+        },
+        "TEE_GetPropertyAsIdentity": {
+            "addr": 858904,
+            "type": "gp_api"
+        },
+        "TEE_CloseObject": {
+            "addr": 855528,
+            "type": "gp_api"
+        },
+        "TEE_GetSystemTime": {
+            "addr": 854872,
+            "type": "gp_api"
+        },
+        "TEE_TruncateObjectData": {
+            "addr": 857072,
+            "type": "gp_api"
+        },
+        "gen_random": {
+            "addr": 1229824,
+            "type": "tee"
+        },
+        "tee_get_cpuid": {
+            "addr": 901968,
+            "type": "tee"
+        }
+    },
+    "TA_DestroyEntryPoint_start": 809376,
+    "TA_DestroyEntryPoint_end": [
+        809412
+    ],
+    "TA_OpenSessionEntryPoint_start": -1,
+    "TA_OpenSessionEntryPoint_end": [
+        -1
+    ],
+    "TA_CreateEntryPoint_start": 808440,
+    "TA_CreateEntryPoint_end": [
+        809364
+    ],
+    "TA_CloseSessionEntryPoint_start": 814240,
+    "TA_CloseSessionEntryPoint_end": [
+        814276
+    ],
+    "TA_InvokeCommandEntryPoint_start": 814280,
+    "TA_InvokeCommandEntryPoint_end": [
+        814872
+    ]
+}

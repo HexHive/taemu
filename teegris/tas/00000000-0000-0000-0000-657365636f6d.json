@@ -1,0 +1,22 @@
+{
+    "TA_InvokeCommandEntryPoint_start": 33768,
+    "TA_InvokeCommandEntryPoint_end": [
+        34384
+    ],
+    "TA_CreateEntryPoint_start": 33628,
+    "TA_CreateEntryPoint_end": [
+        33692
+    ],
+    "TA_OpenSessionEntryPoint_start": 33700,
+    "TA_OpenSessionEntryPoint_end": [
+        33748
+    ],
+    "TA_CloseSessionEntryPoint_start": 33752,
+    "TA_CloseSessionEntryPoint_end": [
+        33764
+    ],
+    "TA_DestroyEntryPoint_start": 33696,
+    "TA_DestroyEntryPoint_end": [
+        33696
+    ]
+}

@@ -1,0 +1,28 @@
+services:
+  ghidrathon-headless:
+    image: ghidrathon:latest
+    platform: linux # Native arch
+    build:
+      context: .
+      target: ghidrathon
+    volumes:
+      - ./src:/src:ro
+      - ../mitee/tas/:/mitee_tas/:rw
+      - ../beanpod/tas:/beanpod_tas/:rw
+      - ../teegris/tas:/teegris_tas/:rw
+      - ../t6/tas:/t6_tas/:rw
+      - ..:/mnt:rw
+      - ../qsee/tas:/qsee_tas/:rw
+      - ../kinibi/tas:/kinibi_tas/:rw
+      - ./docker/mitee-entrypoint.sh:/mitee-entrypoint.sh
+      - ./docker/beanpod-entrypoint.sh:/beanpod-entrypoint.sh
+      - ./docker/teegris-entrypoint.sh:/teegris-entrypoint.sh
+      - ./docker/t6-entrypoint.sh:/t6-entrypoint.sh
+      - ./docker/qsee-entrypoint.sh:/qsee-entrypoint.sh
+      - ./docker/bbs-entrypoint.sh:/bbs-entrypoint.sh
+      - ./docker/bbs-manual-entrypoint.sh:/bbs-manual-entrypoint.sh
+    deploy:
+      replicas: 0 # Don't start ghidrathon by default
+  tipi:
+    extends: # Use env, volumes, capabilities from above service
+      service: ghidrathon-headless
