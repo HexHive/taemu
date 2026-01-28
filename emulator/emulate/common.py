@@ -1,4 +1,5 @@
 CRASH_PC = 0xdeadbeef
+CRASH_PC_2 = 0xdeadbeee
 NOTIMPL_PC = 0xcafecafe
 HEAP_MEM=0xaaaaa000
 

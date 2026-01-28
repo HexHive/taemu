@@ -25,7 +25,7 @@ from .emulator_no_loader import (
     hook_ta_custom,
     teegris_32_setup
 )
-from .common import CRASH_PC, NOTIMPL_PC
+from .common import CRASH_PC, CRASH_PC_2, NOTIMPL_PC
 
 
 def parse_msg(msg):
@@ -653,13 +653,16 @@ class TAEMU:
 
         def crash_validation(ql: Qiling, result: int, input_bytes: bytes, round: int) -> bool:
             print("crash callback: ", result)
-            if ql.arch.regs.arch_pc == CRASH_PC or ql.arch.regs.arch_pc == NOTIMPL_PC:
+            if ql.arch.regs.arch_pc == CRASH_PC or ql.arch.regs.arch_pc == CRASH_PC_2 or ql.arch.regs.arch_pc == NOTIMPL_PC:
                 return True
             if result == 6:
                 return True
             # if ql.arch.regs.arch_pc not in exit_addr:
             # return True
             return False
+
+        def pivot2(ql: Qiling):
+            ql.arch.regs.arch_pc = 0x13370
 
         def start_afl(_ql: Qiling):
             if fuzz_replay:
@@ -671,7 +674,7 @@ class TAEMU:
                 _ql,
                 input_file=input_file,
                 place_input_callback=place_input_callback,
-                exits=exit_hooks,
+                exits=[0x13370],
                 validate_crash_callback=crash_validation,
                 always_validate=True,
             )
@@ -683,6 +686,8 @@ class TAEMU:
             for e in exit_addr:
                 exit_hooks.append(self.ql.hook_address(pivot, e, user_data="TA_InvokeCommandEntryPoint"))
         else:
+            for e in exit_addr:
+                exit_hooks.append(self.ql.hook_address(pivot2, e, user_data="TA_InvokeCommandEntryPoint")) 
             self.ql.hook_address(
                 callback=start_afl,
                 address=self.TA_InvokeCommandEntryPoint_start,
