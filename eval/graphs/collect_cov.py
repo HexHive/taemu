@@ -50,6 +50,7 @@ class GroupedFuzzingInfo:
     accumulated_cov_bbs: set[BB]
 
 
+
 def gen_coverage_files(
     raw_fuzzing_infos: list[RawFuzzingInfo],
     image_name: str,

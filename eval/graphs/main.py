@@ -31,7 +31,7 @@ def main(
     all_tas: set[str] = list_tas(path)
     tees = tees or ["mitee", "teegris", "beanpod", "t6", "qsee"]
     filtered_tas = list(filter(lambda ta: any(tee in ta for tee in tees), all_tas))
-
+    
     ## get the cfg and basic raw fuzzing info
     logger.info(f"[+] Collecting cfg and basic raw fuzzing info for each TA")
     fuzzing_info_list: List[FuzzingInfo] = []

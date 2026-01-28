@@ -103,10 +103,11 @@ def is_api_call(body, target, tee, inline_funcs):
         print("f is None..")
         return True
     fname = f.getName()
-    if isname(fname) and tee == "beanpod":
-        return True
-    if isname(fname) and tee == "teegris":
-        return True
+    print(target, f.isExternal())
+    #if isname(fname) and tee == "beanpod" and f.isExternal():
+    #    return True
+    #if isname(fname) and tee == "teegris":
+    #    return True
     if is_gp(fname):
         return True
     if is_libc(fname):
@@ -267,9 +268,14 @@ def gen_cfg(func, func_cfgs, tee, inline_funcs):
                                 f_name = str(target)
                             if get_inline(inline_funcs, target) is not None:
                                 f_name = get_inline(inline_funcs, target)["name"]
-                            calls.append(
-                                {"func": f_name, "api": is_api, "api_type": api_type}
-                            )
+                            if is_api: 
+                                calls.append(
+                                    {"func": f_name, "api": is_api, "api_type": api_type}
+                                )
+                            else:
+                                calls.append(
+                                    {"func": str(target), "api": is_api, "api_type": api_type}
+                                )
                         else:
                             calls.append(
                                 {
