@@ -351,7 +351,7 @@ def gather_suspicious_inputs_covs(df_bar_key: str, df_group_finfo: GroupedFuzzin
         "cov"
     )
     if bar_field_name == "id":
-        file = df_bar_key.split("_")[0] + ".cov"
+        file = df_bar_key.split("_")[-2] + ".cov"
         suspicious_inputs_bbs=parse_drcov(tee=df_group_finfo.raw_fuzzing_info.tee,
             ta=df_group_finfo.raw_fuzzing_info.ta_name,
             path=os.path.join(suspicious_inputs_covs, file)
@@ -386,7 +386,7 @@ def longest_overlapped_bbs_trace(suspicious_inputs_bbs: list[BB], df_fuzzing_dir
         else:
             break
     return longest_overlapped_bbs
-    
+
 
 def df_control_flow_graph(
     fuzzing_info_list: List[FuzzingInfo],
@@ -479,8 +479,8 @@ def df_control_flow_graph(
             current_harness_path = df_fuzzing_dir[
                 df_snapshot
             ].raw_fuzzing_info.harness_path
-            print(f"current_harness_path: {current_harness_path}")
-            print(f"df_bar_key: {df_snapshot}")
+            # print(f"current_harness_path: {current_harness_path}")
+            # print(f"df_bar_key: {df_snapshot}")
 
             # Calculate total unique BBs from vanilla (across all timestamps)
             vanilla_all_bbs = set()
@@ -500,7 +500,7 @@ def df_control_flow_graph(
             part_basic = set(longest_overlapped_bbs_trace(suspicious_inputs_bbs, df_fuzzing_dir[df_snapshot]))
             
             part_one = set(suspicious_inputs_bbs) - part_basic
-            part_two = (set(vanilla_all_bbs) & (df_snapshot_bbs - suspicious_inputs_bbs)) - part_basic
+            part_two = (set(vanilla_all_bbs) & (df_snapshot_bbs - set(suspicious_inputs_bbs))) - part_basic
             part_three = df_snapshot_bbs - part_two - part_one - part_basic
 
             # Store data

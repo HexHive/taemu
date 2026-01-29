@@ -14,6 +14,7 @@ from tqdm import tqdm
 import time
 import matplotlib.pyplot as plt
 from typing import Optional
+import sys
 
 logger.add("graphs.log", rotation="100 MB", retention="10 days")
 
@@ -57,6 +58,9 @@ def main(
 
     if fuzz_mode == FuzzMode.DF or fuzz_mode == FuzzMode.ALL:
         linking(fuzzing_info_list)
+        
+    sys.stdout.flush()
+    sys.stderr.flush()
 
     ## generate coverage files based on queue
     if regen_coverage:
@@ -79,6 +83,10 @@ def main(
 
     logger.info(f"[+] Parsing unique bbs for each TA")
     parse_unique_bbs(fuzzing_info_list)
+    
+    sys.stdout.flush()
+    sys.stderr.flush()
+
 
     ## generate graphs for each ta
     if fuzz_mode == FuzzMode.ORG or fuzz_mode == FuzzMode.ALL:
@@ -149,7 +157,7 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
-    user_input = input("[-] Have you back up the coverage files of suspicious inputs to the directory `{args.ss_cov_rdir}`? (y/n)")
+    user_input = input(f"[-] Have you back up the coverage files of suspicious inputs to the directory `{args.ss_cov_rdir}`? (y/n)\n")
     if user_input != "y":
         raise Exception("[-] Please back up the coverage files of suspicious inputs first. Run `./bk_suspicious_inputs.sh <root_dir> <back_dir>`.")
 
