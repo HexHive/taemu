@@ -1,3 +1,4 @@
+from eval.graphs.collect_cov import GroupedFuzzingInfo
 import matplotlib.pyplot as plt
 import numpy as np
 from common import RawFuzzingInfo, BB, parse_cov, FuzzMode
@@ -7,7 +8,9 @@ from loguru import logger
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, Callable
-
+import os
+from collect_cov import gen_coverage_files
+from common import parse_drcov
 
 def naming_change(names: list[str] | str) -> list[str] | str:
     names_map = {
@@ -339,11 +342,41 @@ def _group_df_fuzzing_info_list(
     return vanilla_fuzzing_info_map, grouped_df_bbs
 
 
+def gather_suspicious_inputs_covs(df_bar_key: str, df_group_finfo: GroupedFuzzingInfo, bar_field_name: str, bk_suspicious_inputs_cov_rdir: str) -> set[BB]:
+    # align with x axis, so should be id or harness_path
+    suspicious_inputs_bbs = set()
+    harness_path = df_group_finfo.raw_fuzzing_info.harness_path
+    suspicious_inputs_covs = os.path.join(bk_suspicious_inputs_cov_rdir, 
+        harness_path[harness_path.rfind("TA_GP_emulator/")+len("TA_GP_emulator/"):], 
+        "out", 
+        "cov"
+    )
+    if bar_field_name == "id":
+        file = df_bar_key.split("_")[0] + ".cov"
+        suspicious_inputs_bbs=parse_drcov(tee=df_group_finfo.raw_fuzzing_info.tee,
+            ta=df_group_finfo.raw_fuzzing_info.ta_name,
+            path=os.path.join(suspicious_inputs_covs, file)
+        )
+    elif bar_field_name == "harness_path":
+        assert df_bar_key == harness_path
+        for file in os.listdir(suspicious_inputs_covs):
+            if file.endswith(".cov"):
+                suspicious_inputs_bbs.update(
+                    parse_drcov(tee=df_group_finfo.raw_fuzzing_info.tee,
+                    ta=df_group_finfo.raw_fuzzing_info.ta_name,
+                    path=os.path.join(suspicious_inputs_covs, file)
+                ))
+        
+    else:
+        raise ValueError(f"Invalid bar field name: {bar_field_name}")
+    return suspicious_inputs_bbs
+
 def df_control_flow_graph(
     fuzzing_info_list: List[FuzzingInfo],
     *,
     grouping_field_name: str,
     bar_field_name: str,
+    bk_suspicious_inputs_cov_rdir: str,
     show_rate: bool = False,
 ):
     # vanilla_fuzzing_info_map: merged sth in same subgraph
@@ -384,7 +417,7 @@ def df_control_flow_graph(
     overlapped_color = "#2E86AB"  # Blue for overlapped coverage
     new_color = "#A23B72"  # Purple for new coverage
 
-    for idx, (vanilla_id, df_fuzzing_dir) in enumerate(grouped_df_bbs.items()):
+    for idx, (vanilla_id, df_fuzzing_dir) in enumerate[tuple[str, dict[str, GroupedFuzzingInfo]]](grouped_df_bbs.items()):
         # put all df jobs of one ta harness inside a subplot
         ax = axes[idx]
 
@@ -431,18 +464,19 @@ def df_control_flow_graph(
                     vanilla_all_bbs.update(each_vanilla.accumulated_cov_bbs)
                     coverage_denominator += each_vanilla.raw_covs.max_nodes
 
-            # tmp_1 ='\n'.join([str(bb) for bb in vanilla_all_bbs])
-            # print(f"vanilla_all_bbs: {tmp_1}")
+            # Calculate covs related to suspicious_inputs
+            suspicious_inputs_bbs = gather_suspicious_inputs_covs(df_bar_key, df_fuzzing_dir[df_bar_key], bar_field_name, bk_suspicious_inputs_cov_rdir)
+
+            org_all_bbs = suspicious_inputs_bbs
+            # org_all_bbs = vanilla_all_bbs
+
 
             # Calculate total unique BBs from DF fuzzing_info
             each_bar_all_bbs = df_fuzzing_dir[df_bar_key].accumulated_cov_bbs
 
-            # tmp_2 ='\n'.join([str(bb) for bb in each_bar_all_bbs])
-            # print(f"each_bar_all_bbs: {tmp_2}")
-
             # Calculate new unique BBs (those in DF but not in vanilla)
-            new_bbs = each_bar_all_bbs - vanilla_all_bbs
-            old_bbs = vanilla_all_bbs - each_bar_all_bbs
+            new_bbs = each_bar_all_bbs - org_all_bbs
+            old_bbs = org_all_bbs - each_bar_all_bbs
             new_count = len(new_bbs)
             old_count = len(old_bbs)
 
@@ -451,7 +485,7 @@ def df_control_flow_graph(
                 f"{bar_prefix}{bar_id if bar_field_name == 'id' else naming_change(df_bar_key)}"
             )
             bar_id += 1
-            overlapped_count = len(each_bar_all_bbs & vanilla_all_bbs)
+            overlapped_count = len(each_bar_all_bbs & org_all_bbs)
             overlapped_segments.append(overlapped_count)
             new_segments.append(new_count)
             old_segments.append(old_count)

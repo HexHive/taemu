@@ -23,6 +23,7 @@ def main(
     path: str = "/root/TA_GP_emulator",
     tees: list[str] = None,
     regen_coverage: bool = False,
+    bk_suspicious_inputs_cov_rdir: str = None,
     show_plots: bool = True,
     save_plots: bool = True,
     grouping_field_names: Optional[list[str]] = None,
@@ -109,6 +110,7 @@ def main(
             grouping_field_name=grouping_field_names[1],
             bar_field_name=grouping_field_names[2],
             show_rate=show_rate,
+            bk_suspicious_inputs_cov_rdir=bk_suspicious_inputs_cov_rdir,
         )
         if df_graph:
             logger.info(f"[+] Finished generating df graph")
@@ -143,17 +145,27 @@ if __name__ == "__main__":
     parser.add_argument("--tees", nargs="+", default=None, help="Filter by TEEs")
     parser.add_argument("--regen_coverage", action="store_true", default=False)
     parser.add_argument("--path", type=str, default="/root/TA_GP_emulator")
-    parser.add_argument("--org_group_field", type=str, default=None)
-    parser.add_argument("--df_group_field", type=str, default="harness_path")
-    parser.add_argument("--df_bar_field", type=str, default="id")
+    parser.add_argument("--ss_cov_rdir", type=str, default=None, required=True)
+    parser.add_argument("--org_group_field", type=str, default=None, choices=["tee", None])
+    parser.add_argument("--df_group_field", type=str, default="harness_path", choices=["tee", "harness_path"])
+    parser.add_argument("--df_bar_field", type=str, default="id", choices=["id", "harness_path"])
     parser.add_argument("--show_rate", action="store_true", default=False)
+    
     args = parser.parse_args()
 
+    user_input = input("[-] Have you back up the coverage files of suspicious inputs? (y/n)")
+    if user_input != "y":
+        raise Exception("[-] Please back up the coverage files of suspicious inputs first. Run `./bk_suspicious_inputs.sh <root_dir> <back_dir>`.")
+
+    if os.path.exists(args.ss_cov_rdir) is False or len(os.listdir(args.ss_cov_rdir)) == 0:
+        raise Exception("[-] The directory of the backup coverage files of suspicious inputs does not exist or is empty.")
+    
     main(
         fuzz_mode=FuzzMode(args.fuzz_mode),
         path=args.path,
         tees=args.tees,
         regen_coverage=args.regen_coverage,
+        bk_suspicious_inputs_cov_rdir=args.ss_cov_rdir,
         grouping_field_names=[
             args.org_group_field,
             args.df_group_field,

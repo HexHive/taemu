@@ -75,7 +75,10 @@ def list_tas(path: str):
         ]
     )
 
+from cachetools import TTLCache, cached
+parse_drcov_cache = TTLCache(maxsize=10000, ttl=60 * 60)
 
+@cached(parse_drcov_cache)
 def parse_drcov(tee, ta, path):
     bbs_out = []
     raw = open(path, "rb").read()
