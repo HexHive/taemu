@@ -2,62 +2,42 @@
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <root_dir> <back_dir>"
+  echo "Example: $0 /root/TA_GP_emulator /root/bk_ss_cov"
   exit 1
 fi
 
+command -v pv && echo "pv is installed" || apt-get install -y pv
+
+
 BACK_DIR=$(realpath $2)
 ROOT_DIR=$(realpath $1)
+ts=$(date +%Y%m%d_%H%M%S)
 
-mkdir -p "$BACK_DIR/suspicious_inputs_covs"
+BACK_DIR="$BACK_DIR/$ts/suspicious_inputs_covs"
 
-BACK_DIR="$BACK_DIR/suspicious_inputs_covs"
-
-find $ROOT_DIR -path "*out/cov/run:id:*.cov" > "$ROOT_DIR/.suspicious_inputs_cov_files.txt"
-rsync -a --relative --files-from="$ROOT_DIR/.suspicious_inputs_cov_files.txt" ./ "$BACK_DIR"/
-
-
-find_target_files() {
-  find "$GRAPH_DIR" -name "$1" | grep -v "harness_dev" | grep "harness"
-}
-
-
-# for fuzz_dir in $(ls "$BACK_DIR"/vanilla); do
-#     base_name=$(basename "$fuzz_dir")
-#     abs_name="$BACK_DIR"/vanilla/$fuzz_dir
-#     echo "[+] Finding $base_name under $GRAPH_DIR"
-#     target=$(find_target_files "$fuzz_dir" "$base_name")
-#     if [ -n "$target" ]; then
-#       echo "Found target files: $target"
-#       cp -r $abs_name/out $target
-#     fi
-# done
+mkdir -p "$BACK_DIR"
 
 
 
-# for fuzz_dir in $(ls "$BACK_DIR"/df_fuzz); do
-#     base_name=$(basename "$fuzz_dir")
-#     abs_name="$BACK_DIR"/df_fuzz/$fuzz_dir
-#     echo "[+] Finding $base_name under $GRAPH_DIR"
-#     target=$(find_target_files "$fuzz_dir" "$base_name")
-#     if [ -n "$target" ]; then
-#       echo "Found target files: $target"
-#       cp -r $abs_name/df_fuzz $target
-#     fi
-# done
+echo "[1] Finding suspicious_inputs_covs files in $ROOT_DIR"
+LIST_FILE="$ROOT_DIR/.suspicious_inputs_cov_files.txt"
+find $ROOT_DIR -path "*harness/*/out/cov/run:id:*.cov" > "$LIST_FILE"
 
 
-# for fuzz_dir in $(ls "$BACK_DIR"/harness); do
-#     base_name=$(basename "$fuzz_dir")
-#     abs_name="$BACK_DIR"/harness/$fuzz_dir/suspicious_inputs_replay
-#     if [ ! -d "$abs_name" ]; then
-#         echo "[-] $abs_name does not exist"
-#         continue
-#     fi
+TOTAL="$(grep -cve '^[[:space:]]*$' "$LIST_FILE" || true)"
 
-#     echo "[+] Finding $base_name under $GRAPH_DIR"
-#     target=$(find_target_files "$fuzz_dir" "$base_name")
-#     if [ -n "$target" ]; then
-#       echo "Found target files: $target"
-#       cp -r $abs_name $target/in
-#     fi
-# done
+echo "[2] Backing up suspicious_inputs_covs files"
+pv -l -s "$TOTAL" "$LIST_FILE" | while IFS= read -r src; do
+
+  [ -z "$src" ] && continue
+
+  [[ -f "$src" ]] || { echo "[MISSING] $src" >&2; continue; }
+
+  dst="${src/#$ROOT_DIR/$BACK_DIR}"
+
+  mkdir -p "$(dirname "$dst")"
+  cp -a -- "$src" "$dst"
+done
+
+echo "[Done] size of backup ss coverage files: $(find $BACK_DIR -type f | wc -l)"
+echo "[3] Finish the backup for suspicious_inputs_covs to $BACK_DIR"

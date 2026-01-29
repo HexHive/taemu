@@ -149,7 +149,7 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
-    user_input = input("[-] Have you back up the coverage files of suspicious inputs? (y/n)")
+    user_input = input("[-] Have you back up the coverage files of suspicious inputs to the directory `{args.ss_cov_rdir}`? (y/n)")
     if user_input != "y":
         raise Exception("[-] Please back up the coverage files of suspicious inputs first. Run `./bk_suspicious_inputs.sh <root_dir> <back_dir>`.")
 
