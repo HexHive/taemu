@@ -9,6 +9,8 @@ use std::process;
 use std::time::{Duration, Instant};
 use rayon::ThreadPoolBuilder;
 mod container;
+use std::cmp::Ordering;
+
 mod job_generation;
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 use std::fmt::Write;
@@ -646,6 +648,17 @@ fn _main_with_logging() -> i32 {
         
     // }
     // info!(LOGGER, "Statistics of the TA files: {:?}", counts);
+    // let mut detailed_str = String::new();
+
+    // ta_files.sort_by(|a, b| {
+    //     let c1 = a.ta_harness_dir.as_os_str().cmp(b.ta_harness_dir.as_os_str());
+    //     return c1;
+    // });
+
+    // for (idx, job) in ta_files.iter().enumerate() {
+    //     detailed_str.push_str(format!("idx={}, {:#?}\n", idx, job).as_str());
+    // }
+    // info!(LOGGER, "Detailed information of the TA files: {}", detailed_str);
 
     info!(
         LOGGER,
