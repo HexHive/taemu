@@ -26,7 +26,7 @@ def main(
     bk_suspicious_inputs_cov_rdir: str = None,
     show_plots: bool = True,
     save_plots: bool = True,
-    grouping_field_names: Optional[list[str]] = None,
+    grouping_field_name: Optional[str] = None,
     show_rate: bool = False,
 ):
     all_tas: set[str] = list_tas(path)
@@ -52,7 +52,7 @@ def main(
             raw_covs, raw_fuzzing_infos = fut.result()
             for raw_fuzzing_info in raw_fuzzing_infos:
                 fuzzing_info_list.append(
-                    FuzzingInfo(raw_fuzzing_info, raw_covs, 0, 0, set(), {})
+                    FuzzingInfo(raw_fuzzing_info, raw_covs, None, {})
                 )
 
     if fuzz_mode == FuzzMode.DF or fuzz_mode == FuzzMode.ALL:
@@ -86,7 +86,7 @@ def main(
         org_graph = org_control_flow_graph(
             fuzzing_info_list,
             max_timestamps=86400,
-            grouping_field_name=grouping_field_names[0],
+            grouping_field_name=grouping_field_name,
             show_rate=show_rate,
         )
         if org_graph:
@@ -107,8 +107,6 @@ def main(
         logger.info(f"[+] Generating df graph")
         df_graph = df_control_flow_graph(
             fuzzing_info_list,
-            grouping_field_name=grouping_field_names[1],
-            bar_field_name=grouping_field_names[2],
             show_rate=show_rate,
             bk_suspicious_inputs_cov_rdir=bk_suspicious_inputs_cov_rdir,
         )
@@ -147,18 +145,16 @@ if __name__ == "__main__":
     parser.add_argument("--path", type=str, default="/root/TA_GP_emulator")
     parser.add_argument("--ss_cov_rdir", type=str, default=None, required=True)
     parser.add_argument("--org_group_field", type=str, default=None, choices=["tee", None])
-    parser.add_argument("--df_group_field", type=str, default="harness_path", choices=["tee", "harness_path"])
-    parser.add_argument("--df_bar_field", type=str, default="id", choices=["id", "harness_path"])
     parser.add_argument("--show_rate", action="store_true", default=False)
     
     args = parser.parse_args()
 
-    user_input = input("[-] Have you back up the coverage files of suspicious inputs? (y/n)")
-    if user_input != "y":
-        raise Exception("[-] Please back up the coverage files of suspicious inputs first. Run `./bk_suspicious_inputs.sh <root_dir> <back_dir>`.")
+    # user_input = input("[-] Have you back up the coverage files of suspicious inputs? (y/n)")
+    # if user_input != "y":
+    #     raise Exception("[-] Please back up the coverage files of suspicious inputs first. Run `./bk_suspicious_inputs.sh <root_dir> <back_dir>`.")
 
-    if os.path.exists(args.ss_cov_rdir) is False or len(os.listdir(args.ss_cov_rdir)) == 0:
-        raise Exception("[-] The directory of the backup coverage files of suspicious inputs does not exist or is empty.")
+    # if os.path.exists(args.ss_cov_rdir) is False or len(os.listdir(args.ss_cov_rdir)) == 0:
+    #     raise Exception("[-] The directory of the backup coverage files of suspicious inputs does not exist or is empty.")
     
     main(
         fuzz_mode=FuzzMode(args.fuzz_mode),
@@ -166,16 +162,12 @@ if __name__ == "__main__":
         tees=args.tees,
         regen_coverage=args.regen_coverage,
         bk_suspicious_inputs_cov_rdir=args.ss_cov_rdir,
-        grouping_field_names=[
-            args.org_group_field,
-            args.df_group_field,
-            args.df_bar_field,
-        ],
+        grouping_field_name=args.org_group_field,
         show_rate=args.show_rate,
         show_plots=False,
         save_plots=True,
     )
 # uv run main.py --path /home/sp1der/code/TA_GP_emulator --show_rate --tees qsee beanpod --group_field tee
 # uv run main.py --path /home/sp1der/code/TA_GP_emulator --show_rate --tees qsee beanpod --fuzz_mode ORG --regen_coverage
-# uv run main.py   --path /home/sp1der/code/TA_GP_emulator --show_rate --tees qsee beanpod --df_group_field tee --df_bar_field id
-#  uv run main.py   --path /home/sp1der/code/TA_GP_emulator --show_rate --tees qsee beanpod --df_group_field tee --df_bar_field harness_path
+# uv run main.py   --path /home/sp1der/code/TA_GP_emulator --show_rate --tees qsee beanpod --org_group_field tee
+#  uv run main.py   --path /home/sp1der/code/TA_GP_emulator --show_rate --tees qsee beanpod --org_group_field tee

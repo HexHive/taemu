@@ -5,7 +5,7 @@ from bb import build_tee_cfg, cfg_ta, trim_cfg, root, get_apis, reachable_nodes
 import os
 import networkx as nx
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import subprocess
 from loguru import logger
 from typing import List, Any
@@ -21,6 +21,7 @@ from tenacity import (
     wait_exponential,
     retry_if_exception_type,
 )
+from typing import Optional
 
 
 @dataclass
@@ -37,8 +38,10 @@ class FuzzingInfo:
     fuzz_graphs: dict[str, plt.Figure]
     # key: timestamp, value: set of bbs
     unique_cov_bbs_distribution: dict[int, set[BB]]
-    accumulated_cov_bbs: set[BB]
-    linked_ta_finfo: RawFuzzingInfo
+    # one cov dir has more than one bbs list.
+    raw_bbs: list[list[BB]] = field(default_factory=list) 
+    accumulated_cov_bbs: set[BB] = field(default_factory=set)
+    linked_ta_finfo: Optional[RawFuzzingInfo] = None
 
 
 @dataclass

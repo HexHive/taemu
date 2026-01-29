@@ -1,7 +1,6 @@
-from eval.graphs.collect_cov import GroupedFuzzingInfo
 import matplotlib.pyplot as plt
 import numpy as np
-from common import RawFuzzingInfo, BB, parse_cov, FuzzMode
+from common import RawFuzzingInfo, BB, parse_cov, FuzzMode, parse_drcov
 from typing import List
 from collect_cov import FuzzingInfo, GroupedFuzzingInfo, Coverage
 from loguru import logger
@@ -9,8 +8,6 @@ from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, Callable
 import os
-from collect_cov import gen_coverage_files
-from common import parse_drcov
 
 def naming_change(names: list[str] | str) -> list[str] | str:
     names_map = {
@@ -51,6 +48,7 @@ def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo]):
             if timestamp not in unique_bbs_ts_based:
                 unique_bbs_ts_based[timestamp] = set()
             unique_bbs_ts_based[timestamp].update(bbs)
+            fuzzing_info.raw_bbs.append(bbs)
         fuzzing_info.unique_cov_bbs_distribution = unique_bbs_ts_based
 
         timestamp_strs = list(unique_bbs_ts_based.keys())
@@ -61,6 +59,7 @@ def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo]):
         for ts in timestamp_strs_sorted:
             accumulated_bbs.update(unique_bbs_ts_based[ts])
         fuzzing_info.accumulated_cov_bbs = accumulated_bbs
+        
 
     with ThreadPoolExecutor(max_workers=30) as ex:
         futures = [
@@ -342,9 +341,9 @@ def _group_df_fuzzing_info_list(
     return vanilla_fuzzing_info_map, grouped_df_bbs
 
 
-def gather_suspicious_inputs_covs(df_bar_key: str, df_group_finfo: GroupedFuzzingInfo, bar_field_name: str, bk_suspicious_inputs_cov_rdir: str) -> set[BB]:
+def gather_suspicious_inputs_covs(df_bar_key: str, df_group_finfo: GroupedFuzzingInfo, bar_field_name: str, bk_suspicious_inputs_cov_rdir: str) -> list[BB]:
     # align with x axis, so should be id or harness_path
-    suspicious_inputs_bbs = set()
+    suspicious_inputs_bbs = list()
     harness_path = df_group_finfo.raw_fuzzing_info.harness_path
     suspicious_inputs_covs = os.path.join(bk_suspicious_inputs_cov_rdir, 
         harness_path[harness_path.rfind("TA_GP_emulator/")+len("TA_GP_emulator/"):], 
@@ -357,28 +356,46 @@ def gather_suspicious_inputs_covs(df_bar_key: str, df_group_finfo: GroupedFuzzin
             ta=df_group_finfo.raw_fuzzing_info.ta_name,
             path=os.path.join(suspicious_inputs_covs, file)
         )
-    elif bar_field_name == "harness_path":
-        assert df_bar_key == harness_path
-        for file in os.listdir(suspicious_inputs_covs):
-            if file.endswith(".cov"):
-                suspicious_inputs_bbs.update(
-                    parse_drcov(tee=df_group_finfo.raw_fuzzing_info.tee,
-                    ta=df_group_finfo.raw_fuzzing_info.ta_name,
-                    path=os.path.join(suspicious_inputs_covs, file)
-                ))
-        
+    # elif bar_field_name == "harness_path":
+    #     assert df_bar_key == harness_path
+    #     for file in os.listdir(suspicious_inputs_covs):
+    #         if file.endswith(".cov"):
+    #             suspicious_inputs_bbs.extend(
+    #                 parse_drcov(tee=df_group_finfo.raw_fuzzing_info.tee,
+    #                 ta=df_group_finfo.raw_fuzzing_info.ta_name,
+    #                 path=os.path.join(suspicious_inputs_covs, file)
+    #             ))        
     else:
         raise ValueError(f"Invalid bar field name: {bar_field_name}")
     return suspicious_inputs_bbs
 
+def longest_overlapped_bbs_trace(suspicious_inputs_bbs: list[BB], df_fuzzing_dir: GroupedFuzzingInfo) -> list[BB]:
+    # df_fuzzing_dir is one snapshot df-fuzz dir.
+    
+    df_bbs_lists: list[list[BB]] = []
+    longest_overlapped_bbs = []
+    df_bbs_lists.append(suspicious_inputs_bbs)
+    for each in df_fuzzing_dir.fuzzing_infos:
+        df_bbs_lists.extend(each.raw_bbs)
+    
+    min_len = min(len(a) for a in df_bbs_lists)
+    for i in range(min_len):
+        v = df_bbs_lists[0][i]
+        if all(a[i] == v for a in df_bbs_lists):
+            longest_overlapped_bbs.append(v)
+        else:
+            break
+    return longest_overlapped_bbs
+    
+
 def df_control_flow_graph(
     fuzzing_info_list: List[FuzzingInfo],
     *,
-    grouping_field_name: str,
-    bar_field_name: str,
     bk_suspicious_inputs_cov_rdir: str,
     show_rate: bool = False,
 ):
+    bar_field_name = "id"
+    grouping_field_name = "harness_path"
     # vanilla_fuzzing_info_map: merged sth in same subgraph
     # grouped_df_bbs: merged sth in same bar
     vanilla_fuzzing_info_map, grouped_df_bbs = _group_df_fuzzing_info_list(
@@ -412,12 +429,16 @@ def df_control_flow_graph(
     else:
         axes = axes.flatten() if hasattr(axes, "flatten") else [axes]
 
-    # Color palette for the three segments
-    old_color = "#E63946"
-    overlapped_color = "#2E86AB"  # Blue for overlapped coverage
-    new_color = "#A23B72"  # Purple for new coverage
+    # Color palette for the four segments
+    basic_color = "#4A5568"      # Gray for basic (bottom wide bar)
+    part_one_color = "#E63946"   # Red for part_one
+    part_two_color = "#2E86AB"   # Blue for part_two
+    part_three_color = "#A23B72" # Purple for part_three
 
-    for idx, (vanilla_id, df_fuzzing_dir) in enumerate[tuple[str, dict[str, GroupedFuzzingInfo]]](grouped_df_bbs.items()):
+    for idx, (vanilla_id, df_fuzzing_dir) in enumerate(grouped_df_bbs.items()):
+        # vanilla_id: harness_path
+        # df_fuzzing_dir: dict, which key is df_snapshot_dir, value is GroupedFuzzingInfo
+        
         # put all df jobs of one ta harness inside a subplot
         ax = axes[idx]
 
@@ -444,16 +465,22 @@ def df_control_flow_graph(
         bar_id = 0
         bar_prefix = "S" if bar_field_name == "id" else ""
 
-        overlapped_segments = []
-        new_segments = []
-        old_segments = []
+        # Data lists for the new bar structure
+        basic_segments = []      # Wide bottom bar
+        part_one_segments = []   # Thin bar 1 on top
+        part_two_segments = []   # Thin bar 2 on top
+        part_three_segments = [] # Thin bar 3 on top
+        coverage_denominators = []
 
-        for df_bar_key in df_fuzzing_dir:
+        for df_snapshot in df_fuzzing_dir:
+            # df_snapshot: like qsee_a985_fuzz_run:id:7ecbd9e7c8dff69ac598e8c9bdcba57d_62849841960499769081805646165961192109
+            # df_fuzzing_dir[df_snapshot]: df_fuzzing queue seed covs related to df_snapshot
+            
             current_harness_path = df_fuzzing_dir[
-                df_bar_key
+                df_snapshot
             ].raw_fuzzing_info.harness_path
             print(f"current_harness_path: {current_harness_path}")
-            print(f"df_bar_key: {df_bar_key}")
+            print(f"df_bar_key: {df_snapshot}")
 
             # Calculate total unique BBs from vanilla (across all timestamps)
             vanilla_all_bbs = set()
@@ -464,31 +491,29 @@ def df_control_flow_graph(
                     vanilla_all_bbs.update(each_vanilla.accumulated_cov_bbs)
                     coverage_denominator += each_vanilla.raw_covs.max_nodes
 
+            df_snapshot_bbs = set(df_fuzzing_dir[df_snapshot].accumulated_cov_bbs)
+            
             # Calculate covs related to suspicious_inputs
-            suspicious_inputs_bbs = gather_suspicious_inputs_covs(df_bar_key, df_fuzzing_dir[df_bar_key], bar_field_name, bk_suspicious_inputs_cov_rdir)
-
-            org_all_bbs = suspicious_inputs_bbs
-            # org_all_bbs = vanilla_all_bbs
-
-
-            # Calculate total unique BBs from DF fuzzing_info
-            each_bar_all_bbs = df_fuzzing_dir[df_bar_key].accumulated_cov_bbs
-
-            # Calculate new unique BBs (those in DF but not in vanilla)
-            new_bbs = each_bar_all_bbs - org_all_bbs
-            old_bbs = org_all_bbs - each_bar_all_bbs
-            new_count = len(new_bbs)
-            old_count = len(old_bbs)
+            suspicious_inputs_bbs = gather_suspicious_inputs_covs(df_snapshot, df_fuzzing_dir[df_snapshot], bar_field_name, bk_suspicious_inputs_cov_rdir)
+            
+            # before df snapshot
+            part_basic = set(longest_overlapped_bbs_trace(suspicious_inputs_bbs, df_fuzzing_dir[df_snapshot]))
+            
+            part_one = set(suspicious_inputs_bbs) - part_basic
+            part_two = (set(vanilla_all_bbs) & (df_snapshot_bbs - suspicious_inputs_bbs)) - part_basic
+            part_three = df_snapshot_bbs - part_two - part_one - part_basic
 
             # Store data
             bar_labels.append(
-                f"{bar_prefix}{bar_id if bar_field_name == 'id' else naming_change(df_bar_key)}"
+                f"{bar_prefix}{bar_id if bar_field_name == 'id' else naming_change(df_snapshot)}"
             )
             bar_id += 1
-            overlapped_count = len(each_bar_all_bbs & org_all_bbs)
-            overlapped_segments.append(overlapped_count)
-            new_segments.append(new_count)
-            old_segments.append(old_count)
+            basic_segments.append(len(part_basic))
+            part_one_segments.append(len(part_one))
+            part_two_segments.append(len(part_two))
+            part_three_segments.append(len(part_three))
+            assert coverage_denominator > 0
+            coverage_denominators.append(coverage_denominator)
 
         if len(bar_labels) == 0:
             ax.text(
@@ -503,76 +528,89 @@ def df_control_flow_graph(
             ax.axis("off")
             continue
 
-        # Create stacked bar chart
+        # Create the bar chart with wide bottom bar and three thin bars on top
         x_pos = np.arange(len(bar_labels))
-        width = 0.6
+        wide_width = 0.7       # Width for the basic (bottom) bar
+        thin_width = 0.2       # Width for each of the three thin bars on top
 
-        # Plot stacked bars: old (bottom), overlapped (middle), new (top)
-        bars1 = ax.bar(
+        # Plot the wide basic bar at the bottom
+        basic_values = (
+            basic_segments
+            if not show_rate
+            else [b / d * 100 for b, d in zip(basic_segments, coverage_denominators)]
+        )
+        ax.bar(
             x_pos,
-            (
-                old_segments
-                if not show_rate
-                else [old / coverage_denominator * 100 for old in old_segments]
-            ),
-            width,
-            label="Exploration-only Coverage",
-            color=old_color,
+            basic_values,
+            wide_width,
+            label="Basic Coverage (Shared Prefix)",
+            color=basic_color,
             alpha=0.8,
         )
-        bars2 = ax.bar(
-            x_pos,
-            (
-                overlapped_segments
-                if not show_rate
-                else [ovl / coverage_denominator * 100 for ovl in overlapped_segments]
-            ),
-            width,
-            bottom=(
-                old_segments
-                if not show_rate
-                else [old / coverage_denominator * 100 for old in old_segments]
-            ),
-            label="Exploration-Snapshot Shared Coverage",
-            color=overlapped_color,
+
+        # Calculate the offset for the three thin bars to be centered above the wide bar
+        # The three thin bars together span: 3 * thin_width = 0.6
+        # Center them: offsets are -thin_width, 0, +thin_width
+        thin_offsets = [-thin_width, 0, thin_width]
+
+        # Plot the three thin bars on top of the basic bar
+        # Part One (left thin bar)
+        part_one_values = (
+            part_one_segments
+            if not show_rate
+            else [p / d * 100 for p, d in zip(part_one_segments, coverage_denominators)]
+        )
+        ax.bar(
+            x_pos + thin_offsets[0],
+            part_one_values,
+            thin_width,
+            bottom=basic_values,
+            label="Part One (Suspicious Input Only)",
+            color=part_one_color,
             alpha=0.8,
         )
-        bars3 = ax.bar(
-            x_pos,
-            (
-                new_segments
-                if not show_rate
-                else [new / coverage_denominator * 100 for new in new_segments]
-            ),
-            width,
-            bottom=(
-                [old + ovl for old, ovl in zip(old_segments, overlapped_segments)]
-                if not show_rate
-                else [
-                    (old + ovl) / coverage_denominator * 100
-                    for old, ovl in zip(old_segments, overlapped_segments)
-                ]
-            ),
-            label="Snapshot Fuzzing-only Coverage",
-            color=new_color,
+
+        # Part Two (center thin bar)
+        part_two_values = (
+            part_two_segments
+            if not show_rate
+            else [p / d * 100 for p, d in zip(part_two_segments, coverage_denominators)]
+        )
+        ax.bar(
+            x_pos + thin_offsets[1],
+            part_two_values,
+            thin_width,
+            bottom=basic_values,
+            label="Part Two (Vanilla & DF Shared)",
+            color=part_two_color,
+            alpha=0.8,
+        )
+
+        # Part Three (right thin bar)
+        part_three_values = (
+            part_three_segments
+            if not show_rate
+            else [p / d * 100 for p, d in zip(part_three_segments, coverage_denominators)]
+        )
+        ax.bar(
+            x_pos + thin_offsets[2],
+            part_three_values,
+            thin_width,
+            bottom=basic_values,
+            label="Part Three (DF Only)",
+            color=part_three_color,
             alpha=0.8,
         )
 
         # Calculate max bar height and set y-axis limit with some padding
-        if not show_rate:
-            max_bar_height = max(
-                old + ovl + new
-                for old, ovl, new in zip(
-                    old_segments, overlapped_segments, new_segments
-                )
-            )
-        else:
-            max_bar_height = max(
-                (old + ovl + new) / coverage_denominator * 100
-                for old, ovl, new in zip(
-                    old_segments, overlapped_segments, new_segments
-                )
-            )
+        max_bar_height = 0
+        for i in range(len(bar_labels)):
+            base = basic_values[i]
+            # Find the tallest thin bar for this x position
+            max_thin = max(part_one_values[i], part_two_values[i], part_three_values[i])
+            total_height = base + max_thin
+            if total_height > max_bar_height:
+                max_bar_height = total_height
 
         # Formatting
         ax.set_xlabel(
@@ -603,52 +641,9 @@ def df_control_flow_graph(
         if show_rate:
             ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.0f}%"))
         ax.set_ylim(0, max_bar_height * 1.15)  # Add some padding at the top
-        ax.legend(loc="upper right", fontsize=9)
+        ax.legend(loc="upper right", fontsize=8)
         ax.grid(True, alpha=0.3, linestyle="--", linewidth=0.8, axis="y")
         ax.tick_params(axis="y", labelsize=9)
-
-        # Add value labels on bars
-        """
-        for i, (old, ovl, new) in enumerate(
-            zip(old_segments, overlapped_segments, new_segments)
-        ):
-            # Old segment label
-            if old > 0:
-                ax.text(
-                    i,
-                    old / 2,
-                    str(old),
-                    ha="center",
-                    va="center",
-                    fontsize=8,
-                    fontweight="bold",
-                    color="white",
-                )
-            # Overlapped segment label
-            if ovl > 0:
-                ax.text(
-                    i,
-                    old + ovl / 2,
-                    str(ovl),
-                    ha="center",
-                    va="center",
-                    fontsize=8,
-                    fontweight="bold",
-                    color="white",
-                )
-            # New segment label
-            if new > 0:
-                ax.text(
-                    i,
-                    old + ovl + new / 2,
-                    str(new),
-                    ha="center",
-                    va="center",
-                    fontsize=8,
-                    fontweight="bold",
-                    color="white",
-                )
-        """
 
     # Hide unused subplots
     for idx in range(num_groups, len(axes)):
