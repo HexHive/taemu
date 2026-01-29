@@ -13,17 +13,21 @@ import os
 from tqdm import tqdm
 import time
 import matplotlib.pyplot as plt
-
+from typing import Optional
 
 logger.add("graphs.log", rotation="100 MB", retention="10 days")
+
 
 def main(
     fuzz_mode: FuzzMode = FuzzMode.ALL,
     path: str = "/root/TA_GP_emulator",
     tees: list[str] = None,
     regen_coverage: bool = False,
+    bk_suspicious_inputs_cov_rdir: str = None,
     show_plots: bool = True,
     save_plots: bool = True,
+    grouping_field_name: Optional[str] = None,
+    show_rate: bool = False,
 ):
     all_tas: set[str] = list_tas(path)
     tees = tees or ["mitee", "teegris", "beanpod", "t6", "qsee"]
@@ -33,15 +37,24 @@ def main(
     logger.info(f"[+] Collecting cfg and basic raw fuzzing info for each TA")
     fuzzing_info_list: List[FuzzingInfo] = []
     with ThreadPoolExecutor(max_workers=os.cpu_count()) as ex:
-        future_to_idx = {ex.submit(collect_cov_denominator, ta, fuzz_mode, path): i for i, ta in enumerate(filtered_tas)}
-        
-        for fut in tqdm(as_completed(future_to_idx), total=len(filtered_tas), desc="Collecting cfg for each TA"):
+        future_to_idx = {
+            ex.submit(collect_cov_denominator, ta, fuzz_mode, path): i
+            for i, ta in enumerate(filtered_tas)
+        }
+
+        for fut in tqdm(
+            as_completed(future_to_idx),
+            total=len(filtered_tas),
+            desc="Collecting cfg for each TA",
+        ):
             _i = future_to_idx[fut]
             ## TODO: add a TRY-EXCEPT block here
             raw_covs, raw_fuzzing_infos = fut.result()
             for raw_fuzzing_info in raw_fuzzing_infos:
-                fuzzing_info_list.append(FuzzingInfo(raw_fuzzing_info, raw_covs, 0, 0, set(),{}))
-    
+                fuzzing_info_list.append(
+                    FuzzingInfo(raw_fuzzing_info, raw_covs, None, {})
+                )
+
     if fuzz_mode == FuzzMode.DF or fuzz_mode == FuzzMode.ALL:
         linking(fuzzing_info_list)
 
@@ -53,7 +66,7 @@ def main(
         with DockerPool(
             image_name="ta_emu",
             num_containers=num_containers,
-            param_str=f"--network host -v /tmp:/tmp -v {path}:/srv -w /srv/emulator -v /dev/shm:/dev/shm --ipc=host --shm-size=5g ",
+            param_str=f"--network host -v {path}:/srv -w /srv/emulator -v /dev/shm:/dev/shm --ipc=host --shm-size=5g ",
         ):
             time.sleep(1)
             gen_coverage_files(
@@ -70,14 +83,21 @@ def main(
     ## generate graphs for each ta
     if fuzz_mode == FuzzMode.ORG or fuzz_mode == FuzzMode.ALL:
         logger.info(f"[+] Generating org graph")
-        org_graph = org_control_flow_graph(fuzzing_info_list)
+        org_graph = org_control_flow_graph(
+            fuzzing_info_list,
+            max_timestamps=86400,
+            grouping_field_name=grouping_field_name,
+            show_rate=show_rate,
+        )
         if org_graph:
             logger.info(f"[+] Finished generating org graph")
             if save_plots:
                 # Save the figure
-                output_path = os.path.join(path, "eval/graphs/org_control_flow_graph.png")
+                output_path = os.path.join(
+                    path, "eval/graphs/org_control_flow_graph.png"
+                )
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
-                org_graph.savefig(output_path, dpi=300, bbox_inches='tight')
+                org_graph.savefig(output_path, dpi=300, bbox_inches="tight")
                 logger.info(f"[+] Saved org graph to {output_path}")
             if show_plots:
                 # Display the figure
@@ -85,14 +105,20 @@ def main(
 
     if fuzz_mode == FuzzMode.DF or fuzz_mode == FuzzMode.ALL:
         logger.info(f"[+] Generating df graph")
-        df_graph = df_control_flow_graph(fuzzing_info_list)
+        df_graph = df_control_flow_graph(
+            fuzzing_info_list,
+            show_rate=show_rate,
+            bk_suspicious_inputs_cov_rdir=bk_suspicious_inputs_cov_rdir,
+        )
         if df_graph:
             logger.info(f"[+] Finished generating df graph")
             if save_plots:
                 # Save the figure
-                output_path = os.path.join(path, "eval/graphs/df_control_flow_graph.png")
+                output_path = os.path.join(
+                    path, "eval/graphs/df_control_flow_graph.png"
+                )
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
-                df_graph.savefig(output_path, dpi=300, bbox_inches='tight')
+                df_graph.savefig(output_path, dpi=300, bbox_inches="tight")
                 logger.info(f"[+] Saved df graph to {output_path}")
             if show_plots:
                 # Display the figure
@@ -109,12 +135,39 @@ def main(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--fuzz_mode", choices=[mode.value for mode in FuzzMode], default=FuzzMode.ALL.value)
+    parser.add_argument(
+        "--fuzz_mode",
+        choices=[mode.value for mode in FuzzMode],
+        default=FuzzMode.ALL.value,
+    )
     parser.add_argument("--tees", nargs="+", default=None, help="Filter by TEEs")
     parser.add_argument("--regen_coverage", action="store_true", default=False)
     parser.add_argument("--path", type=str, default="/root/TA_GP_emulator")
-    
+    parser.add_argument("--ss_cov_rdir", type=str, default=None, required=True)
+    parser.add_argument("--org_group_field", type=str, default=None, choices=["tee", None])
+    parser.add_argument("--show_rate", action="store_true", default=False)
     
     args = parser.parse_args()
-    main(fuzz_mode=FuzzMode(args.fuzz_mode), path=args.path, tees=args.tees, 
-         regen_coverage=args.regen_coverage, show_plots=False, save_plots=True)
+
+    user_input = input("[-] Have you back up the coverage files of suspicious inputs? (y/n)")
+    if user_input != "y":
+        raise Exception("[-] Please back up the coverage files of suspicious inputs first. Run `./bk_suspicious_inputs.sh <root_dir> <back_dir>`.")
+
+    if os.path.exists(args.ss_cov_rdir) is False or len(os.listdir(args.ss_cov_rdir)) == 0:
+        raise Exception("[-] The directory of the backup coverage files of suspicious inputs does not exist or is empty.")
+    
+    main(
+        fuzz_mode=FuzzMode(args.fuzz_mode),
+        path=args.path,
+        tees=args.tees,
+        regen_coverage=args.regen_coverage,
+        bk_suspicious_inputs_cov_rdir=args.ss_cov_rdir,
+        grouping_field_name=args.org_group_field,
+        show_rate=args.show_rate,
+        show_plots=False,
+        save_plots=True,
+    )
+# uv run main.py --path /home/sp1der/code/TA_GP_emulator --show_rate --tees qsee beanpod --group_field tee
+# uv run main.py --path /home/sp1der/code/TA_GP_emulator --show_rate --tees qsee beanpod --fuzz_mode ORG --regen_coverage
+# uv run main.py   --path /home/sp1der/code/TA_GP_emulator --show_rate --tees qsee beanpod --org_group_field tee
+#  uv run main.py   --path /home/sp1der/code/TA_GP_emulator --show_rate --tees qsee beanpod --org_group_field tee

@@ -1,6 +1,6 @@
 use crate::LOGGER;
 use serde_json::{Map, Value, from_reader};
-use slog::{error, info, warn};
+use slog::{error, warn};
 use std::collections::HashSet;
 use std::ffi::OsString;
 use std::fs::{File, copy};

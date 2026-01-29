@@ -64,6 +64,9 @@ struct Args {
 
     #[arg(short, long, default_value_t = num_cpus::get())]
     max_parallel: usize,
+
+    #[arg(long, default_value = "false")]
+    statistics_only: bool,
 }
 
 fn get_log_level() -> Level {
@@ -637,28 +640,14 @@ fn _main_with_logging() -> i32 {
     let ta_files = generate_fuzz_jobs(&args);
 
     // statistics of the ta_files
-    // let mut counts = std::collections::HashMap::new();
-    // for ta_file in &ta_files {
-    //     if let Some(df_seed) = ta_file.ta_df_seed.as_ref() {
-    //         if !args.filter_df_seed.is_empty() && !df_seed.to_string_lossy().to_string().contains(args.filter_df_seed.as_str()) {
-    //             continue;
-    //         }
-    //     }
-    //     *counts.entry(ta_file.ta_harness_dir.to_string_lossy().to_string()).or_insert(0) += 1;
-        
-    // }
-    // info!(LOGGER, "Statistics of the TA files: {:?}", counts);
-    // let mut detailed_str = String::new();
-
-    // ta_files.sort_by(|a, b| {
-    //     let c1 = a.ta_harness_dir.as_os_str().cmp(b.ta_harness_dir.as_os_str());
-    //     return c1;
-    // });
-
-    // for (idx, job) in ta_files.iter().enumerate() {
-    //     detailed_str.push_str(format!("idx={}, {:#?}\n", idx, job).as_str());
-    // }
-    // info!(LOGGER, "Detailed information of the TA files: {}", detailed_str);
+    if !args.statistics_only {
+        let mut counts: std::collections::HashMap<String, i32> = std::collections::HashMap::new();
+        for ta_file in &ta_files {
+            *counts.entry(ta_file.ta_harness_dir.to_string_lossy().to_string()).or_insert(0) += 1;
+        }
+        info!(LOGGER, "Statistics of the TA files: {:#?}", counts);
+        return 0;
+    }
 
     info!(
         LOGGER,
