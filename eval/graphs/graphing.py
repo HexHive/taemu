@@ -5,6 +5,7 @@ from typing import List
 from collect_cov import FuzzingInfo, GroupedFuzzingInfo, Coverage
 from loguru import logger
 from tqdm import tqdm
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, Callable
 import os
@@ -164,7 +165,7 @@ def org_control_flow_graph(
         rows, cols, figsize=(fig_width, fig_height), constrained_layout=True
     )
     whole_fig.suptitle(
-        "Unique Coverage Basic Blocks Over Time", fontsize=16, fontweight="bold"
+        "Unique BBs Coverage Over Time", fontsize=16, fontweight="bold"
     )
 
     # Flatten axes array if needed
@@ -260,7 +261,7 @@ def org_control_flow_graph(
         # Formatting
         ax.set_xlabel("Duration (hour(s))", fontsize=10, fontweight="bold")
         ax.set_ylabel(
-            "Unique Basic Block Count" if not show_rate else "Coverage Rate (%)",
+            "Unique BB Count" if not show_rate else "Coverage Rate (%)",
             fontsize=10,
             fontweight="bold",
         )
@@ -298,6 +299,7 @@ def _group_df_fuzzing_info_list(
     fuzzing_info_list: List[FuzzingInfo], field_name: str, bar_field_name: str
 ) -> tuple[dict[str, GroupedFuzzingInfo], dict[str, dict[str, GroupedFuzzingInfo]]]:
     # key: vanilla id, value: list of df fuzzing_info objects
+    # TODO: here is the shitty and legacy code. Still works but should be refactored
     grouped_df_bbs = {}
 
     vanilla_fuzzing_info_map = {}
@@ -308,6 +310,8 @@ def _group_df_fuzzing_info_list(
                 vanilla_fuzzing_info_map[field_value] = GroupedFuzzingInfo(
                     RawFuzzingInfo(
                         id=field_value,
+                        tee=fuzzing_info.raw_fuzzing_info.tee,
+                        ta_name=fuzzing_info.raw_fuzzing_info.ta_name,
                         harness_path=fuzzing_info.raw_fuzzing_info.harness_path,
                     ),
                     Coverage(uniq_identity=field_value, max_nodes=0, cfg=None),
@@ -329,6 +333,8 @@ def _group_df_fuzzing_info_list(
             grouped_df_bbs[field_value][bar_field_value] = GroupedFuzzingInfo(
                 RawFuzzingInfo(
                     id=bar_field_value,
+                    tee=fuzzing_info.raw_fuzzing_info.tee,
+                    ta_name=fuzzing_info.raw_fuzzing_info.ta_name,
                     harness_path=fuzzing_info.raw_fuzzing_info.harness_path,
                 ),
                 Coverage(uniq_identity=bar_field_value, max_nodes=0, cfg=None),
@@ -376,9 +382,10 @@ def longest_overlapped_bbs_trace(suspicious_inputs_bbs: list[BB], df_fuzzing_dir
     longest_overlapped_bbs = []
     df_bbs_lists.append(suspicious_inputs_bbs)
     for each in df_fuzzing_dir.fuzzing_infos:
-        df_bbs_lists.extend(each.raw_bbs)
+        for each_bb in each.raw_bbs:
+            df_bbs_lists.append(each_bb)
     
-    min_len = min(len(a) for a in df_bbs_lists)
+    min_len = min(len(a) for a in df_bbs_lists)        
     for i in range(min_len):
         v = df_bbs_lists[0][i]
         if all(a[i] == v for a in df_bbs_lists):
@@ -471,16 +478,13 @@ def df_control_flow_graph(
         part_two_segments = []   # Thin bar 2 on top
         part_three_segments = [] # Thin bar 3 on top
         coverage_denominators = []
-
-        for df_snapshot in df_fuzzing_dir:
-            # df_snapshot: like qsee_a985_fuzz_run:id:7ecbd9e7c8dff69ac598e8c9bdcba57d_62849841960499769081805646165961192109
-            # df_fuzzing_dir[df_snapshot]: df_fuzzing queue seed covs related to df_snapshot
-            
+        
+        
+        def _worker(df_snapshot):
             current_harness_path = df_fuzzing_dir[
                 df_snapshot
             ].raw_fuzzing_info.harness_path
             # print(f"current_harness_path: {current_harness_path}")
-            # print(f"df_bar_key: {df_snapshot}")
 
             # Calculate total unique BBs from vanilla (across all timestamps)
             vanilla_all_bbs = set()
@@ -495,25 +499,45 @@ def df_control_flow_graph(
             
             # Calculate covs related to suspicious_inputs
             suspicious_inputs_bbs = gather_suspicious_inputs_covs(df_snapshot, df_fuzzing_dir[df_snapshot], bar_field_name, bk_suspicious_inputs_cov_rdir)
+        
             
             # before df snapshot
             part_basic = set(longest_overlapped_bbs_trace(suspicious_inputs_bbs, df_fuzzing_dir[df_snapshot]))
+            
             
             part_one = set(suspicious_inputs_bbs) - part_basic
             part_two = (set(vanilla_all_bbs) & (df_snapshot_bbs - set(suspicious_inputs_bbs))) - part_basic
             part_three = df_snapshot_bbs - part_two - part_one - part_basic
 
-            # Store data
-            bar_labels.append(
-                f"{bar_prefix}{bar_id if bar_field_name == 'id' else naming_change(df_snapshot)}"
-            )
-            bar_id += 1
-            basic_segments.append(len(part_basic))
-            part_one_segments.append(len(part_one))
-            part_two_segments.append(len(part_two))
-            part_three_segments.append(len(part_three))
             assert coverage_denominator > 0
-            coverage_denominators.append(coverage_denominator)
+            
+            return len(part_basic), len(part_one), len(part_two), len(part_three), coverage_denominator
+
+        # launch for one harness
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            futures = {executor.submit(_worker, df_snapshot): df_snapshot  for df_snapshot in df_fuzzing_dir}
+            
+            bar_id = 0
+            for future in tqdm(as_completed(futures.keys()), total=len(futures), desc=f"Processing DF snapshots on {vanilla_id}"):
+                df_snapshot = futures[future]
+                basic_segment_cnt, part_one_segment_cnt, part_two_segment_cnt, part_three_segment_cnt, coverage_denominator = future.result()
+                basic_segments.append(basic_segment_cnt)
+                part_one_segments.append(part_one_segment_cnt)
+                part_two_segments.append(part_two_segment_cnt)   
+                part_three_segments.append(part_three_segment_cnt)
+                coverage_denominators.append(coverage_denominator)
+                
+                # Store data
+                bar_labels.append(
+                    f"{bar_prefix}{bar_id if bar_field_name == 'id' else naming_change(df_snapshot)}"
+                )
+                bar_id += 1
+                
+                
+        # df_snapshot: like qsee_a985_fuzz_run:id:7ecbd9e7c8dff69ac598e8c9bdcba57d_62849841960499769081805646165961192109
+        # df_fuzzing_dir[df_snapshot]: df_fuzzing queue seed covs related to df_snapshot
+            
+        
 
         if len(bar_labels) == 0:
             ax.text(
@@ -543,7 +567,7 @@ def df_control_flow_graph(
             x_pos,
             basic_values,
             wide_width,
-            label="Basic Coverage (Shared Prefix)",
+            label="BBs up to Double Fetch",
             color=basic_color,
             alpha=0.8,
         )
@@ -565,7 +589,7 @@ def df_control_flow_graph(
             part_one_values,
             thin_width,
             bottom=basic_values,
-            label="Part One (Suspicious Input Only)",
+            label="BBs Overlapping With Triggering Seed",
             color=part_one_color,
             alpha=0.8,
         )
@@ -581,7 +605,7 @@ def df_control_flow_graph(
             part_two_values,
             thin_width,
             bottom=basic_values,
-            label="Part Two (Vanilla & DF Shared)",
+            label="BBs Overlapping With Remaining Exploration BBs",
             color=part_two_color,
             alpha=0.8,
         )
@@ -597,7 +621,7 @@ def df_control_flow_graph(
             part_three_values,
             thin_width,
             bottom=basic_values,
-            label="Part Three (DF Only)",
+            label="Double Fetch Unique BBs",
             color=part_three_color,
             alpha=0.8,
         )
@@ -617,12 +641,12 @@ def df_control_flow_graph(
             "Double Fetch Snapshot IDs", fontsize=10, fontweight="bold", labelpad=10
         )
         ax.set_ylabel(
-            "Unique Basic Block Count" if not show_rate else "Coverage Rate (%)",
+            "Unique BB Count" if not show_rate else "Coverage Rate (%)",
             fontsize=10,
             fontweight="bold",
         )
         ax.set_title(
-            f"{grouping_field_name}: {naming_change(vanilla_id)}",
+            f"Harness: {naming_change(vanilla_id)}",
             fontsize=11,
             fontweight="bold",
             pad=10,

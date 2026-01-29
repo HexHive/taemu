@@ -65,7 +65,7 @@ def main(
     ## generate coverage files based on queue
     if regen_coverage:
         logger.info(f"[+] Generating coverage files for each TA")
-        num_containers = 40
+        num_containers = 30
         ### spawn docker pools
         with DockerPool(
             image_name="ta_emu",
@@ -78,8 +78,8 @@ def main(
                 image_name="ta_emu",
                 num_containers=num_containers,
                 path=path,
-                pre_clean=True,
-            )
+                # pre_clean=True,
+            ) # TODO: check whether need to clean coverage files
 
     logger.info(f"[+] Parsing unique bbs for each TA")
     parse_unique_bbs(fuzzing_info_list)
@@ -175,7 +175,3 @@ if __name__ == "__main__":
         show_plots=False,
         save_plots=True,
     )
-# uv run main.py --path /home/sp1der/code/TA_GP_emulator --show_rate --tees qsee beanpod --group_field tee
-# uv run main.py --path /home/sp1der/code/TA_GP_emulator --show_rate --tees qsee beanpod --fuzz_mode ORG --regen_coverage
-# uv run main.py   --path /home/sp1der/code/TA_GP_emulator --show_rate --tees qsee beanpod --org_group_field tee
-#  uv run main.py   --path /home/sp1der/code/TA_GP_emulator --show_rate --tees qsee beanpod --org_group_field tee

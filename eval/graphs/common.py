@@ -91,15 +91,17 @@ def parse_drcov(tee, ta, path):
     nr_bbs = raw.split(b"BB Table: ")[-1]
     nr_bbs = int(nr_bbs.split(b"bbs\n")[0].decode())
     bbs = raw.split(b"bbs\n")[-1]
+    offset = 0
     for _ in range(nr_bbs):
-        start = int.from_bytes(bbs[0:4], "little")
-        size = int.from_bytes(bbs[4:6], "little")
-        mod_id = int.from_bytes(bbs[6:8], "little")
+        start = int.from_bytes(bbs[offset:offset+4], "little")
+        size = int.from_bytes(bbs[offset+4:offset+6], "little")
+        mod_id = int.from_bytes(bbs[offset+6:offset+8], "little")
         if mod_id == ta_id:
             if tee == "beanpod" or tee == "t6":
                 start = base + start
             bbs_out.append(BB(ta, start, size, mod_id))
-        bbs = bbs[8:]
+        #bbs = bbs[8:]
+        offset += 8
     return bbs_out
 
 
@@ -215,7 +217,7 @@ class DockerPool:
         self.param_str = param_str
 
         ps = subprocess.run(
-            f"docker ps -q --filter ancestor={self.image_name}",
+            f"sudo docker ps -q --filter ancestor={self.image_name}",
             shell=True,
             capture_output=True,
         )
@@ -227,13 +229,13 @@ class DockerPool:
             reply = input().lower()
             if reply == "y":
                 subprocess.run(
-                    f"docker ps | grep {self.image_name} | awk '{{print $1}}' | xargs docker rm -f",
+                    f"sudo docker ps | grep {self.image_name} | awk '{{print $1}}' | xargs sudo docker rm -f",
                     shell=True,
                     capture_output=True,
                 )
 
     def _inspect_state(self, name: str) -> dict:
-        out = subprocess.check_output(["docker", "inspect", name], text=True)
+        out = subprocess.check_output(["sudo", "docker", "inspect", name], text=True)
         return json.loads(out)[0]["State"]
 
     def wait_all_healthy(
@@ -271,12 +273,12 @@ class DockerPool:
         for i in range(self.num_containers):
             container_name = f"{self.image_name}_{i}"
             subprocess.run(
-                f"docker run -it -e TERM=xterm-256color -d --name {container_name} {self.param_str} --ulimit core=-1 {self.image_name} bash &>/dev/null",
+                f"sudo docker run -it -e TERM=xterm-256color -d --name {container_name} {self.param_str} --ulimit core=-1 {self.image_name} bash &>/dev/null",
                 shell=True,
             )
             container_names.append(container_name)
 
-        while self.image_name not in subprocess.check_output(["docker", "ps"]).decode():
+        while self.image_name not in subprocess.check_output(["sudo", "docker", "ps"]).decode():
             time.sleep(3)
 
         logger.info(f"[+] All {self.num_containers} containers are created")
@@ -285,6 +287,6 @@ class DockerPool:
     def __exit__(self, exc_type, exc_value, traceback):
         for i in range(self.num_containers):
             subprocess.run(
-                f"docker rm -f {self.image_name}_{i}",
+                f"sudo docker rm -f {self.image_name}_{i}",
                 shell=True,
             )

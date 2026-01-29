@@ -94,7 +94,7 @@ def gen_coverage_files(
                 f"[+] Docker command: docker exec {container_name} ./df_fuzz.sh {harness_path} {org_seed_path} {df_reg_hash} {seed_path}"
             )
             result = subprocess.run(
-                f"docker exec {container_name} ./df_fuzz.sh {harness_path} {org_seed_path} {df_reg_hash} {seed_path}",
+                f"sudo docker exec {container_name} ./df_fuzz.sh {harness_path} {org_seed_path} {df_reg_hash} {seed_path}",
                 shell=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
@@ -104,7 +104,7 @@ def gen_coverage_files(
                 f"[+] Docker command: docker exec {container_name} ./fuzz.sh {harness_path} {seed_path}"
             )
             result = subprocess.run(
-                f"docker exec {container_name} ./fuzz.sh {harness_path} {seed_path}",
+                f"sudo docker exec {container_name} ./fuzz.sh {harness_path} {seed_path}",
                 shell=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
