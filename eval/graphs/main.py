@@ -149,12 +149,12 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
-    # user_input = input("[-] Have you back up the coverage files of suspicious inputs? (y/n)")
-    # if user_input != "y":
-    #     raise Exception("[-] Please back up the coverage files of suspicious inputs first. Run `./bk_suspicious_inputs.sh <root_dir> <back_dir>`.")
+    user_input = input("[-] Have you back up the coverage files of suspicious inputs? (y/n)")
+    if user_input != "y":
+        raise Exception("[-] Please back up the coverage files of suspicious inputs first. Run `./bk_suspicious_inputs.sh <root_dir> <back_dir>`.")
 
-    # if os.path.exists(args.ss_cov_rdir) is False or len(os.listdir(args.ss_cov_rdir)) == 0:
-    #     raise Exception("[-] The directory of the backup coverage files of suspicious inputs does not exist or is empty.")
+    if os.path.exists(args.ss_cov_rdir) is False or len(os.listdir(args.ss_cov_rdir)) == 0:
+        raise Exception("[-] The directory of the backup coverage files of suspicious inputs does not exist or is empty.")
     
     main(
         fuzz_mode=FuzzMode(args.fuzz_mode),
