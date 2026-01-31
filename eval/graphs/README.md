@@ -54,10 +54,11 @@ $ uv run main.py --path /home/sp1der/code/TA_GP_emulator --ss_cov_rdir /home/sp1
 $ uv run main.py --path /home/sp1der/code/TA_GP_emulator --ss_cov_rdir /home/sp1der/code/ta_graph/ss_cov/20260129_135401/suspicious_inputs_covs --regen_coverage
 
 # More configuration
+# use --show_rate to get coverage rather than bb count
 # re-generate cov files and build graph only relaed to certain tees [check pre_clean flag in code]
 $ uv run main.py --path <sth> --ss_cov_rdir <sth> --regen_coverage --tees qsee beanpod
 # only generate exploration coverage graph
-$ uv run main.py --path <sth> --ss_cov_rdir <sth> -- --tees qsee beanpod --fuzz_mode ORG
+$ uv run main.py --path <sth> --ss_cov_rdir <sth> --tees qsee beanpod --fuzz_mode ORG
 # enable grouping of exploration coverage graph in tee level
-$ uv run main.py --path <sth> --ss_cov_rdir <sth> -- --tees qsee beanpod --fuzz_mode ORG --org_group_field tee
+$ uv run main.py --path <sth> --ss_cov_rdir <sth> --tees qsee beanpod --fuzz_mode ORG --org_group_field tee
 ```
