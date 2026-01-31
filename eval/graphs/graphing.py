@@ -570,20 +570,20 @@ def df_control_flow_graph(
             continue
 
         ax.plot(
+            list(range(0, len(basic_segments))),
             basic_segments,
-            list(range(0, basic_segments))
         ) 
         ax.plot(
+            list(range(0, len(basic_segments))),
             [d+ basic_segments[i] for i, d in enumerate(part_one_segments) ],
-            list(range(0, basic_segments))
         )
         ax.plot(
+            list(range(0, len(basic_segments))),
             [d+ basic_segments[i] + part_one_segments[i] for i, d in enumerate(part_two_segments) ],
-            list(range(0, basic_segments))
         )
         ax.plot(
+            list(range(0, len(basic_segments))),
             [d+ basic_segments[i] + part_one_segments + part_two_segments[i] for i, d in enumerate(part_three_segments) ],
-            list(range(0, basic_segments))
         ) 
 
         """
