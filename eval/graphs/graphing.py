@@ -39,10 +39,6 @@ def naming_change(names: list[str] | str) -> list[str] | str:
 
 def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo]):
 
-    def _cov_cache_key(tee, ta_name, cov_dir):
-        h = hashlib.sha256(f"{tee}|{ta_name}|{cov_dir}".encode()).hexdigest()
-        return f"{h}.pkl"
-
     def _worker(fuzzing_info: FuzzingInfo):
         raw_fuzzing_info: RawFuzzingInfo = fuzzing_info.raw_fuzzing_info
         unique_bbs_ts_based = {}
