@@ -80,7 +80,7 @@ def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo]):
         ):
             fi = futures[fut]
             res = fut.result()
-            fi.accumulated_cov_bbs = res['accumuldated_cov_bbs']
+            fi.accumulated_cov_bbs = res['accumulated_cov_bbs']
             fi.unique_cov_bbs_distribution = res['unique_cov_bbs_distribution']
             fi.raw_bbs = res['raw_bbs']
             #_ = fut.result()
