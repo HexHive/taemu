@@ -568,12 +568,19 @@ def df_control_flow_graph(
             ax.set_title(f"Group: {vanilla_id}", fontsize=10)
             ax.axis("off")
             continue
-        
+
+        """
         ax.stackplot(
             list(range(0, len(basic_segments))),
             [basic_segments, part_one_segments, part_two_segments, part_three_segments]
-        )
+        )"""
 
+        x = np.arange(len(basic_segments))  # bar positions
+
+        plt.bar(x, basic_segments, label="Basic")
+        plt.bar(x, part_one_segments, bottom=basic_segments, label="Part 1")
+        plt.bar(x, part_two_segments, bottom=np.array(basic_segments)+np.array(part_one_segments), label="Part 2")
+        plt.bar(x, part_three_segments, bottom=np.array(basic_segments)+np.array(part_one_segments)+np.array(part_two_segments), label="Part 3")
         """
         ax.plot(
             list(range(0, len(basic_segments))),
