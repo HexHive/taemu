@@ -223,6 +223,7 @@ def org_control_flow_graph(
                 if bb.start == int(cfg.nodes[n]["start"],16) or bb.start + bb.size == int(cfg.nodes[n]["start"],16) or bb.start >= int(cfg.nodes[n]["start"],16) and bb.start + bb.size<= int(cfg.nodes[n]["end"],16):
                     return True
             return False
+        """
         print("helllo???????")
         unique_bbs = set()
         not_in_cfg = list()
@@ -238,7 +239,7 @@ def org_control_flow_graph(
             for bb in not_in_cfg:
                 print('not in cfg', bb)
             print(fuzzing_info.raw_covs.cfg.nodes)
-
+        """
         # Extract timestamps and counts, convert timestamps to int for proper sorting
         timestamp_strs = list(unique_cov_bbs.keys())
         # Sort by integer value of timestamp
@@ -415,12 +416,25 @@ def longest_overlapped_bbs_trace(suspicious_inputs_bbs: list[BB], df_fuzzing_dir
             break
     return longest_overlapped_bbs
 
+def df_dump_info(basics, part_one, part_two, part_three, name, path):
+    info_path = os.path.join(path, "eval/graphs/df_rawinfo/")
+    if not os.path.exists(info_path):
+        os.makedirs(info_path)
+    open(os.path.join(info_path, f'df_{name}.json'), 'w+').write(
+        json.dumps({
+            'basics': basics,
+            'part_one': part_one, 
+            'part_two': part_two,
+            'part_three': part_three
+        })
+    )
 
 def df_control_flow_graph(
     fuzzing_info_list: List[FuzzingInfo],
     *,
     bk_suspicious_inputs_cov_rdir: str,
     show_rate: bool = False,
+    path = None,
 ):
     bar_field_name = "id"
     grouping_field_name = "harness_path"
@@ -579,6 +593,10 @@ def df_control_flow_graph(
         basic_segments, part_one_segments, part_two_segments, part_three_segments = zip(
             *sorted(zip(basic_segments, part_one_segments, part_two_segments, part_three_segments))
         )
+
+        df_dump_info(basic_segments, part_one_segments, part_two_segments, part_three_segments, 
+                    f'{vanilla_fuzzing_info.raw_fuzzing_info.tee}_{naming_change(vanilla_id)}', path)
+
         x = np.arange(len(basic_segments))
         if show_rate:
             basic_segments = [b / d * 100 for b, d in zip(basic_segments, coverage_denominators)]

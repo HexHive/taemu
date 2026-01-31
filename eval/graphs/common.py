@@ -1,4 +1,5 @@
 import os
+from tqdm import tqdm
 from dataclasses import dataclass
 import subprocess
 import re
@@ -206,7 +207,7 @@ def parse_cov(tee, ta, drcov_path) -> dict[int, list[BB]]:
             if timestamp:
                 out[timestamp] = bbs
     """
-    for cov_file in os.listdir(drcov_path):
+    for cov_file in tqdm(os.listdir(drcov_path), desc=f'cov file parsing {ta}'):
         try:
             timestamp = int(int(cov_file.split("time:")[-1].split(",")[0]) / 1000)
         except:

@@ -117,6 +117,7 @@ def main(
             fuzzing_info_list,
             show_rate=show_rate,
             bk_suspicious_inputs_cov_rdir=bk_suspicious_inputs_cov_rdir,
+            path=path,
         )
         if df_graph:
             logger.info(f"[+] Finished generating df graph")
