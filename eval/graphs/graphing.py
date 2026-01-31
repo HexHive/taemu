@@ -68,6 +68,8 @@ def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo], cache_dir):
                     raw_fuzzing_info.ta_name,
                     raw_fuzzing_info.cov_dir,
                 )
+                with open(cache_file, "wb") as f:
+                    pickle.dump(cov_bbs, f)
         for timestamp, bbs in cov_bbs.items():
             if timestamp not in unique_bbs_ts_based:
                 unique_bbs_ts_based[timestamp] = set()

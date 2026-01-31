@@ -36,7 +36,7 @@ def main(
     filtered_tas = list(filter(lambda ta: any(tee in ta for tee in tees), all_tas))
 
     if not os.path.exists(os.path.join(path, "eval/graphs/bb_cache/")):
-        os.mkdirs(os.path.join(path, "eval/graphs/bb_cache/"))
+        os.makedirs(os.path.join(path, "eval/graphs/bb_cache/"), exist_ok=True)
 
     ## get the cfg and basic raw fuzzing info
     logger.info(f"[+] Collecting cfg and basic raw fuzzing info for each TA")
