@@ -214,7 +214,6 @@ def org_control_flow_graph(
             ax.axis("off")
             continue
 
-        """
         # check for bbs not in ghidra cfg
         def in_cfg(bb, cfg):
             nodes = cfg.nodes # ONLY WORKS FOR TA  ONLY
@@ -230,12 +229,11 @@ def org_control_flow_graph(
             for bb in bbs:
                 unique_bbs.add(bb)
         print(fuzzing_info.raw_fuzzing_info)
-        if "a985_fuzz" in fuzzing_info.raw_fuzzing_info.harness_path:
+        if "df1e_fuzz" in fuzzing_info.raw_fuzzing_info.harness_path:
             for bb in unique_bbs:
                 if not in_cfg(bb, fuzzing_info.raw_covs.cfg):
                     print(f'not in cfg {bb}')
             print(fuzzing_info.raw_covs.cfg.nodes)
-        """
 
         # Extract timestamps and counts, convert timestamps to int for proper sorting
         timestamp_strs = list(unique_cov_bbs.keys())
