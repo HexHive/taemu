@@ -62,7 +62,11 @@ def _worker(fuzzing_info: FuzzingInfo):
     for ts in timestamp_strs_sorted:
         accumulated_bbs.update(unique_bbs_ts_based[ts])
     fuzzing_info.accumulated_cov_bbs = accumulated_bbs
-    return fuzzing_info
+    return {
+        "raw_bbs": fuzzing_info.raw_bbs,
+        "unique_cov_bbs_distribution": unique_bbs_ts_based,
+        "accumulated_cov_bbs": accumulated_bbs,
+    }
 
 def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo]):
     with ProcessPoolExecutor(max_workers=50) as ex:
@@ -76,9 +80,9 @@ def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo]):
         ):
             fi = futures[fut]
             res = fut.result()
-            fi.accumulated_cov_bbs = res.accumuldated_cov_bbs 
-            fi.unique_cov_bbs_distribution = res.unique_cov_bbs_distribution
-            fi.raw_bbs = res.raw_bbs
+            fi.accumulated_cov_bbs = res['accumuldated_cov_bbs']
+            fi.unique_cov_bbs_distribution = res['unique_cov_bbs_distribution']
+            fi.raw_bbs = res['raw_bbs']
             #_ = fut.result()
     logger.info(f"[+] Finished parsing unique bbs for all TAs")
 
