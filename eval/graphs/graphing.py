@@ -363,6 +363,7 @@ def gather_suspicious_inputs_covs(df_bar_key: str, df_group_finfo: GroupedFuzzin
     # align with x axis, so should be id or harness_path
     suspicious_inputs_bbs = list()
     harness_path = df_group_finfo.raw_fuzzing_info.harness_path
+    print("bk sus dir???", bk_suspicious_inputs_cov_rdir)
     suspicious_inputs_covs = os.path.join(bk_suspicious_inputs_cov_rdir, 
         harness_path[harness_path.rfind("TA_GP_emulator/")+len("TA_GP_emulator/"):], 
         "out", 
