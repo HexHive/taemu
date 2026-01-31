@@ -158,7 +158,6 @@ if __name__ == "__main__":
     parser.add_argument("--ss_cov_rdir", type=str, default=None, required=True)
     parser.add_argument("--org_group_field", type=str, default=None, choices=["tee", None])
     parser.add_argument("--show_rate", action="store_true", default=False)
-    parser.add_argument("--no_bb_cache", action="store_true", default=False)
     
     args = parser.parse_args()
 
@@ -179,5 +178,4 @@ if __name__ == "__main__":
         show_rate=args.show_rate,
         show_plots=False,
         save_plots=True,
-        use_cache_bbs=not args.no_bb_cache
     )
