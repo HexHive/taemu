@@ -87,6 +87,9 @@ def main(
     sys.stdout.flush()
     sys.stderr.flush()
 
+    for l in fuzzing_info_list:
+        if l.fuzz_mode == FuzzMode.DF:
+            print("1", len(l.accumulated_cov_bbs))
 
     ## generate graphs for each ta
     if fuzz_mode == FuzzMode.ORG or fuzz_mode == FuzzMode.ALL:

@@ -62,6 +62,7 @@ def _worker(fuzzing_info: FuzzingInfo):
     for ts in timestamp_strs_sorted:
         accumulated_bbs.update(unique_bbs_ts_based[ts])
     fuzzing_info.accumulated_cov_bbs = accumulated_bbs
+    return fuzzing_info
 
 def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo]):
     with ProcessPoolExecutor(max_workers=50) as ex:
@@ -73,7 +74,12 @@ def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo]):
             total=len(fuzzing_info_list),
             desc="Parsing unique bbs for each TA",
         ):
-            _ = fut.result()
+            fi = futures[fut]
+            res = fut.result()
+            fi.accumulated_cov_bbs = res.accumuldated_cov_bbs 
+            fi.unique_cov_bbs_distribution = res.unique_cov_bbs_distribution
+            fi.raw_bbs = res.raw_bbs
+            #_ = fut.result()
     logger.info(f"[+] Finished parsing unique bbs for all TAs")
 
 
@@ -505,7 +511,6 @@ def df_control_flow_graph(
                     coverage_denominator += each_vanilla.raw_covs.max_nodes
 
             df_snapshot_bbs = set(df_fuzzing_dir[df_snapshot].accumulated_cov_bbs)
-            
             # Calculate covs related to suspicious_inputs
             suspicious_inputs_bbs = gather_suspicious_inputs_covs(df_snapshot, df_fuzzing_dir[df_snapshot], bar_field_name, bk_suspicious_inputs_cov_rdir)
         
