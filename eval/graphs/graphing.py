@@ -70,9 +70,9 @@ def _worker(fuzzing_info: FuzzingInfo):
 
 def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo]):
     with ProcessPoolExecutor(max_workers=50) as ex:
-        futures = [
-            ex.submit(_worker, fuzzing_info) for fuzzing_info in fuzzing_info_list
-        ]
+        futures = {
+            ex.submit(_worker, fuzzing_info): fuzzing_info for fuzzing_info in fuzzing_info_list
+        }
         for fut in tqdm(
             as_completed(futures),
             total=len(fuzzing_info_list),
