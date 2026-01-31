@@ -9,6 +9,7 @@ from typing import Iterable, Dict
 import json
 import time
 from typing import Optional
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 only_foo_under_queue_cache = TTLCache(maxsize=100, ttl=60 * 60)
 
@@ -188,6 +189,24 @@ def parse_cov(tee, ta, drcov_path) -> dict[int, list[BB]]:
         ):
             logger.warning(f"[-] Coverage file {drcov_path} does not exist")
         return out
+    cov_files = os.listdir(drcov_path)
+    tasks = [
+        os.path.join(drcov_path, f) for f in cov_files
+        if "time:" in f
+    ]
+    def _parse_one(cov_file_path):
+        try:
+            filename = os.path.basename(cov_file_path)
+            timestamp = int(int(filename.split("time:")[-1].split(",")[0]) / 1000)
+            bbs = parse_drcov(tee, ta, cov_file_path)
+            return timestamp, bbs
+        except Exception:
+            return None
+    with ProcessPoolExecutor(max_workers=10) as ex:
+        for timestamp, bbs in ex.map(_parse_one, tasks, chunksize=10):
+            if timestamp:
+                out[timestamp] = bbs
+    """
     for cov_file in os.listdir(drcov_path):
         try:
             timestamp = int(int(cov_file.split("time:")[-1].split(",")[0]) / 1000)
@@ -195,6 +214,7 @@ def parse_cov(tee, ta, drcov_path) -> dict[int, list[BB]]:
             continue
         bbs = parse_drcov(tee, ta, os.path.join(drcov_path, cov_file))
         out[timestamp] = bbs
+    """
     return out
 
 

@@ -29,7 +29,6 @@ def main(
     save_plots: bool = True,
     grouping_field_name: Optional[str] = None,
     show_rate: bool = False,
-    use_cache_bbs: bool = True,
 ):
     all_tas: set[str] = list_tas(path)
     tees = tees or ["mitee", "teegris", "beanpod", "t6", "qsee"]
@@ -86,11 +85,7 @@ def main(
             ) # TODO: check whether need to clean coverage files
 
     logger.info(f"[+] Parsing unique bbs for each TA")
-    if use_cache_bbs:
-        cache_path  = os.path.join(path, "eval/graphs/bb_cache/")
-    else:
-        cache_path = None
-    parse_unique_bbs(fuzzing_info_list, cache_path)
+    parse_unique_bbs(fuzzing_info_list)
     
     sys.stdout.flush()
     sys.stderr.flush()

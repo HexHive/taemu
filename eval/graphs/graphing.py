@@ -37,7 +37,7 @@ def naming_change(names: list[str] | str) -> list[str] | str:
     return new_names if len(new_names) > 1 else new_names[0]
 
 
-def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo], cache_dir):
+def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo]):
 
     def _cov_cache_key(tee, ta_name, cov_dir):
         h = hashlib.sha256(f"{tee}|{ta_name}|{cov_dir}".encode()).hexdigest()
@@ -47,29 +47,12 @@ def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo], cache_dir):
         raw_fuzzing_info: RawFuzzingInfo = fuzzing_info.raw_fuzzing_info
         unique_bbs_ts_based = {}
         unique_bbs_ts_based[0] = set()
-        if cache_dir is None:
-            cov_bbs: dict[int, list[BB]] = parse_cov(
-                raw_fuzzing_info.tee,
-                raw_fuzzing_info.ta_name,
-                raw_fuzzing_info.cov_dir,
-            )
-        else:
-            cache_file = os.path.join(cache_dir, _cov_cache_key(
-                raw_fuzzing_info.tee, 
-                raw_fuzzing_info.ta_name, 
-                raw_fuzzing_info.cov_dir
-            ))
-            if os.path.exists(cache_file):
-                with open(cache_file, "rb") as f:
-                    cov_bbs = pickle.load(f)
-            else:
-                cov_bbs: dict[int, list[BB]] = parse_cov(
-                    raw_fuzzing_info.tee,
-                    raw_fuzzing_info.ta_name,
-                    raw_fuzzing_info.cov_dir,
-                )
-                with open(cache_file, "wb") as f:
-                    pickle.dump(cov_bbs, f)
+        cov_bbs: dict[int, list[BB]] = parse_cov(
+            raw_fuzzing_info.tee,
+            raw_fuzzing_info.ta_name,
+            raw_fuzzing_info.cov_dir,
+        )
+        
         for timestamp, bbs in cov_bbs.items():
             if timestamp not in unique_bbs_ts_based:
                 unique_bbs_ts_based[timestamp] = set()
@@ -87,7 +70,7 @@ def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo], cache_dir):
         fuzzing_info.accumulated_cov_bbs = accumulated_bbs
         
 
-    with ThreadPoolExecutor(max_workers=30) as ex:
+    with ThreadPoolExecutor(max_workers=5) as ex:
         futures = [
             ex.submit(_worker, fuzzing_info) for fuzzing_info in fuzzing_info_list
         ]
