@@ -420,6 +420,7 @@ def longest_overlapped_bbs_trace(suspicious_inputs_bbs: list[BB], df_fuzzing_dir
     return longest_overlapped_bbs
 
 def df_dump_info(basics, part_one, part_two, part_three, df_snapshot, name, path):
+    #TODO: also dump list of BBs of sus input and basics BBs <- merge this data across same harness runs
     info_path = os.path.join(path, "eval/graphs/df_rawinfo/")
     if not os.path.exists(info_path):
         os.makedirs(info_path)
