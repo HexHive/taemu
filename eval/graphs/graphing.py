@@ -529,7 +529,6 @@ def df_control_flow_graph(
 
             assert coverage_denominator > 0
 
-            print(len(part_basic), len(part_one), len(part_two), len(part_three))
             return len(part_basic), len(part_one), len(part_two), len(part_three), coverage_denominator
 
         # launch for one harness
@@ -579,6 +578,12 @@ def df_control_flow_graph(
             *sorted(zip(basic_segments, part_one_segments, part_two_segments, part_three_segments))
         )
         x = np.arange(len(basic_segments))
+        if show_rate:
+            basic_segments = [b / d * 100 for b, d in zip(basic_segments, coverage_denominators)]
+            part_one_segments = [b / d * 100 for b, d in zip(part_one_segments, coverage_denominators)]
+            part_two_segments = [b / d * 100 for b, d in zip(part_two_segments, coverage_denominators)]
+            part_three_segments = [b / d * 100 for b, d in zip(part_three_segments, coverage_denominators)]
+        
         ax.bar(x, basic_segments, label="Basic")
         ax.bar(x, part_one_segments, bottom=basic_segments, label="Part 1")
         ax.bar(x, part_two_segments, bottom=np.array(basic_segments)+np.array(part_one_segments), label="Part 2")
