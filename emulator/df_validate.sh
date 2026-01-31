@@ -33,8 +33,8 @@ if [ -z "$ta" ]; then
     exit
 fi
 ta_name="${ta::-3}"
-cp "$ta" rootfs/
-cp "${ta_name}.json" rootfs/
+cp -n "$ta" rootfs/
+cp -n "${ta_name}.json" rootfs/
 df_seed=$(basename "$df_seed_path")
 
 

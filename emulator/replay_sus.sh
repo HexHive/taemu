@@ -52,8 +52,8 @@ chmod -R 777 "$fuzz_in"
 chmod -R 777 "$fuzz_out"
 
 ta_name="${ta::-3}"
-cp "$ta" rootfs/
-cp "${ta_name}.json" rootfs/
+cp -n "$ta" rootfs/
+cp -n "${ta_name}.json" rootfs/
 
 if [ ! -z "$2" ]; then
     echo "Replaying seed $2 ..."

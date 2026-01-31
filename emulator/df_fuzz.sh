@@ -57,8 +57,8 @@ echo "Using fuzz output dir: $fuzz_out"
 fuzz_in="${fuzz_in}_${df_reg_hash}"
 fuzz_out="${fuzz_out}_${df_reg_hash}"
 ta_name="${ta::-3}"
-cp "$ta" rootfs/
-cp "${ta_name}.json" rootfs/
+cp -n "$ta" rootfs/
+cp -n "${ta_name}.json" rootfs/
 
 if [ -z "$4" ]; then
 

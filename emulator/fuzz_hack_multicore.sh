@@ -64,8 +64,8 @@ echo "Using fuzz input dir: $fuzz_in"
 echo "Using fuzz output dir: $fuzz_out"
 
 ta_name="${ta::-3}"
-cp "$ta" rootfs/
-cp "${ta_name}.json" rootfs/
+cp -n "$ta" rootfs/
+cp -n "${ta_name}.json" rootfs/
 
 if [ -z "$2" ]; then
     echo "Starting fuzzing..."
