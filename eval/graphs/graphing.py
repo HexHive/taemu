@@ -555,8 +555,6 @@ def df_control_flow_graph(
                 
         # df_snapshot: like qsee_a985_fuzz_run:id:7ecbd9e7c8dff69ac598e8c9bdcba57d_62849841960499769081805646165961192109
         # df_fuzzing_dir[df_snapshot]: df_fuzzing queue seed covs related to df_snapshot
-            
-        
 
         if len(bar_labels) == 0:
             ax.text(
@@ -571,6 +569,24 @@ def df_control_flow_graph(
             ax.axis("off")
             continue
 
+        ax.plot(
+            basic_segments,
+            list(range(0, basic_segments))
+        ) 
+        ax.plot(
+            [d+ basic_segments[i] for i, d in enumerate(part_one_segments) ],
+            list(range(0, basic_segments))
+        )
+        ax.plot(
+            [d+ basic_segments[i] + part_one_segments[i] for i, d in enumerate(part_two_segments) ],
+            list(range(0, basic_segments))
+        )
+        ax.plot(
+            [d+ basic_segments[i] + part_one_segments + part_two_segments[i] for i, d in enumerate(part_three_segments) ],
+            list(range(0, basic_segments))
+        ) 
+
+        """
         # Create the bar chart with wide bottom bar and three thin bars on top
         x_pos = np.arange(len(bar_labels))
         wide_width = 0.7       # Width for the basic (bottom) bar
@@ -687,6 +703,7 @@ def df_control_flow_graph(
         ax.legend(loc="upper right", fontsize=8)
         ax.grid(True, alpha=0.3, linestyle="--", linewidth=0.8, axis="y")
         ax.tick_params(axis="y", labelsize=9)
+        """
 
     # Hide unused subplots
     for idx in range(num_groups, len(axes)):
