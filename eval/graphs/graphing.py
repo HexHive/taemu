@@ -1,4 +1,7 @@
 import matplotlib.pyplot as plt
+import pickle
+import hashlib
+import json
 import numpy as np
 from common import RawFuzzingInfo, BB, parse_cov, FuzzMode, parse_drcov
 from typing import List
@@ -34,17 +37,37 @@ def naming_change(names: list[str] | str) -> list[str] | str:
     return new_names if len(new_names) > 1 else new_names[0]
 
 
-def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo]):
+def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo], cache_dir):
+
+    def _cov_cache_key(tee, ta_name, cov_dir):
+        h = hashlib.sha256(f"{tee}|{ta_name}|{cov_dir}".encode()).hexdigest()
+        return f"{h}.pkl"
 
     def _worker(fuzzing_info: FuzzingInfo):
         raw_fuzzing_info: RawFuzzingInfo = fuzzing_info.raw_fuzzing_info
         unique_bbs_ts_based = {}
         unique_bbs_ts_based[0] = set()
-        cov_bbs: dict[int, list[BB]] = parse_cov(
-            raw_fuzzing_info.tee,
-            raw_fuzzing_info.ta_name,
-            raw_fuzzing_info.cov_dir,
-        )
+        if cache_dir is None:
+            cov_bbs: dict[int, list[BB]] = parse_cov(
+                raw_fuzzing_info.tee,
+                raw_fuzzing_info.ta_name,
+                raw_fuzzing_info.cov_dir,
+            )
+        else:
+            cache_file = os.path.join(cache_dir, _cov_cache_key(
+                raw_fuzzing_info.tee, 
+                raw_fuzzing_info.ta_name, 
+                raw_fuzzing_info.cov_dir
+            ))
+            if os.path.exists(cache_file):
+                with open(cache_file, "rb") as f:
+                    cov_bbs = pickle.load(f)
+            else:
+                cov_bbs: dict[int, list[BB]] = parse_cov(
+                    raw_fuzzing_info.tee,
+                    raw_fuzzing_info.ta_name,
+                    raw_fuzzing_info.cov_dir,
+                )
         for timestamp, bbs in cov_bbs.items():
             if timestamp not in unique_bbs_ts_based:
                 unique_bbs_ts_based[timestamp] = set()
@@ -128,12 +151,21 @@ def _group_fuzzing_info_list(
     return new_fuzzing_imap_by_field
 
 
+def org_dump_info(y_values, name, path):
+    info_path = os.path.join(path, "eval/graphs/rawinfo/")
+    if not os.path.exists(info_path):
+        os.path.makedirs(info_path)
+    open(os.path.join(info_path, f'org_{name}.json'), 'w+').write(
+        json.dump(y_values)
+    )
+
 def org_control_flow_graph(
     fuzzing_info_list: List[FuzzingInfo],
     max_timestamps: int,
     *,
     grouping_field_name: Optional[str] = None,
     show_rate: bool = False,
+    path: str = None,
 ):
     fuzzing_info_list = [
         each
@@ -243,6 +275,7 @@ def org_control_flow_graph(
             if not show_rate
             else [count / fuzzing_info.raw_covs.max_nodes * 100 for count in counts]
         )
+        org_dump_info(y_values, naming_change(fuzzing_info.raw_fuzzing_info.id), path)
         ax.plot(
             x_values,
             y_values,

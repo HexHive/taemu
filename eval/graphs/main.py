@@ -29,10 +29,14 @@ def main(
     save_plots: bool = True,
     grouping_field_name: Optional[str] = None,
     show_rate: bool = False,
+    use_cache_bbs: bool = True,
 ):
     all_tas: set[str] = list_tas(path)
     tees = tees or ["mitee", "teegris", "beanpod", "t6", "qsee"]
     filtered_tas = list(filter(lambda ta: any(tee in ta for tee in tees), all_tas))
+
+    if not os.path.exists(os.path.join(path, "eval/graphs/bb_cache/")):
+        os.mkdirs(os.path.join(path, "eval/graphs/bb_cache/"))
 
     ## get the cfg and basic raw fuzzing info
     logger.info(f"[+] Collecting cfg and basic raw fuzzing info for each TA")
@@ -82,7 +86,11 @@ def main(
             ) # TODO: check whether need to clean coverage files
 
     logger.info(f"[+] Parsing unique bbs for each TA")
-    parse_unique_bbs(fuzzing_info_list)
+    if use_cache_bbs:
+        cache_path  = os.path.join(path, "eval/graphs/bb_cache/")
+    else:
+        cache_path = None
+    parse_unique_bbs(fuzzing_info_list, cache_path)
     
     sys.stdout.flush()
     sys.stderr.flush()
@@ -96,6 +104,7 @@ def main(
             max_timestamps=86400,
             grouping_field_name=grouping_field_name,
             show_rate=show_rate,
+            path=path,
         )
         if org_graph:
             logger.info(f"[+] Finished generating org graph")
@@ -154,6 +163,7 @@ if __name__ == "__main__":
     parser.add_argument("--ss_cov_rdir", type=str, default=None, required=True)
     parser.add_argument("--org_group_field", type=str, default=None, choices=["tee", None])
     parser.add_argument("--show_rate", action="store_true", default=False)
+    parser.add_argument("--no_bb_cache", action="store_true", default=False)
     
     args = parser.parse_args()
 
@@ -174,4 +184,5 @@ if __name__ == "__main__":
         show_rate=args.show_rate,
         show_plots=False,
         save_plots=True,
+        use_cache_bbs=not args.no_bb_cache
     )
