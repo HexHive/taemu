@@ -234,7 +234,7 @@ def org_control_flow_graph(
             for bb in unique_bbs:
                 if not in_cfg(bb, fuzzing_info.raw_covs.cfg):
                     not_in_cfg.append(bb)
-            not_in_cfg = not_in_cfg.sort(key=lambda o: o.start, reverse=True)
+            not_in_cfg.sort(key=lambda o: o.start, reverse=True)
             for bb in not_in_cfg:
                 print('not in cfg', bb)
             print(fuzzing_info.raw_covs.cfg.nodes)
