@@ -588,6 +588,13 @@ def df_control_flow_graph(
         ax.bar(x, part_one_segments, bottom=basic_segments, label="Part 1")
         ax.bar(x, part_two_segments, bottom=np.array(basic_segments)+np.array(part_one_segments), label="Part 2")
         ax.bar(x, part_three_segments, bottom=np.array(basic_segments)+np.array(part_one_segments)+np.array(part_two_segments), label="Part 3")
+
+        ax.set_title(
+            f"Harness: {naming_change(vanilla_id)}",
+            fontsize=11,
+            fontweight="bold",
+            pad=10,
+        )
         """
         ax.plot(
             list(range(0, len(basic_segments))),
