@@ -156,7 +156,7 @@ def _group_fuzzing_info_list(
 def org_dump_info(y_values, name, path):
     info_path = os.path.join(path, "eval/graphs/rawinfo/")
     if not os.path.exists(info_path):
-        os.path.makedirs(info_path)
+        os.makedirs(info_path)
     open(os.path.join(info_path, f'org_{name}.json'), 'w+').write(
         json.dump(y_values)
     )
