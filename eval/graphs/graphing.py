@@ -575,41 +575,9 @@ def df_control_flow_graph(
             [basic_segments, part_one_segments, part_two_segments, part_three_segments]
         )"""
 
-        segments = [
-            ("Basic", basic_segments),
-            ("Part 1", part_one_segments),
-            ("Part 2", part_two_segments),
-            ("Part 3", part_three_segments),
-        ]
-
-        x = np.arange(len(basic_segments))
-
-        # Prepare containers for plotting
-        stacked_values = {name: [] for name, _ in segments}
-        stacked_bottoms = {name: [] for name, _ in segments}
-
-        for i in range(len(x)):
-            # collect values for this bar
-            values = [(name, arr[i]) for name, arr in segments]
-
-            # sort by size (ascending; use reverse=True for largest at bottom)
-            values.sort(key=lambda v: v[1])
-
-            bottom = 0
-            for name, val in values:
-                stacked_values[name].append(val)
-                stacked_bottoms[name].append(bottom)
-                bottom += val
-
-        x = np.arange(len(basic_segments))  # bar positions
-
-        for name in stacked_values:
-            ax.bar(
-                x,
-                stacked_values[name],
-                bottom=stacked_bottoms[name],
-                label=name,
-            )
+        basic_segments, part_one_segments, part_two_segments, part_three_segments = zip(
+            *sorted(zip(basic_segments, part_one_segments, part_two_segments, part_three_segments))
+        )
 
         #ax.bar(x, basic_segments, label="Basic")
         #ax.bar(x, part_one_segments, bottom=basic_segments, label="Part 1")
