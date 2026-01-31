@@ -13,7 +13,7 @@ BACK_DIR=$(realpath $2)
 ROOT_DIR=$(realpath $1)
 ts=$(date +%Y%m%d_%H%M%S)
 
-BACK_DIR="$BACK_DIR/$ts/suspicious_inputs_covs"
+BACK_DIR="$BACK_DIR/suspicious_inputs_covs"
 
 mkdir -p "$BACK_DIR"
 

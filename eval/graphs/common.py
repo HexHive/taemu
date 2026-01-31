@@ -198,6 +198,7 @@ def parse_cov(tee, ta, drcov_path) -> dict[int, list[BB]]:
         ):
             logger.warning(f"[-] Coverage file {drcov_path} does not exist")
         return out
+    """
     cov_files = [os.path.join(drcov_path, f) for f in os.listdir(drcov_path) if "time:" in f]
     args = [(f, tee, ta) for f in cov_files] 
     with ProcessPoolExecutor(max_workers=10) as ex:
@@ -212,7 +213,6 @@ def parse_cov(tee, ta, drcov_path) -> dict[int, list[BB]]:
             continue
         bbs = parse_drcov(tee, ta, os.path.join(drcov_path, cov_file))
         out[timestamp] = bbs
-    """
     return out
 
 
