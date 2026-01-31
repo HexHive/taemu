@@ -174,7 +174,8 @@ def get_fuzzing_basic_info(
         raise ValueError(f"Invalid fuzz mode: {fuzz_mode}")
     return all
 
-def _parse_one(cov_file_path, tee, ta):
+def _parse_one(args):
+        cov_file_path, tee, ta = args
         try:
             filename = os.path.basename(cov_file_path)
             timestamp = int(int(filename.split("time:")[-1].split(",")[0]) / 1000)
@@ -198,9 +199,9 @@ def parse_cov(tee, ta, drcov_path) -> dict[int, list[BB]]:
             logger.warning(f"[-] Coverage file {drcov_path} does not exist")
         return out
     cov_files = [os.path.join(drcov_path, f) for f in os.listdir(drcov_path) if "time:" in f]
-    
+    args = [(f, tee, ta) for f in cov_files] 
     with ProcessPoolExecutor(max_workers=10) as ex:
-        for timestamp, bbs in ex.map(lambda f: _parse_one(f, tee, ta), cov_files, chunksize=10):
+        for timestamp, bbs in ex.map(_parse_one, args, chunksize=10):
             if timestamp:
                 out[timestamp] = bbs
     """
