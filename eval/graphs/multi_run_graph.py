@@ -47,6 +47,10 @@ def plot_org(data, tee):
         coords.append((d['x'], d['y']))
 
     y_max, y_min, y_median, x = aggregate(coords) 
+    print(y_max)
+    print(y_min)
+    print(y_median)
+    print(x)
     matplotlib.rcParams['mathtext.fontset'] = 'custom'
     matplotlib.rcParams['mathtext.rm'] = 'Bitstream Vera Sans'
     matplotlib.rcParams['mathtext.it'] = 'Bitstream Vera Sans:italic'
@@ -68,7 +72,7 @@ def plot_org(data, tee):
     ax.set_yticks(yticks)
     ax.set_yticklabels([])
     plt.tight_layout()
-    xticks = [0, 36000, 72000]
+    xticks = [0, 12, 24]
     ax.set_xticks(xticks)
     if not os.path.exists(os.path.join(os.path.dirname(__file__), "multi_graph_out")):
         os.makedirs(os.path.join(os.path.dirname(__file__), "multi_graph_out"))
