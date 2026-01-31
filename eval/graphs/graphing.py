@@ -568,7 +568,13 @@ def df_control_flow_graph(
             ax.set_title(f"Group: {vanilla_id}", fontsize=10)
             ax.axis("off")
             continue
+        
+        ax.stackplot(
+            list(range(0, len(basic_segments))),
+            [basic_segments, part_one_segments, part_two_segments, part_three_segments]
+        )
 
+        """
         ax.plot(
             list(range(0, len(basic_segments))),
             basic_segments,
@@ -585,6 +591,7 @@ def df_control_flow_graph(
             list(range(0, len(basic_segments))),
             [d+ basic_segments[i] + part_one_segments[i] + part_two_segments[i] for i, d in enumerate(part_three_segments) ],
         ) 
+        """
 
         """
         # Create the bar chart with wide bottom bar and three thin bars on top
