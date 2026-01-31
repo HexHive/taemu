@@ -10,6 +10,7 @@ from loguru import logger
 from tqdm import tqdm
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Optional, Callable
 import os
 
@@ -63,7 +64,7 @@ def _worker(fuzzing_info: FuzzingInfo):
     fuzzing_info.accumulated_cov_bbs = accumulated_bbs
 
 def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo]):
-    with ThreadPoolExecutor(max_workers=50) as ex:
+    with ProcessPoolExecutor(max_workers=50) as ex:
         futures = [
             ex.submit(_worker, fuzzing_info) for fuzzing_info in fuzzing_info_list
         ]
