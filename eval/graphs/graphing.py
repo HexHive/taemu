@@ -225,6 +225,7 @@ def org_control_flow_graph(
             return False
         print("helllo???????")
         unique_bbs = set()
+        not_in_cfg = list()
         for ts, bbs in fuzzing_info.unique_cov_bbs_distribution.items():
             for bb in bbs:
                 unique_bbs.add(bb)
@@ -232,7 +233,10 @@ def org_control_flow_graph(
         if "df1e_fuzz" in fuzzing_info.raw_fuzzing_info.harness_path:
             for bb in unique_bbs:
                 if not in_cfg(bb, fuzzing_info.raw_covs.cfg):
-                    print(f'not in cfg {bb}')
+                    not_in_cfg.append(bb)
+            not_in_cfg = not_in_cfg.sort(key=lambda o: o.start, reverse=True)
+            for bb in not_in_cfg:
+                print('not in cfg', bb)
             print(fuzzing_info.raw_covs.cfg.nodes)
 
         # Extract timestamps and counts, convert timestamps to int for proper sorting
