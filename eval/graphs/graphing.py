@@ -419,12 +419,13 @@ def longest_overlapped_bbs_trace(suspicious_inputs_bbs: list[BB], df_fuzzing_dir
             break
     return longest_overlapped_bbs
 
-def df_dump_info(basics, part_one, part_two, part_three, name, path):
+def df_dump_info(basics, part_one, part_two, part_three, df_snapshot, name, path):
     info_path = os.path.join(path, "eval/graphs/df_rawinfo/")
     if not os.path.exists(info_path):
         os.makedirs(info_path)
     open(os.path.join(info_path, f'df_{name}.json'), 'w+').write(
         json.dumps({
+            'snapshot': df_snapshot,
             'basics': basics,
             'part_one': part_one, 
             'part_two': part_two,
@@ -597,7 +598,7 @@ def df_control_flow_graph(
             *sorted(zip(basic_segments, part_one_segments, part_two_segments, part_three_segments))
         )
 
-        df_dump_info(basic_segments, part_one_segments, part_two_segments, part_three_segments, 
+        df_dump_info(basic_segments, part_one_segments, part_two_segments, part_three_segments, df_snapshot, 
                     f'{vanilla_fuzzing_info.raw_fuzzing_info.tee}_{naming_change(vanilla_id)}', path)
 
         x = np.arange(len(basic_segments))

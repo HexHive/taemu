@@ -14,14 +14,39 @@ def get_org_data(tee, path):
     print(f'not found {tee}, {path}')
     raise Exception
 
+def get_ys(coords, x):
+    out = []
+    for xc, yc in coords:
+        if x in xc:
+            out.append(yc[xc.index(x)])
+        else:
+            out.append(np.interp(x, xc, yc))
+    return out
+
+def aggregate(coords):
+    y_max = []
+    y_min = []
+    y_med = []
+    x_aggr = []
+    all_x = set()
+    for x, _ in coords:
+        for xx in x:
+            all_x.add(xx)
+    x_aggr = list(sorted(list(all_x)))
+    print(x_aggr)
+    for x in x_aggr:
+        all_y = get_ys(coords, x)
+        y_max.append(max(all_y))
+        y_min.append(min(all_y))
+        y_med.append(np.median(all_y))
+    return y_max, y_min, y_med, x_aggr
+
 def plot_org(data, tee):
+    coords = []
     for d in data:
-        print(len(d))
-    arr = np.vstack(data)
-    x = list(range(0, len(arr)))
-    y_median = np.median(arr, axis=0)
-    y_min = arr.min(axis=0)
-    y_max = arr.max(axis=0)
+        coords.append((d['x'], d['y']))
+
+    y_max, y_min, y_median, x = aggregate(coords) 
     matplotlib.rcParams['mathtext.fontset'] = 'custom'
     matplotlib.rcParams['mathtext.rm'] = 'Bitstream Vera Sans'
     matplotlib.rcParams['mathtext.it'] = 'Bitstream Vera Sans:italic'
@@ -45,9 +70,9 @@ def plot_org(data, tee):
     plt.tight_layout()
     xticks = [0, 36000, 72000]
     ax.set_xticks(xticks)
-    if not os.path.exists(os.path.join(os.path.dirname(__file__), "multi_graph")):
-        os.makedirs(os.path.join(os.path.dirname(__file__), "multi_graph"))
-    plt.savefig(os.path.join(os.path.dirname(__file__), "multi_graph", f'org_{tee}.pdf'), format="pdf",bbox_inches='tight', pad_inches=0.1)
+    if not os.path.exists(os.path.join(os.path.dirname(__file__), "multi_graph_out")):
+        os.makedirs(os.path.join(os.path.dirname(__file__), "multi_graph_out"))
+    plt.savefig(os.path.join(os.path.dirname(__file__), "multi_graph_out", f'org_{tee}.pdf'), format="pdf",bbox_inches='tight', pad_inches=0.1)
 
 def main(fuzz_mode, path, teess):
     tees = ['mitee', 'teegris', 'qsee', 'beanpod', 'kinibi']
