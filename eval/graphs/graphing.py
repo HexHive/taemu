@@ -158,7 +158,7 @@ def org_dump_info(y_values, name, path):
     if not os.path.exists(info_path):
         os.makedirs(info_path)
     open(os.path.join(info_path, f'org_{name}.json'), 'w+').write(
-        json.dump(y_values)
+        json.dumps(y_values)
     )
 
 def org_control_flow_graph(

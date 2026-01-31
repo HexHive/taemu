@@ -167,9 +167,9 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
-    user_input = input(f"[-] Have you back up the coverage files of suspicious inputs to the directory `{args.ss_cov_rdir}`? (y/n)\n")
-    if user_input != "y":
-        raise Exception("[-] Please back up the coverage files of suspicious inputs first. Run `./bk_suspicious_inputs.sh <root_dir> <back_dir>`.")
+    #user_input = input(f"[-] Have you back up the coverage files of suspicious inputs to the directory `{args.ss_cov_rdir}`? (y/n)\n")
+    #if user_input != "y":
+    #    raise Exception("[-] Please back up the coverage files of suspicious inputs first. Run `./bk_suspicious_inputs.sh <root_dir> <back_dir>`.")
 
     if os.path.exists(args.ss_cov_rdir) is False or len(os.listdir(args.ss_cov_rdir)) == 0:
         raise Exception("[-] The directory of the backup coverage files of suspicious inputs does not exist or is empty.")
