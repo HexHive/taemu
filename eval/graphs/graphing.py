@@ -36,37 +36,34 @@ def naming_change(names: list[str] | str) -> list[str] | str:
         new_names.append(name)
     return new_names if len(new_names) > 1 else new_names[0]
 
+def _worker(fuzzing_info: FuzzingInfo):
+    raw_fuzzing_info: RawFuzzingInfo = fuzzing_info.raw_fuzzing_info
+    unique_bbs_ts_based = {}
+    unique_bbs_ts_based[0] = set()
+    cov_bbs: dict[int, list[BB]] = parse_cov(
+        raw_fuzzing_info.tee,
+        raw_fuzzing_info.ta_name,
+        raw_fuzzing_info.cov_dir,
+    )
+    
+    for timestamp, bbs in cov_bbs.items():
+        if timestamp not in unique_bbs_ts_based:
+            unique_bbs_ts_based[timestamp] = set()
+        unique_bbs_ts_based[timestamp].update(bbs)
+        fuzzing_info.raw_bbs.append(bbs)
+    fuzzing_info.unique_cov_bbs_distribution = unique_bbs_ts_based
+
+    timestamp_strs = list(unique_bbs_ts_based.keys())
+    timestamp_strs_sorted = sorted(
+        timestamp_strs, key=lambda x: int(x) if str(x).isdigit() else 0
+    )
+    accumulated_bbs = set()
+    for ts in timestamp_strs_sorted:
+        accumulated_bbs.update(unique_bbs_ts_based[ts])
+    fuzzing_info.accumulated_cov_bbs = accumulated_bbs
 
 def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo]):
-
-    def _worker(fuzzing_info: FuzzingInfo):
-        raw_fuzzing_info: RawFuzzingInfo = fuzzing_info.raw_fuzzing_info
-        unique_bbs_ts_based = {}
-        unique_bbs_ts_based[0] = set()
-        cov_bbs: dict[int, list[BB]] = parse_cov(
-            raw_fuzzing_info.tee,
-            raw_fuzzing_info.ta_name,
-            raw_fuzzing_info.cov_dir,
-        )
-        
-        for timestamp, bbs in cov_bbs.items():
-            if timestamp not in unique_bbs_ts_based:
-                unique_bbs_ts_based[timestamp] = set()
-            unique_bbs_ts_based[timestamp].update(bbs)
-            fuzzing_info.raw_bbs.append(bbs)
-        fuzzing_info.unique_cov_bbs_distribution = unique_bbs_ts_based
-
-        timestamp_strs = list(unique_bbs_ts_based.keys())
-        timestamp_strs_sorted = sorted(
-            timestamp_strs, key=lambda x: int(x) if str(x).isdigit() else 0
-        )
-        accumulated_bbs = set()
-        for ts in timestamp_strs_sorted:
-            accumulated_bbs.update(unique_bbs_ts_based[ts])
-        fuzzing_info.accumulated_cov_bbs = accumulated_bbs
-        
-
-    with ThreadPoolExecutor(max_workers=5) as ex:
+    with ThreadPoolExecutor(max_workers=50) as ex:
         futures = [
             ex.submit(_worker, fuzzing_info) for fuzzing_info in fuzzing_info_list
         ]
