@@ -365,7 +365,6 @@ def gather_suspicious_inputs_covs(df_bar_key: str, df_group_finfo: GroupedFuzzin
     harness_path = df_group_finfo.raw_fuzzing_info.harness_path
     harness_name = harness_path[harness_path.rfind("TA_GP_emulator/")+len("TA_GP_emulator/"):]
     suspicious_inputs_covs = f'{bk_suspicious_inputs_cov_rdir}/{harness_name}/out/cov' 
-    print("bk sus dir???", bk_suspicious_inputs_cov_rdir, suspicious_inputs_covs)
     if bar_field_name == "id":
         file = df_bar_key.split("_")[-2] + ".cov"
         suspicious_inputs_bbs=parse_drcov(tee=df_group_finfo.raw_fuzzing_info.tee,
@@ -520,7 +519,8 @@ def df_control_flow_graph(
             part_three = df_snapshot_bbs - part_two - part_one - part_basic
 
             assert coverage_denominator > 0
-            
+
+            print(len(part_basic), len(part_one), len(part_two), len(part_three))
             return len(part_basic), len(part_one), len(part_two), len(part_three), coverage_denominator
 
         # launch for one harness
