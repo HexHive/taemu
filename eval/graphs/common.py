@@ -207,13 +207,22 @@ def parse_cov(tee, ta, drcov_path) -> dict[int, list[BB]]:
             if timestamp:
                 out[timestamp] = bbs
     """
-    for cov_file in tqdm(os.listdir(drcov_path), desc=f'cov file parsing {ta}'):
-        try:
-            timestamp = int(int(cov_file.split("time:")[-1].split(",")[0]) / 1000)
-        except:
-            continue
-        bbs = parse_drcov(tee, ta, os.path.join(drcov_path, cov_file))
-        out[timestamp] = bbs
+    if len(os.listdir(drcov_path)) > 1000:
+        for cov_file in tqdm(os.listdir(drcov_path), desc=f'cov file parsing {ta}'):
+            try:
+                timestamp = int(int(cov_file.split("time:")[-1].split(",")[0]) / 1000)
+            except:
+                continue
+            bbs = parse_drcov(tee, ta, os.path.join(drcov_path, cov_file))
+            out[timestamp] = bbs
+    else:
+        for cov_file in os.listdir(drcov_path):
+            try:
+                timestamp = int(int(cov_file.split("time:")[-1].split(",")[0]) / 1000)
+            except:
+                continue
+            bbs = parse_drcov(tee, ta, os.path.join(drcov_path, cov_file))
+            out[timestamp] = bbs
     return out
 
 

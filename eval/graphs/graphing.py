@@ -44,7 +44,7 @@ def _worker(fuzzing_info: FuzzingInfo):
     cov_bbs: dict[int, list[BB]] = parse_cov(
         raw_fuzzing_info.tee,
         raw_fuzzing_info.ta_name,
-        raw_fuzzing_info.cov_dir,
+        raw_fuzzing_info.cov_dir
     )
     
     for timestamp, bbs in cov_bbs.items():
@@ -140,12 +140,15 @@ def _group_fuzzing_info_list(
     return new_fuzzing_imap_by_field
 
 
-def org_dump_info(y_values, name, path):
+def org_dump_info(y_values, x_values, name, path):
     info_path = os.path.join(path, "eval/graphs/rawinfo/")
     if not os.path.exists(info_path):
         os.makedirs(info_path)
     open(os.path.join(info_path, f'org_{name}.json'), 'w+').write(
-        json.dumps(y_values)
+        json.dumps(
+            {"y": y_values,
+             "x": x_values}
+        )
     )
 
 def org_control_flow_graph(
@@ -267,7 +270,7 @@ def org_control_flow_graph(
             if not show_rate
             else [count / fuzzing_info.raw_covs.max_nodes * 100 for count in counts]
         )
-        org_dump_info(y_values, naming_change(fuzzing_info.raw_fuzzing_info.id), path)
+        org_dump_info(y_values, x_values, naming_change(fuzzing_info.raw_fuzzing_info.id), path)
         ax.plot(
             x_values,
             y_values,
