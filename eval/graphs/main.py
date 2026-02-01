@@ -181,7 +181,7 @@ if __name__ == "__main__":
         fuzz_mode=FuzzMode(args.fuzz_mode),
         path=args.path,
         tees=args.tees,
-        tas=args.tas
+        tas=args.tas,
         regen_coverage=args.regen_coverage,
         bk_suspicious_inputs_cov_rdir=args.ss_cov_rdir,
         grouping_field_name=args.org_group_field,
