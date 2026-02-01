@@ -38,6 +38,15 @@ def naming_change(names: list[str] | str) -> list[str] | str:
         new_names.append(name)
     return new_names if len(new_names) > 1 else new_names[0]
 
+def in_cfg(bb, cfg):
+    nodes = cfg.nodes # ONLY WORKS FOR TA  ONLY
+    for n in nodes:
+        if not "start" in cfg.nodes[n] or not "end" in cfg.nodes[n]: 
+            continue
+        if bb.start == int(cfg.nodes[n]["start"],16) or bb.start + bb.size == int(cfg.nodes[n]["start"],16) or bb.start >= int(cfg.nodes[n]["start"],16) and bb.start + bb.size<= int(cfg.nodes[n]["end"],16):
+            return True
+    return False
+
 def _worker(fuzzing_info: FuzzingInfo):
     raw_fuzzing_info: RawFuzzingInfo = fuzzing_info.raw_fuzzing_info
     unique_bbs_ts_based = {}
@@ -63,10 +72,15 @@ def _worker(fuzzing_info: FuzzingInfo):
     for ts in timestamp_strs_sorted:
         accumulated_bbs.update(unique_bbs_ts_based[ts])
     fuzzing_info.accumulated_cov_bbs = accumulated_bbs
+    not_in_cfg_bbs = set()
+    for bb in set(fuzzing_info.raw_bbs):
+        if not in_cfg(bb, fuzzing_info.raw_covs.cfg):
+            not_in_cfg_bbs.add(bb)
     return {
         "raw_bbs": fuzzing_info.raw_bbs,
         "unique_cov_bbs_distribution": unique_bbs_ts_based,
         "accumulated_cov_bbs": accumulated_bbs,
+        "not_in_cfg": not_in_cfg_bbs
     }
 
 def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo]):
@@ -84,6 +98,8 @@ def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo]):
             fi.accumulated_cov_bbs = res['accumulated_cov_bbs']
             fi.unique_cov_bbs_distribution = res['unique_cov_bbs_distribution']
             fi.raw_bbs = res['raw_bbs']
+            fi.not_in_cfg_bbs in res['not_in_cfg']
+            fi.raw_covs.max_nodes += len(fi.not_in_cfg_bbs)
             #_ = fut.result()
     logger.info(f"[+] Finished parsing unique bbs for all TAs")
 
@@ -219,14 +235,7 @@ def org_control_flow_graph(
             continue
 
         # check for bbs not in ghidra cfg
-        def in_cfg(bb, cfg):
-            nodes = cfg.nodes # ONLY WORKS FOR TA  ONLY
-            for n in nodes:
-                if not "start" in cfg.nodes[n] or not "end" in cfg.nodes[n]: 
-                    continue
-                if bb.start == int(cfg.nodes[n]["start"],16) or bb.start + bb.size == int(cfg.nodes[n]["start"],16) or bb.start >= int(cfg.nodes[n]["start"],16) and bb.start + bb.size<= int(cfg.nodes[n]["end"],16):
-                    return True
-            return False
+        
         """
         print("helllo???????")
         unique_bbs = set()

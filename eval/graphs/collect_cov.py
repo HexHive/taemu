@@ -42,6 +42,7 @@ class FuzzingInfo:
     raw_bbs: list[list[BB]] = field(default_factory=list) 
     accumulated_cov_bbs: set[BB] = field(default_factory=set)
     linked_ta_finfo: Optional[RawFuzzingInfo] = None
+    not_in_cfg_bbs: set[BB] = field(default_factory=set)
 
 
 @dataclass
