@@ -73,7 +73,7 @@ def _worker(fuzzing_info: FuzzingInfo):
         accumulated_bbs.update(unique_bbs_ts_based[ts])
     fuzzing_info.accumulated_cov_bbs = accumulated_bbs
     not_in_cfg_bbs = set()
-    for bb in set(fuzzing_info.raw_bbs):
+    for bb in accumulated_bbs:
         if not in_cfg(bb, fuzzing_info.raw_covs.cfg):
             not_in_cfg_bbs.add(bb)
     return {
