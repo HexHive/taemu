@@ -100,6 +100,13 @@ TEEs=(
   "$root_dir/beanpod"
   "$root_dir/teegris"
   "$root_dir/qsee"
+  "$root_dir/kinibi"
+)
+
+kinibiTas=(
+  "df1e_fuzz"
+  "abcd_fuzz"
+  "0801_fuzz"
 )
 
 # Terminal color
@@ -115,7 +122,11 @@ NC='\033[0m' # No Color
 
 echo -e "[+] ${RED}TA with double fetches${NC}"
 for TEE in "${TEEs[@]}"; do
-  TEE_HARNESS_DIR="$TEE/harness"
+  if [[ "$TEE" == "$root_dir/kinibi" ]]; then 
+    TEE_HARNESS_DIR="$root_dir/beanpod/harness"
+  else
+    TEE_HARNESS_DIR="$TEE/harness"
+  fi
   ta_double_fetchs=0
   ta_list=()
   if [[ ! -d "$TEE_HARNESS_DIR" ]]; then
@@ -123,6 +134,13 @@ for TEE in "${TEEs[@]}"; do
   fi
   for TA in "$TEE_HARNESS_DIR"/*; do
     if [[ -d "$TA" ]]; then
+      if [[ "$TEE" == "$root_dir/kinibi" ]]; then 
+        tabasename="$(basename "$TA")"
+        if [[ ! "${kinibiTas[*]}" == *"$tabasename"* ]]; then
+          echo "kinibi TA skipped"
+          continue
+        fi
+      fi 
       cnt=$(count_filtered "$TA" --type f --name "*.meta")
       if [[ $cnt -gt 0 ]]; then
         if [[ $detail == true ]]; then
