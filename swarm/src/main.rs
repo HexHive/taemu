@@ -640,7 +640,7 @@ fn _main_with_logging() -> i32 {
     let ta_files = generate_fuzz_jobs(&args);
 
     // statistics of the ta_files
-    if !args.statistics_only {
+    if args.statistics_only {
         let mut counts: std::collections::HashMap<String, i32> = std::collections::HashMap::new();
         for ta_file in &ta_files {
             *counts.entry(ta_file.ta_harness_dir.to_string_lossy().to_string()).or_insert(0) += 1;
