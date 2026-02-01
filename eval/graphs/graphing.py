@@ -98,7 +98,7 @@ def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo]):
             fi.accumulated_cov_bbs = res['accumulated_cov_bbs']
             fi.unique_cov_bbs_distribution = res['unique_cov_bbs_distribution']
             fi.raw_bbs = res['raw_bbs']
-            fi.not_in_cfg_bbs in res['not_in_cfg']
+            fi.not_in_cfg_bbs = res['not_in_cfg']
             fi.raw_covs.max_nodes += len(fi.not_in_cfg_bbs)
             #_ = fut.result()
     logger.info(f"[+] Finished parsing unique bbs for all TAs")
