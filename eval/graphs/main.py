@@ -23,6 +23,7 @@ def main(
     fuzz_mode: FuzzMode = FuzzMode.ALL,
     path: str = "/root/TA_GP_emulator",
     tees: list[str] = None,
+    tas: list[str] = None,
     regen_coverage: bool = False,
     bk_suspicious_inputs_cov_rdir: str = None,
     show_plots: bool = True,
@@ -37,6 +38,8 @@ def main(
         filtered_tas = list(filter(lambda ta: any(kinibi_ta in ta for kinibi_ta in kinibi_tas), all_tas))
     else:
         filtered_tas = list(filter(lambda ta: any(tee in ta for tee in tees), all_tas))
+
+    filtered_tas = list(filter(lambda ta: any(tee in ta for tee in tas), all_tas)) 
 
     ## get the cfg and basic raw fuzzing info
     logger.info(f"[+] Collecting cfg and basic raw fuzzing info for each TA")
@@ -158,6 +161,7 @@ if __name__ == "__main__":
         default=FuzzMode.ALL.value,
     )
     parser.add_argument("--tees", nargs="+", default=None, help="Filter by TEEs")
+    parser.add_argument("--tas", nargs="+", default=None, help="Filter by TAs")
     parser.add_argument("--regen_coverage", action="store_true", default=False)
     parser.add_argument("--path", type=str, default="/root/TA_GP_emulator")
     parser.add_argument("--ss_cov_rdir", type=str, default=None, required=True)
@@ -177,6 +181,7 @@ if __name__ == "__main__":
         fuzz_mode=FuzzMode(args.fuzz_mode),
         path=args.path,
         tees=args.tees,
+        tas=args.tas
         regen_coverage=args.regen_coverage,
         bk_suspicious_inputs_cov_rdir=args.ss_cov_rdir,
         grouping_field_name=args.org_group_field,
