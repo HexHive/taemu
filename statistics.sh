@@ -201,6 +201,7 @@ echo -e "[+] ${RED}Crashes${NC}"
 for TEE in "${TEEs[@]}"; do
   TEE_HARNESS_DIR="$TEE/harness/"
   tee_crashes_cnt=0
+  tee_crashes_df_cnt=0
   if [[ ! -d "$TEE_HARNESS_DIR" ]]; then
     continue
   fi
@@ -211,18 +212,23 @@ for TEE in "${TEEs[@]}"; do
     fi
     ta_crashes_list=()
     ta_crashes_cnt=0
+    ta_crashes_df_cnt=0
     for DF_SNAPSHOT in "$TA_DF_DIR"/*; do
       CRASHES_DIR="$DF_SNAPSHOT/out/default/crashes"
       if [[ -d "$CRASHES_DIR" ]]; then
-        cnt=$(count_filtered "$CRASHES_DIR" --type f --name "id:*")
+        cnt=$(count_filtered "$CRASHES_DIR" --type f --name "id:*" --exclude "*/*.df")
+        cntdf=$(count_filtered "$CRASHES_DIR" --type f --name "id:*.df")
         ta_crashes_list+=("$CRASHES_DIR")
         ta_crashes_cnt=$((ta_crashes_cnt+cnt))
+        ta_crashes_df_cnt=$((ta_crashes_df_cnt+cntdf))
       fi
     done
     tee_crashes_cnt=$((tee_crashes_cnt+ta_crashes_cnt))
+    tee_crashes_df_cnt=$((tee_crashes_df_cnt+ta_crashes_df_cnt))
     if [[ $detail == true ]]; then
       echo -e "[DATA] ${YELLOW}TEE${NC}: $TEE, ${GREEN}TA${NC}: $TA, ${BLUE}Crashes List${NC}: ${ta_crashes_list[@]}, ${MAGENTA}Crashes Count${NC}: $ta_crashes_cnt"
     fi
   done
   echo -e "[!!][DATA] ${YELLOW}TEE${NC}: $TEE, ${GREEN}Crashes Count${NC}: $tee_crashes_cnt"
+  echo -e "[!!][DATA] ${YELLOW}TEE${NC}: $TEE, ${GREEN}DF Crashes Count${NC}: $tee_crashes_df_cnt"
 done
