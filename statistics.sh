@@ -168,6 +168,13 @@ for TEE in "${TEEs[@]}"; do
   for TA in "$TEE_HARNESS_DIR"/*; do
     deduplicated_double_fetches_ta=0
     if [[ -d "$TA" ]]; then
+      if [[ "$TEE" == "$root_dir/kinibi" ]]; then 
+        tabasename="$(basename "$TA")"
+        if [[ ! "${kinibiTas[*]}" == *"$tabasename"* ]]; then
+          echo "kinibi TA skipped"
+          continue
+        fi
+      fi 
       meta_list=()
       while IFS= read -r -d '' f; do
         meta_list+=("$f")
@@ -194,6 +201,13 @@ for TEE in "${TEEs[@]}"; do
     continue
   fi
   for TA in "$TEE_HARNESS_DIR"/*; do
+    if [[ "$TEE" == "$root_dir/kinibi" ]]; then 
+      tabasename="$(basename "$TA")"
+      if [[ ! "${kinibiTas[*]}" == *"$tabasename"* ]]; then
+        echo "kinibi TA skipped"
+        continue
+      fi
+    fi 
     TA_DF_DIR="$TA/df_fuzz/"
     if [[ ! -d "$TA_DF_DIR" ]]; then
       continue
@@ -224,6 +238,13 @@ for TEE in "${TEEs[@]}"; do
     continue
   fi
   for TA in "$TEE_HARNESS_DIR"/*; do
+    if [[ "$TEE" == "$root_dir/kinibi" ]]; then 
+      tabasename="$(basename "$TA")"
+      if [[ ! "${kinibiTas[*]}" == *"$tabasename"* ]]; then
+        echo "kinibi TA skipped"
+        continue
+      fi
+    fi 
     TA_DF_DIR="$TA/df_fuzz/"
     if [[ ! -d "$TA_DF_DIR" ]]; then
       continue
