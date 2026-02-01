@@ -26,7 +26,7 @@ class FuzzMode(Enum):
     ALL = "ALL"
 
 
-@dataclass(frozen=True)
+@dataclass
 class RawFuzzingInfo:
     id: str
     tee: Optional[str] = None
