@@ -39,7 +39,8 @@ def main(
     else:
         filtered_tas = list(filter(lambda ta: any(tee in ta for tee in tees), all_tas))
 
-    filtered_tas = list(filter(lambda ta: any(ta_name in ta for ta_name in tas), filtered_tas)) 
+    if tas is not None:
+        filtered_tas = list(filter(lambda ta: any(ta_name in ta for ta_name in tas), filtered_tas)) 
 
     ## get the cfg and basic raw fuzzing info
     logger.info(f"[+] Collecting cfg and basic raw fuzzing info for each TA")
