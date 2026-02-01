@@ -2,7 +2,6 @@ import matplotlib.pyplot as plt
 import pickle
 import hashlib
 import json
-from itertools import islice
 import numpy as np
 from common import RawFuzzingInfo, BB, parse_cov, FuzzMode, parse_drcov
 from typing import List
@@ -22,7 +21,7 @@ def naming_change(names: list[str] | str) -> list[str] | str:
         "teegris": "TeeGris",
         "beanpod": "Beanpod",
         "mitee": "MiTEE",
-        "kinibi": "Kinibi"
+        "kinibi": "kinibi"
     }
     new_names = []
     if isinstance(names, str):
@@ -436,39 +435,6 @@ def df_dump_info(basics, part_one, part_two, part_three, df_snapshot, name, path
         })
     )
 
-def _df_worker(df_fuzzing_dir, vanilla_fuzzing_info, bk_suspicious_inputs_cov_rdir, bar_field_name, df_snapshot):
-    current_harness_path = df_fuzzing_dir[
-        df_snapshot
-    ].raw_fuzzing_info.harness_path
-    # print(f"current_harness_path: {current_harness_path}")
-
-    # Calculate total unique BBs from vanilla (across all timestamps)
-    vanilla_all_bbs = set()
-    coverage_denominator = 0
-    for each_vanilla in vanilla_fuzzing_info.fuzzing_infos:
-        vanilla_field_value = each_vanilla.raw_fuzzing_info.harness_path
-        if vanilla_field_value == current_harness_path:
-            vanilla_all_bbs.update(each_vanilla.accumulated_cov_bbs)
-            coverage_denominator += each_vanilla.raw_covs.max_nodes
-
-    df_snapshot_bbs = set(df_fuzzing_dir[df_snapshot].accumulated_cov_bbs)
-    # Calculate covs related to suspicious_inputs
-    suspicious_inputs_bbs = gather_suspicious_inputs_covs(df_snapshot, df_fuzzing_dir[df_snapshot], bar_field_name, bk_suspicious_inputs_cov_rdir)
-
-    
-    # before df snapshot
-    part_basic = set(longest_overlapped_bbs_trace(suspicious_inputs_bbs, df_fuzzing_dir[df_snapshot]))
-    
-    
-    part_one = set(suspicious_inputs_bbs) - part_basic
-    part_two = (set(vanilla_all_bbs) & (df_snapshot_bbs - set(suspicious_inputs_bbs))) - part_basic
-    part_three = df_snapshot_bbs - part_two - part_one - part_basic
-
-    assert coverage_denominator > 0
-
-    return len(part_basic), len(part_one), len(part_two), len(part_three), coverage_denominator
-
-
 def df_control_flow_graph(
     fuzzing_info_list: List[FuzzingInfo],
     *,
@@ -554,37 +520,58 @@ def df_control_flow_graph(
         part_three_segments = [] # Thin bar 3 on top
         coverage_denominators = []
         
-        def batched(iterable, batch_size):
-            it = iter(iterable)
-            while True:
-                batch = list(islice(it, batch_size))
-                if not batch:
-                    return
-                yield batch 
         
+        def _worker(df_snapshot):
+            current_harness_path = df_fuzzing_dir[
+                df_snapshot
+            ].raw_fuzzing_info.harness_path
+            # print(f"current_harness_path: {current_harness_path}")
+
+            # Calculate total unique BBs from vanilla (across all timestamps)
+            vanilla_all_bbs = set()
+            coverage_denominator = 0
+            for each_vanilla in vanilla_fuzzing_info.fuzzing_infos:
+                vanilla_field_value = each_vanilla.raw_fuzzing_info.harness_path
+                if vanilla_field_value == current_harness_path:
+                    vanilla_all_bbs.update(each_vanilla.accumulated_cov_bbs)
+                    coverage_denominator += each_vanilla.raw_covs.max_nodes
+
+            df_snapshot_bbs = set(df_fuzzing_dir[df_snapshot].accumulated_cov_bbs)
+            # Calculate covs related to suspicious_inputs
+            suspicious_inputs_bbs = gather_suspicious_inputs_covs(df_snapshot, df_fuzzing_dir[df_snapshot], bar_field_name, bk_suspicious_inputs_cov_rdir)
+        
+            
+            # before df snapshot
+            part_basic = set(longest_overlapped_bbs_trace(suspicious_inputs_bbs, df_fuzzing_dir[df_snapshot]))
+            
+            
+            part_one = set(suspicious_inputs_bbs) - part_basic
+            part_two = (set(vanilla_all_bbs) & (df_snapshot_bbs - set(suspicious_inputs_bbs))) - part_basic
+            part_three = df_snapshot_bbs - part_two - part_one - part_basic
+
+            assert coverage_denominator > 0
+
+            return len(part_basic), len(part_one), len(part_two), len(part_three), coverage_denominator
+
         # launch for one harness
-        with ProcessPoolExecutor(max_workers=30) as executor:
-            for batch in batched(df_fuzzing_dir, 50):
-                futures = {executor.submit(
-                    _df_worker, df_fuzzing_dir, vanilla_fuzzing_info, bk_suspicious_inputs_cov_rdir, bar_field_name, df_snapshot
-                    ): df_snapshot  for df_snapshot in batch 
-                }
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            futures = {executor.submit(_worker, df_snapshot): df_snapshot  for df_snapshot in df_fuzzing_dir}
+            
+            bar_id = 0
+            for future in tqdm(as_completed(futures.keys()), total=len(futures), desc=f"Processing DF snapshots on {vanilla_id}"):
+                df_snapshot = futures[future]
+                basic_segment_cnt, part_one_segment_cnt, part_two_segment_cnt, part_three_segment_cnt, coverage_denominator = future.result()
+                basic_segments.append(basic_segment_cnt)
+                part_one_segments.append(part_one_segment_cnt)
+                part_two_segments.append(part_two_segment_cnt)   
+                part_three_segments.append(part_three_segment_cnt)
+                coverage_denominators.append(coverage_denominator)
                 
-                bar_id = 0
-                for future in tqdm(as_completed(futures.keys()), total=len(futures), desc=f"Processing DF snapshots on {vanilla_id}"):
-                    df_snapshot = futures[future]
-                    basic_segment_cnt, part_one_segment_cnt, part_two_segment_cnt, part_three_segment_cnt, coverage_denominator = future.result()
-                    basic_segments.append(basic_segment_cnt)
-                    part_one_segments.append(part_one_segment_cnt)
-                    part_two_segments.append(part_two_segment_cnt)   
-                    part_three_segments.append(part_three_segment_cnt)
-                    coverage_denominators.append(coverage_denominator)
-                    
-                    # Store data
-                    bar_labels.append(
-                        f"{bar_prefix}{bar_id if bar_field_name == 'id' else naming_change(df_snapshot)}"
-                    )
-                    bar_id += 1
+                # Store data
+                bar_labels.append(
+                    f"{bar_prefix}{bar_id if bar_field_name == 'id' else naming_change(df_snapshot)}"
+                )
+                bar_id += 1
                 
                 
         # df_snapshot: like qsee_a985_fuzz_run:id:7ecbd9e7c8dff69ac598e8c9bdcba57d_62849841960499769081805646165961192109
