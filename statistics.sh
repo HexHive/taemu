@@ -160,7 +160,11 @@ echo "@TODO@"
 
 echo -e "[+] ${RED}Deduplicated double fetches${NC}"
 for TEE in "${TEEs[@]}"; do
-  TEE_HARNESS_DIR="$TEE/harness"
+  if [[ "$TEE" == "$root_dir/kinibi" ]]; then 
+    TEE_HARNESS_DIR="$root_dir/beanpod/harness"
+  else
+    TEE_HARNESS_DIR="$TEE/harness"
+  fi
   deduplicated_double_fetches=0
   if [[ ! -d "$TEE_HARNESS_DIR" ]]; then
     continue
@@ -195,7 +199,11 @@ done
 
 echo -e "[+] ${RED}Merged double fetches${NC}"
 for TEE in "${TEEs[@]}"; do
-  TEE_HARNESS_DIR="$TEE/harness/"
+  if [[ "$TEE" == "$root_dir/kinibi" ]]; then 
+    TEE_HARNESS_DIR="$root_dir/beanpod/harness"
+  else
+    TEE_HARNESS_DIR="$TEE/harness"
+  fi
   tee_merged_df_cnt=0
   if [[ ! -d "$TEE_HARNESS_DIR" ]]; then
     continue
@@ -231,7 +239,11 @@ done
 
 echo -e "[+] ${RED}Crashes${NC}"
 for TEE in "${TEEs[@]}"; do
-  TEE_HARNESS_DIR="$TEE/harness/"
+  if [[ "$TEE" == "$root_dir/kinibi" ]]; then 
+    TEE_HARNESS_DIR="$root_dir/beanpod/harness"
+  else
+    TEE_HARNESS_DIR="$TEE/harness"
+  fi
   tee_crashes_cnt=0
   tee_crashes_df_cnt=0
   if [[ ! -d "$TEE_HARNESS_DIR" ]]; then
