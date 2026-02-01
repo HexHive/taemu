@@ -91,6 +91,10 @@ def main(
     sys.stdout.flush()
     sys.stderr.flush()
 
+    if tees == ["kinibi"]:
+        for fi in fuzzing_info_list:
+            fi.raw_fuzzing_info.tee = "kinibi"
+            
     ## generate graphs for each ta
     if fuzz_mode == FuzzMode.ORG or fuzz_mode == FuzzMode.ALL:
         logger.info(f"[+] Generating org graph")
