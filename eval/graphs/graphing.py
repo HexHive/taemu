@@ -21,6 +21,7 @@ def naming_change(names: list[str] | str) -> list[str] | str:
         "teegris": "TeeGris",
         "beanpod": "Beanpod",
         "mitee": "MiTEE",
+        "kinibi": "Kinibi"
     }
     new_names = []
     if isinstance(names, str):

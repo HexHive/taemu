@@ -32,7 +32,11 @@ def main(
 ):
     all_tas: set[str] = list_tas(path)
     tees = tees or ["mitee", "teegris", "beanpod", "t6", "qsee"]
-    filtered_tas = list(filter(lambda ta: any(tee in ta for tee in tees), all_tas))
+    if tees == ["kinibi"]:
+        kinibi_tas = ["df1edda8627911e980ae507b9d9a7e7d", "abcd270ea5c44c58bcd3384a2fa2539e", "08010203000000000000000000000000"]
+        filtered_tas = list(filter(lambda ta: any(kinibi_ta in ta for kinibi_ta in kinibi_tas), all_tas))
+    else:
+        filtered_tas = list(filter(lambda ta: any(tee in ta for tee in tees), all_tas))
 
     ## get the cfg and basic raw fuzzing info
     logger.info(f"[+] Collecting cfg and basic raw fuzzing info for each TA")
