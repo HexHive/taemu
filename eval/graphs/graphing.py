@@ -569,12 +569,15 @@ def df_control_flow_graph(
             bar_id = 0
             for future in tqdm(as_completed(futures.keys()), total=len(futures), desc=f"Processing DF snapshots on {vanilla_id}"):
                 df_snapshot = futures[future]
-                basic_segment_cnt, part_one_segment_cnt, part_two_segment_cnt, part_three_segment_cnt, coverage_denominator = future.result()
-                basic_segments.append(basic_segment_cnt)
-                part_one_segments.append(part_one_segment_cnt)
-                part_two_segments.append(part_two_segment_cnt)   
-                part_three_segments.append(part_three_segment_cnt)
-                coverage_denominators.append(coverage_denominator)
+                try:
+                    basic_segment_cnt, part_one_segment_cnt, part_two_segment_cnt, part_three_segment_cnt, coverage_denominator = future.result()
+                    basic_segments.append(basic_segment_cnt)
+                    part_one_segments.append(part_one_segment_cnt)
+                    part_two_segments.append(part_two_segment_cnt)   
+                    part_three_segments.append(part_three_segment_cnt)
+                    coverage_denominators.append(coverage_denominator)
+                except:
+                    print(f'something went wrong in DF snapshot processing')
                 
                 # Store data
                 bar_labels.append(
