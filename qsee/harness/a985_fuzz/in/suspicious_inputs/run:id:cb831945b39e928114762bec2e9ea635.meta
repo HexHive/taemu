@@ -1,0 +1,262 @@
+{
+  "key": "run:id:cb831945b39e928114762bec2e9ea635",
+  "meta": {
+    "last_accessed": 1767915771.4231873
+  },
+  "updated_at": 1767915795.461106,
+  "full_to_replay": false,
+  "records": [
+    {
+      "addr": 3149651968,
+      "size": 1,
+      "regs": {
+        "PC": 93824992264832,
+        "ret_addr": 93824992264828,
+        "ret_addr_offset": 33404,
+        "is_read": true,
+        "reg_hash": "34108185120180100029057919854507591922"
+      },
+      "is_second_fetch": false
+    },
+    {
+      "addr": 3149651969,
+      "size": 1,
+      "regs": {
+        "PC": 93824992314420,
+        "ret_addr": 93824992264856,
+        "ret_addr_offset": 33432,
+        "is_read": true,
+        "reg_hash": "329384327208415682214409117344066277651"
+      },
+      "is_second_fetch": false
+    },
+    {
+      "addr": 3149651970,
+      "size": 1,
+      "regs": {
+        "PC": 93824992314424,
+        "ret_addr": 93824992264856,
+        "ret_addr_offset": 33432,
+        "is_read": true,
+        "reg_hash": "297410873337111887844478030168839102966"
+      },
+      "is_second_fetch": false
+    },
+    {
+      "addr": 3149651971,
+      "size": 1,
+      "regs": {
+        "PC": 93824992314420,
+        "ret_addr": 93824992265468,
+        "ret_addr_offset": 34044,
+        "is_read": true,
+        "reg_hash": "259298321627362107807690710218368949440"
+      },
+      "is_second_fetch": false
+    },
+    {
+      "addr": 3149651972,
+      "size": 1,
+      "regs": {
+        "PC": 93824992314424,
+        "ret_addr": 93824992265468,
+        "ret_addr_offset": 34044,
+        "is_read": true,
+        "reg_hash": "133277837426771326410520128826552585067"
+      },
+      "is_second_fetch": false
+    },
+    {
+      "addr": 3149651973,
+      "size": 1,
+      "regs": {
+        "PC": 93824992265468,
+        "ret_addr": 93824992265468,
+        "ret_addr_offset": 34044,
+        "is_read": true,
+        "reg_hash": "164031540403554290010555316587089046230"
+      },
+      "is_second_fetch": false
+    },
+    {
+      "addr": 3149651974,
+      "size": 1,
+      "regs": {
+        "PC": 93824992314420,
+        "ret_addr": 93824992265492,
+        "ret_addr_offset": 34068,
+        "is_read": true,
+        "reg_hash": "234512968735194358306998221389037977189"
+      },
+      "is_second_fetch": false
+    },
+    {
+      "addr": 3149651975,
+      "size": 1,
+      "regs": {
+        "PC": 93824992314424,
+        "ret_addr": 93824992265492,
+        "ret_addr_offset": 34068,
+        "is_read": true,
+        "reg_hash": "81984470283526033109063041233379438314"
+      },
+      "is_second_fetch": false
+    },
+    {
+      "addr": 3149651976,
+      "size": 1,
+      "regs": {
+        "PC": 93824992265500,
+        "ret_addr": 93824992265492,
+        "ret_addr_offset": 34068,
+        "is_read": true,
+        "reg_hash": "92488384110799595329460485389380767441"
+      },
+      "is_second_fetch": false
+    },
+    {
+      "addr": 3149651977,
+      "size": 1,
+      "regs": {
+        "PC": 93824992265520,
+        "ret_addr": 93824992265492,
+        "ret_addr_offset": 34068,
+        "is_read": true,
+        "reg_hash": "180183129096400946839315615182046964019"
+      },
+      "is_second_fetch": false
+    },
+    {
+      "addr": 3149651978,
+      "size": 1,
+      "regs": {
+        "PC": 93824992265532,
+        "ret_addr": 93824992265492,
+        "ret_addr_offset": 34068,
+        "is_read": true,
+        "reg_hash": "192631087757401922043954423668272105356"
+      },
+      "is_second_fetch": false
+    },
+    {
+      "addr": 3149651979,
+      "size": 8,
+      "regs": {
+        "PC": 2576978048,
+        "ret_addr": 93824992265664,
+        "ret_addr_offset": 34240,
+        "is_read": true,
+        "reg_hash": "132460986892477731973969090426580175590"
+      },
+      "is_second_fetch": false
+    },
+    {
+      "addr": 3149651987,
+      "size": 1,
+      "regs": {
+        "PC": 93824992265684,
+        "ret_addr": 93824992265664,
+        "ret_addr_offset": 34240,
+        "is_read": true,
+        "reg_hash": "10170357365871152510302384744601752731"
+      },
+      "is_second_fetch": false
+    },
+    {
+      "addr": 3149651988,
+      "size": 3,
+      "regs": {
+        "PC": 2576978048,
+        "ret_addr": 93824992265736,
+        "ret_addr_offset": 34312,
+        "is_read": true,
+        "reg_hash": "282074287907426434723863638168642004687"
+      },
+      "is_second_fetch": false
+    },
+    {
+      "addr": 3149651993,
+      "size": 1,
+      "regs": {
+        "PC": 93824992314420,
+        "ret_addr": 93824992265256,
+        "ret_addr_offset": 33832,
+        "is_read": true,
+        "reg_hash": "5840457177031283284305832875114408295"
+      },
+      "is_second_fetch": false
+    },
+    {
+      "addr": 3149651994,
+      "size": 1,
+      "regs": {
+        "PC": 93824992314424,
+        "ret_addr": 93824992265256,
+        "ret_addr_offset": 33832,
+        "is_read": true,
+        "reg_hash": "291784409679947969538633913517466323429"
+      },
+      "is_second_fetch": true
+    },
+    {
+      "addr": 3149656257,
+      "size": 1,
+      "regs": {
+        "PC": 93824992314444,
+        "ret_addr": 93824992265276,
+        "ret_addr_offset": 33852,
+        "is_read": true,
+        "reg_hash": "78247122875451789140383360328082963018"
+      },
+      "is_second_fetch": true
+    },
+    {
+      "addr": 3149656258,
+      "size": 1,
+      "regs": {
+        "PC": 93824992314448,
+        "ret_addr": 93824992265276,
+        "ret_addr_offset": 33852,
+        "is_read": true,
+        "reg_hash": "250551317428261347037382346286495648248"
+      },
+      "is_second_fetch": true
+    },
+    {
+      "addr": 3149656259,
+      "size": 1,
+      "regs": {
+        "PC": 93824992314452,
+        "ret_addr": 93824992265276,
+        "ret_addr_offset": 33852,
+        "is_read": true,
+        "reg_hash": "320721644666689245071768718218070327310"
+      },
+      "is_second_fetch": true
+    },
+    {
+      "addr": 3149656260,
+      "size": 1,
+      "regs": {
+        "PC": 93824992314456,
+        "ret_addr": 93824992265276,
+        "ret_addr_offset": 33852,
+        "is_read": true,
+        "reg_hash": "236043274448498215673883509990752152784"
+      },
+      "is_second_fetch": true
+    },
+    {
+      "addr": 3149651993,
+      "size": 4268,
+      "regs": {
+        "PC": 2576978136,
+        "ret_addr": 93824992272376,
+        "ret_addr_offset": 40952,
+        "is_read": true,
+        "reg_hash": "161464819346357829993775743463656098288"
+      },
+      "is_second_fetch": true
+    }
+  ]
+}
