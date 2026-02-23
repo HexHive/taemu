@@ -64,6 +64,7 @@ WORKDIR /opt/src
 RUN git clone https://github.com/vanhauser-thc/drcov-merge.git && cd drcov-merge && make && mv drcov-merge /opt/afl
 
 RUN pip3 install networkx 
+RUN sed -i 's/import distutils/import distutils\nimport distutils.sysconfig/g' /opt/afl/unicornafl/unicornafl.py
 
 # WTFFFFFFFFF
 COPY unicornafl.py /opt/afl/unicornafl/
