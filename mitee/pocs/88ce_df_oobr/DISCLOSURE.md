@@ -221,25 +221,6 @@ To sum up, in the race window between the two fetches, the attacker can make the
 [x]     007ffff7e28000 - 007ffff7e99000   r-x     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
 [x]     007ffff7e99000 - 007ffff7ea0000   rw-     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
 [x]     007ffffffde000 - 008000002de000   rwx     [stack]                  
-Traceback (most recent call last):
-  File "/srv/emulator/emulate/__main__.py", line 337, in launch_emu
-    emu.start(
-  File "/srv/emulator/emulate/ta_mgr.py", line 322, in start
-    self.start_interactive()
-  File "/srv/emulator/emulate/ta_mgr.py", line 790, in start_interactive
-    ret = self.InvokeCommand(sid, cmd, ptypes, command_params)
-  File "/srv/emulator/emulate/ta_mgr.py", line 556, in InvokeCommand
-    self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)
-  File "/usr/local/lib/python3.10/dist-packages/qiling/core.py", line 588, in run
-    self.os.run()
-  File "/usr/local/lib/python3.10/dist-packages/qiling/os/linux/linux.py", line 184, in run
-    self.ql.emu_start(self.ql.loader.elf_entry, self.exit_point, self.ql.timeout, self.ql.count)
-  File "/usr/local/lib/python3.10/dist-packages/qiling/core.py", line 768, in emu_start
-    self.uc.emu_start(begin, end, timeout, count)
-  File "/usr/local/lib/python3.10/dist-packages/unicorn/unicorn_py3/unicorn.py", line 768, in emu_start
-    raise UcError(status)
-unicorn.unicorn_py3.unicorn.UcError: Invalid memory fetch (UC_ERR_FETCH_UNMAPPED)
-[+] Error occurred: Invalid memory fetch (UC_ERR_FETCH_UNMAPPED)
 ```
 
 
@@ -278,15 +259,6 @@ typedef TEEC_Result (*teec_pre_process_operation_impl_t)(TEEC_Context* ctx,
             TEEC_Operation* operation,
             struct tee_ioctl_param* params,
             TEEC_SharedMemory* shms);
-
-void cleanup_shm(){
-#if EMULATE
-        system("ipcrm -M 0x13337");
-        system("ipcrm -M 0x13338");
-        system("ipcrm -M 0x13339");
-        system("ipcrm -M 0x1333a");
-#endif
-}
 
 #define teec_pre_process_operation_offset 0x2434
 
