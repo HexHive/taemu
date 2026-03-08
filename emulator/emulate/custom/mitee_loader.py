@@ -1,8 +1,8 @@
 import subprocess
 import sys
 import re
-
-def qsee_read_relocs(ta_path):
+from pathlib import Path
+def qsee_read_relocs(ta_path:Path):
     raw = subprocess.check_output(
         f"readelf -r --use-dynamic --wide {ta_path}", shell=True
     ).decode()
@@ -22,7 +22,7 @@ def qsee_read_relocs(ta_path):
     return out
 
 
-def mitee_read_relocs(ta_path):
+def mitee_read_relocs(ta_path:Path):
     raw = subprocess.check_output(
         f"readelf -r --use-dynamic --wide {ta_path}", shell=True
     ).decode()
@@ -73,7 +73,7 @@ def mitee_relr_relocs(ta_path):
         out.append(int(mtch.group(1), 16))
     return out
 
-def mitee_rela_relocs(ta_path):
+def mitee_rela_relocs(ta_path:Path):
     raw = subprocess.check_output(
         f"readelf -r --use-dynamic --wide {ta_path}", shell=True
     ).decode()

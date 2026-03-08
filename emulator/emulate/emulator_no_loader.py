@@ -9,6 +9,7 @@ import io
 from qiling import Qiling
 from qiling.utils import ql_get_module
 from capstone import Cs
+from pathlib import Path
 from elftools.elf.elffile import ELFFile
 from qiling.const import QL_ARCH, QL_OS 
 from elftools.elf.relocation import RelocationSection
@@ -110,9 +111,9 @@ counter = 0
 ql_resolve_mem = 0x99999000
 ql_resolve_mem_size = 0x1000
 
-def fixup_got(ql: Qiling, ta_path, ta_elf: ELF, is_mitee=False):
+def fixup_got(ql: Qiling, ta_path:Path, ta_elf: ELF, is_mitee=False):
     # ... :/
-    ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
+    ta_base = ql.mem.get_lib_base(ta_path.name)
     for section in ta_elf.iter_sections():
         if not isinstance(section, RelocationSection):
             continue
@@ -128,7 +129,7 @@ def fixup_got(ql: Qiling, ta_path, ta_elf: ELF, is_mitee=False):
 
 def hook_ta_dl(
     ql: Qiling,
-    ta_path,
+    ta_path:Path,
     ta_elf: ELF,
     emu,
     is_mitee=False,
@@ -138,7 +139,7 @@ def hook_ta_dl(
 ):
     hook_dict = {}
     counter = 0
-    ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
+    ta_base = ql.mem.get_lib_base(ta_path.name)
     ta_elf.address = ta_base
     ql.mem.map(ql_resolve_mem, ql_resolve_mem_size, info="dl_resolve")
     for func, addr in ta_elf.plt.items():
@@ -227,7 +228,7 @@ def hook_ta_dl(
                 ql_resolve_mem+counter,
                 user_data=HookData(emu, sym),
             )
-    if "00000000-0000-0000-0000-4b45594d5354.ta" in ta_path:
+    if "00000000-0000-0000-0000-4b45594d5354.ta" in str(ta_path):
         # load libscrypto.so to emulate ASN1 stuff
         lib_path = os.path.join(os.path.dirname(ta_path), "lib64", "libscrypto.so")
         
@@ -288,14 +289,14 @@ def hook_ta_dl(
 
 def hook_ta_custom(
     ql: Qiling,
-    ta_path,
+    ta_path: Path,
     ta_elf: ELF,
     emu,
 ):
     # inline hooks for TAs
-    ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
+    ta_base = ql.mem.get_lib_base(ta_path.name)
     ta_elf.address = ta_base
-    ta_info = json.load(open(f"{ta_path[:-3]}.json", "r"))
+    ta_info = json.loads(ta_path.with_suffix(".json").read_text())
     if "inline" in ta_info:
         addr_map = defaultdict(list)
         for func_name, info in ta_info["inline"].items():
@@ -337,9 +338,9 @@ def teegris_32_setup(ql: Qiling, ta_path, ta_base):
 def optee_setup(ql: Qiling, ta_path, ta_base, emu):
     ql.hook_intno(optee_api.optee_syscall, 2, user_data=emu)
 
-def qsee_setup(ql: Qiling, ta_path, ta_base):
+def qsee_setup(ql: Qiling, ta_path:Path, ta_base):
     reloc_offsets = mitee_rela_relocs(ta_path)
-    ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
+    ta_base = ql.mem.get_lib_base(ta_path.name)
     for off in reloc_offsets:
         reloc_off = ql.mem.read_ptr(ta_base + off)
         # ql.log.info(f"[mitee] fixing relcation at {hex(off)} for {hex(reloc_off)}")

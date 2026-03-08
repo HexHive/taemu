@@ -1,0 +1,17 @@
+services:
+  emulator:
+    image: ta_emu
+    build:
+      context: .
+      network: host
+      dockerfile: Dockerfile
+    network_mode: host
+    volumes:
+      - .:/srv
+    working_dir: /srv/emulator
+    command: bash
+    restart: unless-stopped
+    shm_size: 100g
+    ipc: host
+    privileged: true
+    user: root

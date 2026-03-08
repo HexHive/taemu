@@ -10,8 +10,7 @@ else
     echo "[-] Redis container not started"
 fi
 
-docker run --rm --name emu --network host -it -v .:/srv -w /srv/emulator -v /dev/shm:/dev/shm --ipc=host --shm-size=100g ta_emu bash
-
+docker compose run --rm emulator bash
 
 pkill python3
 

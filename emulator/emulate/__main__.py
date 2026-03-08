@@ -115,7 +115,7 @@ def setup_args():
         "--log_file", required=False, help="Log output to specified file.", default=None
     )
     parser.add_argument(
-        "--tee", help="specify the TEE.", required=False, default="beanpod"
+        "--tee", help="specify the TEE.", required=False, default=""
     )
 
 
@@ -158,7 +158,9 @@ if __name__ == "__main__":
         )
         custom_logger = logging.getLogger()
 
-    if b"TEEGRIS" in open(ta_path, "rb").read():
+    if args.tee != "":
+        TEE = args.tee
+    elif b"TEEGRIS" in open(ta_path, "rb").read():
         TEE = "teegris"
     elif b"optee" in open(ta_path, "rb").read() and b"ta_head" in open(ta_path, "rb").read():
         TEE = "optee"
@@ -172,8 +174,7 @@ if __name__ == "__main__":
         TEE = "trustedcore"
     elif b"GPAppLib_handleRequest" in open(ta_path, "rb").read():
         TEE = "qsee"
-    if TEE == "":
-        TEE = args.tee
+    print(f"[+] TEE: {TEE} [+]")
     if TEE == "beanpod":
         if ta_elf.header["e_flags"] & 0x200 == 0:
             is_thumb = True
@@ -225,7 +226,7 @@ if __name__ == "__main__":
             profile="tee.ql",
             log_override=custom_logger,
         )
-    elif TEE == "qsee":
+    elif TEE == "qsee" or TEE == "qsee_nongp":
         ql = Qiling(
             [ta_path],
             rootfs=ROOTFS_PATH,

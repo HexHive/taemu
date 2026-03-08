@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+import functools
 import os
 import tempfile
 import importlib
@@ -5,6 +7,7 @@ import importlib
 import time
 import threading
 
+from pathlib import Path
 # from qiling import Qiling
 from .qiling_extend import QilingExtend as Qiling
 from qiling.extensions.afl import ql_afl_fuzz
@@ -105,6 +108,7 @@ def get_ta_uuid(ta_name):
 
 def require_class_attr(param_name, attr_name):
     def decorator(func):
+        @functools.wraps(func)
         def wrapper(self, **kwargs):
             if param_name in kwargs:
                 val = kwargs[param_name]
@@ -133,6 +137,21 @@ class EmuLog:
         self._ql.log.info(Fore.BLUE + text + Style.RESET_ALL)
 
 
+class TA_Function(Enum):
+    CreateEntryPoint = "TA_CreateEntryPoint"
+    OpenSessionEntryPoint = "TA_OpenSessionEntryPoint"
+    InvokeCommandEntryPoint = "TA_InvokeCommandEntryPoint"
+    CloseSessionEntryPoint = "TA_CloseSessionEntryPoint"
+    DestroyEntryPoint = "TA_DestroyEntryPoint"
+    CElfFile_invoke = "CElfFile_invoke"
+
+@dataclass
+class StubbedFunction:
+    name: TA_Function
+    start: int
+    end: List[int]
+    base: int = 0
+
 class TAEMU:
 
     def __init__(
@@ -149,11 +168,14 @@ class TAEMU:
         self.ql = ql
         self.log = EmuLog(ql)
         self.tee = tee
-        self.ta_path = ta_path
-        self.ta_name = ta_path.split("/")[-1].split(".ta")[0]
+        self.ta_path = Path(ta_path)
+        self.ta_name = self.ta_path.stem
         self.ta_elf = ta_elf
-        self.ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
-        self.taUUID = get_ta_uuid(ta_path.split("/")[-1][:-3])
+        self.ta_base = ql.mem.get_lib_base(self.ta_path.name)
+        if self.tee.endswith("nongp"):
+            self.taUUID = None
+        else:
+            self.taUUID = get_ta_uuid(self.ta_name)
         self.ta_elf.address = self.ta_base
         self.HEAP = {"allocated": {}, "freed": {}, "redzones": {}}
         self.exit_non_implemented = None
@@ -184,93 +206,54 @@ class TAEMU:
         self.sessions = []
         self._debugger = ql._debugger
 
-        f = open(f"{self.ta_path[:-3]}.json", "r")
-        ta_info = json.load(f)
+        self.CreateEntryPoint_ret = None
+        self._load_ta_info()
+        self.stubbed_functions: Dict[str, StubbedFunction] = {}
+        if self.tee.endswith("nongp"):
+            self._assign_functions([
+                TA_Function.CElfFile_invoke,
+            ])
+            
+        else:
+            self._assign_functions(
+                [TA_Function.InvokeCommandEntryPoint,
+                TA_Function.CreateEntryPoint,
+                TA_Function.OpenSessionEntryPoint,
+                TA_Function.CloseSessionEntryPoint,
+                TA_Function.DestroyEntryPoint,
+            ])
+
+
+    def _load_ta_info(self):
+        json_path = self.ta_path.with_suffix(".json")
+        with open(json_path, "r") as f:
+            ta_info = json.load(f)
         self.ta_info = ta_info
 
-        if all(
-            i in ta_info
-            for i in [
-                "TA_InvokeCommandEntryPoint_start",
-                "TA_InvokeCommandEntryPoint_end",
-                "TA_CreateEntryPoint_start",
-                "TA_CreateEntryPoint_end",
-                "TA_OpenSessionEntryPoint_start",
-                "TA_OpenSessionEntryPoint_end",
-                "TA_CloseSessionEntryPoint_start",
-                "TA_CloseSessionEntryPoint_end",
-                "TA_DestroyEntryPoint_start",
-                "TA_DestroyEntryPoint_end",
-            ]
-        ):
+    def _assign_functions(self, func_names: List[TA_Function]):
+        ta_info = self.ta_info
 
-            self.TA_CreateEntryPoint_start = ta_info["TA_CreateEntryPoint_start"]
-            self.TA_CreateEntryPoint_end = ta_info["TA_CreateEntryPoint_end"]
-            self.TA_OpenSessionEntryPoint_start = ta_info[
-                "TA_OpenSessionEntryPoint_start"
-            ]
-            self.TA_OpenSessionEntryPoint_end = ta_info["TA_OpenSessionEntryPoint_end"]
-            self.TA_InvokeCommandEntryPoint_start = ta_info[
-                "TA_InvokeCommandEntryPoint_start"
-            ]
-            self.TA_InvokeCommandEntryPoint_end = ta_info[
-                "TA_InvokeCommandEntryPoint_end"
-            ]
-            self.TA_CloseSessionEntryPoint_start = ta_info[
-                "TA_CloseSessionEntryPoint_start"
-            ]
-            self.TA_CloseSessionEntryPoint_end = ta_info[
-                "TA_CloseSessionEntryPoint_end"
-            ]
-            self.TA_DestroyEntryPoint_start = ta_info["TA_DestroyEntryPoint_start"]
-            self.TA_DestroyEntryPoint_end = ta_info["TA_DestroyEntryPoint_end"]
-        else:
-            print(f"TA info error")
+        needed = set([f"{x.value}_end" for x in func_names] + [f"{x.value}_start" for x in func_names])
+        if not needed.issubset(set(ta_info)):
+            print(f"TA info error, missing keys: {needed - set(ta_info)}")
             exit(-1)
-
-        if (
-            len(self.TA_CloseSessionEntryPoint_end) == 0
-            or len(self.TA_DestroyEntryPoint_end) == 0
-            or len(self.TA_InvokeCommandEntryPoint_end) == 0
-            or len(self.TA_OpenSessionEntryPoint_end) == 0
-            or len(self.TA_CreateEntryPoint_end) == 0
-        ):
-            print(f"one or more TA_*_end entries is empty!")
-            exit(-1)
-
+        
+        base = 0
         if self.ta_elf.pie:
-            self.TA_CreateEntryPoint_start = (
-                self.TA_CreateEntryPoint_start + self.ta_base
+            base = self.ta_base
+        
+        for func in func_names:
+            func_end = f"{func.value}_end"
+            func_start = f"{func.value}_start"
+            if len(ta_info[func_end]) == 0:
+                print(f"TA_{func.value}_end is empty!")
+                exit(-1)
+            self.stubbed_functions[func] = StubbedFunction(
+                name=func,
+                start=ta_info[func_start] + base,
+                end=[x + base for x in ta_info[func_end]],
             )
-            self.TA_CreateEntryPoint_end = [
-                end + self.ta_base for end in self.TA_CreateEntryPoint_end
-            ]
-            self.TA_OpenSessionEntryPoint_start = (
-                self.TA_OpenSessionEntryPoint_start + self.ta_base
-            )
-            self.TA_OpenSessionEntryPoint_end = [
-                end + self.ta_base for end in self.TA_OpenSessionEntryPoint_end
-            ]
-            self.TA_InvokeCommandEntryPoint_start = (
-                self.TA_InvokeCommandEntryPoint_start + self.ta_base
-            )
-            self.TA_InvokeCommandEntryPoint_end = [
-                end + self.ta_base for end in self.TA_InvokeCommandEntryPoint_end
-            ]
-            self.TA_CloseSessionEntryPoint_start = (
-                self.TA_CloseSessionEntryPoint_start + self.ta_base
-            )
-            self.TA_CloseSessionEntryPoint_end = [
-                end + self.ta_base for end in self.TA_CloseSessionEntryPoint_end
-            ]
-            self.TA_DestroyEntryPoint_start = (
-                self.TA_DestroyEntryPoint_start + self.ta_base
-            )
-            self.TA_DestroyEntryPoint_end = [
-                end + self.ta_base for end in self.TA_DestroyEntryPoint_end
-            ]
-
-        f.close()
+            print("Parsed function: ", func.value)
 
     def setup(self):
         # fix relocations and other miscellanous setup
@@ -278,7 +261,7 @@ class TAEMU:
         if self.tee == "mitee":
             # handle tpidr_el0 and fix relocations
             mitee_setup(self.ql, self.ta_path, self.ta_base)
-        if self.tee == "qsee":
+        if self.tee[:4] == "qsee":
             qsee_setup(self.ql, self.ta_path, self.ta_base)
         if self.tee == "teegris" and self.ql.arch.pointersize == 4:
             teegris_32_setup(self.ql, self.ta_path, self.ta_base)
@@ -294,7 +277,7 @@ class TAEMU:
             self,
             is_mitee=self.tee == "mitee",
             is_tc=self.tee == "trustedcore",
-            is_qsee=self.tee == "qsee",
+            is_qsee=self.tee[:4] == "qsee",
             is_optee=self.tee == "optee"
         )
         hook_ta_custom(
@@ -457,14 +440,37 @@ class TAEMU:
                 self._record_meta.clear()
                 self.curr_record_key = None
 
-    def CreateEntryPoint(self):
+
+    def CElfFile_invoke(self):
+        elf_file_invoke_fn = self.stubbed_functions[TA_Function.CElfFile_invoke]
         self.log.info(
-            f"[TA_CreateEntryPoint] start @{self.TA_CreateEntryPoint_start:#0x}"
+            f"[CElfFile_invoke] start @{elf_file_invoke_fn.start:#0x}"
         )
-        entrypoint = self.TA_CreateEntryPoint_start
+        for e in elf_file_invoke_fn.end:
+            self.ql.hook_address(pivot, e, user_data="CElfFile_invoke_end")
+        #CElfFile_invoke(undefined8 param_1,short param_2,long *param_3,int param_4)        
+        
+        params_mem = self.ql.mem.map_anywhere(
+            0x2000, minaddr=min_addr, perms=3, info="TEE_Params"
+        )
+        self.ql.os.fcall.cc.setRawParam(0, 0x67)
+        self.ql.os.fcall.cc.setRawParam(1, 0, argbits=16)
+        self.ql.os.fcall.cc.setRawParam(2, params_mem)
+        self.ql.os.fcall.cc.setRawParam(3, 0x1200, argbits=32)
+        self.ql.run(begin=elf_file_invoke_fn.start)
+        ret = self.ql.os.fcall.cc.getReturnValue()
+        return ret
+
+
+    def CreateEntryPoint(self):
+        create_entrypoint = self.stubbed_functions[TA_Function.CreateEntryPoint]
+        self.log.info(
+            f"[TA_CreateEntryPoint] start @{create_entrypoint.start:#0x}"
+        )
+        entrypoint = create_entrypoint.start
 
         # stop at TA_CreateEntryPoint_end
-        for e in self.TA_CreateEntryPoint_end:
+        for e in create_entrypoint.end:
             self.ql.hook_address(pivot, e, user_data="TA_CreateEntryPoint")
 
         # _debugger = self.ql._debugger
@@ -482,6 +488,8 @@ class TAEMU:
         return ret
 
     def OpenSession(self):
+        open_session_fn = self.stubbed_functions[TA_Function.OpenSessionEntryPoint]
+
         if self.CreateEntryPoint_ret != TEE_SUCCESS:
             self.ql.log.warning(
                 f"Calling OpenSession without succesfull CreateEntryPoint!"
@@ -501,16 +509,17 @@ class TAEMU:
         self.sessions.append(new_session)
 
         self.log.info(
-            f"[TA_OpenSessionEntryPoint] start @{self.TA_OpenSessionEntryPoint_start:#0x}"
+            f"[TA_OpenSessionEntryPoint] start @{open_session_fn.start:#0x}"
         )
-        for e in self.TA_OpenSessionEntryPoint_end:
+        for e in open_session_fn.end:
             self.ql.hook_address(pivot, e, user_data="TA_OpenSessionEntryPoint")
 
         # ql._debugger = _debugger
         self.ql.os.fcall.cc.setRawParam(2, sessionContext)
-        self.ql.run(begin=self.TA_OpenSessionEntryPoint_start)
+        self.ql.run(begin=open_session_fn.start)
 
         ret = self.ql.os.fcall.cc.getReturnValue()
+        open_session_fn.ret = ret
         if ret != TEE_SUCCESS:
             self.ql.log.warning(
                 f"[////TA_OpenSessionEntryPoint////] return != TEE_SUCCESS {hex(ret)}"
@@ -519,6 +528,7 @@ class TAEMU:
         return ret, new_session
 
     def InvokeCommand(self, sid, cmd, ptypes, params):
+        invoke_command_fn = self.stubbed_functions[TA_Function.InvokeCommandEntryPoint]
         exit_hooks = []
         self.ql.log.debug(f"TEEC_InvokeCommand {sid} {cmd} {ptypes:#0x}")
         session = None
@@ -543,17 +553,17 @@ class TAEMU:
         self.curr_params = params
 
         self.log.info(
-            f"[TA_InvokeCommandEntryPoint] start @{self.TA_InvokeCommandEntryPoint_start:#0x}"
+            f"[TA_InvokeCommandEntryPoint] start @{invoke_command_fn.start:#0x}"
         )
         # stop at TA_InvokeCommandEntryPoint_end
-        for e in self.TA_InvokeCommandEntryPoint_end:
+        for e in invoke_command_fn.end:
             exit_hooks.append(
                 self.ql.hook_address(pivot, e, user_data="TA_InvokeCommandEntryPoint")
             )
 
         # run
         self.ql._debugger = self._debugger
-        self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)
+        self.ql.run(begin=invoke_command_fn.start)
         ret = self.ql.os.fcall.cc.getReturnValue()
 
         params_mem_read = params_mem
@@ -601,34 +611,36 @@ class TAEMU:
         if session is None:
             self.ql.log.error(f"unknown session {sid}")
             return TEE_ERROR_BAD_STATE
+        close_session_fn = self.stubbed_functions[TA_Function.CloseSessionEntryPoint]
         self.log.info(
-            f"[CloseSessionEntryPoint] start @{self.TA_CloseSessionEntryPoint_start:#0x}"
+            f"[CloseSessionEntryPoint] start @{close_session_fn.start:#0x}"
         )
-        for e in self.TA_CloseSessionEntryPoint_end:
+        for e in close_session_fn.end:
             self.ql.hook_address(pivot, e, user_data="TA_CloseSessionEntryPoint_end")
 
         # self.ql._debugger = self._debugger
 
         self.ql.os.fcall.cc.setRawParam(0, session.sessionContext)
-        self.ql.run(begin=self.TA_CloseSessionEntryPoint_start)
+        self.ql.run(begin=close_session_fn.start)
 
         self.ql.mem.unmap(session.session_id_mem, 0x1000)
         self.ql.mem.unmap(session.sessionContext, 0x1000)
         self.sessions.pop(idx)
 
     def DestroyEntryPoint(self):
+        destroy_entrypoint_fn = self.stubbed_functions[TA_Function.DestroyEntryPoint]
         self.log.info(
-            f"[TA_DestroyEntryPoint] start @{self.TA_DestroyEntryPoint_start:#0x}"
+            f"[TA_DestroyEntryPoint] start @{destroy_entrypoint_fn.start:#0x}"
         )
         if self.tee == "t6":
             self.ql.log.warning(f"t6 TA_DestroyEntryPoint not supported by emulator")
             return
-        for e in self.TA_DestroyEntryPoint_end:
-            self.ql.hook_address(pivot, e, user_data="TA_CloseSessionEntryPoint_end")
+        for e in destroy_entrypoint_fn.end:
+            self.ql.hook_address(pivot, e, user_data="TA_DestroyEntryPoint_end")
 
         # self.ql._debugger = self._debugger
 
-        self.ql.run(begin=self.TA_DestroyEntryPoint_start)
+        self.ql.run(begin=destroy_entrypoint_fn.start)
 
         self.CreateEntryPoint_ret = None
 
@@ -648,6 +660,10 @@ class TAEMU:
         shmdt.restype = c_int
         shmdt.argtypes = (c_void_p,)
 
+        if self.tee.endswith("nongp"):
+            ret = self.CElfFile_invoke()
+            return 0
+
         ret = self.CreateEntryPoint()
         if ret != TEE_SUCCESS:
             self.ql.log.warning(f"CreateEntryPoint ret != TEE_SUCCESS {hex(ret)}")
@@ -657,6 +673,7 @@ class TAEMU:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(("0.0.0.0", 1337))
+        self.log.info("Listening on port 0.0.0.0:1337")
         sock.listen()
 
         (client_socket, address) = sock.accept()
