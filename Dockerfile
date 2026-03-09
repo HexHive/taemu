@@ -55,5 +55,8 @@ RUN git clone https://github.com/vanhauser-thc/drcov-merge.git && cd drcov-merge
 
 RUN pip3 install networkx 
 
+# WTFFFFFFFFF
+COPY unicornafl.py /opt/afl/unicornafl/
+
 WORKDIR /srv/
 #RUN useradd -u 1000 ctf

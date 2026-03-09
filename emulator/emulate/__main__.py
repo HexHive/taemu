@@ -1,6 +1,6 @@
 import os
+from multiprocessing import Process
 import argparse
-import json
 
 from pwn import ELF
 from qiling import Qiling
@@ -8,10 +8,11 @@ from qiling.const import QL_VERBOSE
 from qiling.const import QL_ARCH, QL_OS, QL_VERBOSE
 
 from .emulator_no_loader import simple_diassembler, trace_block, simple_diassembler
-from .ta_mgr import TAEMU
+from .ta_mgr import TAEMU, Status
 from .custom.tc_loader import tc_load
 
 DIR = dir_path = os.path.dirname(os.path.realpath(__file__))
+ROOTFS_PATH = os.path.join(DIR, "../rootfs")
 TEE = ""
 
 def setup_args():
@@ -46,7 +47,7 @@ def setup_args():
     )
     parser.add_argument(
         "--fuzz_harness",
-        required=False,
+        required=True,
         help="path to fuzzing harness",
         default=None,
     )
@@ -108,19 +109,23 @@ if __name__ == "__main__":
         TEE = "mitee"
     elif b"ta_head" in open(ta_path, "rb").read():
         TEE = "t6"
+    elif b"optee" in open(ta_path, "rb").read() and b"ta_head" in open(ta_path, "rb").read():
+        TEE = "optee"
     elif b"com.huawei.hidisk" in open(ta_path, "rb").read():
         TEE = "trustedcore"
+    elif b"GPAppLib_handleRequest" in open(ta_path, "rb").read():
+        TEE = "qsee"
     if TEE == "":
         TEE = args.tee
 
     if TEE == "beanpod":
-        if ta_elf.header['e_flags'] & 0x200 == 0:
+        if ta_elf.header["e_flags"] & 0x200 == 0:
             is_thumb = True
         else:
             is_thumb = False
         ql = Qiling(
             [ta_path],
-            rootfs=os.path.join(DIR, "../rootfs/"),
+            rootfs=ROOTFS_PATH,
             ostype=QL_OS.LINUX,
             archtype=QL_ARCH.ARM,
             verbose=v,
@@ -133,7 +138,7 @@ if __name__ == "__main__":
         if ta_elf.arch == "aarch64":
             ql = Qiling(
                 [ta_path],
-                rootfs=os.path.join(DIR, "../rootfs/"),
+                rootfs=ROOTFS_PATH,
                 ostype=QL_OS.LINUX,
                 archtype=QL_ARCH.ARM64,
                 verbose=v,
@@ -143,7 +148,7 @@ if __name__ == "__main__":
         else:
            ql = Qiling(
                 [ta_path],
-                rootfs=os.path.join(DIR, "../rootfs/"),
+                rootfs=ROOTFS_PATH,
                 ostype=QL_OS.LINUX,
                 archtype=QL_ARCH.ARM,
                 verbose=v,
@@ -154,12 +159,32 @@ if __name__ == "__main__":
         print("doing mitee")
         ql = Qiling(
             [ta_path],
-            rootfs=os.path.join(DIR, "../rootfs/"),
+            rootfs=ROOTFS_PATH,
             ostype=QL_OS.LINUX,
             archtype=QL_ARCH.ARM64,
             verbose=v,
             env={"LD_LIBRARY_PATH": "/"},
             profile="tee.ql"
+        )
+    elif TEE == "qsee":
+        ql = Qiling(
+            [ta_path],
+            rootfs=ROOTFS_PATH,
+            ostype=QL_OS.LINUX,
+            archtype=QL_ARCH.ARM64,
+            verbose=v,
+            env={"LD_LIBRARY_PATH": "/"},
+            profile="tee.ql",
+        )
+    elif TEE == "optee":
+        ql = Qiling(
+            [ta_path],
+            rootfs=ROOTFS_PATH,
+            ostype=QL_OS.LINUX,
+            archtype=QL_ARCH.ARM64,
+            verbose=v,
+            env={"LD_LIBRARY_PATH": "/"},
+            profile="tee.ql",
         )
     elif TEE == "t6":
         if ta_elf.header['e_flags'] & 0x200 == 0:
@@ -168,9 +193,11 @@ if __name__ == "__main__":
             is_thumb = True
         if "face1d41-2636-11e1-ad9e0002a5d6c51b" in ta_path:
             is_thumb = False
+        if "edcf9395-3518-9067-614cafae2909775b" in ta_path:
+            is_thumb = False
         ql = Qiling(
             [ta_path],
-            rootfs=os.path.join(DIR, "../rootfs/"),
+            rootfs=ROOTFS_PATH,
             ostype=QL_OS.LINUX,
             archtype=QL_ARCH.ARM,
             verbose=v,
@@ -181,7 +208,7 @@ if __name__ == "__main__":
     elif TEE == "trustedcore":
         ql = Qiling(
             [ta_path],
-            rootfs=os.path.join(DIR, "../rootfs/"),
+            rootfs=ROOTFS_PATH,
             ostype=QL_OS.LINUX,
             archtype=QL_ARCH.ARM,
             verbose=v,
@@ -199,24 +226,43 @@ if __name__ == "__main__":
         ql.hook_code(simple_diassembler, user_data=ql.arch.disassembler)
     if args.trace:
         ql.hook_block(trace_block)
+
     std_apis = True
     tee_apis = True
     if args.no_std_apis:
         std_apis = False
     if args.no_tee_apis:
         tee_apis = False
-    emu = TAEMU(ql, TEE, ta_path, ta_elf, std_implemented=std_apis, tee_specific_implemented=tee_apis)
-    emu.setup()
-    emu.hook()
-    if args.fuzz:
-        ql.log.info(f"[{ta_name}] fuzz start")
-        emu.start_fuzz(args.fuzz, args.fuzz_harness)
-        ql.log.info(f"[{ta_name}] fuzz end")
-    elif args.fuzz_replay:
-        ql.log.info(f"[{ta_name}] fuzz replay start")
-        emu.start_fuzz(args.fuzz_replay, args.fuzz_harness, fuzz_replay=True)
-        ql.log.info(f"[{ta_name}] fuzz replay end")
-    else:
-        ql.log.info(f"[{ta_name}] emulation start")
-        emu.start_interactive()
-        ql.log.info(f"[{ta_name}] emulation end")
+
+    def launch_taemu():
+        print(
+            f"[+] Loaded TA {ta_name} for TEE {TEE} with Qiling {ql.arch.type}/{ql.os.type}"
+        )
+        with TAEMU(
+            ql,
+            TEE,
+            ta_path,
+            ta_elf,
+            status=(
+                Status.FUZZING if args.fuzz
+                else Status.REPLAYING if args.fuzz_replay 
+                else Status.INTERACTIVE
+            ),
+            std_implemented=std_apis, 
+            tee_specific_implemented=tee_apis
+        ) as emu:
+            try:
+                emu.start(
+                    args.fuzz or args.fuzz_replay, 
+                    args.fuzz_harness
+                    )
+            #except KeyboardInterrupt:
+                #print("[+] Keyboard interrupt received...")
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                print(f"[+] Error occurred: {e}")
+
+    launch_taemu()
+
+

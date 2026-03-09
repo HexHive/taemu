@@ -27,6 +27,13 @@ from .emulator_no_loader import (
 )
 from .common import CRASH_PC, CRASH_PC_2, NOTIMPL_PC
 
+class Status(Enum):
+    FUZZING = 1
+    REPLAYING = 2
+    INTERACTIVE = 3
+    DF_FUZZING = 4
+    DF_REPLAY = 5
+    DF_VALIDATE = 6
 
 def parse_msg(msg):
     f = int(msg[0])
@@ -81,8 +88,17 @@ class EmuLog:
 
 class TAEMU:
 
-    def __init__(self, ql: Qiling, tee: str, ta_path: str, ta_elf: ELF, std_implemented=True, tee_specific_implemented=True):
+    def __init__(
+            self, 
+            ql: Qiling, 
+            tee: str, 
+            ta_path: str, 
+            ta_elf: ELF, 
+            status: Status = None,
+            std_implemented=True, 
+            tee_specific_implemented=True):
         self.ql = ql
+        self.status = status
         self.log = EmuLog(ql)
         self.tee = tee
         self.ta_path = ta_path
@@ -91,16 +107,7 @@ class TAEMU:
         self.ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
         self.taUUID = get_ta_uuid(ta_path.split("/")[-1][:-3])
         self.ta_elf.address = self.ta_base
-        self.HEAP = {"allocated": {}, "freed": {}, "redzones": {}}
-        self.exit_non_implemented = None
-        self.curr_params = None
-        self.session_counter = 0
-        self.init_fuzz = False
-        self.crash_on_not_implemented = False
-        if "TAEMU_CRASH_NOTIMPL" in os.environ:
-            self.crash_on_not_implemented = True
-        self.sessions = []
-        self._debugger = ql._debugger
+
         self.std_implemented= std_implemented
         self.tee_specific_implemented = tee_specific_implemented
         self.implemented_apis = None
@@ -110,6 +117,18 @@ class TAEMU:
             self.tee_specific_implemented= False 
         if "TAEMU_IMPLEMENTED_APIS" in os.environ:
             self.implemented_apis = json.load(open(os.environ["TAEMU_IMPLEMENTED_APIS"]))
+        self.crash_on_not_implemented = False
+        if "TAEMU_CRASH_NOTIMPL" in os.environ:
+            self.crash_on_not_implemented = True 
+
+        self.HEAP = {"allocated": {}, "freed": {}, "redzones": {}}
+        self.curr_params = None
+        self.session_counter = 0
+        self.init_fuzz = False
+        self.fuzz_session = None
+        
+        self.sessions = []
+        self._debugger = ql._debugger
 
         f = open(f"{self.ta_path[:-3]}.json", "r")
         ta_info = json.load(f)
@@ -193,6 +212,17 @@ class TAEMU:
         hook_ta_custom(self.ql, self.ta_path, self.ta_elf, self, std_implemented = self.std_implemented, tee_specific_implemented=self.tee_specific_implemented)
         self.ql.do_lib_patch()
 
+    def start(self, *args):
+        if self.status in (Status.FUZZING, Status.REPLAYING):
+            print(*args)
+            self.start_fuzz(
+                args[0], 
+                args[1], 
+                fuzz_replay=(self.status == Status.REPLAYING),
+            )
+        else:
+            self.start_interactive()
+
     def get_shm(self, pointer):
         if self.curr_params is None:
             return None
@@ -206,14 +236,16 @@ class TAEMU:
         param = self.get_shm(pointer)
         if param is None:
             return
-        self.ql.mem.write(param.shm_pybuf, param.shm.to_bytes()[:param.size])
+        if self.status == Status.INTERACTIVE:
+            self.ql.mem.write(param.shm_pybuf, param.shm.to_bytes()[:param.size])
 
     def writeback_shm(self, pointer):
         param = self.get_shm(pointer)
         if param is None:
             return
-        curr_data = self.ql.mem.read(param.shm_pybuf, param.size)
-        param.shm.from_bytes(curr_data)
+        if self.status == Status.INTERACTIVE:
+            curr_data = self.ql.mem.read(param.shm_pybuf, param.size)
+            param.shm.from_bytes(curr_data)
 
     def CreateEntryPoint(self):
         self.log.info(f"[TA_CreateEntryPoint] start @{self.TA_CreateEntryPoint_start:#0x}")
@@ -241,8 +273,12 @@ class TAEMU:
         # TODO: support parameters
         session_opened = self.session_counter
         self.session_counter += 1
-        session_id_mem = self.ql.mem.map_anywhere(0x1000, minaddr=min_addr, perms=3, info="session_id")
-        sessionContext = self.ql.mem.map_anywhere(0x1000, minaddr=min_addr, perms=3, info="session_context")
+        session_id_mem = self.ql.mem.map_anywhere(
+            0x1000, minaddr=min_addr, perms=3, info="session_id"
+        )
+        sessionContext = self.ql.mem.map_anywhere(
+            0x1000, minaddr=min_addr, perms=3, info="session_context"
+        )
         self.ql.mem.write_ptr(session_id_mem, session_opened)
         new_session = Session(session_id_mem, session_opened, sessionContext)
         self.sessions.append(new_session)
@@ -285,7 +321,9 @@ class TAEMU:
             return status
         self.curr_params = params
 
-        self.log.info(f"[TA_InvokeCommandEntryPoint] start @{self.TA_InvokeCommandEntryPoint_start:#0x}")
+        self.log.info(
+            f"[TA_InvokeCommandEntryPoint] start @{self.TA_InvokeCommandEntryPoint_start:#0x}"
+        )
         # stop at TA_InvokeCommandEntryPoint_end
         for e in self.TA_InvokeCommandEntryPoint_end:
             exit_hooks.append(self.ql.hook_address(pivot, e, user_data="TA_InvokeCommandEntryPoint"))
@@ -303,7 +341,7 @@ class TAEMU:
                 params_mem_read += 4
                 param.b = int.from_bytes(self.ql.mem.read(params_mem_read, 4), "little")
                 params_mem_read += 4
-                if self.tee != "beanpod":
+                if self.ql.arch.pointersize == 4:
                     # 32 bit
                     params_mem_read += 8
             elif isinstance(param, MemRefParam):
@@ -314,7 +352,7 @@ class TAEMU:
             elif isinstance(param, NoneParam):
                 params_mem_read += self.ql.arch.pointersize * 2
             else:
-                self.ql.log.error(f"unknown ptype {t}")
+                self.ql.log.error(f"unknown ptype {param}")
                 return TEE_ERROR_BAD_PARAMETERS
 
         for e in exit_hooks:
@@ -417,15 +455,15 @@ class TAEMU:
                 ).hex()
                 self.ql.log.debug(f"TEEC_OpenSession from uuid {uuid}")
                 if "-" in self.ta_path:
-                    if uuid != self.ta_path.replace("-", "").split("/")[-1][:-3]:
+                    if uuid != self.ta_path.replace("-", "").split("/")[-1][:-3] and uuid != self.ta_path.replace("-", "").split("/")[-1][:-3].lower():
                         self.ql.log.error(f"Inconsistent TA name!")
                         sock.close()
                         return
                 else:
-                    if uuid != self.ta_path.split("/")[-1][:-3]:
+                    if uuid != self.ta_path.split("/")[-1][:-3] and uuid != self.ta_path.split("/")[-1][:-3].lower():
                         self.ql.log.error(f"Inconsistent TA name!")
                         sock.close()
-                        exit(-1)
+                        exit(-1) 
                 ret, new_session = self.OpenSession()
                 if ret != TEE_SUCCESS:
                     self.ql.log.warning(f"[////TA_OpenSessionEntryPoint////] return != TEE_SUCCESS {hex(ret)}")
@@ -587,7 +625,9 @@ class TAEMU:
         cov_path = os.path.join(cov_dir, f"{input_name}.cov")
         return cov_path
 
-    def start_fuzz(self, input_file, fuzz_harness=None, fuzz_replay=False, rec_cov=False):
+    def start_fuzz(
+            self, input_file, fuzz_harness=None, fuzz_replay=False
+        ):
 
         ret = self.CreateEntryPoint()
         if ret != TEE_SUCCESS:
@@ -596,7 +636,9 @@ class TAEMU:
 
         ret, new_session = self.OpenSession()
         if ret != TEE_SUCCESS:
-            self.ql.log.warning(f"[////TA_OpenSessionEntryPoint////] return != TEE_SUCCESS {hex(ret)}")
+            self.ql.log.warning(
+                f"[////TA_OpenSessionEntryPoint////] return != TEE_SUCCESS {hex(ret)}"
+            )
             return
 
         exit_addr = []
@@ -619,37 +661,19 @@ class TAEMU:
             self.ql.log.error(f"unknown session {sid}")
             return TEE_ERROR_BAD_STATE
 
-        def default_place_input_callback(ql: Qiling, input: bytes, _: int):
-            print(f"Placing input: {input}")
-
-            if len(input) < 4:
-                return False
-
-            ptypes = 0
-            command_params = [NoneParam()] * 4
-            cmd = u32(input[:4])
-            print(f"cmdId: {cmd}")
-            ret, params_mem = setup_params_fuzz(ql, cmd, ptypes, command_params)  # assume the session is already set
-            if ret != TEE_SUCCESS:
-                return False
-
-            return True
+        self.fuzz_session = session
 
         init_fuzz = None
-        if fuzz_harness is None:
-            place_input_callback = default_place_input_callback
-        else:
-            # import shit
-            spec = importlib.util.spec_from_file_location(
-                os.path.basename(fuzz_harness)[:-3],
-                os.path.abspath(fuzz_harness),
-            )
-            module = importlib.util.module_from_spec(spec)
-            module.__package__ = __package__
-            spec.loader.exec_module(module)
-            place_input_callback = getattr(module, "place_input_callback")
-            if hasattr(module, "init_fuzz"):
-                init_fuzz = getattr(module, "init_fuzz")
+        spec = importlib.util.spec_from_file_location(
+            os.path.basename(fuzz_harness)[:-3],
+            os.path.abspath(fuzz_harness),
+        )
+        module = importlib.util.module_from_spec(spec)
+        module.__package__ = __package__
+        spec.loader.exec_module(module)
+        place_input_callback = getattr(module, "place_input_callback")
+        if hasattr(module, "init_fuzz"):
+            init_fuzz = getattr(module, "init_fuzz")
 
         def crash_validation(ql: Qiling, result: int, input_bytes: bytes, round: int) -> bool:
             print("crash callback: ", result)
@@ -684,14 +708,22 @@ class TAEMU:
         if fuzz_replay:
             self.ql._debugger = self._debugger
             for e in exit_addr:
-                exit_hooks.append(self.ql.hook_address(pivot, e, user_data="TA_InvokeCommandEntryPoint"))
+                exit_hooks.append(
+                    self.ql.hook_address(
+                        pivot, e, user_data="TA_InvokeCommandEntryPoint"
+                    )
+                )
         else:
-            for e in exit_addr:
-                exit_hooks.append(self.ql.hook_address(pivot2, e, user_data="TA_InvokeCommandEntryPoint")) 
             self.ql.hook_address(
                 callback=start_afl,
                 address=self.TA_InvokeCommandEntryPoint_start,
             )
+            for e in exit_addr:
+                exit_hooks.append(
+                    self.ql.hook_address(
+                        pivot2, e, user_data="TA_InvokeCommandEntryPoint"
+                    )
+                ) 
 
         if init_fuzz is not None:
             self.init_fuzz = True
@@ -719,9 +751,22 @@ class TAEMU:
 
         for e in exit_hooks:
             self.ql.hook_del(e)
+
         exit_hooks = []
         self.ql.debugger = False
         self.CloseSession(sid)
 
         self.DestroyEntryPoint()
         return
+
+    def __enter__(self):
+        self.setup()
+        self.hook()
+        self.ql.emu = self
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        print("[TAEMU] Context manager cleanup...")
+        self.ql.stop()
+        print("[TAEMU] emulator stopped")
+        return False
