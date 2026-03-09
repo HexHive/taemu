@@ -208,7 +208,7 @@ class TAEMU:
 
         self.CreateEntryPoint_ret = None
         self._load_ta_info()
-        self.stubbed_functions: Dict[str, StubbedFunction] = {}
+        self.stubbed_functions: Dict[TA_Function, StubbedFunction] = {}
         if self.tee.endswith("nongp"):
             self._assign_functions([
                 TA_Function.CElfFile_invoke,
@@ -217,11 +217,11 @@ class TAEMU:
         else:
             self._assign_functions(
                 [TA_Function.InvokeCommandEntryPoint,
-                TA_Function.CreateEntryPoint,
-                TA_Function.OpenSessionEntryPoint,
-                TA_Function.CloseSessionEntryPoint,
-                TA_Function.DestroyEntryPoint,
-            ])
+                 TA_Function.CreateEntryPoint,
+                 TA_Function.OpenSessionEntryPoint,
+                 TA_Function.CloseSessionEntryPoint,
+                 TA_Function.DestroyEntryPoint,
+                 ])
 
 
     def _load_ta_info(self):
@@ -451,12 +451,26 @@ class TAEMU:
         #CElfFile_invoke(undefined8 param_1,short param_2,long *param_3,int param_4)        
         
         params_mem = self.ql.mem.map_anywhere(
-            0x2000, minaddr=min_addr, perms=3, info="TEE_Params"
+            0x2000, minaddr=min_addr, perms=3, info="param3"
         )
+        # First 4 memory addresses of 3 should be ptrs.
+        args = [
+            self.ql.mem.map_anywhere(0x1000, minaddr=min_addr,
+        perms=unicorn.UC_PROT_READ | unicorn.UC_PROT_WRITE,
+        info=f"param3_arg{i}") for i in range(4)]
+        for i, arg in enumerate(args):
+            self.ql.mem.write_ptr(params_mem + i * self.ql.arch.pointersize, arg)
+        # Set memory address
+        """
+        Break at 0x555555554140
+        0x55555555414c 20021fd6          <NO_SYMBOL>   br     x17
+        fails, because x17 is zero.
+        `cmnlib_init`  needs to be hooked
+        """
         self.ql.os.fcall.cc.setRawParam(0, 0x67)
         self.ql.os.fcall.cc.setRawParam(1, 0, argbits=16)
         self.ql.os.fcall.cc.setRawParam(2, params_mem)
-        self.ql.os.fcall.cc.setRawParam(3, 0x1200, argbits=32)
+        self.ql.os.fcall.cc.setRawParam(3, 0x1200, argbits=64)
         self.ql.run(begin=elf_file_invoke_fn.start)
         ret = self.ql.os.fcall.cc.getReturnValue()
         return ret
@@ -474,7 +488,7 @@ class TAEMU:
             self.ql.hook_address(pivot, e, user_data="TA_CreateEntryPoint")
 
         # _debugger = self.ql._debugger
-        self.ql.debugger = False
+        # self.ql.debugger = False
         #self.ql._debugger = self._debugger
         self.ql.run(begin=entrypoint)
 

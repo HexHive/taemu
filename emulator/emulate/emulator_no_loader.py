@@ -32,7 +32,7 @@ from .gp import (
 )
 from unicorn.arm64_const import UC_ARM64_INS_MRS
 from unicorn import UC_PROT_READ, UC_PROT_WRITE, UC_PROT_EXEC
-from .custom.mitee_loader import mitee_read_relocs, mitee_relr_relocs,qsee_read_relocs, mitee_rela_relocs
+from .custom.mitee_loader import mitee_read_relocs, mitee_relr_relocs,qsee_read_relocs, mitee_rela_relocs, qsee_read_relocs_nonzero
 from .custom.teegris_32_loader import teegris_32_rel
 from .custom.tc_loader import tc_read_relcall
 from keystone import Ks, KS_ARCH_ARM, KS_MODE_ARM
@@ -182,15 +182,24 @@ def hook_ta_dl(
                 ta_base + off,
                 (ql_resolve_mem + counter).to_bytes(ql.arch.pointersize, "little"),
             )
-            # ql.log.info(
-            #     f"[mitee] hooking plt relocation function {func}, {hex(off)}, {hex(ql_resolve_mem+counter)}"
-            # )
+            ql.log.info(
+                f"[qsee] hooking plt relocation function {func}, {hex(off)}, {hex(ql_resolve_mem+counter)}"
+            )
             ql.hook_address(
                 get_api_impl(func),
                 ql_resolve_mem + counter,
                 user_data=HookData(emu, func),
             )
             counter += ql.arch.pointersize
+        to_hook = qsee_read_relocs_nonzero(ta_path)
+        for func, off, sym in to_hook:
+            ql.mem.write(
+                ta_base + off,
+                (ta_base + sym).to_bytes(ql.arch.pointersize, "little"),
+            )
+            ql.log.info(
+                f"[qsee] hooking plt ??non-zero relocation function {func}, {hex(off)}, {hex(ta_base + sym)}"
+            )
     if is_tc:
         # IGNORE ME!!
         ks = Ks(KS_ARCH_ARM, KS_MODE_ARM)
