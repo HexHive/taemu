@@ -79,7 +79,7 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
 #ifndef EMULATE 
     TEEC_SharedMemory in_mem;
     in_mem.buffer = mem_area1;
-    in_mem.size = buf_size;
+    in_mem.size = buf_size; //param_idx1
     in_mem.flags = TEEC_MEM_INPUT; // | TEEC_MEM_OUTPUT;
     res = TEEC_RegisterSharedMemory_impl(context, &in_mem);
     if (res != TEEC_SUCCESS) {
@@ -88,6 +88,7 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
     }
     pls* wow = (pls*)&in_mem;
     pls* wow2 = (pls*)wow->ptr;
+    // printf("mem_area1 ptr %p; wow2 ptr %p; in_mem buffer ptr %p\n", mem_area1, wow2->ptr, in_mem.buffer);
     void* shm = (void*)wow2->ptr;
     printf("shm ptr %p\n", shm);
     op.params[0].memref.parent = &in_mem;  // the keyblock buffer

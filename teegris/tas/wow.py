@@ -17,6 +17,7 @@ def emulate_loader(filename):
             print(f"[+] Processing relocation section: {section.name}")
 
             for rel in section.iter_relocations():
+                print(rel.entry)
                 reloc_addr = rel.entry["r_offset"]
                 r_type = rel.entry["r_info_type"]
                 addend = rel.entry.get("r_addend", None)

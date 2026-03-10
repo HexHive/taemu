@@ -12,7 +12,7 @@ The sha1 of the TA is `0e0d57e8ffef6746125a37e888d214fb3b7421f9`
 
 `TA_InvokeCommandEntryPoint` is the attack entry point, which can be directly triggered by an attacker acting as a TEE client through `TEEC_InvokeCommand`.
 
-This vulnerability firstly requires setting the second argument of `TA_InvokeCommandEntryPoint` (`comm_id`) to 0x2000 or 0x2002, while controlling `uint32_t param_types` to `TEEC_MEMREF_*` (i.e., `(TEEC_MEMREF_TEMP_INPUT) | ((TEEC_MEMREF_TEMP_OUTPUT) << 4)=0x65`). Then `TEE_Param *params` of `TA_InvokeCommandEntryPoint` are transmitted through shared memory between the normal world and the TEE environment.
+This vulnerability firstly requires setting the second argument of `TA_InvokeCommandEntryPoint` (`comm_id`) to **0x2000** or **0x2002**, while controlling `uint32_t param_types` to `TEEC_MEMREF_*` (i.e., `(TEEC_MEMREF_TEMP_INPUT) | ((TEEC_MEMREF_TEMP_OUTPUT) << 4)=0x65`). Then `TEE_Param *params` of `TA_InvokeCommandEntryPoint` are transmitted through shared memory between the normal world and the TEE environment.
 
 
 ```C
@@ -55,7 +55,7 @@ Note that we need to pass the checks at line 10 and line 15. Therefore, we creat
 Specifically, we set `*(int *)(params + 1)` (i.e., `params[0].size`) and `*(int *)(params + 3)` (i.e., `params[1].size`) to 0x608.
 
 
-```c
+```C
 typedef union
 {
 	struct
