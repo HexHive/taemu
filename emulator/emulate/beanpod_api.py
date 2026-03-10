@@ -4,6 +4,7 @@ from qiling.os.const import STRING, INT, BYTE, POINTER, UINT
 from .gp.utils.param import TEE_Param_Memref
 from .gp.utils.err import *
 from .gp.utils.string import *
+import base64
 from .common import CRASH_PC, NOTIMPL_PC, crash, crash_notimpl
 
 from Crypto.Random import get_random_bytes
@@ -21,6 +22,17 @@ RPMSESSION_BUFFER_L2_MEM = 0x920000
 
 RPMSESSIONS_L1 = None
 RPMSESSION_BUFFER_L1_MEM = 0x980000
+
+def base64_decode(ql: Qiling, hook_data):
+    try:
+        p = ql.os.resolve_fcall_params({"data": POINTER, "out": POINTER})
+        data = read_c_str(p["data"])
+        ql.mem.write(p["out"], base64.b64decode(data))
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr 
 
 def TEE_LogvPrintf(ql: Qiling, hook_data):
     try:
@@ -71,7 +83,13 @@ def TEE_LogPrintf(ql: Qiling, hook_data):
         return
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def ut_pf_rpmb_open(ql: Qiling, func_name):
+def TEE_RpbmOpenSession(ql: Qiling, hook_data):
+    ut_pf_rpmb_open(ql, hook_data)
+
+def TEE_RpbmReadData(ql: Qiling, hook_data):
+    ut_pf_rpmb_read_data_blocks(ql, hook_data)
+
+def ut_pf_rpmb_open(ql: Qiling, hook_data):
     global RPMSESSIONS_L1
 
     ret = TEE_SUCCESS
@@ -88,7 +106,7 @@ def ut_pf_rpmb_open(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def ut_pf_rpmb_read_data_blocks(ql: Qiling, func_name):
+def ut_pf_rpmb_read_data_blocks(ql: Qiling, hook_data):
     global RPMSESSIONS_L1
     params = ql.os.resolve_fcall_params(
         {"sessionID": UINT, "buf": POINTER, "size": UINT}
@@ -125,6 +143,9 @@ def ut_pf_cp_open(ql: Qiling, hook_data):
 def ut_pf_cp_close(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def ut_pf_info_get_deviceinfo(ql: Qiling, hook_data):
+    get_device_info(ql, hook_data)
 
 def get_device_info(ql: Qiling, hook_data):
     params = ql.os.resolve_fcall_params(

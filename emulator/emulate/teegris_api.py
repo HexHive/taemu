@@ -4,10 +4,17 @@ from qiling.os.const import STRING, INT, BYTE, POINTER
 from .gp.utils.param import TEE_Param_Memref
 from .gp.utils.err import *
 from .gp.utils.string import *
+from .gp.session import TEE_OpenTASession
 from Crypto.Random import get_random_bytes
 from .custom import rpmb
 from unicorn import UC_PROT_READ, UC_PROT_WRITE
 from .common import crash, crash_notimpl
+
+def TEES_GetClientCredentials(ql: Qiling, hook_data):
+    p = ql.os.resolve_fcall_params({"out": POINTER}) 
+    ql.mem.write_ptr(p["out"], (0x133).to_bytes(8, "little"))
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def TEES_GetIrsFlagValue(ql: Qiling, hook_data):
     ql.log.info(
@@ -20,6 +27,10 @@ def TEES_IsREESharedMemory(ql: Qiling, hook_data):
     ql.log.info(
         f'{hook_data.func_name} returning 0'
     )
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def TEES_DeriveKeyKDF(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
@@ -77,6 +88,13 @@ def _close(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(0) 
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+def TEES_CheckSecureObjectCreator(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0) 
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def TEES_UnwrapSecureObject(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0) 
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def teegris_log_encrypt(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(0)
@@ -120,6 +138,10 @@ def EC_POINT_free(ql: Qiling, hook_data):
         if hook_data.emu.crash_on_not_implemented:
             crash_notimpl(ql, f'EVP free on actual EVP key..')
             return
+        
+def TEES_SPIWriteRead(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def TEES_RPMBCheckEnable(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)

@@ -4,6 +4,7 @@ from qiling.os.const import STRING, INT, BYTE, POINTER
 from .gp.utils.param import TEE_Param_Memref
 from .gp.utils.err import *
 from .gp.utils.string import *
+from .gp.session import TEE_OpenTASession
 from Crypto.Random import get_random_bytes
 from .custom import rpmb
 from unicorn import UC_PROT_READ, UC_PROT_WRITE
@@ -53,6 +54,16 @@ def localtime(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(t)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+def TEE_SESessionOpenBasicChannel(ql: Qiling, hook_data):
+    TEE_OpenTASession(ql, hook_data)
+
+def TEE_SESessionOpenLogicalChannel(ql: Qiling, hook_data):
+    TEE_OpenTASession(ql, hook_data)
+
+def TEE_SEChannelGetNumber_ext(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
 def soter_load_fingerprint_result(ql: Qiling, hook_data):
     params = ql.os.resolve_fcall_params({"buf": POINTER, "fp_type": INT})
     buf = params["buf"]
@@ -70,3 +81,28 @@ def tee_se_open_spi_clk(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+def tee_se_close_spi_clk(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def tee_get_enc_rot(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def TEE_SEChannelClose(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def TEE_SaveTA_Data(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def gen_random(ql: Qiling, hook_data):
+    params = ql.os.resolve_fcall_params({"randomBuffer": POINTER, "randomBufferLen": INT})
+    r = get_random_bytes(params["randomBufferLen"])
+    try:
+        ql.mem.write(params["randomBuffer"], r)
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
