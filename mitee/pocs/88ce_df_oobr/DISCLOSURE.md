@@ -221,6 +221,7 @@ To sum up, in the race window between the two fetches, the attacker can make the
 [x]     007ffff7e28000 - 007ffff7e99000   r-x     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
 [x]     007ffff7e99000 - 007ffff7ea0000   rw-     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
 [x]     007ffffffde000 - 008000002de000   rwx     [stack]                  
+
 ```
 
 

