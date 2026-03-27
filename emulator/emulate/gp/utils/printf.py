@@ -66,6 +66,7 @@ def parse_fmt_str(ql, format_param, final_params, func_name, arg=None):
             func_name == "TEE_LogPrintf"
             or func_name == "printf"
             or func_name == "msee_ta_printf_va"
+            or func_name == "qsee_printf"
         ):
             del params["format"]
         elif func_name == "snprintf":

@@ -1,12 +1,41 @@
 from enum import Enum
+import functools
+import os
 from qiling import Qiling
 from qiling.os.const import STRING, INT, BYTE, POINTER
+
 from .gp.utils.param import TEE_Param_Memref
 from .gp.utils.err import *
 from .gp.utils.string import *
-from .gp_api import malloc
+from .gp_api import TEE_LogPrintf, malloc
 from .common import crash, crash_notimpl
 from .gp.utils.printf import parse_fmt_str, fixup_format, read_c_str
+
+
+
+
+class SetupTeardownAction(Enum):
+    SETUP = 0
+    TEARDOWN = 1
+
+
+class QseeCmdIdent(Enum):
+    GPAppLibHandle = 0
+    Cmd1 = 1
+    CAppOpenSession = 2
+    Cmd3 = 3
+    Cmd4 = 4 # Something with tpidrro_el0
+
+
+
+def _wrap_fcall_with_debug_log(func):
+    @functools.wraps(func)
+    def wrapper(ql: Qiling, hook_data):
+        ql.log.info("Called func: %s", hook_data.func_name)
+        ql.log.info("Ret ptr: %#x", ql.arch.regs.lr)
+        val = func(ql, hook_data)
+        ql.log.info("Returned value: %s", val)
+    return wrapper
 
 def qsee_is_sw_fuse_blown(ql: Qiling, hook_data):
     p = ql.os.resolve_fcall_params(
@@ -94,3 +123,51 @@ def calcsm3(ql: Qiling, hook_data):
 def sm4_crypt(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def cmnlib_init(ql: Qiling, hook_data):
+    ql.log.info("cmnlib_init, back to %#x", ql.arch.regs.lr)
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def acquire_sta_object(ql: Qiling, hook_data):
+    ql.log.info("acquire_sta_object, back to %#x", ql.arch.regs.lr)
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def GPAppLib_init(ql: Qiling, hook_data):
+    ql.log.info("GPAppLib_init, back to %#x", ql.arch.regs.lr)
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def GPAppLib_appInit(ql: Qiling, hook_data):
+    ql.log.info("GPAppLib_appInit, back to %#x", ql.arch.regs.lr)
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def qsee_prng_getdata(ql: Qiling, hook_data):
+    args = ql.os.resolve_fcall_params({
+        "data": POINTER,
+        "size": INT,
+    })
+
+    data = args['data']
+    size = args['size']
+    ql.mem.write(data, os.urandom(size))
+
+    ql.log.info("qsee_prng_getdata args: %s", args)
+    ql.os.fcall.cc.setReturnValue(args['size'])
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def qsee_prng_seed(ql: Qiling, hook_data):
+    ql.log.info("qsee_prng_seed, back to %#x", ql.arch.regs.lr)
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def qsee_prng_stir(ql: Qiling, hook_data):
+    ql.log.info("qsee_prng_stir, back to %#x", ql.arch.regs.lr)
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def qsee_printf(ql: Qiling, hook_data):
+    TEE_LogPrintf(ql, hook_data)

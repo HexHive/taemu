@@ -1,3 +1,4 @@
+from elftools.elf.dynamic import DynamicSegment
 from pwn import *
 import json
 import importlib
@@ -32,7 +33,8 @@ from .gp import (
 )
 from unicorn.arm64_const import UC_ARM64_INS_MRS
 from unicorn import UC_PROT_READ, UC_PROT_WRITE, UC_PROT_EXEC
-from .custom.mitee_loader import mitee_read_relocs, mitee_relr_relocs,qsee_read_relocs, mitee_rela_relocs, qsee_read_relocs_nonzero
+from .custom.mitee_loader import mitee_read_relocs, mitee_relr_relocs, mitee_rela_relocs
+from .custom.qsee_loader import qsee_fix_got, qsee_read_relocs
 from .custom.teegris_32_loader import teegris_32_rel
 from .custom.tc_loader import tc_read_relcall
 from keystone import Ks, KS_ARCH_ARM, KS_MODE_ARM
@@ -175,31 +177,32 @@ def hook_ta_dl(
                 user_data=HookData(emu, func),
             )
             counter += ql.arch.pointersize
+    
     if is_qsee:
-        to_hook = qsee_read_relocs(ta_path)
-        for func, off in to_hook:
+        to_hook = qsee_fix_got(ql, ta_path, ta_elf, ql_resolve_mem+counter)
+        ql.log.info(f"[qsee] leftover relocations: {len(to_hook)}")
+        for qsee_reloc in to_hook:
+            funcname = qsee_reloc.name
+            off = qsee_reloc.offset
+            sym = qsee_reloc.symbol_value
             ql.mem.write(
                 ta_base + off,
                 (ql_resolve_mem + counter).to_bytes(ql.arch.pointersize, "little"),
             )
             ql.log.info(
-                f"[qsee] hooking plt relocation function {func}, {hex(off)}, {hex(ql_resolve_mem+counter)}"
+                f"[qsee] hooking plt relocation function {funcname}, {hex(off)}, {hex(ql_resolve_mem+counter)}"
             )
+            func_impl = get_api_impl(funcname)
+            if func_impl is None:
+                ql.log.warning(f"[qsee] function {funcname} not found")
             ql.hook_address(
-                get_api_impl(func),
+                # qsee_api._wrap_fcall_with_debug_log(func_impl),
+                func_impl,
                 ql_resolve_mem + counter,
-                user_data=HookData(emu, func),
+                user_data=HookData(emu, funcname),
             )
             counter += ql.arch.pointersize
-        to_hook = qsee_read_relocs_nonzero(ta_path)
-        for func, off, sym in to_hook:
-            ql.mem.write(
-                ta_base + off,
-                (ta_base + sym).to_bytes(ql.arch.pointersize, "little"),
-            )
-            ql.log.info(
-                f"[qsee] hooking plt ??non-zero relocation function {func}, {hex(off)}, {hex(ta_base + sym)}"
-            )
+    
     if is_tc:
         # IGNORE ME!!
         ks = Ks(KS_ARCH_ARM, KS_MODE_ARM)
@@ -358,7 +361,7 @@ def qsee_setup(ql: Qiling, ta_path:Path, ta_base):
         ql.arch.regs.arch_pc = ql.arch.regs.lr
     ql.hook_intno(handle_retab, 1)
 
-def mitee_setup(ql: Qiling, ta_path, ta_base):
+def mitee_setup(ql: Qiling, ta_path:Path, ta_base:int):
     # 1: setup tls for mrs
     TLS_MEM_BASE = 0xEEE000
     THREAD_STACK_BASE = 0xF00000
@@ -387,7 +390,7 @@ def mitee_setup(ql: Qiling, ta_path, ta_base):
     ql.hook_insn(hook_mrs, UC_ARM64_INS_MRS)
     # 2: fixup data relocations
     reloc_offsets = mitee_relr_relocs(ta_path)
-    ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
+    ta_base = ql.mem.get_lib_base(ta_path.name)
     for off in reloc_offsets:
         reloc_off = ql.mem.read_ptr(ta_base + off)
         # ql.log.info(f"[mitee] fixing relcation at {hex(off)} for {hex(reloc_off)}")

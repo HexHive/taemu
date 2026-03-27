@@ -222,7 +222,7 @@ if __name__ == "__main__":
             ostype=QL_OS.LINUX,
             archtype=QL_ARCH.ARM64,
             verbose=v,
-            env={"LD_LIBRARY_PATH": "/"},
+            env={"LD_LIBRARY_PATH": "/:/lib64"},
             profile="tee.ql",
             log_override=custom_logger,
         )
