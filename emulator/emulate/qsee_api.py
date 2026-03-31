@@ -1,8 +1,12 @@
+import datetime
 from enum import Enum
 import functools
+import hashlib
 import os
+import random
+import pwn
 from qiling import Qiling
-from qiling.os.const import STRING, INT, BYTE, POINTER
+from qiling.os.const import LONGLONG, STRING, INT, BYTE, POINTER
 
 from .gp.utils.param import TEE_Param_Memref
 from .gp.utils.err import *
@@ -10,8 +14,10 @@ from .gp.utils.string import *
 from .gp_api import TEE_LogPrintf, malloc
 from .common import crash, crash_notimpl
 from .gp.utils.printf import parse_fmt_str, fixup_format, read_c_str
-
-
+import time
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .emulator_no_loader import HookData
 
 
 class SetupTeardownAction(Enum):
@@ -20,13 +26,15 @@ class SetupTeardownAction(Enum):
 
 
 class QseeCmdIdent(Enum):
-    GPAppLibHandle = 0
+    Cmd0 = 0
     Cmd1 = 1
-    CAppOpenSession = 2
+    Cmd2 = 2
     Cmd3 = 3
-    Cmd4 = 4 # Something with tpidrro_el0
+    Cmd4 = 4
 
-
+class QseeTzCmdIdent(Enum):
+    Cmd0 = 0
+    Cmd1 = 1
 
 def _wrap_fcall_with_debug_log(func):
     @functools.wraps(func)
@@ -45,8 +53,16 @@ def qsee_is_sw_fuse_blown(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+__current_log_mask = 0
 def qsee_log_set_mask(ql: Qiling, hook_data):
-    ql.os.fcall.cc.setReturnValue(0)
+    p = ql.os.resolve_fcall_params(
+        {"mask": BYTE}
+    )
+    __current_log_mask = p["mask"] & 0x1f
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def qsee_log_get_mask(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(__current_log_mask)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def qsee_log(ql: Qiling, hook_data):
@@ -69,7 +85,12 @@ def qsee_log(ql: Qiling, hook_data):
             if hook_data.emu.crash_on_not_implemented:
                 crash_notimpl(ql, f"format string not supported: {format_param}")
                 return
-        ql.log.info(f"{hook_data.func_name}: {log_level}, {out_str}")
+        if "\n" in out_str:
+            for i, line in enumerate(out_str.split("\n")):
+                ql.log.info("%s: [%s]/L%02d:  %s", hook_data.func_name, log_level, i, line)
+        else:
+            ql.log.info("%s: [%s]: %s", hook_data.func_name, log_level, out_str)
+            
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, hook_data.func_name)
         return
@@ -145,7 +166,7 @@ def GPAppLib_appInit(ql: Qiling, hook_data):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def qsee_prng_getdata(ql: Qiling, hook_data):
+def qsee_prng_getdata(ql: Qiling, hook_data:'HookData'):
     args = ql.os.resolve_fcall_params({
         "data": POINTER,
         "size": INT,
@@ -159,15 +180,141 @@ def qsee_prng_getdata(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(args['size'])
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def qsee_prng_seed(ql: Qiling, hook_data):
+def qsee_prng_seed(ql: Qiling, hook_data:'HookData'):
     ql.log.info("qsee_prng_seed, back to %#x", ql.arch.regs.lr)
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def qsee_prng_stir(ql: Qiling, hook_data):
+def qsee_prng_stir(ql: Qiling, hook_data:'HookData'):
     ql.log.info("qsee_prng_stir, back to %#x", ql.arch.regs.lr)
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def qsee_printf(ql: Qiling, hook_data):
     TEE_LogPrintf(ql, hook_data)
+
+def qsee_is_ns_range(ql: Qiling, hook_data:'HookData'):
+    # TODO: Assume, that
+    args = ql.os.resolve_fcall_params({
+        "addr": POINTER,
+        "size": INT,
+    })
+    addr = args['addr']
+    size = args['size']
+    ql.log.info("qsee_is_ns_range ptr: %#0x size:%#0x", addr, size)
+
+    is_mapped = False
+    for start, end, perms, info, _ in ql.mem.get_mapinfo():
+        # Sanity check, that we are in the params
+        if start <= addr < addr + size < end and "[qsee_ns]" in info:
+            is_mapped = True
+            break
+    if not is_mapped:
+        ql.log.warning("qsee_is_ns_range ptr: %#0x size:%#0x not mapped", addr, size)
+    
+    mapped_response = 0 if is_mapped else 0xffffffff
+    ql.os.fcall.cc.setReturnValue(mapped_response)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def time_getutcsec(ql: Qiling, hook_data:'HookData'):
+    args = ql.os.resolve_fcall_params({
+        "dest": POINTER,
+    })
+    dest = args['dest']
+    ql.log.info("time_getutcsec, writing to %#x", dest)
+    t = time.time_ns()
+    sec = t // 1_000_000_000
+    nsec = t % 1_000_000_000
+    
+    ql.mem.write(dest, pwn.p64(((nsec & 0xFFFFFFFF) << 32) | (sec & 0xFFFFFFFF)))
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def qsee_get_uptime(ql: Qiling, hook_data:'HookData'):
+    # Should return ms time
+    ql.log.info("qsee_get_uptime, back to %#x", ql.arch.regs.lr)
+    
+    # TODO: Check if we need to be more precise
+    t = datetime.timedelta(seconds=1)
+    ql.os.fcall.cc.setReturnValue(int(t.total_seconds() * 1000))
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def lstat(ql: Qiling, hook_data:'HookData'):
+    args = ql.os.resolve_fcall_params({
+        "path": STRING,
+        "stat": POINTER,
+    })
+    path = args['path']
+    stat = args['stat']
+    ql.log.info("lstat(%s)", path)
+    # with pwn.context.local(binary=hook_data.emu.ta_elf):
+    #     ql.mem.write(stat, pwn.flat({}))
+
+    # TODO: We just pretend it doesn't exist
+    ql.os.fcall.cc.setReturnValue(-1)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def qsee_open(ql: Qiling, hook_data:'HookData'):
+    # Definitly not normal open syscall...
+    args = ql.os.resolve_fcall_params({
+        "objdid": INT,
+        "dest": POINTER,
+    })
+    objdid = args['objdid']
+    dest = args['dest']
+    ql.log.info("qsee_open(%s, %#x)", objdid, dest)
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def qsee_is_s_tag_area(ql: Qiling, hook_data:'HookData'):
+    args = ql.os.resolve_fcall_params({
+        "vmid": INT,
+        "start": POINTER,
+        "end": POINTER
+    })
+    vmid = args['vmid']
+    start = args['start']
+    end = args['end']
+    ql.log.info("qsee_is_s_tag_area(%#x, %#0x, %#0x)", vmid, start, end)
+
+    # TODO: For now, we just pretend it is in the vmid area
+    ql.log.warning("Returning that [%#0x, %#0x) is in the vmid %#x area", start, end, vmid)
+    ql.os.fcall.cc.setReturnValue(1)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def qsee_kdf(ql: Qiling, hook_data:'HookData'):
+    args = ql.os.resolve_fcall_params({
+        "a": INT,
+        "b": INT,
+        "label":POINTER,
+        "label_len":INT,
+        "salt":POINTER,
+        "salt_len":INT,
+        "output":POINTER,
+        "output_len":INT,
+    })
+    a = args['a']
+    b = args['b']
+    label_ptr = args['label']
+    label_len = args['label_len']
+    label = ql.mem.read(label_ptr, label_len)
+    salt_ptr = args['salt']
+    salt_len = args['salt_len']
+    salt = ql.mem.read(salt_ptr, salt_len)
+    output_ptr = args['output']
+    output_len = args['output_len']
+    ql.log.info("qsee_kdf(%#x, %#x, %#x, %#x, %#x, %#x, %#x, %#x)", a, b, label_ptr, label_len, salt_ptr, salt_len, output_ptr, output_len)
+    ql.log.info("label: %s", label)
+    ql.log.info("salt: %s", salt)
+    ql.log.info("ret_addr: %#x", ql.arch.regs.lr)
+
+    # TODO: This is completely done by vibes.
+    data = hashlib.md5(label + salt + b"medicwashere").digest()
+
+    r = random.Random()
+    r.seed(int.from_bytes(data, "little"))
+    random_data = r.getrandbits(output_len * 8)
+    ql.mem.write(output_ptr, random_data.to_bytes(output_len, "little"))
+
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr

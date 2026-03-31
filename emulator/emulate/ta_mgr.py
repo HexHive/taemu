@@ -11,6 +11,11 @@ from pathlib import Path
 
 import pwn
 from unicorn.arm64_const import UC_ARM64_REG_CP_REG, UC_ARM64_REG_W30, UC_ARM64_REG_X30
+import hashlib
+
+import yaml
+
+from .mgr_cache import ql_cached_call
 
 from . import qsee_api
 # from qiling import Qiling
@@ -28,7 +33,7 @@ from hexdump import hexdump
 from colorama import Fore, Back, Style
 from ctypes import *
 from enum import Enum
-from .params import *
+from .params import MIN_PARAM_ADDR, Param, ValueParam, MemRefParam, NoneParam, setup_params, setup_params_fuzz
 from .gp.utils.err import *
 from .gp.utils.param import *
 from .emulator_no_loader import (
@@ -99,12 +104,11 @@ class FUNCS(Enum):
     func_TEEC_FinalizeContext = 6
     func_TEEC_AllocateSharedMemory = 7
 
-
+@dataclass
 class Session:
-    def __init__(self, session_id_mem, session_id, sessionContext):
-        self.session_id_mem = session_id_mem
-        self.session_id = session_id
-        self.sessionContext = sessionContext
+    session_id_mem: int
+    session_id: int
+    sessionContext: int
 
 
 def get_ta_uuid(ta_name):
@@ -139,8 +143,8 @@ class EmuLog:
     def __init__(self, ql: Qiling):
         self._ql = ql
 
-    def info(self, text: str):
-        self._ql.log.info(Fore.BLUE + text + Style.RESET_ALL)
+    def info(self, text: str, *args):
+        self._ql.log.info(Fore.BLUE + text + Style.RESET_ALL, *args)
 
 
 class TA_Function(Enum):
@@ -149,7 +153,10 @@ class TA_Function(Enum):
     InvokeCommandEntryPoint = "TA_InvokeCommandEntryPoint"
     CloseSessionEntryPoint = "TA_CloseSessionEntryPoint"
     DestroyEntryPoint = "TA_DestroyEntryPoint"
+    
     CElfFile_invoke = "CElfFile_invoke"
+    SetupTeardown = "setup_teardown"
+    CommandHandler = "command_handler"
 
 @dataclass
 class StubbedFunction:
@@ -170,6 +177,7 @@ class TAEMU:
         status: Status = None,
         record_max_items=5000,
         record_q: Optional[RedisQueue] = None,
+        use_cache: bool = False,
     ):
         self.ql = ql
         self.log = EmuLog(ql)
@@ -193,6 +201,7 @@ class TAEMU:
         self.df_fuzz_out = None
         self.log.info(f"TAEMU initialized in {self.status.name} mode")
 
+        self.use_cache = use_cache
         # Simple process management for recorder
         self._record_q = record_q
         if self.status in (Status.REPLAYING, Status.FUZZING):
@@ -209,7 +218,7 @@ class TAEMU:
         if "TAEMU_CRASH_NOTIMPL" in os.environ:
             self.crash_on_not_implemented = True
 
-        self.sessions = []
+        self.sessions:List[Session] = []
         self._debugger = ql._debugger
 
         self.CreateEntryPoint_ret = None
@@ -218,6 +227,8 @@ class TAEMU:
         if self.tee.endswith("nongp"):
             self._assign_functions([
                 TA_Function.CElfFile_invoke,
+                TA_Function.SetupTeardown,
+                TA_Function.CommandHandler,
             ])
             
         else:
@@ -231,6 +242,15 @@ class TAEMU:
 
 
     def _load_ta_info(self):
+        yml_path = self.ta_path.with_suffix(".yml")
+        if yml_path.exists():
+            with open(yml_path, "r") as f:
+                yml_info = yaml.safe_load(f)
+            self.ta_info = {}
+            for k, v in yml_info.items():
+                self.ta_info[f"{k}_start"] = v["start"]
+                self.ta_info[f"{k}_end"] = v["end"]
+            return
         json_path = self.ta_path.with_suffix(".json")
         with open(json_path, "r") as f:
             ta_info = json.load(f)
@@ -446,57 +466,167 @@ class TAEMU:
                 self._record_meta.clear()
                 self.curr_record_key = None
 
-    MIN_ARG_ADDR = min_addr
-
-    def command_handler(self, func_p:int, qsee_cmd_ident: qsee_api.QseeCmdIdent):
-        self.log.info(
-            f"[command_handler] start @{func_p:#0x}"
-        )
-        end_addr = [func_p + 588]
-        if self.ta_name != "engmode.elf":
-            self.ql.log.warning("Offsets calculated only for engmode.elf!")
-        for e in end_addr:
-            self.ql.hook_address(pivot, e, user_data="command_handler_end")
+    def tz_app_cmd_handler(self,
+        cmd: qsee_api.QseeTzCmdIdent,
+        params: List[Param],
+    ):
+        """ Wraps the command_handler to choose tz_command_handler and correctly provides the arguments.
+        """
+        command_handler_fn = self.stubbed_functions[TA_Function.CommandHandler]
+        self.log.info("[command_handler:tz_app_cmd_handler] start @%#0x", command_handler_fn.start)
+        for e in command_handler_fn.end:
+            self.ql.hook_address(pivot, e, user_data="command_handler:tz_app_cmd_handler_end")
         
         params_mem = self.ql.mem.map_anywhere(
-            0x1000, minaddr=self.MIN_ARG_ADDR, perms=unicorn.UC_PROT_READ | unicorn.UC_PROT_WRITE, info="command_handler[param3]"
+            0x1000, minaddr=MIN_PARAM_ADDR, perms=unicorn.UC_PROT_READ | unicorn.UC_PROT_WRITE, info="command_handler[params]",
         )
-        _type = {
-            qsee_api.QseeCmdIdent.GPAppLibHandle: 1,
-            qsee_api.QseeCmdIdent.Cmd1: 0x1100,
-            qsee_api.QseeCmdIdent.CAppOpenSession: 0x1255,
-            qsee_api.QseeCmdIdent.Cmd3: 0x1001,
-            qsee_api.QseeCmdIdent.Cmd4: 0x100,
-        }[qsee_cmd_ident]
 
-        self.ql.os.fcall.cc.setRawParam(0, func_p) # Not used? idk
-        self.ql.os.fcall.cc.setRawParam(1, qsee_cmd_ident.value)
-        self.ql.os.fcall.cc.setRawParam(2, params_mem)
-        self.ql.os.fcall.cc.setRawParam(3, _type)
+        # pwn flat is megafucky? Idk why. Dict doesn't work, list does.
+        with pwn.context.local(binary=self.ta_elf):
+
+            if self.ta_path.name == "engmode.elf":
+                req, resp_len = (
+                    pwn.flat({
+                    }, length=0x21c7d, 
+                    #filler=string.ascii_letters.encode()
+                    ),
+                    0x20936
+                )
+            
+            elif self.ta_path.name == "vaultkeeper.elf":
+                req, resp_len = (
+                    pwn.flat(length=0xadf8, filler=b"\x00"),
+                    0xae00,
+                )
+            
+            elif self.ta_path.name == "evautil64.elf":
+                req, resp_len = (
+                    pwn.flat({
+                        0: pwn.p32(0), # Last bit gets set to 1 by the TA
+                        4: 0xdeadbeef, # pointer to the thing?
+                        12: pwn.p32(0x100), # size of the thing?
+                    },length=0xabc, 
+                    #filler=string.ascii_letters.encode()
+                    ),
+                    0xdef,
+                )
+            elif self.ta_path.name == "featenabler.elf":
+                req, resp_len = (
+                    pwn.flat({
+                        0: pwn.p32(0x4), # cmdid
+                    },length=0xabc, 
+                    ),
+                    0x100,
+                )
+            elif self.ta_path.name == "ops.elf":
+                req, resp_len = (
+                    pwn.flat({
+                        0: pwn.p32(0), # Last bit gets set to 1 by the TA
+                        4: 0xdeadbeef, # pointer to the thing?
+                        12: pwn.p32(0x100), # size of the thing?
+                    },length=0xabc, 
+                    ),
+                    0xdef,
+                )
+            
+            else:
+                raise ValueError(f"Unknown TA: {self.ta_path.name}")
+
+            req_len = len(req)
+            req_mem = self.ql.mem.map_anywhere(req_len, minaddr=MIN_PARAM_ADDR, perms=unicorn.UC_PROT_READ | unicorn.UC_PROT_WRITE, info="command_handler[qsee_ns]")
+            self.ql.mem.write(req_mem, req)
+
+            resp_mem = self.ql.mem.map_anywhere(resp_len, minaddr=MIN_PARAM_ADDR, perms=unicorn.UC_PROT_READ | unicorn.UC_PROT_WRITE, info="command_handler[qsee_ns]")
+
+            assert (req_len | resp_len) >> 0x20 == 0, f"req_len | resp_len is not 32bit max: {req_len | resp_len:#x}"
+            payload = pwn.flat(
+                {
+                    0x0:{
+                        0x0: params_mem + 0x100,
+                        0x8: 0x24
+                    },
+                    # args for tz_command_handler
+                    0x100: {
+                        # ! (cmd len | resp len) >> 0x20 == 0 # they should be 32bit max
+
+                        # cmd ptr
+                        0x0: req_mem ,
+                        # cmd len
+                        0x8: req_len, # min 0x24. For engmode, has to be 0x21c7d
+
+                        # resp ptr
+                        0x10: resp_mem,
+                        # resp len
+                        0x18: resp_len, # min 0x8
+                        
+                        # arg4
+                        # - arg4 should be a null byte, so we don't invoke GPAppLib_*
+                        0x20: 0 # arg4
+                    },
+                }, filler=b"\x00")
         
-        self.ql.run(begin=func_p)
+            self.ql.mem.write(
+                params_mem,
+                payload  
+            )
+
+            self.ql.mem.write(req_mem, pwn.flat({
+                0:b"\x01",
+
+            }))
+
+        self.ql.os.fcall.cc.setRawParam(1, qsee_api.QseeCmdIdent.Cmd0.value)
+        self.ql.os.fcall.cc.setRawParam(2, params_mem)
+        self.ql.os.fcall.cc.setRawParam(3, 0x0001)
+        
+        self.ql.run(begin=command_handler_fn.start)
         ret = self.ql.os.fcall.cc.getReturnValue()
         return ret
 
 
-
-    def setup_or_teardown(self, func_p:int, action: qsee_api.SetupTeardownAction):
-        self.log.info(
-            f"[setup_or_teardown] start @{func_p:#0x}"
-        )
-        end_addr = [func_p + 228, func_p -808]
-        if self.ta_name != "engmode.elf":
-            self.ql.log.warning("Offsets calculated only for engmode.elf!")
-        for e in end_addr:
-            self.ql.hook_address(pivot, e, user_data="setup_or_teardown_end")
+    def command_handler(self,
+        sid:int | None,
+        cmd: qsee_api.QseeCmdIdent,
+        ptypes: int,
+        params: List[Param],
+    ):
+        command_handler_fn = self.stubbed_functions[TA_Function.CommandHandler]
+        self.log.info("[command_handler] start @%#0x", command_handler_fn.start)
+        for e in command_handler_fn.end:
+            self.ql.hook_address(pivot, e, user_data="command_handler_end")
+        
         params_mem = self.ql.mem.map_anywhere(
-            0x1000, minaddr=self.MIN_ARG_ADDR, perms=unicorn.UC_PROT_READ | unicorn.UC_PROT_WRITE, info="setup_or_teardown[param3]"
+            0x1000, minaddr=MIN_PARAM_ADDR, perms=unicorn.UC_PROT_READ | unicorn.UC_PROT_WRITE, info="command_handler[params]"
         )
-        exec_ref = self.ql.mem.map_anywhere(0x1000, minaddr=min_addr, perms=unicorn.UC_PROT_READ | unicorn.UC_PROT_EXEC, info="setup_or_teardown[exec_ref]")
+
+        for s in self.sessions:
+            if s.session_id == sid:
+                self.ql.os.fcall.cc.setRawParam(0, s.session_id_mem)
+                break
+
+        self.ql.os.fcall.cc.setRawParam(1, cmd.value)
+        self.ql.os.fcall.cc.setRawParam(2, params_mem)
+        self.ql.os.fcall.cc.setRawParam(3, ptypes)
+        
+        self.ql.run(begin=command_handler_fn.start)
+        ret = self.ql.os.fcall.cc.getReturnValue()
+        return ret
+
+    @ql_cached_call
+    def setup_or_teardown(self, action: qsee_api.SetupTeardownAction):
+        setup_or_teardown_fn = self.stubbed_functions[TA_Function.SetupTeardown]
+        self.log.info("[setup_or_teardown] start @%#0x", setup_or_teardown_fn.start)
+        for e in setup_or_teardown_fn.end:
+            self.ql.hook_address(pivot, e, user_data="setup_or_teardown")
+
+        params_mem = self.ql.mem.map_anywhere(
+            0x1000, minaddr=MIN_PARAM_ADDR, perms=unicorn.UC_PROT_READ | unicorn.UC_PROT_WRITE, info="setup_or_teardown[param3]"
+        )
+        exec_ref = self.ql.mem.map_anywhere(0x1000, minaddr=MIN_PARAM_ADDR, perms=unicorn.UC_PROT_READ | unicorn.UC_PROT_EXEC, info="setup_or_teardown[exec_ref]")
         self.ql.mem.write(exec_ref, pwn.p64(0))
 
-        pwn.context.arch = "aarch64"
-        self.ql.mem.write(params_mem, pwn.flat([
+        with pwn.context.local(arch="aarch64"):
+            self.ql.mem.write(params_mem, pwn.flat([
                 exec_ref, # Some form of cleanup function?
                 pwn.p64(4), # maybe type of this object?
             ]))
@@ -506,61 +636,73 @@ class TAEMU:
         self.ql.os.fcall.cc.setRawParam(2, params_mem)
         self.ql.os.fcall.cc.setRawParam(3, 0x1101)
 
-        self.ql.log.info(f"setup_or_teardown running at {func_p:#0x}")
-        self.ql.run(begin=func_p)
+        self.ql.log.info(f"setup_or_teardown running at {setup_or_teardown_fn.start:#0x}")
+        self.ql.run(begin=setup_or_teardown_fn.start)
 
         ret = self.ql.os.fcall.cc.getReturnValue()
         if ret != TEE_SUCCESS:
-            self.ql.log.warning(f"setup_or_teardown ret != TEE_SUCCESS {hex(ret)}")
-            return ret, None
+            self.ql.log.warning("setup_or_teardown ret != TEE_SUCCESS %#0x", ret)
+            return ret
+        
         params = []
         for i in range(6):
             params.append(
                 self.ql.mem.read_ptr(params_mem + i * self.ql.arch.pointersize)
             )
-        return ret, params[4]
+        cmd_handler = params[4]
+        cmd_handler_fn = self.stubbed_functions[TA_Function.CommandHandler]
+        if cmd_handler != cmd_handler_fn.start:
+            self.ql.log.warning("setup_or_teardown cmd_handler != command_handler %#0x != %#0x", cmd_handler, cmd_handler_fn.start)
+            return TEE_ERROR_BAD_STATE
+        return ret
 
+    @ql_cached_call
     def CElfFile_invoke(self):
         elf_file_invoke_fn = self.stubbed_functions[TA_Function.CElfFile_invoke]
-        self.log.info(
-            f"[CElfFile_invoke] start @{elf_file_invoke_fn.start:#0x}"
-        )
+        self.log.info("[CElfFile_invoke] start @%#0x", elf_file_invoke_fn.start)
         #CElfFile_invoke(undefined8 param_1,short param_2,long *param_3,int param_4)        
 
         for e in elf_file_invoke_fn.end:
             self.ql.hook_address(pivot, e, user_data="CElfFile_invoke_end")
         
         params_mem = self.ql.mem.map_anywhere(
-            0x1000, minaddr=TAEMU.MIN_ARG_ADDR, perms=3, info="Celf_Invoke[param3]"
+            0x1000, minaddr=MIN_PARAM_ADDR, perms=3, info="Celf_Invoke[param3]"
         )
-        exec_section = self.ql.mem.map_anywhere(0x1000, minaddr=min_addr, perms=unicorn.UC_PROT_READ | unicorn.UC_PROT_EXEC, info="[sta_exec_section]")
+        exec_section = self.ql.mem.map_anywhere(0x1000, minaddr=MIN_PARAM_ADDR, perms=unicorn.UC_PROT_READ | unicorn.UC_PROT_EXEC, info="[sta_exec_section]")
 
-        fake_parent_ret = exec_section + 0x10
         acquire_sta_object_loc = exec_section + 0x30
-        pwn.context.arch = "aarch64"
-        self.ql.mem.write(params_mem, 
-            pwn.flat([
-                pwn.p64(0),
-                pwn.p64(0),
-                pwn.p64(acquire_sta_object_loc),
-                pwn.p64(0), # STA Object? 
-            ]))
+        with pwn.context.local(arch="aarch64"):
+            self.ql.mem.write(params_mem, 
+                pwn.flat([
+                    pwn.p64(0),
+                    pwn.p64(0),
+                    pwn.p64(acquire_sta_object_loc),
+                    pwn.p64(0), # STA Object? 
+                ]))
+            
         self.ql.hook_address(
             qsee_api.acquire_sta_object,
             acquire_sta_object_loc,
             user_data=HookData(self, "param3_acquire"),
         )
-        self.ql.log.info(f"param3_acquire hooked at {acquire_sta_object_loc:#0x}")
 
         # Set memory address
-        self.ql.os.fcall.cc.setRawParam(0, 0x67)
+        # self.ql.os.fcall.cc.setRawParam(0, 0x67)
+        self.ql.os.fcall.cc.setRawParam(0, 0)
         self.ql.os.fcall.cc.setRawParam(1, 0, argbits=16)
         self.ql.os.fcall.cc.setRawParam(2, params_mem)
         self.ql.os.fcall.cc.setRawParam(3, 0x1200, argbits=64)
         
+        # # don't fail on bti, paclib
+        fake_parent_ret = exec_section + 0x10
+        # self.ql.uc.reg_write(UC_ARM64_REG_X30, fake_parent_ret)
+
+        # def cp_read(crn, crm, op0, op1, op2):
+        #     return self.ql.uc.reg_read(UC_ARM64_REG_CP_REG, (crn, crm, op0, op1, op2))
+
+        # def cp_write(crn, crm, op0, op1, op2, val):
+        #     self.ql.uc.reg_write(UC_ARM64_REG_CP_REG, (crn, crm, op0, op1, op2, val))
         
-
-
         self.ql.run(begin=elf_file_invoke_fn.start)
         ret = self.ql.os.fcall.cc.getReturnValue()
 
@@ -571,12 +713,15 @@ class TAEMU:
                 self.ql.mem.read_ptr(params_mem + i * self.ql.arch.pointersize)
             )
         if ret != TEE_SUCCESS:
-            self.ql.log.warning(f"CElfFile_invoke ret != TEE_SUCCESS {hex(ret)}")
-            return ret, None
+            self.ql.log.warning("CElfFile_invoke ret != TEE_SUCCESS %#0x", ret)
+            return ret
         
         setup_teardown_address = params[4]
-        self.ql.log.info("setup_teardown_address: %#0x", setup_teardown_address)
-        return ret, setup_teardown_address
+        setup_teardown_func = self.stubbed_functions[TA_Function.SetupTeardown]
+        if setup_teardown_address != setup_teardown_func.start:
+            self.ql.log.warning("CElfFile_invoke setup_teardown_address != setup_teardown %#0x != %#0x", setup_teardown_address, setup_teardown_func.start)
+            return TEE_ERROR_BAD_STATE
+        return ret
 
 
     def CreateEntryPoint(self):
@@ -644,7 +789,7 @@ class TAEMU:
             return ret, None
         return ret, new_session
 
-    def InvokeCommand(self, sid, cmd, ptypes, params):
+    def InvokeCommand(self, sid:int, cmd, ptypes, params):
         invoke_command_fn = self.stubbed_functions[TA_Function.InvokeCommandEntryPoint]
         exit_hooks = []
         self.ql.log.debug(f"TEEC_InvokeCommand {sid} {cmd} {ptypes:#0x}")
@@ -778,10 +923,21 @@ class TAEMU:
         shmdt.argtypes = (c_void_p,)
 
         if self.tee.endswith("nongp"):
-            ret, func_p = self.CElfFile_invoke()
-            # func_p = 0x55555556dfec
-            ret, cmd_handler_p = self.setup_or_teardown(func_p, qsee_api.SetupTeardownAction.SETUP)
+            # TODO: Simple taemu context manager
+            _debugger = self.ql.debugger
+            # self.ql.debugger = False
+            ret = self.CElfFile_invoke()
+            if ret != TEE_SUCCESS:
+                self.ql.log.warning("CElfFile_invoke ret != TEE_SUCCESS %#0x", ret)
+                return ret
+            ret = self.setup_or_teardown(qsee_api.SetupTeardownAction.SETUP)
+            if ret != TEE_SUCCESS:
+                self.ql.log.warning("setup_or_teardown ret != TEE_SUCCESS %#0x", ret)
+                return ret
+            self.ql.debugger = _debugger
             
+            ## Mock command_handler usage
+            ret = self.tz_app_cmd_handler(qsee_api.QseeTzCmdIdent.Cmd0, [])
             return 0
 
         ret = self.CreateEntryPoint()
@@ -882,7 +1038,7 @@ class TAEMU:
                 ptypes = u32(d[8:12])
                 self.ql.log.debug(f"TEEC_InvokeCommand {sid} {cmd} {ptypes:#0x}")
 
-                command_params = []
+                command_params: List['Param'] = []
                 params = d[12:]
                 pcnt = 0
                 while pcnt < 4:

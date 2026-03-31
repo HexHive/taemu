@@ -31,7 +31,7 @@ from .gp import (
     session,
     transient_objects,
 )
-from unicorn.arm64_const import UC_ARM64_INS_MRS
+from unicorn.arm64_const import UC_ARM64_INS_MRS, UC_ARM64_REG_PC
 from unicorn import UC_PROT_READ, UC_PROT_WRITE, UC_PROT_EXEC
 from .custom.mitee_loader import mitee_read_relocs, mitee_relr_relocs, mitee_rela_relocs
 from .custom.qsee_loader import qsee_fix_got, qsee_read_relocs
@@ -303,12 +303,12 @@ def hook_ta_custom(
     ql: Qiling,
     ta_path: Path,
     ta_elf: ELF,
-    emu,
+    emu: 'TAEMU',
 ):
     # inline hooks for TAs
     ta_base = ql.mem.get_lib_base(ta_path.name)
     ta_elf.address = ta_base
-    ta_info = json.loads(ta_path.with_suffix(".json").read_text())
+    ta_info = emu.ta_info
     if "inline" in ta_info:
         addr_map = defaultdict(list)
         for func_name, info in ta_info["inline"].items():
@@ -361,6 +361,23 @@ def qsee_setup(ql: Qiling, ta_path:Path, ta_base):
         ql.arch.regs.arch_pc = ql.arch.regs.lr
     ql.hook_intno(handle_retab, 1)
 
+    # TODO: Check if it gets slower because of this
+    def hook_pointer_authentication(ql: Qiling, port, size):
+        code_bytes = ql.mem.read(ql.arch.regs.arch_pc, 4)
+        inss = list(ql.arch.disassembler.disasm(code_bytes, ql.arch.regs.arch_pc))
+        assert len(inss) == 1
+        ins = inss[0]
+        if ins.mnemonic in ("pacib", "bti", "btic", "pacda", "pacib"):
+            # nop it out
+            next_addr = ql.arch.regs.arch_pc + ins.size
+            ql.uc.reg_write(UC_ARM64_REG_PC, next_addr)
+            return
+        elif ins.mnemonic in ("retab",):
+            ql.arch.regs.arch_pc = ql.arch.regs.lr
+            return
+    ql.hook_code(hook_pointer_authentication)
+
+
 def mitee_setup(ql: Qiling, ta_path:Path, ta_base:int):
     # 1: setup tls for mrs
     TLS_MEM_BASE = 0xEEE000
@@ -398,4 +415,4 @@ def mitee_setup(ql: Qiling, ta_path:Path, ta_base:int):
 
 
 def trace_block(ql: Qiling, address, size):
-    ql.log.debug("basic block at 0x%x" % (address))
+    ql.log.info("basic block at 0x%x" % (address))

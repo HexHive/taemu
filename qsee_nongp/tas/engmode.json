@@ -1,6 +1,14 @@
 {
-    "CElfFile_invoke_start": 105748,
-    "CElfFile_invoke_end": [
-        106284
-    ]
+  "CElfFile_invoke_start": 105748,
+  "CElfFile_invoke_end": [
+    106284
+  ],
+  "setup_teardown_start": 106476,
+  "setup_teardown_end": [
+    106704
+  ],
+  "command_handler_start": 106732,
+  "command_handler_end": [
+    107320
+  ]
 }

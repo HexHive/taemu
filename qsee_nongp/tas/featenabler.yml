@@ -1,0 +1,12 @@
+
+CElfFile_invoke:
+    start: 0x3ed4
+    end: [0x40f4]
+
+setup_teardown:
+    start: 0x41b0
+    end: [0x429c]
+
+command_handler:
+    start: 0x42b4
+    end: [0x4518]

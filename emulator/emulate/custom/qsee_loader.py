@@ -106,8 +106,6 @@ def read_got_entries(ql: Qiling, elf_path: Path, elf_base: int):
                 continue
             for sym in seg.iter_symbols():
                 symbols[sym.name] = sym.entry["st_value"]
-                if sym.name == "cmnlib_init":
-                    print(f"{sym.entry=}")
     return symbols
 
 

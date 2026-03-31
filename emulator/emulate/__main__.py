@@ -117,6 +117,12 @@ def setup_args():
     parser.add_argument(
         "--tee", help="specify the TEE.", required=False, default=""
     )
+    parser.add_argument(
+        "--use-cache",
+        action="store_true",
+        help="Use cache for loading state after execution of entrypoint(s).",
+        default=False,
+    )
 
 
     parser.add_argument("ta", help="The Trusted Application to be executed.")
@@ -332,6 +338,7 @@ if __name__ == "__main__":
                 else Status.INTERACTIVE
             ),
             record_q=curr_record_q,
+            use_cache=args.use_cache,
         ) as emu:
             try:
                 print(args.df_validate)

@@ -3,14 +3,24 @@
 DIR=$(dirname "$0")
 v0="$1"
 [ -z "$v0" ] && echo "Usage: $0 <path to ta>" && exit 1
-
-# Replace whatever extension with .json 
-v1="${v0%.*}".json
-
 [ ! -f "$v0" ] && echo "File $v0 not found" && exit 1
-[ ! -f "${v1}" ] && echo "File $v1 not found" && exit 1
-
-cp "$v0" "$v1" "$DIR/rootfs/"
+cp "$v0" "$DIR/rootfs/"
 shift
+
+v1a="${v0%.*}.yml"
+v1b="${v0%.*}.json"
+
+found_one=false
+if [ -f "$v1a" ]; then
+    cp "$v1a" "$DIR/rootfs/"
+    found_one=true
+fi
+if [ -f "$v1b" ]; then
+    cp "$v1b" "$DIR/rootfs/"
+    found_one=true
+fi
+if [ ! "$found_one" ]; then
+    echo "File $v1a or $v1b not found" && exit 1
+fi
 
 cd "$DIR" && python3 -m emulate $@ "rootfs/$(basename "$v0")" 
