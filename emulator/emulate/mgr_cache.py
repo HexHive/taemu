@@ -39,7 +39,6 @@ def ql_cached_call(func):
         fn_ret = self.ql.os.fcall.cc.getReturnValue()
         assert ret == fn_ret, f"ret != fn_ret: {ret} != {fn_ret}"
         if fn_ret == TEE_SUCCESS:
-            print("Should save")
             self.ql.save(snapshot=fn)
             self.ql.log.info("Last call was successful, saving snapshot of %s", func.__name__)
         else:

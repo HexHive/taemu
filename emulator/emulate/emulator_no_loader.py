@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from elftools.elf.dynamic import DynamicSegment
 from pwn import *
 import json
@@ -38,12 +39,14 @@ from .custom.qsee_loader import qsee_fix_got, qsee_read_relocs
 from .custom.teegris_32_loader import teegris_32_rel
 from .custom.tc_loader import tc_read_relcall
 from keystone import Ks, KS_ARCH_ARM, KS_MODE_ARM
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .ta_mgr import TAEMU
 
-
+@dataclass
 class HookData:
-    def __init__(self, emu, func_name):
-        self.emu = emu
-        self.func_name = func_name
+    emu: 'TAEMU'
+    func_name: str
 
 
 def get_api_impl(func_name, strict=False):

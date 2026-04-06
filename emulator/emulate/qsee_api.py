@@ -1,3 +1,5 @@
+from collections import defaultdict
+from dataclasses import dataclass
 import datetime
 from enum import Enum
 import functools
@@ -293,14 +295,19 @@ def qsee_kdf(ql: Qiling, hook_data:'HookData'):
         "output":POINTER,
         "output_len":INT,
     })
+
+    # what are a and b?
     a = args['a']
     b = args['b']
+    
     label_ptr = args['label']
     label_len = args['label_len']
     label = ql.mem.read(label_ptr, label_len)
     salt_ptr = args['salt']
     salt_len = args['salt_len']
     salt = ql.mem.read(salt_ptr, salt_len)
+    
+    # not sure if this is really output
     output_ptr = args['output']
     output_len = args['output_len']
     ql.log.info("qsee_kdf(%#x, %#x, %#x, %#x, %#x, %#x, %#x, %#x)", a, b, label_ptr, label_len, salt_ptr, salt_len, output_ptr, output_len)
@@ -315,6 +322,130 @@ def qsee_kdf(ql: Qiling, hook_data:'HookData'):
     r.seed(int.from_bytes(data, "little"))
     random_data = r.getrandbits(output_len * 8)
     ql.mem.write(output_ptr, random_data.to_bytes(output_len, "little"))
+
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+
+INT_MASK = 0
+def qsee_get_intmask(ql: Qiling, hook_data:'HookData'):
+    global INT_MASK
+    args = ql.os.resolve_fcall_params({
+        "intmask": POINTER,
+    })
+    intmask = args['intmask']
+    ql.log.info("qsee_get_intmask(%#x)", intmask)
+    ql.mem.write(intmask, pwn.p32(INT_MASK))
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def qsee_set_intmask(ql: Qiling, hook_data:'HookData'):
+    global INT_MASK
+    args = ql.os.resolve_fcall_params({
+        "intmask": INT,
+    })
+    intmask = args['intmask']
+    ql.log.info("qsee_set_intmask(%#x)", intmask)
+    INT_MASK = intmask
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def qsee_disable_all_interrupts(ql: Qiling, hook_data:'HookData'):
+    global INT_MASK
+    INT_MASK = 0
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+### GPIO for mst.elf ###
+
+@dataclass()
+class GPIO_Output:
+    gpio_num: int
+    name: str
+    out: str = ""
+    config: int = 0
+
+GPIO_NAME_TO_ID = {}
+GPIO_OUTPUTS: dict[int, GPIO_Output] = {}
+def qsee_tlmm_get_gpio_id(ql: Qiling, hook_data:'HookData'):
+    global GPIO_NAME_TO_ID
+    args = ql.os.resolve_fcall_params({
+        "gpio_name": STRING,
+        "gpio_id_out":POINTER, # uint32 ptr
+    })
+    gpio_name = args['gpio_name']
+    gpio_id_out = args['gpio_id_out']
+    ql.log.info("qsee_tlmm_get_gpio_id(%s, %#x)", gpio_name, gpio_id_out)
+
+    gpio_id = GPIO_NAME_TO_ID.get(gpio_name, len(GPIO_NAME_TO_ID) + 0x01)
+    GPIO_NAME_TO_ID[gpio_name] = gpio_id
+    GPIO_OUTPUTS[gpio_id] = GPIO_Output(gpio_id, gpio_name)
+
+    ql.mem.write(gpio_id_out, pwn.p32(gpio_id))
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def qsee_tlmm_release_gpio_id(ql: Qiling, hook_data:'HookData'):
+    global GPIO_NAME_TO_ID
+    args = ql.os.resolve_fcall_params({
+        "gpio_id": INT,
+    })
+    gpio_id = args['gpio_id']
+    ql.log.info("qsee_tlmm_release_gpio_id(%#x)", gpio_id)
+    gpio = GPIO_OUTPUTS.get(gpio_id, None)
+    if gpio is None:
+        ql.log.warning("qsee_tlmm_release_gpio_id(%#x) not found", gpio_id)
+    else:
+        GPIO_NAME_TO_ID.pop(gpio.name)
+    GPIO_OUTPUTS.pop(gpio_id)
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def qsee_tlmm_config_gpio_id(ql: Qiling, hook_data:'HookData'):
+    global GPIO_NAME_TO_ID
+    args = ql.os.resolve_fcall_params({
+        "gpio_id": INT,
+        "conf_ptr":POINTER, # uint64 ptr, not sure about what it does
+    })
+    gpio_id = args['gpio_id']
+    conf_ptr = args['conf_ptr']
+    ql.log.info("qsee_tlmm_config_gpio_id(%s, %#x)", gpio_id, conf_ptr)
+    conf = ql.mem.read(conf_ptr, 8)
+    config = int.from_bytes(conf, "little")
+    GPIO_OUTPUTS[gpio_id].config = config
+
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def qsee_tlmm_gpio_id_out(ql: Qiling, hook_data:'HookData'):
+    global GPIO_OUTPUTS
+    args = ql.os.resolve_fcall_params({
+        "gpio_num": INT,
+        "val": INT,
+    })
+    gpio_num = args['gpio_num']
+    val = args['val']
+    ql.log.info("qsee_tlmm_gpio_id_out(%#x, %#x)", gpio_num, val)
+    
+    # Kinda guessing that we can only write 1 bit at a time
+    GPIO_OUTPUTS[gpio_num].out += "1" if (val & 1) else "0"
+    ql.log.info("GPIO_OUTPUTS[%#x].out: %s", gpio_num, GPIO_OUTPUTS[gpio_num].out)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def qsee_spin(ql: Qiling, hook_data:'HookData'):
+    global GPIO_OUTPUTS
+    args = ql.os.resolve_fcall_params({
+        "time_ms": INT,
+    })
+    time_ms = args['time_ms']
+
+    ql.log.info("qsee_spin(%#x)", time_ms)
+    # Let's emulate fake delay in string:
+    for k in GPIO_OUTPUTS:
+        last = GPIO_OUTPUTS[k].out[-1] if GPIO_OUTPUTS[k].out else ""
+        GPIO_OUTPUTS[k].out += last * (time_ms // 1000 - 1)
 
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr

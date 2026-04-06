@@ -481,6 +481,9 @@ class TAEMU:
             0x1000, minaddr=MIN_PARAM_ADDR, perms=unicorn.UC_PROT_READ | unicorn.UC_PROT_WRITE, info="command_handler[params]",
         )
 
+
+        extract_resp = lambda ql, resp_mem, resp_len: None
+
         # pwn flat is megafucky? Idk why. Dict doesn't work, list does.
         with pwn.context.local(binary=self.ta_elf):
 
@@ -495,35 +498,54 @@ class TAEMU:
             
             elif self.ta_path.name == "vaultkeeper.elf":
                 req, resp_len = (
-                    pwn.flat(length=0xadf8, filler=b"\x00"),
+                    pwn.flat({0: pwn.p32(0)}, length=0xadf8),
                     0xae00,
                 )
-            
+                def _vaultkeep_resp(ql: Qiling, resp_mem, resp_len):
+                    message_loc = resp_mem + 0x5af6
+                    message = ql.mem.string(message_loc)
+                    resp_code = ql.mem.read_ptr(resp_mem + 1)
+                    ql.log.info("vaultkeeper response: message=%s, resp_code=%#x", message, resp_code)
+                extract_resp = _vaultkeep_resp
+
+
+            elif self.ta_path.name == "fingerpr.elf":
+                req, resp_len = (
+                    pwn.flat({
+                        0: pwn.p32(0x74),
+                    },length=0xc5),
+                    0xdef,
+                )
             elif self.ta_path.name == "evautil64.elf":
                 req, resp_len = (
                     pwn.flat({
-                        0: pwn.p32(0), # Last bit gets set to 1 by the TA
+                        0: pwn.p32(0),
                         4: 0xdeadbeef, # pointer to the thing?
                         12: pwn.p32(0x100), # size of the thing?
-                    },length=0xabc, 
-                    #filler=string.ascii_letters.encode()
-                    ),
+                    },length=0xabc),
                     0xdef,
                 )
             elif self.ta_path.name == "featenabler.elf":
                 req, resp_len = (
                     pwn.flat({
                         0: pwn.p32(0x4), # cmdid
-                    },length=0xabc, 
-                    ),
+                    },length=0xabc),
                     0x100,
                 )
+            
             elif self.ta_path.name == "ops.elf":
                 req, resp_len = (
                     pwn.flat({
-                        0: pwn.p32(0), # Last bit gets set to 1 by the TA
-                        4: 0xdeadbeef, # pointer to the thing?
-                        12: pwn.p32(0x100), # size of the thing?
+                        0: pwn.p32(0), # only command = 0x0
+                    },length=0xc5, 
+                    ),
+                    0xdef,
+                )
+
+            elif self.ta_path.name == "mst.elf":
+                req, resp_len = (
+                    pwn.flat({
+                        0: pwn.p32(0xa0000), # commands [0xa0001, 0xa0000]
                     },length=0xabc, 
                     ),
                     0xdef,
@@ -570,17 +592,15 @@ class TAEMU:
                 payload  
             )
 
-            self.ql.mem.write(req_mem, pwn.flat({
-                0:b"\x01",
-
-            }))
-
         self.ql.os.fcall.cc.setRawParam(1, qsee_api.QseeCmdIdent.Cmd0.value)
         self.ql.os.fcall.cc.setRawParam(2, params_mem)
         self.ql.os.fcall.cc.setRawParam(3, 0x0001)
         
         self.ql.run(begin=command_handler_fn.start)
         ret = self.ql.os.fcall.cc.getReturnValue()
+        
+        extract_resp(self.ql, resp_mem, resp_len)
+
         return ret
 
 
@@ -925,7 +945,7 @@ class TAEMU:
         if self.tee.endswith("nongp"):
             # TODO: Simple taemu context manager
             _debugger = self.ql.debugger
-            # self.ql.debugger = False
+            self.ql.debugger = False
             ret = self.CElfFile_invoke()
             if ret != TEE_SUCCESS:
                 self.ql.log.warning("CElfFile_invoke ret != TEE_SUCCESS %#0x", ret)
