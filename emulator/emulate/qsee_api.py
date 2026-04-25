@@ -21,23 +21,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .emulator_no_loader import HookData
 
-
-class SetupTeardownAction(Enum):
-    SETUP = 0
-    TEARDOWN = 1
-
-
-class QseeCmdIdent(Enum):
-    Cmd0 = 0
-    Cmd1 = 1
-    Cmd2 = 2
-    Cmd3 = 3
-    Cmd4 = 4
-
-class QseeTzCmdIdent(Enum):
-    Cmd0 = 0
-    Cmd1 = 1
-
 def _wrap_fcall_with_debug_log(func):
     @functools.wraps(func)
     def wrapper(ql: Qiling, hook_data):
@@ -152,6 +135,11 @@ def cmnlib_init(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+def cmnlib_release(ql: Qiling, hook_data):
+    ql.log.info("cmnlib_release, back to %#x", ql.arch.regs.lr)
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
 def acquire_sta_object(ql: Qiling, hook_data):
     ql.log.info("acquire_sta_object, back to %#x", ql.arch.regs.lr)
     ql.os.fcall.cc.setReturnValue(0)
@@ -167,6 +155,15 @@ def GPAppLib_appInit(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+def GPAppLib_appShutdown(ql: Qiling, hook_data):
+    ql.log.info("GPAppLib_appShutdown, back to %#x", ql.arch.regs.lr)
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def __funcs_on_exit(ql: Qiling, hook_data:'HookData'):
+    ql.log.info("__funcs_on_exit, back to %#x", ql.arch.regs.lr)
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def qsee_prng_getdata(ql: Qiling, hook_data:'HookData'):
     args = ql.os.resolve_fcall_params({
@@ -256,6 +253,8 @@ def lstat(ql: Qiling, hook_data:'HookData'):
     ql.os.fcall.cc.setReturnValue(-1)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+from .non_gp.qsee.qsee_mem import get_qsee_mem_manager, QseeMem, noop_callback
+
 def qsee_open(ql: Qiling, hook_data:'HookData'):
     # Definitly not normal open syscall...
     args = ql.os.resolve_fcall_params({
@@ -265,6 +264,10 @@ def qsee_open(ql: Qiling, hook_data:'HookData'):
     objdid = args['objdid']
     dest = args['dest']
     ql.log.info("qsee_open(%s, %#x)", objdid, dest)
+
+    qsee_mem = get_qsee_mem_manager(hook_data.emu)
+    addr = qsee_mem.new_callback(noop_callback)
+    ql.mem.write(dest, pwn.p64(addr))
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
@@ -335,7 +338,7 @@ def qsee_get_intmask(ql: Qiling, hook_data:'HookData'):
         "intmask": POINTER,
     })
     intmask = args['intmask']
-    ql.log.info("qsee_get_intmask(%#x)", intmask)
+    ql.log.debug("qsee_get_intmask(%#x)", intmask)
     ql.mem.write(intmask, pwn.p32(INT_MASK))
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -346,7 +349,7 @@ def qsee_set_intmask(ql: Qiling, hook_data:'HookData'):
         "intmask": INT,
     })
     intmask = args['intmask']
-    ql.log.info("qsee_set_intmask(%#x)", intmask)
+    ql.log.debug("qsee_set_intmask(%#x)", intmask)
     INT_MASK = intmask
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -357,6 +360,20 @@ def qsee_disable_all_interrupts(ql: Qiling, hook_data:'HookData'):
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+
+SECURE_STATE = 0x39393939
+def qsee_get_secure_state(ql: Qiling, hook_data:'HookData'):
+    args = ql.os.resolve_fcall_params({
+        "dst": POINTER,
+    })
+    dst = args['dst']
+    ql.log.debug("qsee_get_secure_state(%#x)", dst)
+    # (val >> 5) & 1 == 0, to indicate  RPBM key is provisioned
+    ql.mem.write(dst, pwn.p32(SECURE_STATE & ~(1 << 5)))
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+from .non_gp.qsee.stor_device import qsee_stor_device_init, qsee_stor_open_partition, qsee_stor_read_sectors, qsee_stor_write_sectors, qsee_stor_device_get_info
 
 ### GPIO for mst.elf ###
 
@@ -377,7 +394,7 @@ def qsee_tlmm_get_gpio_id(ql: Qiling, hook_data:'HookData'):
     })
     gpio_name = args['gpio_name']
     gpio_id_out = args['gpio_id_out']
-    ql.log.info("qsee_tlmm_get_gpio_id(%s, %#x)", gpio_name, gpio_id_out)
+    ql.log.debug("qsee_tlmm_get_gpio_id(%s, %#x)", gpio_name, gpio_id_out)
 
     gpio_id = GPIO_NAME_TO_ID.get(gpio_name, len(GPIO_NAME_TO_ID) + 0x01)
     GPIO_NAME_TO_ID[gpio_name] = gpio_id
@@ -393,7 +410,7 @@ def qsee_tlmm_release_gpio_id(ql: Qiling, hook_data:'HookData'):
         "gpio_id": INT,
     })
     gpio_id = args['gpio_id']
-    ql.log.info("qsee_tlmm_release_gpio_id(%#x)", gpio_id)
+    ql.log.debug("qsee_tlmm_release_gpio_id(%#x)", gpio_id)
     gpio = GPIO_OUTPUTS.get(gpio_id, None)
     if gpio is None:
         ql.log.warning("qsee_tlmm_release_gpio_id(%#x) not found", gpio_id)
@@ -411,7 +428,7 @@ def qsee_tlmm_config_gpio_id(ql: Qiling, hook_data:'HookData'):
     })
     gpio_id = args['gpio_id']
     conf_ptr = args['conf_ptr']
-    ql.log.info("qsee_tlmm_config_gpio_id(%s, %#x)", gpio_id, conf_ptr)
+    ql.log.debug("qsee_tlmm_config_gpio_id(%s, %#x)", gpio_id, conf_ptr)
     conf = ql.mem.read(conf_ptr, 8)
     config = int.from_bytes(conf, "little")
     GPIO_OUTPUTS[gpio_id].config = config
@@ -427,11 +444,11 @@ def qsee_tlmm_gpio_id_out(ql: Qiling, hook_data:'HookData'):
     })
     gpio_num = args['gpio_num']
     val = args['val']
-    ql.log.info("qsee_tlmm_gpio_id_out(%#x, %#x)", gpio_num, val)
+    ql.log.debug("qsee_tlmm_gpio_id_out(%#x, %#x)", gpio_num, val)
     
     # Kinda guessing that we can only write 1 bit at a time
     GPIO_OUTPUTS[gpio_num].out += "1" if (val & 1) else "0"
-    ql.log.info("GPIO_OUTPUTS[%#x].out: %s", gpio_num, GPIO_OUTPUTS[gpio_num].out)
+    # ql.log.info("GPIO_OUTPUTS[%#x].out: %s", gpio_num, GPIO_OUTPUTS[gpio_num].out)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def qsee_spin(ql: Qiling, hook_data:'HookData'):
@@ -441,7 +458,7 @@ def qsee_spin(ql: Qiling, hook_data:'HookData'):
     })
     time_ms = args['time_ms']
 
-    ql.log.info("qsee_spin(%#x)", time_ms)
+    ql.log.debug("qsee_spin(%#x)", time_ms)
     # Let's emulate fake delay in string:
     for k in GPIO_OUTPUTS:
         last = GPIO_OUTPUTS[k].out[-1] if GPIO_OUTPUTS[k].out else ""

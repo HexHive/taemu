@@ -7,7 +7,7 @@ from pwn import ELF
 # from qiling import Qiling
 from .qiling_extend import QilingExtend as Qiling
 from .redis_queue import create_redis_queue
-from qiling.const import QL_VERBOSE
+from qiling.const import QL_STOP, QL_VERBOSE
 from qiling.const import QL_ARCH, QL_OS, QL_VERBOSE
 from .fuzz_record import SimpleFilterRecorder, Record
 from .redis_queue import RedisQueue
@@ -179,7 +179,10 @@ if __name__ == "__main__":
     elif b"com.huawei.hidisk" in open(ta_path, "rb").read():
         TEE = "trustedcore"
     elif b"GPAppLib_handleRequest" in open(ta_path, "rb").read():
-        TEE = "qsee"
+        if b"CElfFile_invoke" in open(ta_path, "rb").read():
+            TEE = "qsee_nongp"
+        else:
+            TEE = "qsee"
     print(f"[+] TEE: {TEE} [+]")
     if TEE == "beanpod":
         if ta_elf.header["e_flags"] & 0x200 == 0:
@@ -241,6 +244,7 @@ if __name__ == "__main__":
             verbose=v,
             env={"LD_LIBRARY_PATH": "/"},
             profile="tee.ql",
+            stop=QL_STOP.EXIT_TRAP,
             log_override=custom_logger,
         )
     elif TEE == "optee":

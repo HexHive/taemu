@@ -23,7 +23,7 @@ done
 
 _DOCKER_RUN="docker compose run --rm --name emu_dbg emulator"
 _DOCKER_EXEC="docker compose exec emulator "
-EMULATOR_DEBUG="$_DOCKER_RUN ./gdb.sh ../$TA_PATH"
+EMULATOR_DEBUG="$_DOCKER_RUN ./run.sh ../$TA_PATH"
 EM_GDB_ATTACH="$_DOCKER_EXEC gdb-multiarch -ex 'set sysroot emulator/rootfs/' -iex 'set history filename /srv/.gdb_history' "
 
 PANE1=$(tmux display-message -p '#{pane_id}')

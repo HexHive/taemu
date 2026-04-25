@@ -1,12 +1,13 @@
 #!/bin/bash
 
+set -e
+
 export AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
 export AFL_SKIP_CPUFREQ=1
 export AFL_FORKSRV_INIT_TMOUT=1999999
 export AFL_NO_FASTRESUME=1
 export AFL_AUTORESUME=1
 export AFL_NO_AFFINITY=1
-
 
 if [ -z "$1" ]; then 
     echo "usage: fuzzing ./fuzz.sh <path to ta|harness folder> [--log_file <file>]"
@@ -40,7 +41,7 @@ in_path=`realpath $1`
 
 if [ -d "$in_path" ]; then
     harness="$in_path/harness.py"
-    ta=$(ls -1 "$in_path"/*.ta 2>/dev/null | head -n 1)
+    ta=$(ls -1 "$in_path"/*.ta "$in_path"/*.elf 2>/dev/null | head -n 1)
 
     fuzz_in="$in_path/in"
     fuzz_out="$in_path/out"
@@ -63,9 +64,13 @@ echo "Using fuzz output dir: $fuzz_out"
 chmod -R 777 "$fuzz_in"
 chmod -R 777 "$fuzz_out"
 
-ta_name="${ta::-3}"
+ta_name="${ta%.*}"
 cp -n "$ta" rootfs/
-cp -n "${ta_name}.json" rootfs/
+
+v1a="${ta%.*}.yml"
+v1b="${ta%.*}.json"
+
+cp "$v1a" "rootfs/" || cp "$v1b" "rootfs/" || { echo "File $v1a or $v1b not found" && exit 1; }
 
 if [ -z "$2" ]; then
     echo "Starting fuzzing..."
@@ -89,7 +94,7 @@ if [ -z "$2" ]; then
     fi
 
 	if [ -z "${FUZZTIME}" ]; then
-        	afl-fuzz -t 5000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")" $log_arg
+        	afl-fuzz -t 5000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --use-cache --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")" $log_arg
   	else
         	timeout -k $FUZZTIME $FUZZTIME afl-fuzz -V $FUZZTIME -t 5000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")" $log_arg
 	fi

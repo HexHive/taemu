@@ -48,10 +48,10 @@ def malloc_core(ql: Qiling, size, hook_data, called_from_api_emu):
     if ret2user_out in hook_data.emu.HEAP["freed"]:
         del hook_data.emu.HEAP["freed"][ret2user_out]
 
-    ql.log.info(f"redzone hook {hex(out)}")
+    ql.log.debug("redzone hook %#0x", out)
     asan.asan_hook_redzone_mem_rw(out, asan.ASAN_REDZONE_SIZE, ql)
     hook_data.emu.HEAP["redzones"][out] = asan.ASAN_REDZONE_SIZE
-    ql.log.info(f"redzone hook {hex(ret2user_out + size)}")
+    ql.log.debug("redzone hook %#0x", ret2user_out + size)
     asan.asan_hook_redzone_mem_rw(
         ret2user_out + size, real_size - asan.ASAN_REDZONE_SIZE - size, ql
     )

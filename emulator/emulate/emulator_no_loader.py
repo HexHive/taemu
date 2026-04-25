@@ -199,7 +199,6 @@ def hook_ta_dl(
             if func_impl is None:
                 ql.log.warning(f"[qsee] function {funcname} not found")
             ql.hook_address(
-                # qsee_api._wrap_fcall_with_debug_log(func_impl),
                 func_impl,
                 ql_resolve_mem + counter,
                 user_data=HookData(emu, funcname),
@@ -364,20 +363,19 @@ def qsee_setup(ql: Qiling, ta_path:Path, ta_base):
         ql.arch.regs.arch_pc = ql.arch.regs.lr
     ql.hook_intno(handle_retab, 1)
 
-    # TODO: Check if it gets slower because of this
+    # TODO: Check how much slower it is because of this
+    # TODO: Option 2: disassemble once, hook addresses, so it's faster
     def hook_pointer_authentication(ql: Qiling, port, size):
         code_bytes = ql.mem.read(ql.arch.regs.arch_pc, 4)
-        inss = list(ql.arch.disassembler.disasm(code_bytes, ql.arch.regs.arch_pc))
-        assert len(inss) == 1
-        ins = inss[0]
-        if ins.mnemonic in ("pacib", "bti", "btic", "pacda", "pacib"):
-            # nop it out
-            next_addr = ql.arch.regs.arch_pc + ins.size
-            ql.uc.reg_write(UC_ARM64_REG_PC, next_addr)
-            return
-        elif ins.mnemonic in ("retab",):
-            ql.arch.regs.arch_pc = ql.arch.regs.lr
-            return
+        for (address, size, mnemonic, op_str) in ql.arch.disassembler.disasm_lite(code_bytes, ql.arch.regs.arch_pc, count=1):
+            if mnemonic in ("pacib", "bti", "btic", "pacda", "pacib"):
+                # nop it out
+                next_addr = ql.arch.regs.arch_pc + size
+                ql.uc.reg_write(UC_ARM64_REG_PC, next_addr)
+            elif mnemonic in ("retab",):
+                print("retabbed")
+                ql.arch.regs.arch_pc = ql.arch.regs.lr
+        
     ql.hook_code(hook_pointer_authentication)
 
 
