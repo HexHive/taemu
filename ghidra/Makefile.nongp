@@ -1,0 +1,64 @@
+DOCKER := docker
+PYTHON ?= ../.venv/bin/python
+
+TEE := qsee_nongp
+TA_DIR := ../qsee_nongp/tas
+BBS_DIR := $(TA_DIR)/bbs
+
+# Persist imported/analyzed Ghidra projects on the host instead of recreating
+# /tmp/ghidraproj inside the container for every run.
+PROJECTS_HOST_DIR := ../.ghidra-projects/qsee_nongp
+PROJECTS_CONT_DIR := /mnt/.ghidra-projects/qsee_nongp
+PROJECT_NAME := qsee_nongp_bbs
+
+TARGET ?= engmode.elf
+TARGET_STEM := $(basename $(TARGET))
+
+YML_STEMS := $(basename $(notdir $(wildcard $(TA_DIR)/*.yml)))
+JSON_STEMS := $(basename $(notdir $(wildcard $(TA_DIR)/*.json)))
+NON_GP_STEMS := $(sort $(YML_STEMS) $(JSON_STEMS))
+NON_GP_BBS := $(foreach stem,$(NON_GP_STEMS),$(BBS_DIR)/bb_$(stem).elf.json)
+
+.PHONY: help qsee-nongp-one qsee-nongp-all qsee-nongp-json
+
+help:
+	@grep -E -h '^[a-zA-Z0-9_.-]+:.*## ' $(MAKEFILE_LIST) | sort | \
+	awk 'BEGIN {FS = ":.*## "}; {printf "\033[36m%-24s\033[0m %s\n", $$1, $$2}'
+
+# YAML is preferred, but JSON remains the runtime format consumed by Python.
+$(TA_DIR)/%.json: $(TA_DIR)/%.yml
+	@$(PYTHON) yaml_to_json.py "$<" "$@"
+
+# Import and analyze the ELF once into a persistent Ghidra project.
+# The stamp is the idempotent boundary for the expensive decompilation work.
+$(PROJECTS_HOST_DIR)/%.imported.stamp: $(TA_DIR)/%.elf
+	@mkdir -p "$(PROJECTS_HOST_DIR)"
+	@$(DOCKER) compose run --rm tipi bash -lc '\
+		mkdir -p "$(PROJECTS_CONT_DIR)" && \
+		/ghidra/support/analyzeHeadless \
+			"$(PROJECTS_CONT_DIR)" \
+			"$(PROJECT_NAME)" \
+			-import "/qsee_nongp_tas/$*.elf" \
+			-scriptPath /src/ghidra_scripts/ \
+			-preScript FunctionIDHeadlessPrescript.java'
+	@touch "$@"
+
+# Re-run only the coverage export against the already imported project.
+# This replaces analyze-bbs-qsee-nongp.sh with make-native batch semantics.
+$(BBS_DIR)/bb_%.elf.json: $(PROJECTS_HOST_DIR)/%.imported.stamp $(TA_DIR)/%.json
+	@mkdir -p "$(BBS_DIR)"
+	@$(DOCKER) compose run --rm tipi bash -lc '\
+		/ghidra/support/analyzeHeadless \
+			"$(PROJECTS_CONT_DIR)" \
+			"$(PROJECT_NAME)" \
+			-process "$*.elf" \
+			-noanalysis \
+			-scriptPath /src/ghidra_scripts/ \
+			-postScript coverage_bbs.py \
+			++tee $(TEE)'
+
+qsee-nongp-json: $(TA_DIR)/$(TARGET_STEM).json ## Materialize one metadata JSON from YAML
+
+qsee-nongp-one: $(BBS_DIR)/bb_$(TARGET_STEM).elf.json ## Build one BB export using persistent Ghidra projects
+
+qsee-nongp-all: $(NON_GP_BBS) ## Build BB exports for every qsee_nongp target with metadata

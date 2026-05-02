@@ -1,11 +1,15 @@
+"""Helpers for building and mapping QSEE command-handler parameters."""
+
 from contextlib import contextmanager
 import hashlib
+import struct
 from typing import TYPE_CHECKING, Generator, Tuple
 import pwn
 from qiling import Qiling
 import unicorn
 
 from emulate.params import MIN_PARAM_ADDR
+from emulate.non_gp.qsee.models import InteractiveCmd, QseeInteractiveMsg
 
 if TYPE_CHECKING:
     from emulate.ta_mgr import TAEMU
@@ -47,9 +51,6 @@ class QseeCommandParams:
     def _resolve_reqrsp_len(
         self, bin_name: str | None, given_req_len: int, given_rsp_len: int
     ) -> int:
-        """
-        Resolve the request and response lengths. It's trying to be nice, and resolving it based on the binary name.
-        """
         req_len = None
         rsp_len = None
         if bin_name is not None:
@@ -79,9 +80,6 @@ class QseeCommandParams:
         return addr
 
     def setup(self, ql: Qiling) -> ReqResParam:
-        """
-        Sets up the parameters for the function call. Returns the request, response and parameters memory addresses.
-        """
         req_mem = self._map_region(ql, len(self.req_data), "command_handler[qsee_ns]")
         ql.mem.write(req_mem, self.req_data)
 
@@ -138,6 +136,16 @@ class QseeCommandParams:
             yield req_mem, resp_mem, params_mem
         finally:
             self.teardown(ql)
+
+    def to_msg(self) -> QseeInteractiveMsg:
+        h = struct.pack("II", self.req_len, self.resp_len)
+        return QseeInteractiveMsg(InteractiveCmd.InvokeCommand, h + self.req_data)
+    
+    @staticmethod
+    def from_msg(b: 'QseeInteractiveMsg') -> "QseeCommandParams":
+        req_len, resp_len = struct.unpack("II", b.data[:8])
+        req_data = b.data[8:]
+        return QseeCommandParams(req_data, req_len=req_len, rsp_len=resp_len)
 
 
 def setup_qsee_fuzz(ql: Qiling, params: QseeCommandParams, input: bytes):

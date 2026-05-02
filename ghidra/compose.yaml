@@ -12,6 +12,7 @@ services:
       - ../teegris/tas:/teegris_tas/:rw
       - ../t6/tas:/t6_tas/:rw
       - ../optee/tas:/optee_tas/:rw
+      - ../qsee_nongp/tas:/qsee_nongp_tas/:rw
       - ..:/mnt:rw
       - ../qsee/tas:/qsee_tas/:rw
       - ../kinibi/tas:/kinibi_tas/:rw
@@ -22,6 +23,7 @@ services:
       - ./docker/optee-entrypoint.sh:/optee-entrypoint.sh
       - ./docker/bbs-entrypoint.sh:/bbs-entrypoint.sh
       - ./docker/bbs-manual-entrypoint.sh:/bbs-manual-entrypoint.sh
+      - ./docker/qsee-nongp-entrypoint.sh:/qsee-nongp-entrypoint.sh
     deploy:
       replicas: 0 # Don't start ghidrathon by default
   tipi:

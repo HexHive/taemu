@@ -1,3 +1,5 @@
+"""Runtime entrypoints for initializing, invoking, and fuzzing QSEE TAs."""
+
 from contextlib import contextmanager
 from dataclasses import dataclass
 import importlib
@@ -26,64 +28,10 @@ from emulate.non_gp.qsee.params import QseeCommandParams
 from emulate.common import CRASH_PC, CRASH_PC_2, NOTIMPL_PC, finalize_fuzzing
 from emulate.contextmanagers import _func_end_emu, stop_hooks_at
 from qiling.extensions.coverage import utils as cov_utils
+from emulate.non_gp.qsee.models import *
 
 if TYPE_CHECKING:
     from emulate.ta_mgr import TAEMU
-
-
-class SetupTeardownAction(Enum):
-    SETUP = 0
-    TEARDOWN = 1
-
-
-class QseeTzCmdIdent(Enum):
-    Cmd0 = 0
-    Cmd1 = 1
-
-
-class InteractiveCmd(Enum):
-    InvokeCommand = 0x0
-    Exit = 0xFF
-    Print = 0xFE
-    Error = 0xFD
-
-
-@dataclass
-class QseeInteractiveMsg:
-    cmd: InteractiveCmd
-    data: bytes
-
-    @property
-    def length(self) -> int:
-        return len(self.data)
-
-    @staticmethod
-    def from_bytes(b: bytes) -> "QseeInteractiveMsg":
-        try:
-            cmd = InteractiveCmd(b[0])
-        except ValueError:
-            raise ValueError(f"Invalid interactive command: {b[0]:#0x}")
-        length = b[1]
-        data = b[2 : 2 + length]
-        return QseeInteractiveMsg(cmd, data)
-
-    @staticmethod
-    def receive_message(channel: pwn.tube) -> "QseeInteractiveMsg":
-        d = channel.recv(2)
-        cmd = InteractiveCmd(d[0])
-        length = d[1]
-        data = channel.recv(length)
-        return QseeInteractiveMsg(cmd, data)
-
-    def to_bytes(self) -> bytes:
-        return struct.pack("BB", self.cmd.value, self.length) + self.data
-
-    @staticmethod
-    def send_print(s: socket.socket, data: bytes):
-        msg = QseeInteractiveMsg(InteractiveCmd.Print, data)
-        s.send(msg.to_bytes())
-        return msg
-
 
 def tz_app_cmd_handler(
     emu: "TAEMU",
@@ -221,7 +169,7 @@ def tz_app_cmd_handler(
         *command_handler_fn.end,
         user_data="command_handler:tz_app_cmd_handler_end",
     ):
-        params.setup(emu)
+        params.setup(emu.ql)
         emu.ql.run(begin=command_handler_fn.start)
         ret = emu.ql.os.fcall.cc.getReturnValue()
         return ret
@@ -415,7 +363,7 @@ def start_qsee_interactive(self: "TAEMU"):
             break
 
         elif msg.cmd == InteractiveCmd.InvokeCommand:
-            params = QseeCommandParams(msg.data, bin_name=self.ta_path.name)
+            params = QseeCommandParams.from_msg(msg)
             ret = tz_app_cmd_handler(self, params)
             self.ql.log.info("tz_app_cmd_handler ret: %#0x", ret)
             if ret != TEE_SUCCESS:

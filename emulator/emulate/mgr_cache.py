@@ -23,17 +23,20 @@ def ql_cached_call(func):
     def wrapper(self:'TAEMU', *args, **kwargs):
         nonlocal distinct_filename
         filename = CACHE_PATH / distinct_filename(self, func.__name__, args, kwargs)
-        should_load = self.use_cache and filename.exists() and not self.ql.debugger
-        if should_load:
+        should_load = self.use_cache and not self.ql.debugger
+        if not filename.exists():
+            self.ql.log.warning("No snapshot found for %s(%s, %s), running.", func.__name__, args, kwargs)
+        elif not should_load:
+            self.ql.log.warning("Cache disabled for (existing) %s(%s, %s), running.", func.__name__, args, kwargs)
+        else:
             try:
                 self.ql.restore(snapshot=filename)
                 self.ql.log.warning("Loaded snapshot of %s(%s, %s) from %s", func.__name__, args, kwargs, filename)
                 # As per our assumption, the ret_val is TEE_SUCCESS
                 return TEE_SUCCESS
             except Exception as e:
-                self.ql.log.warning("Re-running, as failed to load snapshot of %s(%s, %s) from %s: %s", func.__name__, args, kwargs, filename, e)
-        else:
-            self.ql.log.warning("Cache disabled for %s(%s, %s), running.", func.__name__, args, kwargs)
+                self.ql.log.warning("Rerunning. Failed to load snapshot of %s(%s, %s) from %s: %s", func.__name__, args, kwargs, filename, e)
+
         filename.parent.mkdir(parents=True, exist_ok=True)
         ret = func(self, *args, **kwargs)
         fn_ret = self.ql.os.fcall.cc.getReturnValue()

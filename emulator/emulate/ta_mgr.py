@@ -220,13 +220,13 @@ class TAEMU:
             ])
             
         else:
-            self._assign_functions(
-                [TA_Function.InvokeCommandEntryPoint,
-                 TA_Function.CreateEntryPoint,
-                 TA_Function.OpenSessionEntryPoint,
-                 TA_Function.CloseSessionEntryPoint,
-                 TA_Function.DestroyEntryPoint,
-                 ])
+            self._assign_functions([
+                TA_Function.InvokeCommandEntryPoint,
+                TA_Function.CreateEntryPoint,
+                TA_Function.OpenSessionEntryPoint,
+                TA_Function.CloseSessionEntryPoint,
+                TA_Function.DestroyEntryPoint,
+            ])
 
     def _assign_functions(self, func_names: List[TA_Function]):
         ta_info = self.ta_info

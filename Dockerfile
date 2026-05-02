@@ -49,7 +49,7 @@ ENV PYTHONPATH=$PATH:/opt/afl
 # Debug tools (gef, ...)
 ################################################################################
 
-RUN wget -q https://raw.githubusercontent.com/bata24/gef/dev/install-uv.sh -O- | sh
+RUN touch /.dockerenv && wget -q https://raw.githubusercontent.com/bata24/gef/dev/install-uv.sh -O- | sh
 
 ################################################################################
 # Build swarm

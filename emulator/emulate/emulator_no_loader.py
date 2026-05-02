@@ -373,10 +373,10 @@ def qsee_setup(ql: Qiling, ta_path:Path, ta_base):
                 next_addr = ql.arch.regs.arch_pc + size
                 ql.uc.reg_write(UC_ARM64_REG_PC, next_addr)
             elif mnemonic in ("retab",):
-                print("retabbed")
+                ql.log.debug("retabbed")
                 ql.arch.regs.arch_pc = ql.arch.regs.lr
         
-    ql.hook_code(hook_pointer_authentication)
+    # ql.hook_code(hook_pointer_authentication)
 
 
 def mitee_setup(ql: Qiling, ta_path:Path, ta_base:int):

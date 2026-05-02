@@ -26,7 +26,7 @@ import logging
 
 from libc_funcs import libc_funcs
 
-FORMAT = "%(asctime)s,%(msecs)d %(levelname)-8s " "%(message)s"
+FORMAT = "%(asctime)s,%(msecs)d %(levelname)-8s %(message)s"
 logging.basicConfig(format=FORMAT, datefmt="%Y-%m-%d:%H:%M:%S", level=logging.DEBUG)
 log = logging.getLogger(__name__)
 
@@ -54,17 +54,11 @@ def is_libc(fname):
     return fname in libc_funcs
 
 
-def is_qsee_nongp(tee):
-    return tee == "qsee_nongp"
-
-
-def is_gp(fname, tee):
-    if is_qsee_nongp(tee):
-        return fname.startswith("GPAppLib_")
+def is_gp(fname):
     return (
-        fname.startswith("TEE_")
-        and not fname.startswith("TEE_SE")
-        and not fname.startswith("TEE_Rpmb")
+        fname.startswith("GPAppLib_")
+        # and not fname.startswith("TEE_SE")
+        # and not fname.startswith("TEE_Rpmb")
     )
 
 
@@ -82,20 +76,12 @@ def isname(fname):
         return True
 
 
-def is_gp_std(fname, tee):
-    if is_qsee_nongp(tee):
-        if fname.startswith("qsee_"):
-            return True
-        if fname.startswith("vkqsee_"):
-            return True
-        if fname == "qsee_printf":
-            return True
-        return False
-    if fname.startswith("TEE_LogPrint"):
+def is_gp_std(fname):
+    if fname.startswith("qsee_"):
         return True
-    if fname == "msee_ta_printf_va":
+    if fname.startswith("vkqsee_"):
         return True
-    if fname == "TEES_IsREESharedMemory":
+    if fname == "qsee_printf":
         return True
     return False
 
@@ -119,11 +105,11 @@ def is_api_call(body, target, tee, inline_funcs):
         return True
     fname = f.getName()
     print(target, f.isExternal())
-    #if isname(fname) and tee == "beanpod" and f.isExternal():
+    # if isname(fname) and tee == "beanpod" and f.isExternal():
     #    return True
-    #if isname(fname) and tee == "teegris":
+    # if isname(fname) and tee == "teegris":
     #    return True
-    if is_gp(fname, tee):
+    if is_gp(fname):
         return True
     if is_libc(fname):
         return True
@@ -164,9 +150,9 @@ def get_api_type(target, tee, inline_funcs):
     fname = f.getName()
     if is_complex_interaction(fname):
         return "tee"
-    if is_gp_std(fname, tee):
+    if is_gp_std(fname):
         return "tee_std"
-    if is_gp(fname, tee):
+    if is_gp(fname):
         return "gp_api"
     if is_libc(fname):
         return "libc"
@@ -196,31 +182,17 @@ def is_call(ghidra_func, instr):
     return False
 
 
-def get_entry_addrs(ta_info):
-    out = []
-    for key, value in ta_info.items():
-        if not key.endswith("_start"):
-            continue
-        if not isinstance(value, int):
-            continue
-        if value == -1:
-            continue
-        out.append(value)
-    return out
-
-
-def load_ta_info(ta_base_path):
-    ta_json_path = ta_base_path + ".json"
-    if os.path.exists(ta_json_path):
-        return json.load(open(ta_json_path))
-    ta_json_py = ta_json_path + ".py"
-    if os.path.exists(ta_json_py):
-        scope = {}
-        execfile(ta_json_py, scope)
-        if "d" not in scope:
-            raise ValueError("missing metadata dictionary 'd' in %s" % ta_json_py)
-        return scope["d"]
-    raise IOError("missing TA metadata for %s" % ta_base_path)
+ta_fw = [
+    "TA_CreateEntryPoint",
+    "TA_OpenSessionEntryPoint",
+    "TA_InvokeCommandEntryPoint",
+    "TA_CloseSessionEntryPoint",
+    "TA_DestroyEntryPoint",
+    "GPAppLib_appInit",
+    "GPAppLib_appShutdown",
+    "GPAppLib_handleRequest",
+    "GPAppLib_init",
+]
 
 
 def gen_cfg(func, func_cfgs, tee, inline_funcs):
@@ -301,13 +273,21 @@ def gen_cfg(func, func_cfgs, tee, inline_funcs):
                                 f_name = str(target)
                             if get_inline(inline_funcs, target) is not None:
                                 f_name = get_inline(inline_funcs, target)["name"]
-                            if is_api: 
+                            if is_api:
                                 calls.append(
-                                    {"func": f_name, "api": is_api, "api_type": api_type}
+                                    {
+                                        "func": f_name,
+                                        "api": is_api,
+                                        "api_type": api_type,
+                                    }
                                 )
                             else:
                                 calls.append(
-                                    {"func": str(target), "api": is_api, "api_type": api_type}
+                                    {
+                                        "func": str(target),
+                                        "api": is_api,
+                                        "api_type": api_type,
+                                    }
                                 )
                         else:
                             calls.append(
@@ -355,7 +335,7 @@ def gen_cfg(func, func_cfgs, tee, inline_funcs):
     return graph_json, funcs_todo
 
 
-def do_work(tee, ta_meta_base):
+def do_work(tee, ta_json):
     print("working..")
     program = getCurrentProgram()
     monitor = ConsoleTaskMonitor()
@@ -375,13 +355,15 @@ def do_work(tee, ta_meta_base):
     print(8 * "*" + "cfg bbs analyzing: " + filename + 8 * "=")
     func_cfgs = {}
     func_todo = []
-    ta_info = load_ta_info(ta_meta_base)
+    ta_info = json.load(open(ta_json))
     if "inline" in ta_info:
         inline_funcs = convert(ta_info["inline"])
     else:
         inline_funcs = {}
-    for entry_addr in get_entry_addrs(ta_info):
-        func_todo.append(hex(entry_addr))
+    for ta_f in ta_fw:
+        if ta_info.get(ta_f + "_start", -1) == -1:
+            continue
+        func_todo.append((hex(ta_info[ta_f + "_start"])))
     while len(func_todo) != 0:
         func_todo_tmp = []
         for f in func_todo:
@@ -416,14 +398,14 @@ def main():
     prog_path = getCurrentProgram().getExecutablePath()
     if not os.path.exists(prog_path):
         prog_path = os.path.join("/mnt", prog_path[prog_path.find(args.tee) :])
-    ta_meta_base = os.path.splitext(prog_path)[0]
+    ta_json = prog_path[: prog_path.rfind(".")] + ".json"
     out_dir = os.path.join(os.path.dirname(prog_path), "bbs")
     out_path = os.path.join(out_dir, "bb_" + os.path.basename(prog_path) + ".json")
     if not os.path.exists(out_dir):
         os.system(f"mkdir -p {out_dir}")
         os.system(f"chmod 777 {out_dir}")
 
-    out = do_work(args.tee, ta_meta_base)
+    out = do_work(args.tee, ta_json)
     print(out)
     open(out_path, "w").write(json.dumps(out, indent=4))
     os.system(f"chmod 666 {out_path}")
