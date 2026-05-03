@@ -1,0 +1,21 @@
+no_pac: false
+
+CElfFile_invoke:
+    start: 0x10e54
+    end: [0x11210]
+
+setup_teardown:
+    start: 0x1112c
+    end: [0x11210]
+
+command_handler:
+    start: 0x1122c
+    end: [0x11478]
+
+tz_app_cmd_handler:
+    start: 0x4a24
+    end: [
+        0x4ce8, # b TZ_bzero
+        0x4af4, # after b qsee_log
+        0x4cf4, # Fatal
+    ]

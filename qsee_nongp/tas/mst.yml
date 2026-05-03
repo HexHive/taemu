@@ -10,3 +10,7 @@ setup_teardown:
 command_handler:
     start: 0xc5c
     end: [0xec0]
+
+mst_cmd_handler:
+    start: 0x384
+    end: [0x458]

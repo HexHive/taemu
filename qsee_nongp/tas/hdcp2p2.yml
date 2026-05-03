@@ -1,0 +1,20 @@
+
+CElfFile_invoke:
+    start: 0x10a60
+    end: [0x10c80]
+
+setup_teardown:
+    start: 0x10d3c
+    end: [0x10e28]
+
+command_handler:
+    start: 0x10e40
+    end: [0x110a4]
+
+tz_app_cmd_handler:
+    start: 0xc298
+    end: [
+        # after   TargetLog
+        0xc5b0,
+    ]
+

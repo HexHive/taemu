@@ -1,0 +1,23 @@
+
+CElfFile_invoke:
+    start: 0x1854
+    end: [0x1a74]
+
+setup_teardown:
+    start: 0x1b30
+    end: [0x1c1c]
+
+command_handler:
+    start: 0x1c34
+    end: [0x1e98]
+
+tz_app_cmd_handler:
+    start: 0x260
+    end: [
+        0x5a8, #retab
+        # after b FUN_00102eac
+        0x54c,
+        # after b qsee_log
+        0x4d8,
+    ]
+
