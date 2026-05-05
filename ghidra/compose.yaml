@@ -5,6 +5,9 @@ services:
     build:
       context: .
       target: ghidrathon
+    environment:
+      MAXMEM: ${GHIDRA_MAXMEM:-}
+      GHIDRA_MAX_CPU: ${GHIDRA_MAX_CPU:-}
     volumes:
       - ./src:/src:ro
       - ../mitee/tas/:/mitee_tas/:rw
