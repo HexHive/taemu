@@ -1,5 +1,11 @@
-TA_FILE?=qsee_nongp/tas/engmode.elf
+
+TA_FILE:=qsee_nongp/tas/engmode.elf
+# We also support full path to the TA file.
+YML_FILE:=$(addsuffix .yml, $(basename $(TA_FILE)))
+SYM_FILE:=$(addsuffix .sym-elf, $(basename $(TA_FILE)))
+
 ROOTFS_DIR:=emulator/rootfs
+
 DOCKER_ROOT:=/srv
 ARGS?=
 help: ## Show this help
@@ -10,20 +16,11 @@ help: ## Show this help
 build: ## build the docker image
 	docker compose build emulator
 
-_ROOTFS_TA_FILE:=$(ROOTFS_DIR)/$(notdir $(TA_FILE))
-_ROOTFS_YML_FILE:=$(basename $(_ROOTFS_TA_FILE)).yml
-_ROOTFS_SYM_FILE:=$(basename $(_ROOTFS_TA_FILE)).sym-elf
-
 .PHONY: copy-files run-bash run-gdb symbol-file
 
-copy-files: $(_ROOTFS_TA_FILE) $(_ROOTFS_YML_FILE)
-$(_ROOTFS_TA_FILE): $(TA_FILE)
-	sudo mkdir -p $(ROOTFS_DIR)
-	sudo cp $< $@
-
-$(_ROOTFS_YML_FILE): $(basename $(TA_FILE)).yml
-	sudo mkdir -p $(ROOTFS_DIR)
-	sudo cp $< $@
+copy-files: $(TA_FILE) $(YML_FILE) $(SYM_FILE)
+	@sudo mkdir -p $(ROOTFS_DIR)
+	sudo cp $^ $(ROOTFS_DIR)
 
 run-bash: copy-files ## run emulator, but drops into bash shell.
 	docker compose run -it --rm \
@@ -33,28 +30,35 @@ run-bash: copy-files ## run emulator, but drops into bash shell.
 run-interactive: copy-files ## emulate the TA. Respecets ARGS.
 	docker compose run -it --rm \
 		--name emu emulator \
-		python3 -m emulate $(DOCKER_ROOT)/$(_ROOTFS_TA_FILE) $(ARGS)
+		python3 -m emulate ./rootfs/$(TA_FILE) $(ARGS)
 
+INTERACTIVE_CLIENT?=emulate.non_gp.qsee.dummy_client
 interactive-client:
-	docker compose exec -it emulator python3 -m emulate.non_gp.qsee.dummy_client
+	docker compose exec -it emulator python3 -m $(INTERACTIVE_CLIENT)
 
 exec-bash:
 	docker compose exec -it emulator bash
 
 exec-gdb: copy-files ## connect to the gdb server. Needs a running emulator container.
 	docker compose exec -it emulator gdb-multiarch \
-		-ex 'set sysroot $(DOCKER_ROOT)/$(ROOTFS_DIR)' \
+		-ex 'set sysroot ./rootfs' \
 		-ex 'set history filename /srv/.gdb_history' \
-		-ex 'add-symbol-file $(DOCKER_ROOT)/$(_ROOTFS_SYM_FILE) 0x555555554000' \
+		-ex 'add-symbol-file ./rootfs/$(SYM_FILE) 0x555555554000' \
 		-iex 'target remote localhost:9999' \
-		$(DOCKER_ROOT)/$(_ROOTFS_TA_FILE) 
+		./rootfs/$(TA_FILE) 
 
 .PHONY: exec-gdb-sym exec-gdb symbol-file
 exec-gdb-sym: symbol-file exec-gdb
 
-symbol-file: $(_ROOTFS_SYM_FILE)
-$(_ROOTFS_SYM_FILE): $(_ROOTFS_TA_FILE) $(_ROOTFS_YML_FILE)
-	docker compose run -it --rm \
-		--name sym-build \
-		emulator python3 scripts/extract_symbols.py $(DOCKER_ROOT)/$(_ROOTFS_TA_FILE) --output $(DOCKER_ROOT)/$@
 
+DOCKER_RUN:=docker compose run -it --rm \
+		--workdir $(DOCKER_ROOT) \
+		emulator
+
+json-file: $(addsuffix .json, $(basename $(YML_FILE)))
+%.json: %.yml
+	$(DOCKER_RUN) python3 emulator/scripts/yaml_to_json.py $< $@
+
+symbol-file: $(SYM_FILE)
+%.sym-elf: %.elf %.yml
+	$(DOCKER_RUN) python3 emulator/scripts/extract_symbols.py $< --output $@
