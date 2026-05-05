@@ -1,6 +1,7 @@
 import os
 import json
 from argparse import ArgumentParser
+from pathlib import Path
 from decompile_util import (
     Decompiler,
     INVOKE_COMMAND_FUNC_NAME,
@@ -382,19 +383,21 @@ def main():
         help="target TEE",
     )
     args = arg_parser.parse_args(args=getScriptArgs())
-    prog_path = getCurrentProgram().getExecutablePath()
-    if not os.path.exists(prog_path):
-        prog_path = os.path.join("/mnt", prog_path[prog_path.find(args.tee) :])
-    ta_json = prog_path[:-3] + ".json"
-    out_dir = os.path.join(os.path.dirname(prog_path), "bbs")
-    out_path = os.path.join(out_dir, "bb_" + os.path.basename(prog_path) + ".json")
-    if not os.path.exists(out_dir):
-        os.system(f"mkdir -p {out_dir}")
-        os.system(f"chmod 777 {out_dir}")
+    program = getCurrentProgram()
+    prog_path = Path(program.getExecutablePath())
+    if not prog_path.exists():
+        ppp = prog_path.as_posix()
+        prog_path = Path("/mnt") / ppp[ppp.find(args.tee) :]
+    ta_json = prog_path.with_suffix(".json")
+    out_dir = prog_path.parent / "bbs"
+    out_path = out_dir / f"bb_{prog_path.name}.json"
+    if not out_dir.exists():
+        out_dir.mkdir(parents=True, exist_ok=True)
+        os.system(f"chmod 777 {out_dir.as_posix()}")
 
     out = do_work(args.tee, ta_json)
     print(out)
-    open(out_path, "w").write(json.dumps(out, indent=4))
+    out_path.write_text(json.dumps(out, indent=4))
     os.system(f"chmod 666 {out_path}")
     return
 

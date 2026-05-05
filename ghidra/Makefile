@@ -1,4 +1,5 @@
 DOCKER := docker
+PYTHON ?= ../.venv/bin/python
 
 .PHONY: build run help
 
@@ -30,4 +31,28 @@ bbs: ## Check reachable bbs
 bbs-manual: ## Check reachable bbs
 		@$(DOCKER) compose run --rm tipi /bbs-manual-entrypoint.sh ${TARGET} ${TEE}
 
+QSEE_NONGP_TAS_DIR := ../qsee_nongp/tas
+TARGET_NAME := $(notdir ${TARGET})
+TARGET_STEM := $(basename $(TARGET_NAME))
+ifeq ($(dir $(TARGET)),./)
+QSEE_NONGP_INPUT := $(QSEE_NONGP_TAS_DIR)/$(TARGET_NAME)
+else
+QSEE_NONGP_INPUT := $(TARGET)
+endif
+QSEE_NONGP_YML := $(QSEE_NONGP_TAS_DIR)/$(TARGET_STEM).yml
+QSEE_NONGP_JSON := $(QSEE_NONGP_TAS_DIR)/$(TARGET_STEM).json
+QSEE_NONGP_BB_JSON := $(QSEE_NONGP_TAS_DIR)/bbs/bb_$(TARGET_NAME).json
 
+.PHONY: qsee_nongp-json bbs-qsee_nongp
+
+$(QSEE_NONGP_JSON): $(QSEE_NONGP_YML)
+		@$(PYTHON) yaml_to_json.py "$(QSEE_NONGP_YML)" "$(QSEE_NONGP_JSON)"
+
+qsee_nongp-json: $(QSEE_NONGP_JSON) ## Materialize qsee_nongp JSON metadata from YAML for TARGET
+
+$(QSEE_NONGP_BB_JSON): TEE=qsee_nongp
+$(QSEE_NONGP_BB_JSON): $(QSEE_NONGP_INPUT) $(QSEE_NONGP_JSON)
+		@$(DOCKER) compose run --rm tipi /qsee-nongp-entrypoint.sh $(TARGET_NAME) ${TEE}
+
+bbs-qsee_nongp: TEE=qsee_nongp
+bbs-qsee_nongp: $(QSEE_NONGP_BB_JSON) ## Check reachable bbs
