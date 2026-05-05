@@ -182,13 +182,17 @@ def is_call(ghidra_func, instr):
     return False
 
 
-ta_fw = [
-    "TA_CreateEntryPoint",
-    "TA_OpenSessionEntryPoint",
-    "TA_InvokeCommandEntryPoint",
-    "TA_CloseSessionEntryPoint",
-    "TA_DestroyEntryPoint",
-]
+def get_entrypoints(tee):
+    if tee == "qsee_nongp":
+        return ["CElfFile_invoke"]
+    ta_fw = [
+        "TA_CreateEntryPoint",
+        "TA_OpenSessionEntryPoint",
+        "TA_InvokeCommandEntryPoint",
+        "TA_CloseSessionEntryPoint",
+        "TA_DestroyEntryPoint",
+    ]
+    return ta_fw
 
 
 def gen_cfg(func, func_cfgs, tee, inline_funcs):
@@ -348,7 +352,7 @@ def do_work(tee, ta_json):
         inline_funcs = convert(ta_info["inline"])
     else:
         inline_funcs = {}
-    for ta_f in ta_fw:
+    for ta_f in get_entrypoints(tee):
         if ta_info[ta_f + "_start"] == -1:
             continue
         func_todo.append((hex(ta_info[ta_f + "_start"])))

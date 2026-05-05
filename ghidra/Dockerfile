@@ -93,6 +93,7 @@ RUN --mount=type=bind,source=docker/ghidra/requirements.txt,target=/requirements
 
 # Add ghidra
 COPY --from=ghidra-ghidrathon-downloader --link /ghidra /ghidra
+RUN sed -i 's/^MAXMEM=.*/MAXMEM=${MAXMEM:-6G}/' /ghidra/support/analyzeHeadless
 
 ## Build ghidrathon
 RUN --mount=type=bind,from=ghidra-ghidrathon-downloader,source=/ghidrathon,target=/ghidrathon,readwrite \
@@ -109,4 +110,3 @@ RUN --mount=type=bind,from=ghidra-ghidrathon-downloader,source=/mclf-loader,targ
     (/ghidra/support/analyzeHeadless --help || mkdir -p ~/.ghidra/.ghidra_${GHIDRA_VERSION}/Extensions) && \
     cd ~/.ghidra/.ghidra_${GHIDRA_VERSION}/Extensions && \
     unzip /mclf-loader/dist/ghidra_${GHIDRA_VERSION}_*_mclf-loader.zip
-

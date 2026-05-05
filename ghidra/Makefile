@@ -1,5 +1,8 @@
 DOCKER := docker
 PYTHON ?= ../.venv/bin/python
+GHIDRA_MAXMEM ?=
+BBS_SCRIPT ?= coverage_bbs.py
+DOCKER_RUN_MEMORY := $(if $(GHIDRA_DOCKER_MEMORY),--memory $(GHIDRA_DOCKER_MEMORY),)
 
 .PHONY: build run help
 
@@ -10,26 +13,27 @@ help: ## Show this help
 build: Dockerfile compose.yaml ## Build the Docker container(s)
 		@$(DOCKER) compose build
 
+DOCKER_RUN:=$(DOCKER) compose run --rm $(DOCKER_RUN_MEMORY) -e MAXMEM=$(GHIDRA_MAXMEM) -e BBS_SCRIPT=$(BBS_SCRIPT) tipi 
 mitee: ## Run the Docker container(s) mitee
-		@$(DOCKER) compose run --rm tipi /mitee-entrypoint.sh ${TARGET} 
+		@$(DOCKER_RUN) /mitee-entrypoint.sh ${TARGET} 
 
 beanpod: ## Run the Docker container(s) beanpod
-		@$(DOCKER) compose run --rm tipi /beanpod-entrypoint.sh ${TARGET} 
+		@$(DOCKER_RUN) /beanpod-entrypoint.sh ${TARGET} 
 
 teegris: ## Run the Docker container(s) teegris 
-		@$(DOCKER) compose run --rm tipi /teegris-entrypoint.sh ${TARGET} 
+		@$(DOCKER_RUN) /teegris-entrypoint.sh ${TARGET} 
 
 optee: ## Run the Docker container(s) teegris 
-		@$(DOCKER) compose run --rm tipi /optee-entrypoint.sh ${TARGET} 
+		@$(DOCKER_RUN) /optee-entrypoint.sh ${TARGET} 
 
 t6: ## Run the Docker container(s) t6
-		@$(DOCKER) compose run --rm tipi /t6-entrypoint.sh ${TARGET} 
+		@$(DOCKER_RUN) /t6-entrypoint.sh ${TARGET} 
 
 bbs: ## Check reachable bbs
-		@$(DOCKER) compose run --rm tipi /bbs-entrypoint.sh ${TARGET} ${TEE}
+		@$(DOCKER_RUN) /bbs-entrypoint.sh ${TARGET} ${TEE}
 
 bbs-manual: ## Check reachable bbs
-		@$(DOCKER) compose run --rm tipi /bbs-manual-entrypoint.sh ${TARGET} ${TEE}
+		@$(DOCKER_RUN) /bbs-manual-entrypoint.sh ${TARGET} ${TEE}
 
 QSEE_NONGP_TAS_DIR := ../qsee_nongp/tas
 TARGET_NAME := $(notdir ${TARGET})
@@ -50,9 +54,7 @@ $(QSEE_NONGP_JSON): $(QSEE_NONGP_YML)
 
 qsee_nongp-json: $(QSEE_NONGP_JSON) ## Materialize qsee_nongp JSON metadata from YAML for TARGET
 
-$(QSEE_NONGP_BB_JSON): TEE=qsee_nongp
 $(QSEE_NONGP_BB_JSON): $(QSEE_NONGP_INPUT) $(QSEE_NONGP_JSON)
-		@$(DOCKER) compose run --rm tipi /qsee-nongp-entrypoint.sh $(TARGET_NAME) ${TEE}
+		@$(DOCKER_RUN) /qsee-nongp-entrypoint.sh $(TARGET_NAME) qsee_nongp
 
-bbs-qsee_nongp: TEE=qsee_nongp
 bbs-qsee_nongp: $(QSEE_NONGP_BB_JSON) ## Check reachable bbs

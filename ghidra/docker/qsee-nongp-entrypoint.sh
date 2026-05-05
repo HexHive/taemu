@@ -5,6 +5,7 @@ set -ue
 DEBUG=0
 
 unset PYTHONPATH
+export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} -Dlog4j2.disableJmx=true -XX:-UseContainerSupport"
 
 IN=${IN:-/data}
 echo $@
@@ -16,6 +17,12 @@ TIMEOUT=6000
 PROJECT="GhidraProject"
 
 GHIDRA=/ghidra
+BBS_SCRIPT=${BBS_SCRIPT:-coverage_bbs.py}
+
+HEADLESS_ARGS=()
+if [ -n "${GHIDRA_MAX_CPU:-}" ]; then
+  HEADLESS_ARGS+=(-max-cpu "${GHIDRA_MAX_CPU}")
+fi
 
 # keep track of time
 
@@ -27,6 +34,7 @@ timeout ${TIMEOUT} ${GHIDRA}/support/analyzeHeadless \
   SharingCaringTmpProj \
   -import ${TA_PATH} \
   -scriptPath /src/ghidra_scripts/ \
+  "${HEADLESS_ARGS[@]}" \
   -preScript FunctionIDHeadlessPrescript.java \
-  -postScript coverage_bbs.py \
+  -postScript ${BBS_SCRIPT} \
   ++tee ${TEE}
