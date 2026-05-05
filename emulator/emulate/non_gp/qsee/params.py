@@ -47,10 +47,14 @@ class QseeCommandParams:
             bin_name, req_len, rsp_len
         )
         self.mem_regions = {}
+        # NOTE: This is managet a bit ugly, but we need to read from it before teardown.
+        self.resp_mem = None
 
     def _resolve_reqrsp_len(
         self, bin_name: str | None, given_req_len: int, given_rsp_len: int
     ) -> int:
+        """Resolve request and response lengths from explicit values or TA name."""
+
         req_len = None
         rsp_len = None
         if bin_name is not None:
@@ -79,16 +83,21 @@ class QseeCommandParams:
         self.mem_regions[addr] = size
         return addr
 
+    def read_resp(self, ql: Qiling) -> bytes:
+        return ql.mem.read(self.resp_mem, self.resp_len)
+
     def setup(self, ql: Qiling) -> ReqResParam:
+        """Map QSEE command buffers and set call arguments for the handler."""
+
         req_mem = self._map_region(ql, len(self.req_data), "command_handler[qsee_ns]")
         ql.mem.write(req_mem, self.req_data)
 
-        resp_mem = self._map_region(ql, self.resp_len, "command_handler[qsee_ns]")
+        self.resp_mem = self._map_region(ql, self.resp_len, "command_handler[qsee_ns]")
 
         params_mem = self._map_region(ql, 0x1000, "command_handler[params]")
-        assert (
-            self.req_len | self.resp_len
-        ) >> 0x20 == 0, "req_len | resp_len is not 32bit max."
+        assert (self.req_len | self.resp_len) >> 0x20 == 0, (
+            "req_len | resp_len is not 32bit max."
+        )
         payload = pwn.flat(
             {
                 0x0: {0x0: params_mem + 0x20, 0x8: 0x24},
@@ -100,7 +109,7 @@ class QseeCommandParams:
                     # cmd len
                     0x8: self.req_len,  # min 0x24. For engmode, has to be 0x21c7d
                     # resp ptr
-                    0x10: resp_mem,
+                    0x10: self.resp_mem,
                     # resp len
                     0x18: self.resp_len,  # min 0x8
                     # arg4
@@ -117,7 +126,7 @@ class QseeCommandParams:
         ql.os.fcall.cc.setRawParam(1, 0x0)
         ql.os.fcall.cc.setRawParam(2, params_mem)
         ql.os.fcall.cc.setRawParam(3, 0x0001)
-        return req_mem, resp_mem, params_mem
+        return req_mem, self.resp_mem, params_mem
 
     def teardown(self, ql: Qiling):
         for addr, size in self.mem_regions.items():
@@ -128,6 +137,7 @@ class QseeCommandParams:
                 ql.log.error(f"Error unmapping memory: {e}")
         if len(self.mem_regions) > 0:
             ql.log.error(f"Memory regions not cleared: {self.mem_regions}")
+        self.resp_mem = None
 
     @contextmanager
     def setup_ctx(self, ql: Qiling) -> Generator[ReqResParam, None, None]:
@@ -140,9 +150,9 @@ class QseeCommandParams:
     def to_msg(self) -> QseeInteractiveMsg:
         h = struct.pack("II", self.req_len, self.resp_len)
         return QseeInteractiveMsg(InteractiveCmd.InvokeCommand, h + self.req_data)
-    
+
     @staticmethod
-    def from_msg(b: 'QseeInteractiveMsg') -> "QseeCommandParams":
+    def from_msg(b: "QseeInteractiveMsg") -> "QseeCommandParams":
         req_len, resp_len = struct.unpack("II", b.data[:8])
         req_data = b.data[8:]
         return QseeCommandParams(req_data, req_len=req_len, rsp_len=resp_len)

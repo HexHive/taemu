@@ -352,7 +352,7 @@ def teegris_32_setup(ql: Qiling, ta_path, ta_base):
 def optee_setup(ql: Qiling, ta_path, ta_base, emu):
     ql.hook_intno(optee_api.optee_syscall, 2, user_data=emu)
 
-def qsee_setup(ql: Qiling, ta_path:Path, ta_base):
+def qsee_setup(ql: Qiling, ta_path:Path, ta_base, emu: 'TAEMU'):
     reloc_offsets = mitee_rela_relocs(ta_path)
     ta_base = ql.mem.get_lib_base(ta_path.name)
     for off in reloc_offsets:
@@ -362,21 +362,22 @@ def qsee_setup(ql: Qiling, ta_path:Path, ta_base):
     def handle_retab(ql: Qiling, user_data):
         ql.arch.regs.arch_pc = ql.arch.regs.lr
     ql.hook_intno(handle_retab, 1)
-
-    # TODO: Check how much slower it is because of this
-    # TODO: Option 2: disassemble once, hook addresses, so it's faster
-    def hook_pointer_authentication(ql: Qiling, port, size):
-        code_bytes = ql.mem.read(ql.arch.regs.arch_pc, 4)
-        for (address, size, mnemonic, op_str) in ql.arch.disassembler.disasm_lite(code_bytes, ql.arch.regs.arch_pc, count=1):
-            if mnemonic in ("pacib", "bti", "btic", "pacda", "pacib"):
-                # nop it out
-                next_addr = ql.arch.regs.arch_pc + size
-                ql.uc.reg_write(UC_ARM64_REG_PC, next_addr)
-            elif mnemonic in ("retab",):
-                ql.log.debug("retabbed")
-                ql.arch.regs.arch_pc = ql.arch.regs.lr
+    has_pac = not emu.ta_info.get("no_pac", False)
+    if has_pac:
+        # TODO: Check how much slower it is because of this
+        # TODO: Option 2: disassemble once, hook addresses, so it's faster
+        def hook_pointer_authentication(ql: Qiling, port, size):
+            code_bytes = ql.mem.read(ql.arch.regs.arch_pc, 4)
+            for (address, size, mnemonic, op_str) in ql.arch.disassembler.disasm_lite(code_bytes, ql.arch.regs.arch_pc, count=1):
+                if mnemonic in ("pacib", "bti", "btic", "pacda", "pacib"):
+                    # nop it out
+                    next_addr = ql.arch.regs.arch_pc + size
+                    ql.uc.reg_write(UC_ARM64_REG_PC, next_addr)
+                elif mnemonic in ("retab",):
+                    ql.log.debug("retabbed")
+                    ql.arch.regs.arch_pc = ql.arch.regs.lr
         
-    # ql.hook_code(hook_pointer_authentication)
+        ql.hook_code(hook_pointer_authentication)
 
 
 def mitee_setup(ql: Qiling, ta_path:Path, ta_base:int):

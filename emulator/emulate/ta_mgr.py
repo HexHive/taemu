@@ -260,7 +260,7 @@ class TAEMU:
             # handle tpidr_el0 and fix relocations
             mitee_setup(self.ql, self.ta_path, self.ta_base)
         if self.tee[:4] == "qsee":
-            qsee_setup(self.ql, self.ta_path, self.ta_base)
+            qsee_setup(self.ql, self.ta_path, self.ta_base, self)
         if self.tee == "teegris" and self.ql.arch.pointersize == 4:
             teegris_32_setup(self.ql, self.ta_path, self.ta_base)
         if self.tee == "optee":

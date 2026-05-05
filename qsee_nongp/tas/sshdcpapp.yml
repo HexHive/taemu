@@ -1,0 +1,18 @@
+no_pac: false
+
+CElfFile_invoke:
+    start: 0xb194
+    end: [0xb3b4]
+
+setup_teardown:
+    start: 0xb470
+    end: [0xb55c]
+
+command_handler:
+    start: 0xb574
+    end: [0xb7d8]
+
+# tz_app_cmd_handler:
+#     start: 0x
+#     end: [
+#     ]

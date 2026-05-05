@@ -28,7 +28,7 @@ from emulate.non_gp.qsee.params import QseeCommandParams
 from emulate.common import CRASH_PC, CRASH_PC_2, NOTIMPL_PC, finalize_fuzzing
 from emulate.contextmanagers import _func_end_emu, stop_hooks_at
 from qiling.extensions.coverage import utils as cov_utils
-from emulate.non_gp.qsee.models import *
+from emulate.non_gp.qsee.models import QseeInteractiveMsg, InteractiveCmd, SetupTeardownAction
 
 if TYPE_CHECKING:
     from emulate.ta_mgr import TAEMU
@@ -43,127 +43,6 @@ def tz_app_cmd_handler(
         "[command_handler:tz_app_cmd_handler] start @%#0x", command_handler_fn.start
     )
 
-    # display_resp = None
-    # with pwn.context.local(
-    #     binary=emu.ta_elf
-    # ), stop_hooks_at(
-    #     emu.ql,
-    #     *command_handler_fn.end,
-    #     user_data="command_handler:tz_app_cmd_handler_end",
-    # ):
-    #     if emu.ta_path.name == "engmode.elf":
-    #         cmd_id = 0xB
-    #         req, resp_len = (
-    #             pwn.flat(
-    #                 {
-    #                     0: b"\x01",  # payload_version em_context_make_request:218, has to be 0x01
-    #                     1: pwn.p64(cmd_id | 0xC000),  # Cmd id
-    #                     1303: pwn.p64(cmd_id | 0xC000),  # Cmd id2?
-    #                 },
-    #                 length=0x21C7D,
-    #             ),
-    #             0x20936,
-    #         )
-
-    #     elif emu.ta_path.name == "vaultkeeper.elf":
-    #         req, resp_len = (
-    #             pwn.flat({0: pwn.p32(0)}, length=0xADF8),
-    #             0xAE00,
-    #         )
-
-    #         def _vaultkeep_resp(ql: Qiling, resp_mem, resp_len):
-    #             message_loc = resp_mem + 0x5AF6
-    #             message = ql.mem.string(message_loc)
-    #             resp_code = ql.mem.read_ptr(resp_mem + 1)
-    #             ql.log.info(
-    #                 "vaultkeeper response: message=%s, resp_code=%#x",
-    #                 message,
-    #                 resp_code,
-    #             )
-
-    #         display_resp = _vaultkeep_resp
-
-    #     elif emu.ta_path.name == "fingerpr.elf":
-    #         req, resp_len = (
-    #             pwn.flat(
-    #                 {
-    #                     0: pwn.p32(0x74),
-    #                 },
-    #                 length=0xC5,
-    #             ),
-    #             0xDEF,
-    #         )
-    #     elif emu.ta_path.name == "evautil64.elf":
-    #         req, resp_len = (
-    #             pwn.flat(
-    #                 {
-    #                     0: pwn.p32(0),
-    #                     4: 0xDEADBEEF,  # pointer to the thing?
-    #                     12: pwn.p32(0x100),  # size of the thing?
-    #                 },
-    #                 length=0xABC,
-    #             ),
-    #             0xDEF,
-    #         )
-    #     elif emu.ta_path.name == "featenabler.elf":
-    #         req, resp_len = (
-    #             pwn.flat(
-    #                 {
-    #                     0: pwn.p32(0x4),  # cmdid
-    #                 },
-    #                 length=0xABC,
-    #             ),
-    #             0x100,
-    #         )
-
-    #     elif emu.ta_path.name == "ops.elf":
-    #         req, resp_len = (
-    #             pwn.flat(
-    #                 {
-    #                     0: pwn.p32(0),  # only command = 0x0
-    #                 },
-    #                 length=0xC5,
-    #             ),
-    #             0xDEF,
-    #         )
-
-    #     elif emu.ta_path.name == "hwvault.elf":
-    #         records = pwn.flat(
-    #             [
-    #                 {0: b"\x01", 1: b"\x00" * 7},  # chunk type 0x01, fixed length 8
-    #                 # {
-    #                 #     0: b"\x02", # chunk type 0x02, variable length
-    #                 #     1: b"\x10", # Size
-    #                 #     2: b"\x00" * (0x10 - 2)
-    #                 # }
-    #             ]
-    #         )
-    #         req, resp_len = (
-    #             pwn.flat(
-    #                 {
-    #                     0: pwn.p32(0),
-    #                     4: pwn.p32(
-    #                         len(records)
-    #                     ),  # has to be <= 0x9ff8, and < length - 8
-    #                     0xB: records,
-    #                 },
-    #             ),
-    #             0xDEF,
-    #         )
-
-    #     elif emu.ta_path.name == "mst.elf":
-    #         req, resp_len = (
-    #             pwn.flat(
-    #                 {
-    #                     0: pwn.p32(0xA0000),  # commands [0xa0001, 0xa0000]
-    #                 },
-    #                 length=0xABC,
-    #             ),
-    #             0xDEF,
-    #         )
-
-    #     else:
-    #         raise ValueError(f"Unknown TA: {emu.ta_path.name}")
     with stop_hooks_at(
         emu.ql,
         *command_handler_fn.end,
@@ -172,7 +51,9 @@ def tz_app_cmd_handler(
         params.setup(emu.ql)
         emu.ql.run(begin=command_handler_fn.start)
         ret = emu.ql.os.fcall.cc.getReturnValue()
-        return ret
+
+        resp = params.read_resp(emu.ql)
+        return ret, resp
 
 
 def _setup_or_teardown(
@@ -289,15 +170,6 @@ def CElfFile_invoke(self: 'TAEMU'):
         self.ql.os.fcall.cc.setRawParam(2, params_mem)
         self.ql.os.fcall.cc.setRawParam(3, 0x1200, argbits=64)
 
-        # # don't fail on bti, paclib
-        # self.ql.uc.reg_write(UC_ARM64_REG_X30, fake_parent_ret)
-
-        # def cp_read(crn, crm, op0, op1, op2):
-        #     return self.ql.uc.reg_read(UC_ARM64_REG_CP_REG, (crn, crm, op0, op1, op2))
-
-        # def cp_write(crn, crm, op0, op1, op2, val):
-        #     self.ql.uc.reg_write(UC_ARM64_REG_CP_REG, (crn, crm, op0, op1, op2, val))
-
         self.ql.run(begin=elf_file_invoke_fn.start)
         ret = self.ql.os.fcall.cc.getReturnValue()
 
@@ -353,30 +225,30 @@ def start_qsee_interactive(self: "TAEMU"):
             msg = QseeInteractiveMsg.from_bytes(data)
         except ValueError as e:
             self.ql.log.warning("Invalid interactive message: %s", e)
-            QseeInteractiveMsg.send_print(client_socket, f"error: {e}".encode())
+            QseeInteractiveMsg.send_DataMsg(client_socket, b"error\n", str(e).encode())
             continue
 
         self.ql.log.debug("Received message: %s", msg)
 
         if msg.cmd == InteractiveCmd.Exit:
-            QseeInteractiveMsg.send_print(client_socket, b"ok\n")
+            QseeInteractiveMsg.send_DataMsg(client_socket, b"ok\n")
             break
 
         elif msg.cmd == InteractiveCmd.InvokeCommand:
             params = QseeCommandParams.from_msg(msg)
-            ret = tz_app_cmd_handler(self, params)
+            ret, resp = tz_app_cmd_handler(self, params)
             self.ql.log.info("tz_app_cmd_handler ret: %#0x", ret)
             if ret != TEE_SUCCESS:
                 self.ql.log.warning("tz_app_cmd_handler ret != TEE_SUCCESS")
-                QseeInteractiveMsg.send_print(
+                QseeInteractiveMsg.send_DataMsg(
                     client_socket, f"return error: {ret}".encode()
                 )
                 return ret
-            QseeInteractiveMsg.send_print(client_socket, b"ok\n")
+            QseeInteractiveMsg.send_DataMsg(client_socket, b"ok\n", resp)
             continue
         else:
             self.ql.log.warning("Unknown interactive command: %s", msg.cmd)
-            QseeInteractiveMsg.send_print(client_socket, b"unknown command error\n")
+            QseeInteractiveMsg.send_DataMsg(client_socket, b"unknown command error\n")
             continue
 
     if teardown(self) != TEE_SUCCESS:

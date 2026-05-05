@@ -1,3 +1,5 @@
+"""Memory helpers for installing QSEE callback stubs in emulated address space."""
+
 from typing import Callable, TYPE_CHECKING
 from qiling import Qiling
 from qiling.core_hooks import AddressHookCallback

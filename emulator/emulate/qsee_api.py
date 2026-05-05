@@ -549,3 +549,20 @@ def qsee_cipher_set_param(ql: Qiling, hook_data: "HookData"):
         ql.log.warning("qsee_cipher_set_param: unknown param_id %#x", param_id)
 
     _ret(ql, 0)
+
+
+GLOBAL_FLAGS = 0
+def qsee_set_global_flag(ql: Qiling, hook_data: "HookData"):
+    global GLOBAL_FLAGS
+    args = ql.os.resolve_fcall_params({
+        "flag": INT,
+    })
+    flag = args["flag"]
+    ql.log.debug("qsee_set_global_flag(%#x)", flag)
+    GLOBAL_FLAGS = flag
+    _ret(ql, 0)
+
+def qsee_get_global_flag(ql: Qiling, hook_data: "HookData"):
+    global GLOBAL_FLAGS
+    ql.log.debug("qsee_get_global_flag()")
+    _ret(ql, GLOBAL_FLAGS)
