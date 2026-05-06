@@ -1,6 +1,7 @@
 import os
 import json
 from argparse import ArgumentParser
+from pathlib import Path
 from decompile_util import (
     SignatureChanger,
     Decompiler,
@@ -14,7 +15,7 @@ from ghidra.app.decompiler import DecompInterface
 from ghidra.util.task import ConsoleTaskMonitor
 from ghidra.program.util import DefinedDataIterator
 from ghidra.app.util import XReferenceUtil
-
+import yaml
 from utils import find_returns
 
 ################################################################################
@@ -49,8 +50,8 @@ DECOMPILER: Decompiler = Decompiler(PROGRAM)
 ################################################################################
 
 
-def qsee_nongp_find_GP(program):
-    print("working..")
+def qsee_nongp_find_entrypoints():
+    program = getCurrentProgram()
     monitor = ConsoleTaskMonitor()
     memory = program.getMemory()
     binaryPath = program.getExecutablePath()
@@ -62,23 +63,54 @@ def qsee_nongp_find_GP(program):
     functions = functionManager.getFunctions(True)
     addressFactory = program.getAddressFactory()
     print(8 * "*" + "qsee_nongp finder analyzing: " + filename + 8 * "=")
-    out = {}
+    json_out = {}
+    yaml_out = {}
     funcs = [
         "CElfFile_invoke",
+        "command_handler",
+        "setup_teardown",
+        "tz_app_cmd_handler",
     ]
     for func in funcs:
         ghidra_func = getGlobalFunctions(func)[0]
         ptrSize = program.getDefaultPointerSize()
-        returns = find_returns(ghidra_func, is_thumb=ptrSize == 4, is_pie=True)
+        returns = find_returns(ghidra_func, is_thumb=ptrSize == 4)
         if ptrSize == 4:
-            out[f"{func}_start"] = ghidra_func.getEntryPoint().getOffset() - 0x10000
+            raise Exception("Not supported. (Maybe)")
+            start = ghidra_func.getEntryPoint().getOffset() - 0x10000
         else:
-            out[f"{func}_start"] = ghidra_func.getEntryPoint().getOffset() - 0x100000
-        out[f"{func}_end"] = returns
+            start = ghidra_func.getEntryPoint().getOffset()
+        
+        returns = [x + 0x100000 for x in returns]
+        json_out[f"{func}_start"] = start
+        json_out[f"{func}_end"] = returns
+        yaml_out[func] = {
+            "start": start,
+            "end": returns,
+        }
 
-    return out
+    return json_out, yaml_out
 
-from pathlib import Path
+
+def write_yaml_maybe(yaml_path, yaml_out):
+    if yaml_path.exists():
+        yaml_in = yaml.safe_load(yaml_path.read_text())
+        # The things that are present in yaml_in, and arent the same in yaml_out, should raise exception
+        # The things that match, should stay as is
+        # The things that are present in yaml_out, and arent the same in yaml_in, should be added to yaml_out
+        for key, value in yaml_out.items():
+            if key not in yaml_in:
+                yaml_in[key] = value
+            else:
+                if not isinstance(yaml_in[key], dict):
+                    logging.warning("Key '%s' is not a dict in %s", key, yaml_path)
+                if yaml_in[key] != value:
+                    raise Exception(f"Key {key} has different values in {yaml_path} and {yaml_out}")
+        yaml_out = yaml_in
+    yaml_path.write_text(yaml.dump(yaml_out, indent=4))
+    log.info("Wrote %s", yaml_path)
+    yaml_path.chmod(0o666)
+
 def main():
     logging.info("Initializing...")
     # create a target-specific output directory
@@ -90,16 +122,19 @@ def main():
     )
     args = arg_parser.parse_args(args=getScriptArgs())
     program = getCurrentProgram()
-    out_path = Path(program.getExecutablePath()).with_suffix(".json")
+    ta_path = Path(program.getExecutablePath())
+    json_path = ta_path.with_suffix(".json")
+    yaml_path = ta_path.with_suffix(".yml")
 
-    out = qsee_nongp_find_GP(program)
-    out_path.write_text(json.dumps(out, indent=4))
-    out_path.with_suffix(".yml").write_text(f"""\
-CElfFile_invoke:
-  start: {out["CElfFile_invoke_start"]}
-  end: [{", ".join(map(hex, out["CElfFile_invoke_end"]))}]
-""")
-    os.system(f"chmod 666 {out_path}")
+    json_out, yaml_out = qsee_nongp_find_entrypoints()
+    json_path.write_text(json.dumps(json_out, indent=4))
+    log.info("Wrote %s", json_path)
+    json_path.chmod(0o666)
+    try:
+        write_yaml_maybe(yaml_path, yaml_out)
+    except Exception as e:
+        logging.error("Error writing %s: %s", yaml_path, e)
+        yaml_path.with_suffix(".1.yml").write_text(yaml.dump(yaml_out, indent=4))
     return
 
 

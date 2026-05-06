@@ -1,8 +1,7 @@
 DOCKER := docker
 PYTHON ?= ../.venv/bin/python
-GHIDRA_MAXMEM ?=
-BBS_SCRIPT ?= coverage_bbs.py
-DOCKER_RUN_MEMORY := $(if $(GHIDRA_DOCKER_MEMORY),--memory $(GHIDRA_DOCKER_MEMORY),)
+# GHIDRA_MAXMEM ?=
+# DOCKER_RUN_MEMORY := $(if $(GHIDRA_DOCKER_MEMORY),--memory $(GHIDRA_DOCKER_MEMORY),)
 
 .PHONY: build run help
 
@@ -13,7 +12,7 @@ help: ## Show this help
 build: Dockerfile compose.yaml ## Build the Docker container(s)
 		@$(DOCKER) compose build
 
-DOCKER_RUN:=$(DOCKER) compose run --rm $(DOCKER_RUN_MEMORY) -e MAXMEM=$(GHIDRA_MAXMEM) -e BBS_SCRIPT=$(BBS_SCRIPT) tipi 
+DOCKER_RUN:=$(DOCKER) compose run --rm tipi 
 mitee: ## Run the Docker container(s) mitee
 		@$(DOCKER_RUN) /mitee-entrypoint.sh ${TARGET} 
 
@@ -29,11 +28,16 @@ optee: ## Run the Docker container(s) teegris
 t6: ## Run the Docker container(s) t6
 		@$(DOCKER_RUN) /t6-entrypoint.sh ${TARGET} 
 
+.PHONY: qsee_nongp
+qsee_nongp: ## Run the Docker container(s) qsee_nongp
+		@$(DOCKER_RUN) /qsee-nongp-entrypoint.sh ${TARGET}
+
 bbs: ## Check reachable bbs
 		@$(DOCKER_RUN) /bbs-entrypoint.sh ${TARGET} ${TEE}
 
 bbs-manual: ## Check reachable bbs
 		@$(DOCKER_RUN) /bbs-manual-entrypoint.sh ${TARGET} ${TEE}
+
 
 QSEE_NONGP_TAS_DIR := ../qsee_nongp/tas
 TARGET_NAME := $(notdir ${TARGET})

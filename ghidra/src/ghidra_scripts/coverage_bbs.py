@@ -184,7 +184,7 @@ def is_call(ghidra_func, instr):
 
 def get_entrypoints(tee):
     if tee == "qsee_nongp":
-        return ["CElfFile_invoke"]
+        return ["tz_app_cmd_handler"]
     ta_fw = [
         "TA_CreateEntryPoint",
         "TA_OpenSessionEntryPoint",
