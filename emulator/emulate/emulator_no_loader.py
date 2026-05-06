@@ -362,7 +362,7 @@ def qsee_setup(ql: Qiling, ta_path:Path, ta_base, emu: 'TAEMU'):
     def handle_retab(ql: Qiling, user_data):
         ql.arch.regs.arch_pc = ql.arch.regs.lr
     ql.hook_intno(handle_retab, 1)
-    has_pac = not emu.ta_info.get("no_pac", False)
+    has_pac = emu.ta_info.get("has_pac", False)
     if has_pac:
         # TODO: Check how much slower it is because of this
         # TODO: Option 2: disassemble once, hook addresses, so it's faster
