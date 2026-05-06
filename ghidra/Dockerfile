@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:latest
 ARG UBUNTU_VERSION=jammy
 
-ARG GHIDRA_VERSION=10.4_PUBLIC
-ARG GHIDRA_SHA=6911d674798f145f8ea723fdd3eb67a8fae8c7be92e117bca081e6ef66acac19
-ARG GHIDRA_URL=https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_10.4_build/ghidra_10.4_PUBLIC_20230928.zip
+ARG GHIDRA_VERSION=12.0.3_PUBLIC
+ARG GHIDRA_SHA=90d3fffb20b00030dcef8d2a24dd0f422d3a61e432b3ad43f77233ac6d667981
+ARG GHIDRA_URL=https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.0.3_build/ghidra_12.0.3_PUBLIC_20260210.zip
 
 ARG GHIDRATHON_SHA=8be498cc42c938bd2f0db92fb95b90adc47dc2a2868b93b1d7b9791b6ab7dcbe
 ARG GHIDRATHON_URL=https://codeload.github.com/mandiant/Ghidrathon/zip/refs/tags/v3.0.1
