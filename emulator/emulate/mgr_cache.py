@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING
 from pathlib import Path
 import hashlib
 import functools
+import pickle
 
 from .gp.utils.err import TEE_SUCCESS
 
@@ -12,17 +13,45 @@ if TYPE_CHECKING:
 CACHE_PATH = Path(".snapshots")
 CACHE_PATH.mkdir(parents=True, exist_ok=True)
 
+"""
+Changes:
+before v1: we save only ql state.
+with v1: we save ql state and emu HEAP state.
+"""
+class TAEMU_State:
+    VERSION="v1"
+    def __init__(self, taemu: 'TAEMU'):
+        self.taemu = taemu
+    
+    def save(self, filename: Path):
+        emu_state = {
+            "HEAP": self.taemu.HEAP,
+            "ASAN": self.taemu.asan.save(),
+            "QL": self.taemu.ql.save()
+        }
+        with filename.open("wb") as f:
+            pickle.dump(emu_state, f)
+    
+    def load(self, filename: Path):
+        with filename.open("rb") as f:
+            saved_states = pickle.load(f)
+        self.taemu.ql.restore(saved_states=saved_states["QL"])
+        self.taemu.asan.restore(saved_states["ASAN"])
+        self.taemu.HEAP = saved_states["HEAP"]
+    
+    def get_unique_filename(self, fn_name:str, args, kwargs):
+        t = self.taemu
+        return Path(f"{t.ta_name}_"+hashlib.md5(t.ta_path.read_bytes()).hexdigest()) / f"{fn_name}_arg:{hashlib.md5((str(args) + str(kwargs)).encode()).hexdigest()}.{self.VERSION}.bin"
+
 def ql_cached_call(func):
     """Caches the ql state after the call to a function in TA, so we don't have to re-run it.
     If we are debugging, the caching is disabled. 
     """
-    def distinct_filename(taemu:'TAEMU', fn_name:str, args, kwargs):
-        return Path(f"{taemu.ta_name}_"+hashlib.md5(taemu.ta_path.read_bytes()).hexdigest()) / f"{fn_name}_arg:{hashlib.md5((str(args) + str(kwargs)).encode()).hexdigest()}.bin"
-    
+
     @functools.wraps(func)
     def wrapper(self:'TAEMU', *args, **kwargs):
-        nonlocal distinct_filename
-        filename = CACHE_PATH / distinct_filename(self, func.__name__, args, kwargs)
+        state = TAEMU_State(self)
+        filename = CACHE_PATH / state.get_unique_filename(func.__name__, args, kwargs)
         should_load = self.use_cache and not self.ql.debugger
         if not filename.exists():
             self.ql.log.warning("No snapshot found for %s(%s, %s), running.", func.__name__, args, kwargs)
@@ -30,7 +59,7 @@ def ql_cached_call(func):
             self.ql.log.warning("Cache disabled for (existing) %s(%s, %s), running.", func.__name__, args, kwargs)
         else:
             try:
-                self.ql.restore(snapshot=filename)
+                state.load(filename)
                 self.ql.log.warning("Loaded snapshot of %s(%s, %s) from %s", func.__name__, args, kwargs, filename)
                 # As per our assumption, the ret_val is TEE_SUCCESS
                 return TEE_SUCCESS
@@ -42,7 +71,7 @@ def ql_cached_call(func):
         fn_ret = self.ql.os.fcall.cc.getReturnValue()
         assert ret == fn_ret, f"ret != fn_ret: {ret} != {fn_ret}"
         if fn_ret == TEE_SUCCESS:
-            self.ql.save(snapshot=filename)
+            state.save(filename)
             self.ql.log.info("Last call was successful, saving snapshot of %s", func.__name__)
         else:
             self.ql.log.warning("Last call was %#0x, not saving snapshot of %s", fn_ret, func.__name__)

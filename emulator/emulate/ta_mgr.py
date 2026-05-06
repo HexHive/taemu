@@ -19,6 +19,7 @@ import yaml
 
 from emulate.non_gp.qsee.running import start_qsee_fuzz
 from emulate.non_gp.qsee.params import QseeCommandParams
+from emulate.asan import Asan
 
 from .ta_info import load_ta_adjacent_info
 
@@ -180,6 +181,7 @@ class TAEMU:
             self.taUUID = get_ta_uuid(self.ta_name)
         self.ta_elf.address = self.ta_base
         self.HEAP = {"allocated": {}, "freed": {}, "redzones": {}}
+        self.asan = Asan(self)
         self.exit_non_implemented = None
         self.curr_params = None
         self.session_counter = 0
