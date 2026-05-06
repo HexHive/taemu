@@ -5,6 +5,7 @@ import argparse
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
+import sys
 
 from capstone import CS_ARCH_ARM64, CS_MODE_ARM, Cs
 from elftools.elf.elffile import ELFFile
@@ -189,16 +190,17 @@ def main():
         print(f"  {mnemonic}: {count}")
     print_patch_report(patches)
 
+    if not patches:
+        print("No changes written.")
+        return 1
+
     if args.dry_run:
         return
 
-    if not patches:
-        print("No changes written.")
-        return
 
     apply_patches(input_path, output_path, patches)
     print(f"Wrote patched ELF to {output_path}")
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

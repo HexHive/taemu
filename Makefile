@@ -47,7 +47,7 @@ exec-gdb: copy-files ## connect to the gdb server. Needs a running emulator cont
 		-iex 'target remote localhost:9999' \
 		./rootfs/$(TA_FILE) 
 
-.PHONY: exec-gdb-sym exec-gdb symbol-file
+.PHONY: exec-gdb-sym exec-gdb symbol-file nopauth-file
 exec-gdb-sym: symbol-file exec-gdb
 
 
@@ -62,3 +62,15 @@ json-file: $(addsuffix .json, $(basename $(YML_FILE)))
 symbol-file: $(SYM_FILE)
 %.sym-elf: %.elf %.yml
 	$(DOCKER_RUN) python3 emulator/scripts/extract_symbols.py $< --output $@
+
+nopauth-file: $(addsuffix .nopauth.elf, $(basename $(TA_FILE))) $(addsuffix .nopauth.yml, $(basename $(YML_FILE)))
+
+%.nopauth.elf: %.elf
+# Fail if we are accidentially re-patching (if source TA_FILE  ends with .nopauth.elf)
+ifeq ($(suffix $<),.nopauth.elf)
+	$(error $(TA_FILE) ends with .nopauth.elf, won't re-patch)
+endif
+	$(DOCKER_RUN) python3 emulator/scripts/patch_aarch64_auth.py $< -o $@
+
+%.nopauth.yml: %.yml
+	sudo ln -rsf $< $@
