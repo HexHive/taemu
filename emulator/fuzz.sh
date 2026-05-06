@@ -92,11 +92,12 @@ if [ -z "$2" ]; then
     if [ ! -e "$fuzz_out" ]; then
         mkdir $fuzz_out
     fi
+    [[ -z "$FUZZ_TIMEOUT" ]] && FUZZ_TIMEOUT=5000
 
 	if [ -z "${FUZZTIME}" ]; then
-        	afl-fuzz -t 5000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --use-cache --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")" $log_arg
+        	afl-fuzz -t $FUZZ_TIMEOUT -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --use-cache --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")" $log_arg
   	else
-        	timeout -k $FUZZTIME $FUZZTIME afl-fuzz -V $FUZZTIME -t 5000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")" $log_arg
+        	timeout -k $FUZZTIME $FUZZTIME afl-fuzz -V $FUZZTIME -t $FUZZ_TIMEOUT -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --use-cache --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")" $log_arg
 	fi
 else 
     echo "Replaying seed $2 ..."
