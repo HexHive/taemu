@@ -180,6 +180,9 @@ def qsee_prng_getdata(ql: Qiling, hook_data:'HookData'):
     ql.os.fcall.cc.setReturnValue(args['size'])
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+def qsee_get_random_bytes(ql: Qiling, hook_data:'HookData'):
+    return qsee_prng_getdata(ql, hook_data)
+
 def qsee_prng_seed(ql: Qiling, hook_data:'HookData'):
     ql.log.info("qsee_prng_seed, back to %#x", ql.arch.regs.lr)
     _ret(ql, 0)
