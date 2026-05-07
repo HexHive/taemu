@@ -36,6 +36,10 @@ help:
 	@grep -E -h '^[a-zA-Z0-9_.-]+:.*## ' $(MAKEFILE_LIST) | sort | \
 	awk 'BEGIN {FS = ":.*## "}; {printf "\033[36m%-24s\033[0m %s\n", $$1, $$2}'
 
+.PHONY=own-project
+own-project:
+		@sed -i -E 's|(<STATE NAME="OWNER" TYPE="string" VALUE=")[^"]*(" />)|\1root\2|' $(PROJECTS_HOST_DIR)/$(PROJECT_NAME).rep/project.prp
+
 GHIDRA_SCRIPT := timeout --foreground 10m \
 		$(DOCKER_RUN) \
 		/ghidra/support/analyzeHeadless \
@@ -45,7 +49,7 @@ GHIDRA_SCRIPT := timeout --foreground 10m \
 
 # Import the ELF into a persistent Ghidra project without running auto-analysis.
 # This leaves the imported programs ready for manual review in Ghidra.
-$(STAMPS)/%.imported.stamp: $(TA_DIR)/%.elf
+$(STAMPS)/%.imported.stamp: $(TA_DIR)/%.elf own-project
 	@mkdir -p "$(STAMPS)"
 	@sudo mkdir -p $(PROJECTS_HOST_DIR)
 	@$(GHIDRA_SCRIPT) \
@@ -54,7 +58,7 @@ $(STAMPS)/%.imported.stamp: $(TA_DIR)/%.elf
 	@touch "$@"
 
 # Re-run only the coverage export against the already imported project.
-$(BBS_DIR)/bb_%.elf.json: $(TA_DIR)/%.json $(STAMPS)/%.imported.stamp
+$(BBS_DIR)/bb_%.elf.json: $(TA_DIR)/%.json $(STAMPS)/%.imported.stamp own-project
 	@mkdir -p "$(BBS_DIR)"
 	@$(GHIDRA_SCRIPT) \
 		-process "$*.elf" \
@@ -62,7 +66,7 @@ $(BBS_DIR)/bb_%.elf.json: $(TA_DIR)/%.json $(STAMPS)/%.imported.stamp
 		-postScript coverage_bbs.py \
 		++tee $(TEE)
 
-$(TA_DIR)/%.json: $(TA_DIR)/%.elf $(STAMPS)/%.imported.stamp
+$(TA_DIR)/%.json: $(TA_DIR)/%.elf $(STAMPS)/%.imported.stamp own-project
 	@$(GHIDRA_SCRIPT) \
 		-process "$*.elf" \
 		-noanalysis \
