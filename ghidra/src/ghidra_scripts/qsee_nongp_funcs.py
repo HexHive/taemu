@@ -79,8 +79,10 @@ def qsee_nongp_find_entrypoints():
             raise Exception("Not supported. (Maybe)")
             start = ghidra_func.getEntryPoint().getOffset() - 0x10000
         else:
-            start = ghidra_func.getEntryPoint().getOffset() - 0x100000
-
+            start = ghidra_func.getEntryPoint().getOffset() & 0xFFFFF
+        returns = [(x + 0x100000) & 0xFFFFF for x in returns]
+        if any(x < 0 for x in (*returns, start)):
+            raise Exception("Something is wrong with parsing.")
         json_out[f"{func}_start"] = start
         json_out[f"{func}_end"] = returns
         yaml_out[func] = {

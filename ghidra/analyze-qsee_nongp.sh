@@ -11,5 +11,3 @@ for file in "../qsee_nongp/tas"/*.elf; do
 	basefile=$(basename "$file")
     make qsee_nongp TARGET="$basefile"
 done
-
-
