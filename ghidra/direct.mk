@@ -58,6 +58,7 @@ $(BBS_DIR)/bb_%.elf.json: $(TA_DIR)/%.json $(STAMPS)/%.imported.stamp
 	@mkdir -p "$(BBS_DIR)"
 	@$(GHIDRA_SCRIPT) \
 		-process "$*.elf" \
+	    -noanalysis \
 		-postScript coverage_bbs.py \
 		++tee $(TEE)
 
@@ -65,18 +66,14 @@ $(TA_DIR)/%.json: $(TA_DIR)/%.elf $(STAMPS)/%.imported.stamp
 	@$(GHIDRA_SCRIPT) \
 		-process "$*.elf" \
 		-noanalysis \
-		-scriptPath /src/ghidra_scripts/ \
 		-postScript qsee_nongp_funcs.py
 
 
 qsee-nongp-import-one: $(PROJECTS_HOST_DIR)/$(TARGET_STEM).imported.stamp ## Import one qsee_nongp ELF without auto-analysis
-
 qsee-nongp-import-all: $(ELF_IMPORTS) ## Import every qsee_nongp ELF without auto-analysis
 
 qsee-nongp-analyze-one: $(PROJECTS_HOST_DIR)/$(TARGET_STEM).analyzed.stamp ## Analyze one previously imported qsee_nongp ELF
-
 qsee-nongp-analyze-all: $(ELF_ANALYSES) ## Analyze every previously imported qsee_nongp ELF
 
 qsee-nongp-one: $(BBS_DIR)/bb_$(TARGET_STEM).elf.json ## Build one BB export using persistent Ghidra projects
-
 qsee-nongp-all: $(NON_GP_BBS) ## Build BB exports for every qsee_nongp target with metadata

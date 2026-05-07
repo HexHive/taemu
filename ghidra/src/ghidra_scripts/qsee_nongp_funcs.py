@@ -33,7 +33,7 @@ from ghidra.app.decompiler import DecompileResults
 
 import logging
 
-FORMAT = "%(asctime)s,%(msecs)d %(levelname)-8s " "%(message)s"
+FORMAT = "%(asctime)s,%(msecs)d %(levelname)-8s %(message)s"
 logging.basicConfig(format=FORMAT, datefmt="%Y-%m-%d:%H:%M:%S", level=logging.DEBUG)
 log = logging.getLogger(__name__)
 
@@ -79,9 +79,8 @@ def qsee_nongp_find_entrypoints():
             raise Exception("Not supported. (Maybe)")
             start = ghidra_func.getEntryPoint().getOffset() - 0x10000
         else:
-            start = ghidra_func.getEntryPoint().getOffset()
-        
-        returns = [x + 0x100000 for x in returns]
+            start = ghidra_func.getEntryPoint().getOffset() - 0x100000
+
         json_out[f"{func}_start"] = start
         json_out[f"{func}_end"] = returns
         yaml_out[func] = {
@@ -105,11 +104,14 @@ def write_yaml_maybe(yaml_path, yaml_out):
                 if not isinstance(yaml_in[key], dict):
                     logging.warning("Key '%s' is not a dict in %s", key, yaml_path)
                 if yaml_in[key] != value:
-                    raise Exception(f"Key {key} has different values in {yaml_path} and {yaml_out}")
+                    raise Exception(
+                        f"Key {key} has different values. in: {yaml_in} out: {yaml_out}"
+                    )
         yaml_out = yaml_in
     yaml_path.write_text(yaml.dump(yaml_out, indent=4))
     log.info("Wrote %s", yaml_path)
     yaml_path.chmod(0o666)
+
 
 def main():
     logging.info("Initializing...")
