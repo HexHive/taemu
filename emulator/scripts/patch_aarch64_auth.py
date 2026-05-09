@@ -14,27 +14,29 @@ from elftools.elf.elffile import ELFFile
 AARCH64_NOP = b"\x1f\x20\x03\xd5"
 AARCH64_RET = b"\xc0\x03\x5f\xd6"
 
+
+CANDIDATES = [
+    ## Other possible candidates:
+    "pacda",
+    "pacdb",
+    "pacia",
+    "paciasp",
+    "pacia1716",
+    "pacib1716",
+    "autda",
+    "autdb",
+    "autia",
+    "autiasp",
+    "autia1716",
+    "autib",
+    "autibsp",
+    "autib1716",
+    "xpaclri",
+]
 NOP_MNEMONICS = {
     "bti",
     "pacib",
-    ## Other possible candidates:
-    # "pacda",
-    # "pacdb",
-    # "pacia",
-    # "paciasp",
-    # "pacia1716",
-    # "pacib",
-    # "pacibsp",
-    # "pacib1716",
-    # "autda",
-    # "autdb",
-    # "autia",
-    # "autiasp",
-    # "autia1716",
-    # "autib",
-    # "autibsp",
-    # "autib1716",
-    # "xpaclri",
+    "pacibsp",
 }
 
 RET_MNEMONICS = {
@@ -105,6 +107,8 @@ def find_patches(elf_path: Path) -> list[Patch]:
                     replacement = AARCH64_NOP
                 elif insn.mnemonic in RET_MNEMONICS:
                     replacement = AARCH64_RET
+                elif insn.mnemonic in CANDIDATES:
+                    raise Exception(f"Unexpected candidate: {insn.mnemonic}")
                 else:
                     continue
 
