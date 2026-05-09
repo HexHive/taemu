@@ -28,15 +28,15 @@ CANDIDATES = [
     "autia",
     "autiasp",
     "autia1716",
-    "autib",
-    "autibsp",
     "autib1716",
     "xpaclri",
 ]
 NOP_MNEMONICS = {
     "bti",
     "pacib",
+    "autib",
     "pacibsp",
+    "autibsp",
 }
 
 RET_MNEMONICS = {
