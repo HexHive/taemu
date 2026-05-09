@@ -123,6 +123,12 @@ def setup_args():
         help="Use cache for loading state after execution of entrypoint(s).",
         default=False,
     )
+    parser.add_argument(
+        "--disable-redis",
+        action="store_true",
+        help="Disable Redis recording",
+        default=False,
+    )
 
 
     parser.add_argument("ta", help="The Trusted Application to be executed.")
@@ -304,7 +310,10 @@ if __name__ == "__main__":
         ql.hook_code(unicorn_why)
         
     
-    if args.fuzz or args.fuzz_replay:
+    if args.disable_redis:
+        print("[+] Redis recording is disabled. [+]")
+        record_q = None
+    elif args.fuzz or args.fuzz_replay:
         # Create Redis queue
         try:
             record_q: RedisQueue = create_redis_queue(

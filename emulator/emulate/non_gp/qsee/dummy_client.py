@@ -162,7 +162,7 @@ def send_exit():
 
 def build_params(cmd: int, req_len: int, rsp_len: int, data: bytes):
     data = pwn.flat({
-        0: cmd,
+        0: pwn.p32(cmd | 0x2000),
         4: data,
     })
     return QseeCommandParams(data, req_len=req_len, rsp_len=rsp_len)
@@ -179,11 +179,11 @@ print(f"data: {data.hex()}")
 # p = send_invoke_command(1, 0xadf8, 0xAE00, data)
 # p = send_invoke_command(1, 0x21C7D, 0x20936, data)
 
-print("Sending init")
-p = send_invoke_command(0x66, 0x1000, 0x3c0, data)
-print("Sent init", p.data)
-print("Send Cert")
-p = send_invoke_command(0x67, 0x1000, 0x3c0, data)
+print("Sending 115")
+p = send_invoke_command(0x111, 0x1C8, 0x1C8, data)
+# print("Sent init", p.data)
+# print("Send Cert")
+# p = send_invoke_command(0x67, 0x1000, 0x3c0, data)
 print(p.data)
 p = send_exit()
 print(p.data)

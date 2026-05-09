@@ -16,25 +16,25 @@ AARCH64_RET = b"\xc0\x03\x5f\xd6"
 
 NOP_MNEMONICS = {
     "bti",
-    "bti.c",
-    "btic",
-    "pacda",
-    "pacdb",
-    "pacia",
-    "paciasp",
-    "pacia1716",
     "pacib",
-    "pacibsp",
-    "pacib1716",
-    "autda",
-    "autdb",
-    "autia",
-    "autiasp",
-    "autia1716",
-    "autib",
-    "autibsp",
-    "autib1716",
-    "xpaclri",
+    ## Other possible candidates:
+    # "pacda",
+    # "pacdb",
+    # "pacia",
+    # "paciasp",
+    # "pacia1716",
+    # "pacib",
+    # "pacibsp",
+    # "pacib1716",
+    # "autda",
+    # "autdb",
+    # "autia",
+    # "autiasp",
+    # "autia1716",
+    # "autib",
+    # "autibsp",
+    # "autib1716",
+    # "xpaclri",
 }
 
 RET_MNEMONICS = {
@@ -86,7 +86,9 @@ def find_patches(elf_path: Path) -> list[Patch]:
             seg_vaddr = seg["p_vaddr"]
             seg_offset = seg["p_offset"]
             instructions: list[Instruction] = []
+            # print("DEBUGxxx", list(md.disasm(data, seg_vaddr+0x10eee0, count=3)))
             for insn in md.disasm(data, seg_vaddr):
+                # print("DEBUG", insn, insn.mnemonic.lower())
                 if insn.size != 4:
                     continue
                 instructions.append(
@@ -99,10 +101,9 @@ def find_patches(elf_path: Path) -> list[Patch]:
                 )
 
             for idx, insn in enumerate(instructions):
-                #if insn.mnemonic in NOP_MNEMONICS:
-                #    replacement = AARCH64_NOP
-                #el
-                if insn.mnemonic in RET_MNEMONICS:
+                if insn.mnemonic in NOP_MNEMONICS:
+                    replacement = AARCH64_NOP
+                elif insn.mnemonic in RET_MNEMONICS:
                     replacement = AARCH64_RET
                 else:
                     continue
@@ -186,9 +187,9 @@ def main():
     patches = find_patches(input_path)
 
     print(f"{input_path}: {len(patches)} patch candidate(s)")
-    for mnemonic, count in sorted(Counter(p.insn.mnemonic for p in patches).items()):
+    for mnemonic, count in sorted(Counter(p.insn.mnemonic for p in patches).items())[:10]:
         print(f"  {mnemonic}: {count}")
-    print_patch_report(patches)
+    # print_patch_report(patches)
 
     if not patches:
         print("No changes written.")

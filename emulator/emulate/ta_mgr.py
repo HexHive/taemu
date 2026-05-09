@@ -206,6 +206,7 @@ class TAEMU:
 
         self.crash_on_not_implemented = False
         if "TAEMU_CRASH_NOTIMPL" in os.environ:
+            self.ql.log.warning("TAEMU_CRASH_NOTIMPL is set, crashing on not implemented")
             self.crash_on_not_implemented = True
 
         self.sessions:List[Session] = []

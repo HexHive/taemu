@@ -364,8 +364,6 @@ def qsee_setup(ql: Qiling, ta_path:Path, ta_base, emu: 'TAEMU'):
     ql.hook_intno(handle_retab, 1)
     has_pac = emu.ta_info.get("has_pac", False)
     if has_pac:
-        # TODO: Check how much slower it is because of this
-        # TODO: Option 2: disassemble once, hook addresses, so it's faster
         def hook_pointer_authentication(ql: Qiling, port, size):
             code_bytes = ql.mem.read(ql.arch.regs.arch_pc, 4)
             for (address, size, mnemonic, op_str) in ql.arch.disassembler.disasm_lite(code_bytes, ql.arch.regs.arch_pc, count=1):
@@ -377,6 +375,7 @@ def qsee_setup(ql: Qiling, ta_path:Path, ta_base, emu: 'TAEMU'):
                     ql.log.debug("retabbed")
                     ql.arch.regs.arch_pc = ql.arch.regs.lr
         
+        emu.ql.log.warning("hooking pointer authentication, expect slowdown")
         ql.hook_code(hook_pointer_authentication)
 
 
