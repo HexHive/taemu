@@ -108,7 +108,7 @@ for harness in "${harnesses[@]}"; do
     safe_name="$(printf '%s' "$name" | tr -c '[:alnum:]_.-' '-')"
     container_name="${CONTAINER_PREFIX}${safe_name}${OUT_SUFFIX:+-$OUT_SUFFIX}"
     container_harness="../${harness}"
-    host_fuzz_out="$harness/out${OUT_SUFFIX}"
+    container_fuzz_out="${container_harness}/out${OUT_SUFFIX}"
     core=$((CORE_START + started))
 
     docker_cmd=(
@@ -144,20 +144,15 @@ for harness in "${harnesses[@]}"; do
         docker_cmd+=(-e "FUZZ_TIMEOUT=$FUZZ_TIMEOUT")
     fi
 
-    docker_cmd+=("$DOCKER_IMAGE" ./fuzz.sh "$container_harness" -I "$TRIAGE_HOOK")
-
+    container_shell="./fuzz.sh $(quote_one "$container_harness") -I $(quote_one "$TRIAGE_HOOK")"
     if [ -n "$OUT_SUFFIX" ]; then
-        docker_cmd+=(--out_suffix "$OUT_SUFFIX")
+        container_shell="$container_shell --out_suffix $(quote_one "$OUT_SUFFIX")"
     fi
+    container_shell="$container_shell; status=\$?; /srv/medic/ntfy-hook.sh afl-stopped $(quote_one "$container_harness") $(quote_one "$container_fuzz_out") \"exit_status=\$status\"; echo; echo \"fuzz.sh exited with status \$status\"; exec bash -i"
 
-    fuzz_cmd="$(quote_cmd "${docker_cmd[@]}")"
-    shell_body="$fuzz_cmd; status=\$?; \"$SCRIPT_DIR/medic/ntfy-hook.sh\" afl-stopped $(quote_one "$harness") $(quote_one "$host_fuzz_out") \"exit_status=\$status\"; echo; echo \"fuzz.sh exited with status \$status\"; exec bash -i"
-    window_cmd="bash -ic $(quote_one "$shell_body")"
-    if [ "$ntfy_vars_set" -eq 1 ]; then
-        window_cmd="env NTFY_TOKEN=$(quote_one "$NTFY_TOKEN") NTFY_TOPIC=$(quote_one "$NTFY_TOPIC") NTFY_URL=$(quote_one "$NTFY_URL") $window_cmd"
-    else
-        echo "NTFY_* not fully configured, afl-stopped notifications will be skipped"
-    fi
+    docker_cmd+=("$DOCKER_IMAGE" bash -ic "$container_shell")
+
+    window_cmd="$(quote_cmd "${docker_cmd[@]}")"
     echo "Starting tmux window: $name on CPU $core"
     if [ "$started" -eq 0 ]; then
         tmux new-session -d -s "$SESSION_NAME" -n "$name" -c "$SCRIPT_DIR" "$window_cmd"
