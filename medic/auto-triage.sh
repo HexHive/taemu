@@ -15,7 +15,16 @@ if [ -z "$harness_path" ] || [ -z "$fuzz_out" ]; then
     exit 1
 fi
 
-triage_result="$("$SCRIPT_DIR/replay-fuzz.sh" "$harness_path" "$fuzz_out")"
+set +e
+triage_result="$("$SCRIPT_DIR/replay-fuzz.sh" "$harness_path" "$fuzz_out" 2>&1)"
+triage_status=$?
+set -e
+
+if [ "$triage_status" -ne 0 ]; then
+    "$SCRIPT_DIR/ntfy-hook.sh" default-message "$harness_path" "$fuzz_out" "auto-triage failed: $triage_result"
+    exit 0
+fi
+
 message_type="$(printf '%s\n' "$triage_result" | cut -f1)"
 detail="$(printf '%s\n' "$triage_result" | cut -f2-)"
 
@@ -27,3 +36,5 @@ case "$message_type" in
         "$SCRIPT_DIR/ntfy-hook.sh" default-message "$harness_path" "$fuzz_out" "$triage_result"
         ;;
 esac
+
+exit 0

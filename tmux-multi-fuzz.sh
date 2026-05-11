@@ -51,6 +51,15 @@ quote_one() {
     printf '%q' "$1"
 }
 
+ntfy_vars_set=0
+if [ -n "${NTFY_TOKEN:-}" ] || [ -n "${NTFY_TOPIC:-}" ] || [ -n "${NTFY_URL:-}" ]; then
+    if [ -n "${NTFY_TOKEN:-}" ] && [ -n "${NTFY_TOPIC:-}" ] && [ -n "${NTFY_URL:-}" ]; then
+        ntfy_vars_set=1
+    else
+        echo "NTFY_* variables must be all set or all unset; skipping all ntfy forwarding"
+    fi
+fi
+
 started=0
 skipped=0
 
@@ -88,13 +97,9 @@ for harness in "${harnesses[@]}"; do
         -e "TAEMU_CRASH_NOTIMPL=1"
     )
 
-    if [ -n "${NTFY_TOKEN:-}" ]; then
+    if [ "$ntfy_vars_set" -eq 1 ]; then
         docker_cmd+=(-e "NTFY_TOKEN=$NTFY_TOKEN")
-    fi
-    if [ -n "${NTFY_TOPIC:-}" ]; then
         docker_cmd+=(-e "NTFY_TOPIC=$NTFY_TOPIC")
-    fi
-    if [ -n "${NTFY_URL:-}" ]; then
         docker_cmd+=(-e "NTFY_URL=$NTFY_URL")
     fi
 
@@ -115,10 +120,10 @@ for harness in "${harnesses[@]}"; do
     fuzz_cmd="$(quote_cmd "${docker_cmd[@]}")"
     shell_body="$fuzz_cmd; status=\$?; \"$SCRIPT_DIR/medic/ntfy-hook.sh\" afl-stopped $(quote_one "$harness") $(quote_one "$host_fuzz_out") \"exit_status=\$status\"; echo; echo \"fuzz.sh exited with status \$status\"; exec bash -i"
     window_cmd="bash -ic $(quote_one "$shell_body")"
-    if [ -n "${NTFY_TOKEN:-}" && -n "${NTFY_TOPIC:-}" && -n "${NTFY_URL:-}" ]; then
-        window_cmd="env NTFY_TOKEN=$NTFY_TOKEN NTFY_TOPIC=$NTFY_TOPIC NTFY_URL=$NTFY_URL $window_cmd"
+    if [ "$ntfy_vars_set" -eq 1 ]; then
+        window_cmd="env NTFY_TOKEN=$(quote_one "$NTFY_TOKEN") NTFY_TOPIC=$(quote_one "$NTFY_TOPIC") NTFY_URL=$(quote_one "$NTFY_URL") $window_cmd"
     else
-        echo "NTFY_TOKEN, NTFY_TOPIC, and NTFY_URL are not set, skipping ntfy-hook.sh"
+        echo "NTFY_* not fully configured, afl-stopped notifications will be skipped"
     fi
     echo "Starting tmux window: $name on CPU $core"
     if [ "$started" -eq 0 ]; then
