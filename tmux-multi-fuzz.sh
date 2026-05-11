@@ -9,6 +9,9 @@ HARNESS_ROOT="${HARNESS_ROOT:-qsee_nongp/harness}"
 OUT_SUFFIX="${OUT_SUFFIX:-}"
 SESSION_NAME="${SESSION_NAME:-qsee-nongp-fuzz}"
 CONTAINER_PREFIX="${CONTAINER_PREFIX:-qsee-nongp-fuzz-}"
+CORE_START="${CORE_START:-30}"
+TRIAGE_HOOK="${TRIAGE_HOOK:-/srv/medic/ntfy-hook.sh}"
+DOCKER_IMAGE="${DOCKER_IMAGE:-ta_emu}"
 
 if ! command -v docker >/dev/null 2>&1; then
     echo "docker is not available on PATH"
@@ -56,21 +59,26 @@ for harness in "${harnesses[@]}"; do
         continue
     fi
 
-    [[ -n "$(ls -1 "$harness"/*.ta "$harness"/*.elf 2>/dev/null)" ]] || {
-        echo "Skipping $name: no TA or ELF found"
-        skipped=$((skipped + 1))
-        continue
-    }
-
     safe_name="$(printf '%s' "$name" | tr -c '[:alnum:]_.-' '-')"
-    container_name="${CONTAINER_PREFIX}${safe_name}"
+    container_name="${CONTAINER_PREFIX}${safe_name}${OUT_SUFFIX:+-$OUT_SUFFIX}"
     container_harness="../${harness}"
+    core=$((CORE_START + started))
 
     docker_cmd=(
-        docker compose run --rm
+        docker run --rm
         --name "$container_name"
+        --cpuset-cpus "$core"
+        --network host
+        --volume "$SCRIPT_DIR:/srv"
+        --workdir /srv/emulator
+        --shm-size 100g
+        --ipc host
+        --privileged
+        --user root
         -e "AFL_NO_UI=${AFL_NO_UI:-1}"
+        -e "AFL_TRY_AFFINITY=1"
         -e "TAEMU_CRASH_NOTIMPL=${TAEMU_CRASH_NOTIMPL:-1}"
+        -e "NTFY_TOKEN" -e "NTFY_TOPIC" -e "NTFY_URL"
     )
 
     if [ -n "${FUZZTIME:-}" ]; then
@@ -81,7 +89,7 @@ for harness in "${harnesses[@]}"; do
         docker_cmd+=(-e "FUZZ_TIMEOUT=$FUZZ_TIMEOUT")
     fi
 
-    docker_cmd+=(emulator ./fuzz.sh "$container_harness")
+    docker_cmd+=("$DOCKER_IMAGE" ./fuzz.sh "$container_harness" -I "$TRIAGE_HOOK")
 
     if [ -n "$OUT_SUFFIX" ]; then
         docker_cmd+=(--out_suffix "$OUT_SUFFIX")
@@ -89,8 +97,7 @@ for harness in "${harnesses[@]}"; do
 
     fuzz_cmd="$(quote_cmd "${docker_cmd[@]}")"
     window_cmd="$fuzz_cmd; status=\$?; echo; echo \"fuzz.sh exited with status \$status\"; exec bash"
-
-    echo "Starting tmux window: $name"
+    echo "Starting tmux window: $name on CPU $core"
     if [ "$started" -eq 0 ]; then
         tmux new-session -d -s "$SESSION_NAME" -n "$name" -c "$SCRIPT_DIR" "$window_cmd"
     else

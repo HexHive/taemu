@@ -7,10 +7,11 @@ export AFL_SKIP_CPUFREQ=1
 export AFL_FORKSRV_INIT_TMOUT=1999999
 export AFL_NO_FASTRESUME=1
 export AFL_AUTORESUME=1
-export AFL_NO_AFFINITY=1
+# NOTE: This is set in official afl docker image. not sure if it belongs here.
+export AFL_TRY_AFFINITY=${AFL_TRY_AFFINITY:-1}
 
 if [ -z "$1" ]; then 
-    echo "usage: fuzzing ./fuzz.sh <path to ta|harness folder> [--out_suffix <suffix>] [--log_file <file>]"
+    echo "usage: fuzzing ./fuzz.sh <path to ta|harness folder> [-I <new-crash hook command>] [--out_suffix <suffix>] [--log_file <file>]"
     echo "usage: replay seed ./fuzz.sh <path to ta|harness folder> <path to seed>"
     exit 0
 fi
@@ -24,13 +25,14 @@ fi
 
 cd /srv/emulator
 
-OPTS=$(getopt -o l:s: --long log_file:,out_suffix: -n 'fuzz.sh' -- "$@")
+OPTS=$(getopt -o l:s:I: --long log_file:,out_suffix:,triage_hook: -n 'fuzz.sh' -- "$@")
 eval set -- "$OPTS"
 
 while true; do
   case "$1" in
     -l|--log_file ) log_file="$2"; shift 2 ;;
     -s|--out_suffix ) out_suffix="$2"; shift 2 ;;
+    -I|--triage_hook ) triage_hook="$2"; shift 2 ;;
     -- ) shift; break ;;
     * ) break ;;
   esac
@@ -38,6 +40,8 @@ done
 
 log_arg=${log_file:+--log_file "$log_file"}
 out_suffix=${out_suffix:-}
+triage_hook=${triage_hook:-}
+
 
 in_path=`realpath $1`
 
@@ -62,6 +66,7 @@ echo ""Using TA: $ta
 echo "Using harness: $harness"
 echo "Using fuzz input dir: $fuzz_in"
 echo "Using fuzz output dir: $fuzz_out"
+echo "Using new-crash hook: ${triage_hook:-<none>}"
 
 mkdir -p "$fuzz_in"
 mkdir -p "$fuzz_out"
@@ -98,11 +103,16 @@ if [ -z "$2" ]; then
     fi
     [[ -z "$FUZZ_TIMEOUT" ]] && FUZZ_TIMEOUT=5000
 
-	if [ -z "${FUZZTIME}" ]; then
-        	afl-fuzz -t $FUZZ_TIMEOUT -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --use-cache --disable-redis --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")" $log_arg
-  	else
-        	timeout -k $FUZZTIME $FUZZTIME afl-fuzz -V $FUZZTIME -t $FUZZ_TIMEOUT -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --use-cache --disable-redis --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")" $log_arg
-	fi
+    info_arg=()
+    if [ -n "$triage_hook" ]; then
+        info_arg=(-I "$(quote_cmd "$triage_hook" "$in_path" "$fuzz_out")")
+    fi
+
+    AFL_CMD="afl-fuzz "
+    if [ ! -z "${FUZZTIME}" ]; then
+        AFL_CMD="timeout -k $FUZZTIME $FUZZTIME $AFL_CMD -V $FUZZTIME"
+    fi
+    $AFL_CMD -t $FUZZ_TIMEOUT -i $fuzz_in -o $fuzz_out -m none -U "${info_arg[@]}" -- python3 -m emulate --use-cache --disable-redis --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")" $log_arg
 else 
     echo "Replaying seed $2 ..."
     if [ -d "$in_path" ]; then
