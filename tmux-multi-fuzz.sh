@@ -115,6 +115,11 @@ for harness in "${harnesses[@]}"; do
     fuzz_cmd="$(quote_cmd "${docker_cmd[@]}")"
     shell_body="$fuzz_cmd; status=\$?; \"$SCRIPT_DIR/medic/ntfy-hook.sh\" afl-stopped $(quote_one "$harness") $(quote_one "$host_fuzz_out") \"exit_status=\$status\"; echo; echo \"fuzz.sh exited with status \$status\"; exec bash -i"
     window_cmd="bash -ic $(quote_one "$shell_body")"
+    if [ -n "${NTFY_TOKEN:-}" && -n "${NTFY_TOPIC:-}" && -n "${NTFY_URL:-}" ]; then
+        window_cmd="env NTFY_TOKEN=$NTFY_TOKEN NTFY_TOPIC=$NTFY_TOPIC NTFY_URL=$NTFY_URL $window_cmd"
+    else
+        echo "NTFY_TOKEN, NTFY_TOPIC, and NTFY_URL are not set, skipping ntfy-hook.sh"
+    fi
     echo "Starting tmux window: $name on CPU $core"
     if [ "$started" -eq 0 ]; then
         tmux new-session -d -s "$SESSION_NAME" -n "$name" -c "$SCRIPT_DIR" "$window_cmd"
