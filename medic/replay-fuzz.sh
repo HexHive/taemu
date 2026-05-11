@@ -39,9 +39,7 @@ missing_functions="$(printf '%s\n' "$missing_lines" | sed -n 's/^\[x\][[:space:]
 
 if [ -n "$missing_functions" ]; then
     {
-        printf 'crash=%s replay_status=%s\n' "$last_crash" "$replay_status"
-        printf '%s\n' "$missing_functions"
-        printf '\n'
+        printf '%s\t\tcrash=%s replay_status=%s\n' "$missing_functions" "$last_crash" "$replay_status"
     } >>"$log_dir/function-missing.txt"
 
     missing_summary="$(printf '%s\n' "$missing_functions" | paste -sd ',' -)"
