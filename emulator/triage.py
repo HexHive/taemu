@@ -67,6 +67,7 @@ def do_triage(harness: str, do_all=False, suffix: str | None = None):
                 for crash_seed in os.listdir(crash_dir):
                     if crash_seed == "README.txt":
                         continue
+                    print(f"Reproducing {crash_dir}/{crash_seed}")
                     proc = subprocess.run(
                         ["./fuzz.sh", harness, f"{crash_dir}/{crash_seed}"],
                         stdout=subprocess.DEVNULL,
