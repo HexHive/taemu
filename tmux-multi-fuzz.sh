@@ -81,7 +81,7 @@ for harness in "${harnesses[@]}"; do
         --ipc host
         --privileged
         --user root
-        -e "AFL_NO_UI=${AFL_NO_UI:-1}"
+        -e "AFL_NO_UI"
         -e "AFL_NO_AFFINITY=1"
         -e "TAEMU_CRASH_NOTIMPL=${TAEMU_CRASH_NOTIMPL:-1}"
     )

@@ -24,8 +24,10 @@ if [ -z "$last_crash" ]; then
     exit 1
 fi
 
-replay_log="$(mktemp)"
-trap 'rm -f "$replay_log"' EXIT
+log_dir="${SCRIPT_DIR}/logs/$(basename "$harness_path")"
+mkdir -p "$log_dir"
+
+replay_log="${log_dir}/$(basename "$last_crash" | sed 's/\.[^.]*$//').log"
 
 set +e
 "$SCRIPT_DIR/../emulator/fuzz.sh" "$harness_path" "$last_crash" >"$replay_log" 2>&1
