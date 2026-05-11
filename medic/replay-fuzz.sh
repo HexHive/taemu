@@ -34,9 +34,19 @@ set +e
 replay_status=$?
 set -e
 
-missing_function=$(grep -Eo '^\[x\][[:space:]]+.+ called, not implemented! lr: 0x[0-9a-fA-F]+$' "$replay_log")
-if [ -n "$missing_function" ]; then
-    printf 'function-missing\t%s\t%s\n' "$last_crash" "$replay_status" >>"$log_dir/function-missing.txt"
+missing_lines="$(grep -E '^\[x\][[:space:]]+.+ called, not implemented! lr: 0x[0-9a-fA-F]+$' "$replay_log" || true)"
+missing_functions="$(printf '%s\n' "$missing_lines" | sed -n 's/^\[x\][[:space:]]\+\(.*\) called, not implemented! lr: 0x[0-9a-fA-F]\+$/\1/p' | sort -u)"
+
+if [ -n "$missing_functions" ]; then
+    {
+        printf 'crash=%s replay_status=%s\n' "$last_crash" "$replay_status"
+        printf '%s\n' "$missing_functions"
+        printf '\n'
+    } >>"$log_dir/function-missing.txt"
+
+    missing_summary="$(printf '%s\n' "$missing_functions" | paste -sd ',' -)"
+    printf 'function-missing\tcrash=%s replay_status=%s missing=%s\n' "$last_crash" "$replay_status" "$missing_summary"
 else
-    printf 'real-crash\t%s\t%s\n' "$last_crash" "$replay_status" >>"$log_dir/real-crashes.txt"
+    printf 'crash=%s replay_status=%s\n' "$last_crash" "$replay_status" >>"$log_dir/real-crashes.txt"
+    printf 'real-crash\tcrash=%s replay_status=%s\n' "$last_crash" "$replay_status"
 fi
