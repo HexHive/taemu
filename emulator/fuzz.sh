@@ -10,7 +10,7 @@ export AFL_AUTORESUME=1
 export AFL_NO_AFFINITY=1
 
 if [ -z "$1" ]; then 
-    echo "usage: fuzzing ./fuzz.sh <path to ta|harness folder> [--log_file <file>]"
+    echo "usage: fuzzing ./fuzz.sh <path to ta|harness folder> [--out_suffix <suffix>] [--log_file <file>]"
     echo "usage: replay seed ./fuzz.sh <path to ta|harness folder> <path to seed>"
     exit 0
 fi
@@ -24,18 +24,20 @@ fi
 
 cd /srv/emulator
 
-OPTS=$(getopt -o l: --long log_file: -n 'fuzz.sh' -- "$@")
+OPTS=$(getopt -o l:s: --long log_file:,out_suffix: -n 'fuzz.sh' -- "$@")
 eval set -- "$OPTS"
 
 while true; do
   case "$1" in
     -l|--log_file ) log_file="$2"; shift 2 ;;
+    -s|--out_suffix ) out_suffix="$2"; shift 2 ;;
     -- ) shift; break ;;
     * ) break ;;
   esac
 done
 
 log_arg=${log_file:+--log_file "$log_file"}
+out_suffix=${out_suffix:-}
 
 in_path=`realpath $1`
 
@@ -44,7 +46,7 @@ if [ -d "$in_path" ]; then
     ta=$(ls -1 "$in_path"/*.ta "$in_path"/*.elf 2>/dev/null | head -n 1)
 
     fuzz_in="$in_path/in"
-    fuzz_out="$in_path/out"
+    fuzz_out="$in_path/out${out_suffix}"
 
     if [ -z "$ta" ]; then
         echo "Could not find TA in $in_path"
@@ -53,7 +55,7 @@ if [ -d "$in_path" ]; then
 else
     ta="$in_path"
     fuzz_in="/tmp/in"
-    fuzz_out="tmp/out"
+    fuzz_out="/tmp/out${out_suffix}"
 fi
 
 echo ""Using TA: $ta
@@ -61,6 +63,8 @@ echo "Using harness: $harness"
 echo "Using fuzz input dir: $fuzz_in"
 echo "Using fuzz output dir: $fuzz_out"
 
+mkdir -p "$fuzz_in"
+mkdir -p "$fuzz_out"
 chmod -R 777 "$fuzz_in"
 chmod -R 777 "$fuzz_out"
 
@@ -75,10 +79,10 @@ cp "$v1a" "rootfs/" || cp "$v1b" "rootfs/" || { echo "File $v1a or $v1b not foun
 if [ -z "$2" ]; then
     echo "Starting fuzzing..."
     # no seed specified -> fuzz
-    mkdir -p $fuzz_out
+    mkdir -p "$fuzz_out"
 
     if [ ! -e "$fuzz_in" ]; then
-        mkdir $fuzz_in
+        mkdir "$fuzz_in"
     fi
 
     if [ ! -e "$fuzz_in/foo" ]; then
@@ -90,7 +94,7 @@ if [ -z "$2" ]; then
     fi
 
     if [ ! -e "$fuzz_out" ]; then
-        mkdir $fuzz_out
+        mkdir "$fuzz_out"
     fi
     [[ -z "$FUZZ_TIMEOUT" ]] && FUZZ_TIMEOUT=5000
 
