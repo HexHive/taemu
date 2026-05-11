@@ -82,18 +82,18 @@ for harness in "${harnesses[@]}"; do
         --privileged
         --user root
         -e "AFL_NO_UI=${AFL_NO_UI:-1}"
-        -e "AFL_TRY_AFFINITY=1"
+        -e "AFL_NO_AFFINITY=1"
         -e "TAEMU_CRASH_NOTIMPL=${TAEMU_CRASH_NOTIMPL:-1}"
     )
 
     if [ -n "${NTFY_TOKEN:-}" ]; then
-        docker_cmd+=(-e "NTFY_TOKEN")
+        docker_cmd+=(-e "NTFY_TOKEN=$NTFY_TOKEN")
     fi
     if [ -n "${NTFY_TOPIC:-}" ]; then
-        docker_cmd+=(-e "NTFY_TOPIC")
+        docker_cmd+=(-e "NTFY_TOPIC=$NTFY_TOPIC")
     fi
     if [ -n "${NTFY_URL:-}" ]; then
-        docker_cmd+=(-e "NTFY_URL")
+        docker_cmd+=(-e "NTFY_URL=$NTFY_URL")
     fi
 
     if [ -n "${FUZZTIME:-}" ]; then
