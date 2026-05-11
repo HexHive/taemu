@@ -10,7 +10,7 @@ OUT_SUFFIX="${OUT_SUFFIX:-}"
 SESSION_NAME="${SESSION_NAME:-qsee-nongp-fuzz}"
 CONTAINER_PREFIX="${CONTAINER_PREFIX:-qsee-nongp-fuzz-}"
 CORE_START="${CORE_START:-30}"
-TRIAGE_HOOK="${TRIAGE_HOOK:-/srv/medic/ntfy-hook.sh}"
+TRIAGE_HOOK="${TRIAGE_HOOK:-/srv/medic/auto-triage.sh}"
 DOCKER_IMAGE="${DOCKER_IMAGE:-ta_emu}"
 
 if ! command -v docker >/dev/null 2>&1; then
@@ -66,6 +66,7 @@ for harness in "${harnesses[@]}"; do
     safe_name="$(printf '%s' "$name" | tr -c '[:alnum:]_.-' '-')"
     container_name="${CONTAINER_PREFIX}${safe_name}${OUT_SUFFIX:+-$OUT_SUFFIX}"
     container_harness="../${harness}"
+    host_fuzz_out="$harness/out${OUT_SUFFIX}"
     core=$((CORE_START + started))
 
     docker_cmd=(
@@ -80,19 +81,19 @@ for harness in "${harnesses[@]}"; do
         --ipc host
         --privileged
         --user root
-        -e "AFL_NO_UI"
-        -e "AFL_NO_AFFINITY=1"
+        -e "AFL_NO_UI=${AFL_NO_UI:-1}"
+        -e "AFL_TRY_AFFINITY=1"
         -e "TAEMU_CRASH_NOTIMPL=${TAEMU_CRASH_NOTIMPL:-1}"
     )
 
     if [ -n "${NTFY_TOKEN:-}" ]; then
-        docker_cmd+=(-e "NTFY_TOKEN=$NTFY_TOKEN")
+        docker_cmd+=(-e "NTFY_TOKEN")
     fi
     if [ -n "${NTFY_TOPIC:-}" ]; then
-        docker_cmd+=(-e "NTFY_TOPIC=$NTFY_TOPIC")
+        docker_cmd+=(-e "NTFY_TOPIC")
     fi
     if [ -n "${NTFY_URL:-}" ]; then
-        docker_cmd+=(-e "NTFY_URL=$NTFY_URL")
+        docker_cmd+=(-e "NTFY_URL")
     fi
 
     if [ -n "${FUZZTIME:-}" ]; then
@@ -110,7 +111,7 @@ for harness in "${harnesses[@]}"; do
     fi
 
     fuzz_cmd="$(quote_cmd "${docker_cmd[@]}")"
-    shell_body="$fuzz_cmd; status=\$?; echo; echo \"fuzz.sh exited with status \$status\"; exec bash -i"
+    shell_body="$fuzz_cmd; status=\$?; \"$SCRIPT_DIR/medic/ntfy-hook.sh\" afl-stopped $(quote_one "$harness") $(quote_one "$host_fuzz_out") \"exit_status=\$status\"; echo; echo \"fuzz.sh exited with status \$status\"; exec bash -i"
     window_cmd="bash -ic $(quote_one "$shell_body")"
     echo "Starting tmux window: $name on CPU $core"
     if [ "$started" -eq 0 ]; then
