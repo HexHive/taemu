@@ -133,7 +133,9 @@ class QseeCommandParams:
         return req_mem, self.resp_mem, params_mem
 
     def teardown(self, ql: Qiling):
-        for addr, size in self.mem_regions.items():
+        all_regions = list(self.mem_regions.items())
+        ql.log.debug(f"Unmapping {len(all_regions)} memory regions")
+        for addr, size in all_regions:
             try:
                 ql.mem.unmap(addr, size)
                 del self.mem_regions[addr]
