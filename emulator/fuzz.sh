@@ -37,13 +37,17 @@ while true; do
   esac
 done
 
-log_arg=${log_file:+--log_file "$log_file"}
 out_suffix=${out_suffix:-}
 triage_hook=${triage_hook:-}
 
 quote_cmd() {
     printf '%q ' "$@"
 }
+
+log_arg=()
+if [ -n "${log_file:-}" ]; then
+    log_arg=(--log_file "$log_file")
+fi
 
 in_path=`realpath $1`
 
@@ -110,11 +114,14 @@ if [ -z "$2" ]; then
         info_arg=(-I "$(quote_cmd "$triage_hook" "$in_path" "$fuzz_out")")
     fi
 
-    AFL_CMD="afl-fuzz "
-    if [ ! -z "${FUZZTIME}" ]; then
-        AFL_CMD="timeout -k $FUZZTIME $FUZZTIME $AFL_CMD -V $FUZZTIME"
+    if [ -n "${FUZZTIME:-}" ]; then
+        timeout -k "$FUZZTIME" "$FUZZTIME" \
+            afl-fuzz -V "$FUZZTIME" -t "$FUZZ_TIMEOUT" -i "$fuzz_in" -o "$fuzz_out" -m none -U "${info_arg[@]}" -- \
+            python3 -m emulate --use-cache --disable-redis --fuzz @@ --fuzz_harness "$harness" "rootfs/$(basename "$ta")" "${log_arg[@]}"
+    else
+        afl-fuzz -t "$FUZZ_TIMEOUT" -i "$fuzz_in" -o "$fuzz_out" -m none -U "${info_arg[@]}" -- \
+            python3 -m emulate --use-cache --disable-redis --fuzz @@ --fuzz_harness "$harness" "rootfs/$(basename "$ta")" "${log_arg[@]}"
     fi
-    $AFL_CMD -t $FUZZ_TIMEOUT -i $fuzz_in -o $fuzz_out -m none -U "${info_arg[@]}" -- python3 -m emulate --use-cache --disable-redis --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")" $log_arg
 else 
     echo "Replaying seed $2 ..."
     if [ -d "$in_path" ]; then

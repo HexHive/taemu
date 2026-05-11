@@ -54,7 +54,11 @@ def do_triage(harness: str, do_all=False, suffix: str | None = None):
     triage_dir = f"{harness}/triage{suffix}"
     notimpl_dir = f"{harness}/notimpl{suffix}"
 
-    print(do_all)
+    if not Path(run_dir).exists():
+        print(f"Run directory not found: {run_dir}")
+        exit(1)
+
+    print(f"{do_all=}")
     if do_all:
         os.system(f"rm -rf {harness}/triage")
         os.system(f"rm -rf {harness}/notimpl")
@@ -64,17 +68,18 @@ def do_triage(harness: str, do_all=False, suffix: str | None = None):
         for d in os.listdir(f"{run_dir}/{inst}"):
             if d == "crashes" or (do_all and d.startswith("crashes")):
                 crash_dir = os.path.join(run_dir, inst, d)
-                for crash_seed in os.listdir(crash_dir):
+                for crash_seed in sorted(os.listdir(crash_dir)):
                     if crash_seed == "README.txt":
                         continue
                     print(f"Reproducing {crash_dir}/{crash_seed}")
                     proc = subprocess.run(
                         ["./fuzz.sh", harness, f"{crash_dir}/{crash_seed}"],
-                        stdout=subprocess.DEVNULL,
+                        stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
                         text=True,
                     )
                     full_log = proc.stderr
+                    print(full_log)
                     lines = [
                         line
                         for line in proc.stderr.splitlines()
@@ -180,9 +185,12 @@ def setup_args():
 if __name__ == "__main__":
     import sys
 
+    assert Path("/.dockerenv").exists(), "Not running inside Docker"
+
     arg_parser = setup_args()
     args = arg_parser.parse_args()
     harness = Path(args.harness)
+
     if not harness.exists():
         print(f"Harness not found: {harness}")
         exit(1)

@@ -140,7 +140,7 @@ class QseeCommandParams:
                 ql.mem.unmap(addr, size)
                 del self.mem_regions[addr]
             except Exception as e:
-                ql.log.error(f"Error unmapping memory: {e}")
+                ql.log.error(f"Error unmapping memory: {e}. {e.__traceback__}")
         if len(self.mem_regions) > 0:
             ql.log.error(f"Memory regions not cleared: {self.mem_regions}")
         self.resp_mem = None
