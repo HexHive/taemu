@@ -81,7 +81,9 @@ for harness in "${harnesses[@]}"; do
         --ipc host
         # --privileged
         --user root
-        -e "AFL_NO_UI"
+        # These ones get forwarded.
+        -e "AFL_NO_UI" -e "AFL_DEBUG"
+        # These ones get set.
         -e "AFL_NO_AFFINITY=1"
         -e "TAEMU_CRASH_NOTIMPL=1"
     )
