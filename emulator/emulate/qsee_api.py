@@ -20,24 +20,12 @@ from .common import crash, crash_notimpl
 from .gp.utils.printf import parse_fmt_str, fixup_format, read_c_str
 import time
 from typing import TYPE_CHECKING
+from .non_gp.qsee.api_common import _ret, _read_u32
+from .non_gp.qsee.api_shared_buffers import *
+
 if TYPE_CHECKING:
     from .emulator_no_loader import HookData
 
-def _wrap_fcall_with_debug_log(func):
-    @functools.wraps(func)
-    def wrapper(ql: Qiling, hook_data):
-        ql.log.info("Called func: %s", hook_data.func_name)
-        ql.log.info("Ret ptr: %#x", ql.arch.regs.lr)
-        val = func(ql, hook_data)
-        ql.log.info("Returned value: %s", val)
-    return wrapper
-
-def _ret(ql: Qiling, value: int):
-    ql.os.fcall.cc.setReturnValue(value)
-    ql.arch.regs.arch_pc = ql.arch.regs.lr
-
-def _read_u32(ql: Qiling, ptr: int) -> int:
-    return struct.unpack("<I", ql.mem.read(ptr, 4))[0] & 0xffffffff
 
 def qsee_is_sw_fuse_blown(ql: Qiling, hook_data):
     p = ql.os.resolve_fcall_params(
@@ -168,15 +156,15 @@ def __funcs_on_exit(ql: Qiling, hook_data:'HookData'):
 
 def qsee_prng_getdata(ql: Qiling, hook_data:'HookData'):
     args = ql.os.resolve_fcall_params({
-        "data": POINTER,
+        "dest": POINTER,
         "size": INT,
     })
 
-    data = args['data']
+    dest = args['dest']
     size = args['size']
-    ql.mem.write(data, os.urandom(size))
+    ql.mem.write(dest, os.urandom(size))
 
-    ql.log.info("qsee_prng_getdata args: %s", args)
+    ql.log.info("qsee_prng_getdata(dest=%#x, size=%#x)", dest, size)
     ql.os.fcall.cc.setReturnValue(args['size'])
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
@@ -272,21 +260,6 @@ def qsee_open(ql: Qiling, hook_data:'HookData'):
     addr = qsee_mem.new_callback(noop_callback)
     ql.mem.write(dest, pwn.p64(addr))
     _ret(ql, 0)
-
-def qsee_is_s_tag_area(ql: Qiling, hook_data:'HookData'):
-    args = ql.os.resolve_fcall_params({
-        "vmid": INT,
-        "start": POINTER,
-        "end": POINTER
-    })
-    vmid = args['vmid']
-    start = args['start']
-    end = args['end']
-    ql.log.info("qsee_is_s_tag_area(%#x, %#0x, %#0x)", vmid, start, end)
-
-    # TODO: For now, we just pretend it is in the vmid area
-    ql.log.warning("Returning that [%#0x, %#0x) is in the vmid %#x area", start, end, vmid)
-    _ret(ql, 1)
 
 def qsee_kdf(ql: Qiling, hook_data:'HookData'):
     args = ql.os.resolve_fcall_params({

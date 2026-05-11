@@ -403,6 +403,13 @@ def start_qsee_fuzz(
     ret = self.ql.os.fcall.cc.getReturnValue()
     self.log.info("InvokeCommand returned: %#0x", ret)
 
+    # TODO: Investigate, if we need this, or we are just throwing away cpu cycles
+    curr_params = getattr(self, "curr_params")
+    if isinstance(curr_params, QseeCommandParams):
+        curr_params.teardown(self.ql)
+    else:
+        self.ql.log.warning("curr_params is not a QseeCommandParams")
+
     for e in exit_hooks:
         self.ql.hook_del(e)
     exit_hooks = []

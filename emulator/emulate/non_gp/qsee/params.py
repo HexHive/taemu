@@ -73,6 +73,10 @@ class QseeCommandParams:
             raise ValueError("rsp_len is not set")
         return req_len, rsp_len
 
+    def add_region(self, addr: int, size: int):
+        """Adds a region of memory to the list of "managed" regions. Will be unmapped when the params are torn down."""
+        self.mem_regions[addr] = size
+
     def _map_region(self, ql: Qiling, size: int, info: str) -> int:
         addr = ql.mem.map_anywhere(
             size,
