@@ -34,8 +34,9 @@ set +e
 replay_status=$?
 set -e
 
-if grep -Eq '^\[x\][[:space:]]+.+ called, not implemented! lr: 0x[0-9a-fA-F]+$' "$replay_log"; then
-    printf 'function-missing\t%s\t%s\n' "$last_crash" "$replay_status"
+missing_function=$(grep -Eo '^\[x\][[:space:]]+.+ called, not implemented! lr: 0x[0-9a-fA-F]+$' "$replay_log")
+if [ -n "$missing_function" ]; then
+    printf 'function-missing\t%s\t%s\n' "$last_crash" "$replay_status" >>"$log_dir/function-missing.txt"
 else
-    printf 'real-crash\t%s\t%s\n' "$last_crash" "$replay_status"
+    printf 'real-crash\t%s\t%s\n' "$last_crash" "$replay_status" >>"$log_dir/real-crashes.txt"
 fi
