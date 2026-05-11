@@ -8,7 +8,6 @@ export AFL_FORKSRV_INIT_TMOUT=1999999
 export AFL_NO_FASTRESUME=1
 export AFL_AUTORESUME=1
 # NOTE: This is set in official afl docker image. not sure if it belongs here.
-export AFL_TRY_AFFINITY=${AFL_TRY_AFFINITY:-1}
 
 if [ -z "$1" ]; then 
     echo "usage: fuzzing ./fuzz.sh <path to ta|harness folder> [-I <new-crash hook command>] [--out_suffix <suffix>] [--log_file <file>]"
@@ -42,6 +41,9 @@ log_arg=${log_file:+--log_file "$log_file"}
 out_suffix=${out_suffix:-}
 triage_hook=${triage_hook:-}
 
+quote_cmd() {
+    printf '%q ' "$@"
+}
 
 in_path=`realpath $1`
 

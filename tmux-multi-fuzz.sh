@@ -47,6 +47,10 @@ quote_cmd() {
     printf '%q ' "$@"
 }
 
+quote_one() {
+    printf '%q' "$1"
+}
+
 started=0
 skipped=0
 
@@ -66,6 +70,7 @@ for harness in "${harnesses[@]}"; do
 
     docker_cmd=(
         docker run --rm
+        -it
         --name "$container_name"
         --cpuset-cpus "$core"
         --network host
@@ -75,11 +80,20 @@ for harness in "${harnesses[@]}"; do
         --ipc host
         --privileged
         --user root
-        -e "AFL_NO_UI=${AFL_NO_UI:-1}"
-        -e "AFL_TRY_AFFINITY=1"
+        -e "AFL_NO_UI"
+        -e "AFL_NO_AFFINITY=1"
         -e "TAEMU_CRASH_NOTIMPL=${TAEMU_CRASH_NOTIMPL:-1}"
-        -e "NTFY_TOKEN" -e "NTFY_TOPIC" -e "NTFY_URL"
     )
+
+    if [ -n "${NTFY_TOKEN:-}" ]; then
+        docker_cmd+=(-e "NTFY_TOKEN=$NTFY_TOKEN")
+    fi
+    if [ -n "${NTFY_TOPIC:-}" ]; then
+        docker_cmd+=(-e "NTFY_TOPIC=$NTFY_TOPIC")
+    fi
+    if [ -n "${NTFY_URL:-}" ]; then
+        docker_cmd+=(-e "NTFY_URL=$NTFY_URL")
+    fi
 
     if [ -n "${FUZZTIME:-}" ]; then
         docker_cmd+=(-e "FUZZTIME=$FUZZTIME")
@@ -96,7 +110,8 @@ for harness in "${harnesses[@]}"; do
     fi
 
     fuzz_cmd="$(quote_cmd "${docker_cmd[@]}")"
-    window_cmd="$fuzz_cmd; status=\$?; echo; echo \"fuzz.sh exited with status \$status\"; exec bash"
+    shell_body="$fuzz_cmd; status=\$?; echo; echo \"fuzz.sh exited with status \$status\"; exec bash -i"
+    window_cmd="bash -ic $(quote_one "$shell_body")"
     echo "Starting tmux window: $name on CPU $core"
     if [ "$started" -eq 0 ]; then
         tmux new-session -d -s "$SESSION_NAME" -n "$name" -c "$SCRIPT_DIR" "$window_cmd"
