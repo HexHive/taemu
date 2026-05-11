@@ -5,13 +5,31 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-HARNESS_ROOT="${HARNESS_ROOT:-qsee_nongp/harness}"
 OUT_SUFFIX="${OUT_SUFFIX:-}"
 SESSION_NAME="${SESSION_NAME:-qsee-nongp-fuzz}"
 CONTAINER_PREFIX="${CONTAINER_PREFIX:-qsee-nongp-fuzz-}"
 CORE_START="${CORE_START:-30}"
 TRIAGE_HOOK="${TRIAGE_HOOK:-/srv/medic/auto-triage.sh}"
 DOCKER_IMAGE="${DOCKER_IMAGE:-ta_emu}"
+
+usage() {
+    echo "usage: $0 -d <harness_root>"
+    echo "usage: $0 <harness_dir> [<harness_dir> ...]"
+}
+
+HARNESS_ROOT=""
+
+while getopts ":d:" opt; do
+    case "$opt" in
+        d) HARNESS_ROOT="${OPTARG%/}" ;;
+        *)
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+shift $((OPTIND - 1))
 
 if ! command -v docker >/dev/null 2>&1; then
     echo "docker is not available on PATH"
@@ -29,17 +47,32 @@ if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
     exit 1
 fi
 
-if [ ! -d "$HARNESS_ROOT" ]; then
-    echo "Harness root not found: $HARNESS_ROOT"
+if [ -n "$HARNESS_ROOT" ] && [ "$#" -gt 0 ]; then
+    echo "Specify either -d <harness_root> or an explicit harness list, not both"
     exit 1
 fi
 
-mapfile -t harnesses < <(
-    find "$HARNESS_ROOT" -mindepth 1 -maxdepth 1 -type d | sort
-)
+if [ "$#" -gt 0 ]; then
+    harnesses=()
+    for harness in "$@"; do
+        harness="${harness%/}"
+        harnesses+=("$harness")
+    done
+elif [ -n "$HARNESS_ROOT" ]; then
+    if [ ! -d "$HARNESS_ROOT" ]; then
+        echo "Harness root not found: $HARNESS_ROOT"
+        exit 1
+    fi
+    mapfile -t harnesses < <(
+        find "$HARNESS_ROOT" -mindepth 1 -maxdepth 1 -type d | sort
+    )
+else
+    usage
+    exit 1
+fi
 
 if [ "${#harnesses[@]}" -eq 0 ]; then
-    echo "No harness directories found in $HARNESS_ROOT"
+    echo "No harness directories found"
     exit 1
 fi
 
