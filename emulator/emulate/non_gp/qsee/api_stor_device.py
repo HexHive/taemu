@@ -329,3 +329,18 @@ def qsee_stor_device_get_info(ql, hook_data):
 
     ql.mem.write(info_out, blob)
     return _ret0(ql)
+
+
+def qsee_stor_client_get_info(ql, hook_data):
+    args = ql.os.resolve_fcall_params({
+        "client": POINTER,  # x0
+        "info_out": POINTER, # x1
+    })
+
+    client = args["client"]
+    info_out = args["info_out"]
+
+    ql.log.info("qsee_stor_client_get_info(client=%#x, info_out=%#x)",
+                client, info_out)
+    ql.mem.write(info_out, pwn.p32(0))
+    return _ret0(ql)

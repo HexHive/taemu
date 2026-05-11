@@ -22,6 +22,8 @@ import time
 from typing import TYPE_CHECKING
 from .non_gp.qsee.api_common import _ret, _read_u32
 from .non_gp.qsee.api_shared_buffers import *
+from .non_gp.qsee.api_cfg import qsee_cfg_getpropval
+from .non_gp.qsee.api_stor_device import *
 
 if TYPE_CHECKING:
     from .emulator_no_loader import HookData
@@ -127,7 +129,16 @@ def sm4_crypt(ql: Qiling, hook_data):
     _ret(ql, 0)
 
 def cmnlib_init(ql: Qiling, hook_data):
-    ql.log.info("cmnlib_init, back to %#x", ql.arch.regs.lr)
+    dest = ql.os.resolve_fcall_params({
+        "dest": POINTER, # uint32_t*
+    })
+    dest = dest['dest']
+    ql.log.info("cmnlib_init(dest=%#x)", dest)
+    if (dest & 0xffff0000) != 0x20000:
+        # mimicking the behavior of the real cmnlib_init
+        ql.log.warning("cmnlib_init(dest=%#x) is not a valid destination", dest)
+    ql.mem.write(dest, pwn.p32(0))
+
     _ret(ql, 0)
 
 def cmnlib_release(ql: Qiling, hook_data):
@@ -342,7 +353,6 @@ def qsee_get_secure_state(ql: Qiling, hook_data:'HookData'):
     ql.mem.write(dst, pwn.p32(SECURE_STATE & ~(1 << 5)))
     _ret(ql, 0)
 
-from .non_gp.qsee.stor_device import qsee_stor_device_init, qsee_stor_open_partition, qsee_stor_read_sectors, qsee_stor_write_sectors, qsee_stor_device_get_info
 
 ### GPIO for mst.elf ###
 
