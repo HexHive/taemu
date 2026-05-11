@@ -538,6 +538,54 @@ def qsee_cipher_set_param(ql: Qiling, hook_data: "HookData"):
     _ret(ql, 0)
 
 
+def qsee_cipher_encrypt(ql: Qiling, hook_data: "HookData"):
+    args = ql.os.resolve_fcall_params({
+        "ctx": POINTER,
+        "data": POINTER,
+        "data_len": INT,
+        "out": POINTER,
+    })
+    ctx = args["ctx"]
+    data = args["data"]
+    data_len = args["data_len"]
+    out = args["out"]
+    ql.log.debug("qsee_cipher_encrypt(ctx=%#x, data=%#x, data_len=%#x, out=%#x)", ctx, data, data_len, out)
+    ql.mem.write(out, ql.mem.read(data, data_len))
+    _ret(ql, 0)
+
+
+def qsee_cipher_decrypt(ql: Qiling, hook_data: "HookData"):
+    args = ql.os.resolve_fcall_params({
+        "ctx": POINTER,
+        "data": POINTER,
+        "data_len": INT,
+        "out": POINTER,
+    })
+    ctx = args["ctx"]
+    data = args["data"]
+    data_len = args["data_len"]
+    out = args["out"]
+    ql.log.debug("qsee_cipher_decrypt(ctx=%#x, data=%#x, data_len=%#x, out=%#x)", ctx, data, data_len, out)
+    ql.mem.write(out, ql.mem.read(data, data_len))
+    _ret(ql, 0)
+
+
+def qsee_hmac(ql: Qiling, hook_data: "HookData"):
+    args = ql.os.resolve_fcall_params({
+        "ctx": POINTER,
+        "data": POINTER,
+        "data_len": INT,
+        "out": POINTER,
+    })
+    ctx = args["ctx"]
+    data = args["data"]
+    data_len = args["data_len"]
+    out = args["out"]
+    ql.log.debug("qsee_hmac(ctx=%#x, data=%#x, data_len=%#x, out=%#x)", ctx, data, data_len, out)
+    ql.mem.read(data, data_len)
+    ql.mem.write(out, bytes(range(0x20)))
+    _ret(ql, 0)
+
 GLOBAL_FLAGS = 0
 def qsee_set_global_flag(ql: Qiling, hook_data: "HookData"):
     global GLOBAL_FLAGS

@@ -138,11 +138,13 @@ class QseeCommandParams:
         for addr, size in all_regions:
             try:
                 ql.mem.unmap(addr, size)
+                ql.log.warning("Unmapped memory region %#x", addr)
                 del self.mem_regions[addr]
             except Exception as e:
-                ql.log.error(f"Error unmapping memory: {e}. {e.__traceback__}")
+                ql.log.error(f"Error unmapping memory: {e}. {e.with_traceback()}")
         if len(self.mem_regions) > 0:
-            ql.log.error(f"Memory regions not cleared: {self.mem_regions}")
+            _d = {hex(a): hex(s) for a, s in self.mem_regions.items()}
+            ql.log.error(f"Memory regions not cleared: {_d}")
         self.resp_mem = None
 
     @contextmanager
