@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-    echo "usage: $0 <function-missing|new-crash|real-crash|afl-stopped> <harness_path> <fuzz_out> [detail]"
+    echo "usage: $0 <function-missing|default-message|real-crash|afl-stopped> <harness_path> <fuzz_out> [detail]"
 }
 
 message_type="${1:-}"
@@ -16,10 +16,10 @@ shift
 # Backward compatibility for the old AFL -I contract:
 # ntfy-hook.sh <harness_path> <fuzz_out>
 case "$message_type" in
-    function-missing|new-crash|real-crash|afl-stopped) ;;
+    function-missing|default-message|real-crash|afl-stopped) ;;
     *)
         set -- "$message_type" "$@"
-        message_type="new-crash"
+        message_type="default-message"
         ;;
 esac
 
@@ -50,8 +50,8 @@ if [ -d "$crash_dir" ]; then
 fi
 
 case "$message_type" in
-    new-crash)
-        title="new crash: $harness_name"
+    default-message)
+        title="message: $harness_name"
         priority="default"
         tags="test_tube"
         ;;

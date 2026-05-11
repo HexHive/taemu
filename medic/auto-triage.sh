@@ -24,6 +24,6 @@ case "$message_type" in
         "$SCRIPT_DIR/ntfy-hook.sh" "$message_type" "$harness_path" "$fuzz_out" "$detail"
         ;;
     *)
-        "$SCRIPT_DIR/ntfy-hook.sh" new-crash "$harness_path" "$fuzz_out" "$triage_result"
+        "$SCRIPT_DIR/ntfy-hook.sh" default-message "$harness_path" "$fuzz_out" "$triage_result"
         ;;
 esac
