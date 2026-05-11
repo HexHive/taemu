@@ -5,6 +5,8 @@ import argparse
 import json
 import re
 
+from pathlib import Path
+
 
 class Crash:
     def __init__(self, log, full_log):
@@ -45,16 +47,23 @@ class Crash:
         )
 
 
-def do_triage(harness, do_all=False):
+def do_triage(harness: str, do_all=False, suffix: str | None = None):
+    if suffix is None:
+        suffix = ""
+    run_dir = f"{harness}/out{suffix}"
+    triage_dir = f"{harness}/triage{suffix}"
+    notimpl_dir = f"{harness}/notimpl{suffix}"
+
     print(do_all)
     if do_all:
         os.system(f"rm -rf {harness}/triage")
         os.system(f"rm -rf {harness}/notimpl")
+
     out = {}
-    for inst in os.listdir(f"{harness}/out"):
-        for d in os.listdir(f"{harness}/out/{inst}"):
+    for inst in os.listdir(f"{run_dir}"):
+        for d in os.listdir(f"{run_dir}/{inst}"):
             if d == "crashes" or (do_all and d.startswith("crashes")):
-                crash_dir = os.path.join(harness, "out", inst, d)
+                crash_dir = os.path.join(run_dir, inst, d)
                 for crash_seed in os.listdir(crash_dir):
                     if crash_seed == "README.txt":
                         continue
@@ -80,9 +89,9 @@ def do_triage(harness, do_all=False):
                     if crash not in out:
                         out[crash] = []
                     out[crash].append(f"{crash_dir}/{crash_seed}")
-    triage_dir = f"{harness}/triage"
-    if not os.path.exists(f"{harness}/triage"):
-        os.system(f"mkdir {harness}/triage")
+
+    if not os.path.exists(f"{triage_dir}"):
+        os.system(f"mkdir {triage_dir}")
     old_dedup_crashes = os.listdir(triage_dir)
     i = 0
     while str(i) in old_dedup_crashes:
@@ -111,9 +120,8 @@ def do_triage(harness, do_all=False):
                 os.system(f"cp {c} {triage_dir}/{i}/")
             i += 1
 
-    notimpl_dir = f"{harness}/notimpl"
-    if not os.path.exists(f"{harness}/notimpl"):
-        os.system(f"mkdir {harness}/notimpl")
+    if not os.path.exists(f"{notimpl_dir}"):
+        os.system(f"mkdir {notimpl_dir}")
     old_dedup_crashes = os.listdir(notimpl_dir)
     i = 0
     while str(i) in old_dedup_crashes:
@@ -155,13 +163,27 @@ def setup_args():
         help="triage all crashes (not just newest ones)",
     )
 
+    # add flags
+    parser.add_argument(
+        "-s",
+        "--out-suffix",
+        default="",
+        help="suffix to add to the output directory",
+    )
+
     parser.add_argument("harness", help="Path to the harness.")
 
     return parser
 
 
 if __name__ == "__main__":
+    import sys
 
     arg_parser = setup_args()
     args = arg_parser.parse_args()
-    do_triage(args.harness, args.all)
+    harness = Path(args.harness)
+    if not harness.exists():
+        print(f"Harness not found: {harness}")
+        exit(1)
+
+    do_triage(harness.as_posix(), args.all, suffix=args.out_suffix)
