@@ -117,7 +117,7 @@ for harness in "${harnesses[@]}"; do
         --name "$container_name"
         --cpuset-cpus "$core"
         --ulimit 'core=0'
-        --memory 5g --memory-swap 5g
+        --memory 12g --memory-swap 12g
         --network host
         --volume "$SCRIPT_DIR:/srv"
         --workdir /srv/emulator
