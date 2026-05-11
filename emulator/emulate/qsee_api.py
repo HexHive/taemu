@@ -24,6 +24,7 @@ from .non_gp.qsee.api_common import _ret, _read_u32
 from .non_gp.qsee.api_shared_buffers import *
 from .non_gp.qsee.api_cfg import qsee_cfg_getpropval
 from .non_gp.qsee.api_stor_device import *
+from .non_gp.qsee.api_crypto import *
 
 if TYPE_CHECKING:
     from .emulator_no_loader import HookData
