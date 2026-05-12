@@ -1,3 +1,4 @@
+import struct
 from typing import TYPE_CHECKING
 import pwn
 from qiling import Qiling
@@ -11,14 +12,81 @@ else:
 
 filename = Path(__file__).stem.replace("_fuzz", "")
 
+REQ_CAP = 0x1000
+RSP_LEN = 0x1000
+MAX_VAR_PAYLOAD = 0x40
+
+def p32(x: int) -> bytes:
+    return struct.pack("<I", x & 0xFFFFFFFF)
+
+def take_padded(buf: bytes, off: int, n: int) -> tuple[bytes, int]:
+    chunk = buf[off:off + n]
+    return chunk.ljust(n, b"\x00"), off + len(chunk)
+
+def build_valid_body(raw: bytes, max_body: int = REQ_CAP - 8) -> bytes:
+    """
+    Build a body that always satisfies validate_msg_length():
+
+      req[1] = body_len
+      body is a sequence of records:
+        type 1: 3 junk bytes, 0x01, 4 junk bytes           => 8 bytes
+        type 2: 3 junk bytes, 0x02, u32(len), payload      => 8 + len bytes
+
+    We derive record structure from AFL bytes, but force consistency.
+    """
+    out = bytearray()
+    i = 0
+
+    while i < len(raw) and len(out) + 8 <= max_body:
+        ctrl = raw[i]
+        i += 1
+
+        # First 3 bytes are not checked by validate_msg_length()
+        hdr3, i = take_padded(raw, i, 3)
+
+        # Bit 0 chooses record kind
+        want_type2 = ((ctrl & 1) == 0)
+
+        if want_type2:
+            # One byte chooses payload size, bounded by remaining room
+            if i < len(raw):
+                wanted = raw[i]
+                i += 1
+            else:
+                wanted = 0
+
+            room = max_body - len(out) - 8
+            take = min(wanted, room, MAX_VAR_PAYLOAD, len(raw) - i)
+            payload = raw[i:i + take]
+            i += take
+
+            out += hdr3
+            out += b"\x02"
+            out += p32(len(payload))
+            out += payload
+        else:
+            tail4, i = take_padded(raw, i, 4)
+            out += hdr3
+            out += b"\x01"
+            out += tail4
+
+        # Let AFL also influence record count.
+        # High bit means “stop here” once we have at least one record.
+        if (ctrl & 0x80) and len(out) >= 8:
+            break
+
+    # If AFL gives us almost nothing, still emit one valid record
+    if not out:
+        out += b"\x00\x00\x00\x01" + b"\x00" * 4
+
+    return bytes(out)
 
 def place_input_callback(ql: Qiling, input: bytes, iters: int):
     del iters  # We are not using pers iters
     ql.log.info("%s custom harness!!!! Placing input: %s", filename.upper(), input[:10])
 
     # Example setup
-    REQ_LEN = 0x44
-    RSP_LEN = 0xFBC
+    RSP_LEN = 0x1000
     if len(input) < 8:
         return False
 
@@ -31,13 +99,10 @@ def place_input_callback(ql: Qiling, input: bytes, iters: int):
     ]
     cmd = cmds[input[0] % len(cmds)]
 
-    data = pwn.flat({0: pwn.p32(cmd), 4: input[1:]})
-    data = input
+    body = build_valid_body(input[1:])
+    req = pwn.flat({0: pwn.p32(cmd), 4: pwn.p32(len(body)), 8: body,})
 
-    data = data[:REQ_LEN]
-    data = data + (REQ_LEN - len(data)) * b"\x00"
-
-    cmd_params = QseeCommandParams(data, req_len=REQ_LEN, rsp_len=RSP_LEN)
+    cmd_params = QseeCommandParams(req, req_len=len(req), rsp_len=RSP_LEN)
 
     setup_qsee_fuzz(ql, cmd_params, input)
     return True
