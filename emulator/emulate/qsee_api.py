@@ -20,7 +20,7 @@ from .common import crash, crash_notimpl
 from .gp.utils.printf import parse_fmt_str, fixup_format, read_c_str
 import time
 from typing import TYPE_CHECKING
-from .non_gp.qsee.api_common import _ret, _read_u32
+from .non_gp.qsee.api_common import _ret, _read_u32, _log_args
 from .non_gp.qsee.api_shared_buffers import *
 from .non_gp.qsee.api_cfg import qsee_cfg_getpropval
 from .non_gp.qsee.api_stor_device import *
@@ -586,6 +586,21 @@ def qsee_hmac(ql: Qiling, hook_data: "HookData"):
     ql.mem.write(out, bytes(range(0x20)))
     _ret(ql, 0)
 
+def qsee_set_bandwidth(ql: Qiling, hook_data: "HookData"):
+    args = ql.os.resolve_fcall_params({
+        "client_name": STRING,
+        "client_name_len": INT,
+        "resource_or_bus_id": INT,
+        "bandwidth_vote": INT,
+        "flags_or_reserved": INT,
+    })
+    client_name = args["client_name"]
+    client_name_len = args["client_name_len"]
+    if len(client_name) != args["client_name_len"] - 1:
+        ql.log.warning("qsee_set_bandwidth: client_name length mismatch %d != %d", len(client_name), client_name_len - 1)
+    _log_args(ql, "qsee_set_bandwidth", args)
+    _ret(ql, 0)
+
 GLOBAL_FLAGS = 0
 def qsee_set_global_flag(ql: Qiling, hook_data: "HookData"):
     global GLOBAL_FLAGS
@@ -593,11 +608,11 @@ def qsee_set_global_flag(ql: Qiling, hook_data: "HookData"):
         "flag": INT,
     })
     flag = args["flag"]
-    ql.log.debug("qsee_set_global_flag(%#x)", flag)
+    _log_args(ql, "qsee_set_global_flag", args)
     GLOBAL_FLAGS = flag
     _ret(ql, 0)
 
 def qsee_get_global_flag(ql: Qiling, hook_data: "HookData"):
     global GLOBAL_FLAGS
-    ql.log.debug("qsee_get_global_flag()")
+    _log_args(ql, "qsee_get_global_flag", {})
     _ret(ql, GLOBAL_FLAGS)

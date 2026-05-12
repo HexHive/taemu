@@ -35,6 +35,8 @@ def qsee_cfg_getpropval(ql: Qiling, hook_data: 'HookData'):
     })
 
     prop = args["prop"]
+    if len(prop) != args["prop_len"] - 1:
+        ql.log.warning("qsee_cfg_getpropval: prop length mismatch %d != %d", len(prop), args["prop_len"] - 1)
     out = args["out"]
     out_len = args["out_len"]
     ret_size = args["ret_size"]

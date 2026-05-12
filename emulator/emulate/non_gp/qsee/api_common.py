@@ -18,3 +18,11 @@ def _ret(ql: Qiling, value: int):
 
 def _read_u32(ql: Qiling, ptr: int) -> int:
     return struct.unpack("<I", ql.mem.read(ptr, 4))[0] & 0xffffffff
+
+def _log_args(ql: Qiling, name: str, args: dict):
+    ql.log.info(
+        "%s(%s), back to %#x",
+        name,
+        ", ".join(f"{k}={v:#x}" if isinstance(v, int) else f"{k}={v}" for k, v in args.items()),
+        ql.arch.regs.lr,
+    )

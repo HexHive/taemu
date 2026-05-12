@@ -132,13 +132,6 @@ def _write_hash_output(ql: Qiling, out: int) -> bool:
     return _write_hash_segment(ql, segments)
 
 
-def _log_args(ql: Qiling, name: str, args: dict):
-    ql.log.info(
-        "%s(%s), back to %#x",
-        name,
-        ", ".join(f"{k}={v:#x}" if isinstance(v, int) else f"{k}={v}" for k, v in args.items()),
-        ql.arch.regs.lr,
-    )
 
 
 def qsee_SW_GENERIC_ECC_init(ql: Qiling, hook_data: "HookData"):
