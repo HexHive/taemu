@@ -14,9 +14,11 @@ filename = Path(__file__).stem.replace("_fuzz", "")
 REQ_CAP = 0x80000
 RSP_LEN = 0x1000
 
+
 def take_padded(buf: bytes, off: int, n: int) -> tuple[bytes, int]:
-    chunk = buf[off:off + n]
+    chunk = buf[off : off + n]
     return chunk.ljust(n, b"\x00"), off + len(chunk)
+
 
 def build_valid_body(raw: bytes, max_body: int = REQ_CAP - 8) -> bytes:
     """
@@ -50,7 +52,7 @@ def build_valid_body(raw: bytes, max_body: int = REQ_CAP - 8) -> bytes:
         hdr3, i = take_padded(raw, i, 3)
 
         # Bit 0 chooses record kind
-        want_type2 = ((ctrl & 1) == 0)
+        want_type2 = (ctrl & 1) == 0
 
         if want_type2:
             # Use a full u32 length selector so the harness can reach the same
@@ -60,7 +62,7 @@ def build_valid_body(raw: bytes, max_body: int = REQ_CAP - 8) -> bytes:
 
             room = max_body - len(out) - 8
             take = min(wanted, room, len(raw) - i)
-            payload = raw[i:i + take]
+            payload = raw[i : i + take]
             i += take
 
             out += hdr3
@@ -84,6 +86,7 @@ def build_valid_body(raw: bytes, max_body: int = REQ_CAP - 8) -> bytes:
 
     return bytes(out)
 
+
 def place_input_callback(ql: Qiling, input: bytes, iters: int):
     del iters  # We are not using pers iters
     ql.log.info("%s custom harness!!!! Placing input: %s", filename.upper(), input[:10])
@@ -94,16 +97,50 @@ def place_input_callback(ql: Qiling, input: bytes, iters: int):
         return False
 
     cmds = [
-        1,
-        2,
-        3,
-        4,
-        100,  # Test handler!
+        10001,
+        10002,
+        10003,
+        10004,
+        10005,
+        10006,
+        10007,
+        10008,
+        10009,
+        10010,
+        10011,
+        10012,
+        10013,
+        10014,
+        10015,
+        10016,
+        10017,
+        10018,
+        10019,
+        10020,
+        10021,
+        10022,
+        10023,
+        10024,
+        10025,
+        10026,
+        10027,
+        10028,
+        10029,
+        10030,
+        10031,
+        10032,
     ]
+
     cmd = cmds[input[0] % len(cmds)]
 
     body = build_valid_body(input[1:])
-    req = pwn.flat({0: pwn.p32(cmd), 4: pwn.p32(len(body)), 8: body,})
+    req = pwn.flat(
+        {
+            0: pwn.p32(cmd),
+            4: pwn.p32(len(body)),
+            8: body,
+        }
+    )
 
     cmd_params = QseeCommandParams(req, req_len=len(req), rsp_len=RSP_LEN)
 
