@@ -9,3 +9,9 @@ setup_teardown:
 command_handler:
   start: 3000
   end: [3612, 3164]
+
+tz_app_cmd_handler:
+  start: 0x001e0
+  end: [
+    0x0570
+  ]
