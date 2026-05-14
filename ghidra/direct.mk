@@ -61,7 +61,7 @@ $(STAMPS)/%.imported.stamp: $(TA_DIR)/%.elf
 	@touch "$@"
 
 # Re-run only the coverage export against the already imported project.
-$(BBS_DIR)/bb_%.elf.json: $(TA_DIR)/%.json $(STAMPS)/%.imported.stamp 
+$(BBS_DIR)/bb_%.elf.json: $(TA_DIR)/%.json # $(STAMPS)/%.imported.stamp 
 	@mkdir -p "$(BBS_DIR)"
 	$(GHIDRA_SCRIPT) \
 		-process "$*.elf" \
@@ -69,7 +69,7 @@ $(BBS_DIR)/bb_%.elf.json: $(TA_DIR)/%.json $(STAMPS)/%.imported.stamp
 		-postScript coverage_bbs.py \
 		++tee $(TEE)
 
-$(TA_DIR)/%.json: $(TA_DIR)/%.elf $(STAMPS)/%.imported.stamp 
+$(TA_DIR)/%.json: $(TA_DIR)/%.elf # $(STAMPS)/%.imported.stamp 
 	$(GHIDRA_SCRIPT) \
 		-process "$*.elf" \
 		-noanalysis \
