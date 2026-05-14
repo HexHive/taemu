@@ -3,6 +3,7 @@
 from contextlib import contextmanager
 import hashlib
 import struct
+import traceback
 from typing import TYPE_CHECKING, Generator, Tuple
 import pwn
 from qiling import Qiling
@@ -134,17 +135,16 @@ class QseeCommandParams:
 
     def teardown(self, ql: Qiling):
         all_regions = list(self.mem_regions.items())
-        ql.log.debug(f"Unmapping {len(all_regions)} memory regions")
         for addr, size in all_regions:
             try:
+                size = ql.mem.align_up(addr + size) - addr
                 ql.mem.unmap(addr, size)
-                ql.log.warning("Unmapped memory region %#x", addr)
                 del self.mem_regions[addr]
-            except Exception as e:
-                ql.log.error(f"Error unmapping memory: {e}. {e.with_traceback()}")
+            except unicorn.unicorn.UcError:
+                ql.log.error("Error unmapping memory: %s", traceback.format_exc())
         if len(self.mem_regions) > 0:
             _d = {hex(a): hex(s) for a, s in self.mem_regions.items()}
-            ql.log.error(f"Memory regions not cleared: {_d}")
+            ql.log.error("Memory regions not cleared: %s", _d)
         self.resp_mem = None
 
     @contextmanager

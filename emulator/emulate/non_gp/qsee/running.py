@@ -137,7 +137,7 @@ def cleanup_qsee_session_state(
 ) -> None:
     setup_state.teardown(self.ql)
     if clear_active and getattr(self, "_qsee_setup_state", None) is setup_state:
-        self._qsee_setup_state = None
+        delattr(self, "_qsee_setup_state")
 
 
 def setup(self: "TAEMU") -> QseeSessionState | None:
@@ -333,6 +333,84 @@ def start_qsee_interactive(self: "TAEMU"):
     return TEE_SUCCESS
 
 
+def start_qsee_fuzz_replay(self: "TAEMU", input_file: Path, fuzz_harness: Path, rec_cov=False,):
+
+    init_qsee_session_state(self)
+    ret = CElfFile_invoke(self)
+    if ret != TEE_SUCCESS:
+        self.ql.log.warning("CElfFile_invoke ret != TEE_SUCCESS %#0x", ret)
+        return
+
+    setup_state = setup(self)
+    if setup_state is None:
+        ret = self.ql.os.fcall.cc.getReturnValue()
+        self.ql.log.warning("[////Qsee setup////] return != TEE_SUCCESS %#0x", ret)
+        return
+
+    exit_addr = [x for x in self.ta_funcs[TA_Function.CommandHandler].end]
+    exit_hooks = []
+    
+    # import shit
+    spec = importlib.util.spec_from_file_location(
+        os.path.basename(fuzz_harness)[:-3],
+        os.path.abspath(fuzz_harness),
+    )
+    module = importlib.util.module_from_spec(spec)
+    module.__package__ = __package__
+    spec.loader.exec_module(module)
+    place_input_callback = getattr(module, "place_input_callback", None)
+    if place_input_callback is None:
+        raise RuntimeError("place_input_callback not found in '%s' harness file", fuzz_harness)
+
+    exit_hooks.append(
+        self.ql.hook_address(
+            _func_end_emu,
+            QSEE_FUZZ_RET_ADDR_OK,
+            user_data="TA_InvokeCommandReturn",
+        )
+    )
+    for e in exit_addr:
+        exit_hooks.append(
+            self.ql.hook_address(_func_end_emu, e, user_data="TA_InvokeCommand")
+        )
+
+    try:
+        input_data = open(input_file, "rb").read()
+        if not place_input_callback(self.ql, input_data, -1):
+            self.ql.log.warning("place_input returned -1, returning")
+            return
+
+        cov_path = self.get_cov_file_path(
+            os.path.basename(input_file), os.path.dirname(fuzz_harness)
+        )
+
+        with cov_utils.collect_coverage(self.ql, "drcov", cov_path):
+            self.ql.arch.regs.lr = QSEE_FUZZ_RET_ADDR_OK
+            log_regs(self.ql, "[Replay pre-run]")
+            self.ql.run(begin=self.ta_funcs[TA_Function.CommandHandler].start)
+
+        ret = self.ql.os.fcall.cc.getReturnValue()
+        self.log.info("InvokeCommand returned: %#0x", ret)
+        return
+
+    finally:
+
+        for e in exit_hooks:
+            self.ql.hook_del(e)
+
+        ret = teardown(self)
+
+        curr_params = getattr(self, "curr_params")
+        if isinstance(curr_params, QseeCommandParams):
+            curr_params.teardown(self.ql)
+            self.curr_params = None
+
+        if ret != TEE_SUCCESS:
+            self.ql.log.warning(
+                "[////Qsee teardown////] return != TEE_SUCCESS %#0x", ret
+            )
+
+
 def start_qsee_fuzz(
     self: "TAEMU",
     input_file,
@@ -341,7 +419,10 @@ def start_qsee_fuzz(
     rec_cov=False,
 ):
     self.log.info(f"start fuzz args is {input_file} {fuzz_harness} {fuzz_replay}")
-    with self.just_run(cache=True):
+    if fuzz_replay:
+        return start_qsee_fuzz_replay(self, input_file, fuzz_harness, rec_cov)
+    
+    with self.just_run():
         init_qsee_session_state(self)
         ret = CElfFile_invoke(self)
         if ret != TEE_SUCCESS:
@@ -431,20 +512,6 @@ def start_qsee_fuzz(
             return err.errno
         return unicorn.UC_ERR_OK
 
-    if fuzz_replay:
-        self.ql.debugger = self._debugger
-        exit_hooks.append(
-            self.ql.hook_address(
-                _func_end_emu,
-                QSEE_FUZZ_RET_ADDR_OK,
-                user_data="TA_InvokeCommandReturn",
-            )
-        )
-        for e in exit_addr:
-            exit_hooks.append(
-                self.ql.hook_address(_func_end_emu, e, user_data="TA_InvokeCommand")
-            )
-
     for e in exit_addr:
         exit_hooks += [
             self.ql.hook_address(
@@ -459,35 +526,18 @@ def start_qsee_fuzz(
         ]
 
     try:
-        if fuzz_replay:
-            input_data = open(input_file, "rb").read()
-            if not place_input_callback(self.ql, input_data, -1):
-                self.ql.log.warning("place_input returned -1, returning")
-                return
-
-            cov_path = self.get_cov_file_path(
-                os.path.basename(input_file), os.path.dirname(fuzz_harness)
-            )
-
-            with cov_utils.collect_coverage(self.ql, "drcov", cov_path):
-                self.ql.arch.regs.lr = QSEE_FUZZ_RET_ADDR_OK
-                log_regs(self.ql, "[Replay pre-run]")
-                self.ql.run(begin=self.ta_funcs[TA_Function.CommandHandler].start)
-
-        else:
-            self.log.info("[TAEMU] starting afl")
-            log_regs(self.ql, "[Parent pre-run]")
-            self.ql.arch.regs.lr = QSEE_FUZZ_RET_ADDR_OK
-            ql_afl_fuzz_custom(
-                self.ql,
-                input_file=input_file,
-                place_input_callback=place_input_callback_verbose,
-                fuzzing_callback=fuzz_callback_verbose,
-                exits=[QSEE_FUZZ_RET_ADDR_OK],
-                validate_crash_callback=crash_validation,
-                always_validate=True,
-            )
-
+        self.log.info("[TAEMU] starting afl")
+        log_regs(self.ql, "[Parent pre-run]")
+        self.ql.arch.regs.lr = QSEE_FUZZ_RET_ADDR_OK
+        ql_afl_fuzz_custom(
+            self.ql,
+            input_file=input_file,
+            place_input_callback=place_input_callback_verbose,
+            fuzzing_callback=fuzz_callback_verbose,
+            exits=[QSEE_FUZZ_RET_ADDR_OK],
+            validate_crash_callback=crash_validation,
+            always_validate=True,
+        )
         ret = self.ql.os.fcall.cc.getReturnValue()
         self.log.info("InvokeCommand returned: %#0x", ret)
         return
@@ -498,13 +548,10 @@ def start_qsee_fuzz(
             self.ql.hook_del(e)
 
         with self.just_run():
-            ret = teardown(self, setup_state)
+            ret = teardown(self)
 
         curr_params = getattr(self, "curr_params")
         if isinstance(curr_params, QseeCommandParams):
-            self.ql.log.warning(
-                "teardown curr_params, because teardown did not do it ??"
-            )
             curr_params.teardown(self.ql)
             self.curr_params = None
 

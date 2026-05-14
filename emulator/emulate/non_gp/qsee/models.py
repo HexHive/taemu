@@ -187,6 +187,7 @@ class QseeSessionState:
         self._hooks.clear()
 
     def teardown(self, ql: Qiling) -> None:
+        ql.log.debug("teardown QSEE session state")
         self.release_runtime_hooks(ql)
         for addr, size, label in (
             (self.exec_ref_base, self.exec_ref_size, "exec_ref"),
