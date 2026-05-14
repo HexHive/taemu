@@ -1,18 +1,15 @@
-no_pac: true
-
 CElfFile_invoke:
-    start: 0x
-    end: [0x]
-
-setup_teardown:
-    start: 0x
-    end: [0x]
+  start: 290796
+  end: [291340]
 
 command_handler:
-    start: 0x
-    end: [0x]
+  start: 291788
+  end: [292400]
+
+setup_teardown:
+  start: 291528
+  end: [291764]
 
 tz_app_cmd_handler:
-    start: 0x
-    end: [
-    ]
+  start: 512
+  end: [720]
