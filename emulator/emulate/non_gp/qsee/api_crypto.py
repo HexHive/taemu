@@ -2,7 +2,7 @@ from qiling import Qiling
 from qiling.os.const import INT, POINTER
 
 from typing import TYPE_CHECKING
-from .api_common import _ret
+from .api_common import _ret, _log_args
 
 if TYPE_CHECKING:
     from emulate.emulator_no_loader import HookData

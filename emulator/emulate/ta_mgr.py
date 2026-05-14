@@ -184,6 +184,7 @@ class TAEMU:
         self.asan = Asan(self)
         self.exit_non_implemented = None
         self.curr_params = None
+        self._qsee_setup_state = None
         self.session_counter = 0
         self.init_fuzz = False
         self.df_replay_placed = False

@@ -146,10 +146,6 @@ def cmnlib_release(ql: Qiling, hook_data):
     ql.log.info("cmnlib_release, back to %#x", ql.arch.regs.lr)
     _ret(ql, 0)
 
-def acquire_sta_object(ql: Qiling, hook_data):
-    ql.log.info("acquire_sta_object, back to %#x", ql.arch.regs.lr)
-    _ret(ql, 0)
-
 def GPAppLib_init(ql: Qiling, hook_data):
     ql.log.info("GPAppLib_init, back to %#x", ql.arch.regs.lr)
     _ret(ql, 0)
@@ -256,7 +252,7 @@ def lstat(ql: Qiling, hook_data:'HookData'):
     ql.os.fcall.cc.setReturnValue(-1)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-from .non_gp.qsee.qsee_mem import get_qsee_mem_manager, QseeMem, noop_callback
+from .non_gp.qsee.models import HookData, get_active_qsee_session_state
 
 def qsee_open(ql: Qiling, hook_data:'HookData'):
     # Definitly not normal open syscall...
@@ -268,9 +264,9 @@ def qsee_open(ql: Qiling, hook_data:'HookData'):
     dest = args['dest']
     ql.log.info("qsee_open(%s, %#x)", objdid, dest)
 
-    qsee_mem = get_qsee_mem_manager(hook_data.emu)
-    addr = qsee_mem.new_callback(noop_callback)
-    ql.mem.write(dest, pwn.p64(addr))
+    qsee_state = get_active_qsee_session_state(hook_data.emu)
+    obj = qsee_state.open_object(ql, hook_data.emu, objdid)
+    ql.mem.write(dest, pwn.p64(obj.addr))
     _ret(ql, 0)
 
 def qsee_kdf(ql: Qiling, hook_data:'HookData'):
@@ -596,8 +592,8 @@ def qsee_set_bandwidth(ql: Qiling, hook_data: "HookData"):
     })
     client_name = args["client_name"]
     client_name_len = args["client_name_len"]
-    if len(client_name) != args["client_name_len"] - 1:
-        ql.log.warning("qsee_set_bandwidth: client_name length mismatch %d != %d", len(client_name), client_name_len - 1)
+    if len(client_name) != args["client_name_len"]:
+        ql.log.warning("qsee_set_bandwidth: client_name length mismatch %d != %d", len(client_name), client_name_len)
     _log_args(ql, "qsee_set_bandwidth", args)
     _ret(ql, 0)
 

@@ -144,7 +144,7 @@ if __name__ == "__main__":
     ta_path = ta_name
     ta_elf = ELF(ta_path)
 
-    if args.verbose:
+    if args.verbose or os.environ.get("TAEMU_VERBOSE", "0") == "1":
         v = QL_VERBOSE.DEBUG
     else:
         v = QL_VERBOSE.DEFAULT

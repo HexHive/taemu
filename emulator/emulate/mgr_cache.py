@@ -5,6 +5,7 @@ import functools
 import pickle
 
 from .gp.utils.err import TEE_SUCCESS
+from .non_gp.qsee.models import restore_active_qsee_state, save_active_qsee_state
 
 
 if TYPE_CHECKING:
@@ -19,7 +20,7 @@ before v1: we save only ql state.
 with v1: we save ql state and emu HEAP state.
 """
 class TAEMU_State:
-    VERSION="v1"
+    VERSION="v2"
     def __init__(self, taemu: 'TAEMU'):
         self.taemu = taemu
     
@@ -27,7 +28,8 @@ class TAEMU_State:
         emu_state = {
             "HEAP": self.taemu.HEAP,
             "ASAN": self.taemu.asan.save(),
-            "QL": self.taemu.ql.save()
+            "QL": self.taemu.ql.save(),
+            "QSEE": save_active_qsee_state(self.taemu),
         }
         with filename.open("wb") as f:
             pickle.dump(emu_state, f)
@@ -38,6 +40,7 @@ class TAEMU_State:
         self.taemu.ql.restore(saved_states=saved_states["QL"])
         self.taemu.asan.restore(saved_states["ASAN"])
         self.taemu.HEAP = saved_states["HEAP"]
+        restore_active_qsee_state(self.taemu, saved_states.get("QSEE"))
     
     def get_unique_filename(self, fn_name:str, args, kwargs):
         t = self.taemu
