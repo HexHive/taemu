@@ -1,7 +1,13 @@
 #!/bin/bash
 set -e
-for file in "../qsee_nongp/tas"/*.elf; do
-  # Check if any files matched.
+
+if [ $# -gt 0 ]; then
+  files=("$@")
+else
+  files=("../qsee_nongp/tas"/*.elf)
+fi
+
+for file in "${files[@]}"; do
   [ -e "$file" ] || continue
 
   base="$(basename "$file")"
@@ -27,5 +33,10 @@ for file in "../qsee_nongp/tas"/*.elf; do
   }
 
   GHIDRA_MAXMEM=8G GHIDRA_MAX_CPU=10 \
-    make -f direct.mk qsee-nongp-one TARGET="$file" --debug=v
+    make -f direct.mk \
+      own-project qsee-nongp-one \
+      TARGET="$file" \
+      PROJECTS_CONT_DIR=/mnt/.ghidra-projects/qsee_nongp/headless \
+      PROJECTS_HOST_DIR=../.ghidra-projects/qsee_nongp/headless \
+      --debug=v
 done
