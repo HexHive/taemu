@@ -14,15 +14,23 @@ from qiling.os.const import LONGLONG, STRING, INT, BYTE, POINTER, UINT
 
 import time
 from typing import TYPE_CHECKING, Dict
-from .api_common import _ret, _read_u32
-
+from .api_common import _ret, _read_u32, _log_args
 if TYPE_CHECKING:
     from emulate.emulator_no_loader import HookData
     from emulate.ta_mgr import TAEMU
 
 
-__all__ = ["qsee_cfg_getpropval"]
+__all__ = ["qsee_cfg_getpropval", "qsee_query_rpmb_enablement"]
 
+
+def qsee_query_rpmb_enablement(ql: Qiling, hook_data: 'HookData'):
+    args = ql.os.resolve_fcall_params({
+        "enable": POINTER,
+    })
+    _log_args(ql, "qsee_query_rpmb_enablement", args)
+    enable = args["enable"]
+    ql.mem.write(enable, pwn.p32(1))
+    _ret(ql, 0)
 
 def qsee_cfg_getpropval(ql: Qiling, hook_data: 'HookData'):
     args = ql.os.resolve_fcall_params({

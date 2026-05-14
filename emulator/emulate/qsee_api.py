@@ -22,7 +22,7 @@ import time
 from typing import TYPE_CHECKING
 from .non_gp.qsee.api_common import _ret, _read_u32, _log_args
 from .non_gp.qsee.api_shared_buffers import *
-from .non_gp.qsee.api_cfg import qsee_cfg_getpropval
+from .non_gp.qsee.api_cfg import *
 from .non_gp.qsee.api_stor_device import *
 from .non_gp.qsee.api_crypto import *
 
@@ -586,9 +586,9 @@ def qsee_set_bandwidth(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "client_name": STRING,
         "client_name_len": INT,
-        "resource_or_bus_id": INT,
-        "bandwidth_vote": INT,
-        "flags_or_reserved": INT,
+        "bus_id?": INT,
+        "value?": INT,
+        "flags?": INT,
     })
     client_name = args["client_name"]
     client_name_len = args["client_name_len"]
