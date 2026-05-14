@@ -1,12 +1,16 @@
-
 CElfFile_invoke:
-    start: 0xb18
-    end: [0xd38]
-
-setup_teardown:
-    start: 0xdf4
-    end: [0xee0]
-
+    end:
+    - 3384
+    start: 2840
 command_handler:
-    start: 0xef8
-    end: [0x115c]
+    end:
+    - 4444
+    start: 3832
+setup_teardown:
+    end:
+    - 3808
+    start: 3572
+tz_app_cmd_handler:
+    end:
+    - 2104
+    start: 1888
