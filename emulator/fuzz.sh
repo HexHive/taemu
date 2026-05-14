@@ -80,12 +80,12 @@ chmod -R 777 "$fuzz_in"
 chmod -R 777 "$fuzz_out"
 
 ta_name="${ta%.*}"
-cp -n "$ta" rootfs/
+cp -u "$ta" rootfs/
 
 v1a="${ta%.*}.yml"
 v1b="${ta%.*}.json"
 
-cp "$v1a" "rootfs/" || cp "$v1b" "rootfs/" || { echo "File $v1a or $v1b not found" && exit 1; }
+cp -u "$v1a" "rootfs/" || cp -u "$v1b" "rootfs/" || { echo "File $v1a or $v1b not found" && exit 1; }
 
 if [ -z "$2" ]; then
     echo "Starting fuzzing..."
