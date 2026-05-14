@@ -152,7 +152,7 @@ for harness in "${harnesses[@]}"; do
     fi
     container_shell="$container_shell; status=\$?; /srv/medic/ntfy-hook.sh afl-stopped $(quote_one "$container_harness") $(quote_one "$container_fuzz_out") \"exit_status=\$status\"; echo; echo \"fuzz.sh exited with status \$status\"; exec bash -i"
 
-    docker_cmd+=("$DOCKER_IMAGE" bash -ic "set -x; $container_shell")
+    docker_cmd+=("$DOCKER_IMAGE" bash -ic "set -x; env | grep -e AFL -e TAEMU; $container_shell")
 
     window_cmd="$(quote_cmd "${docker_cmd[@]}")"
     echo "Starting tmux window: $name on CPU $core"
