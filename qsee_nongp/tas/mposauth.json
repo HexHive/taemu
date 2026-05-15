@@ -1,0 +1,20 @@
+{
+  "CElfFile_invoke_start": 77172,
+  "CElfFile_invoke_end": [
+    77708
+  ],
+  "setup_teardown_start": 77900,
+  "setup_teardown_end": [
+    78128
+  ],
+  "command_handler_start": 78156,
+  "command_handler_end": [
+    78744
+  ],
+  "tz_app_cmd_handler_start": 39540,
+  "tz_app_cmd_handler_end": [
+    40316,
+    39752,
+    40328
+  ]
+}
