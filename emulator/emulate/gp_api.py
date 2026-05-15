@@ -207,6 +207,8 @@ def TEE_LogPrintf(ql: Qiling, hook_data):
         format_param_ptr = ql.os.resolve_fcall_params({"format": POINTER})["format"]
         hook_data.emu.update_shm(format_param_ptr)
         format_param = ql.mem.string(format_param_ptr)
+        ql.log.debug("format_param: '%s'", format_param)
+        ql.log.debug("Back to %#x", ql.arch.regs.lr)
         final_params = {"format": STRING}
         params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
         string_params = [params[f"{i}"] for i in range(0, len(params))]

@@ -335,17 +335,18 @@ def start_qsee_interactive(self: "TAEMU"):
 
 def start_qsee_fuzz_replay(self: "TAEMU", input_file: Path, fuzz_harness: Path, rec_cov=False,):
 
-    init_qsee_session_state(self)
-    ret = CElfFile_invoke(self)
-    if ret != TEE_SUCCESS:
-        self.ql.log.warning("CElfFile_invoke ret != TEE_SUCCESS %#0x", ret)
-        return
+    with self.just_run():
+        init_qsee_session_state(self)
+        ret = CElfFile_invoke(self)
+        if ret != TEE_SUCCESS:
+            self.ql.log.warning("CElfFile_invoke ret != TEE_SUCCESS %#0x", ret)
+            return
 
-    setup_state = setup(self)
-    if setup_state is None:
-        ret = self.ql.os.fcall.cc.getReturnValue()
-        self.ql.log.warning("[////Qsee setup////] return != TEE_SUCCESS %#0x", ret)
-        return
+        setup_state = setup(self)
+        if setup_state is None:
+            ret = self.ql.os.fcall.cc.getReturnValue()
+            self.ql.log.warning("[////Qsee setup////] return != TEE_SUCCESS %#0x", ret)
+            return
 
     exit_addr = [x for x in self.ta_funcs[TA_Function.CommandHandler].end]
     exit_hooks = []
@@ -398,7 +399,8 @@ def start_qsee_fuzz_replay(self: "TAEMU", input_file: Path, fuzz_harness: Path, 
         for e in exit_hooks:
             self.ql.hook_del(e)
 
-        ret = teardown(self)
+        with self.just_run():
+            ret = teardown(self)
 
         curr_params = getattr(self, "curr_params")
         if isinstance(curr_params, QseeCommandParams):
