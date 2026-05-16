@@ -300,7 +300,7 @@ def load_harness_paths(args: argparse.Namespace) -> list[Path]:
         root = Path(args.harness_root).resolve()
         if not root.is_dir():
             raise BatchError(f"harness root not found: {root}")
-        return sorted(path.resolve() for path in root.iterdir() if path.is_dir())
+        return sorted(path.resolve() for path in root.iterdir() if path.is_dir() and not has_ignore_file(path))
 
     if args.manifest:
         manifest = Path(args.manifest).resolve()
@@ -320,6 +320,10 @@ def load_harness_paths(args: argparse.Namespace) -> list[Path]:
         return paths
 
     return [Path(path).resolve() for path in args.harnesses]
+
+
+def has_ignore_file(path: Path) -> bool:
+    return any(child.is_file() and child.name.startswith("IGNORE") for child in path.iterdir())
 
 
 def validate_harness(path: Path) -> Harness:
