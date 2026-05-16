@@ -101,20 +101,64 @@ class QseeSessionState:
         self.exec_ref_next += QSEE_EXEC_REF_SLOT_SIZE
         return addr
 
-    def _bind_callback(
+    def _find_callback(self, addr: int) -> QseeCallback | None:
+        for callback in self.callbacks:
+            if callback.addr == addr:
+                return callback
+        return None
+
+    def _dispatch_callback(
+        self,
+        ql: Qiling,
+        hook_data: tuple["TAEMU", int],
+    ) -> None:
+        emu, addr = hook_data
+        callback = self._find_callback(addr)
+        if callback is None:
+            ql.log.warning("Unknown QSEE callback ref executed at %#x", addr)
+            return
+
+        hook_fn = _resolve_callback(callback.kind)
+        hook_fn(ql, HookData(emu, callback.name))
+
+    def _bind_callback_addr(
         self,
         ql: Qiling,
         emu: "TAEMU",
-        callback: QseeCallback,
+        addr: int,
+        *,
+        force: bool = False,
     ) -> None:
-        if callback.addr in self._hooks:
+        if not force and addr in self._hooks:
             return
-        hook_fn = _resolve_callback(callback.kind)
-        self._hooks[callback.addr] = ql.hook_address(
-            hook_fn,
-            callback.addr,
-            user_data=HookData(emu, callback.name),
+
+        if force:
+            self._release_callback_hook(ql, addr)
+
+        self._hooks[addr] = ql.hook_address(
+            self._dispatch_callback,
+            addr,
+            user_data=(emu, addr),
         )
+
+    def bind_exec_ref_slots(self, ql: Qiling, emu: "TAEMU", *, force: bool = False) -> None:
+        for slot in range(QSEE_EXEC_REF_MAX_SLOTS):
+            self._bind_callback_addr(
+                ql,
+                emu,
+                self.exec_ref_base + slot * QSEE_EXEC_REF_SLOT_SIZE,
+                force=force,
+            )
+
+    def _release_callback_hook(self, ql: Qiling, addr: int) -> None:
+        hook = self._hooks.pop(addr, None)
+        if hook is None:
+            return
+
+        try:
+            ql.hook_del(hook)
+        except Exception as exc:
+            ql.log.debug("Failed to delete stale QSEE callback hook at %#x: %s", addr, exc)
 
     def _allocate_callback(
         self,
@@ -134,7 +178,7 @@ class QseeSessionState:
             singleton_key=singleton_key,
         )
         self.callbacks.append(callback)
-        self._bind_callback(ql, emu, callback)
+        self._bind_callback_addr(ql, emu, callback.addr)
         return callback
 
     def register_named_noop(
@@ -177,14 +221,11 @@ class QseeSessionState:
         )
 
     def rebind_runtime(self, ql: Qiling, emu: "TAEMU") -> None:
-        self._hooks.clear()
-        for callback in self.callbacks:
-            self._bind_callback(ql, emu, callback)
+        self.bind_exec_ref_slots(ql, emu, force=True)
 
     def release_runtime_hooks(self, ql: Qiling) -> None:
-        for hook in self._hooks.values():
-            ql.hook_del(hook)
-        self._hooks.clear()
+        for addr in list(self._hooks):
+            self._release_callback_hook(ql, addr)
 
     def teardown(self, ql: Qiling) -> None:
         ql.log.debug("teardown QSEE session state")
@@ -276,6 +317,10 @@ def restore_active_qsee_state(
 ) -> QseeSessionState | None:
     if snapshot is None:
         raise RuntimeError("QSEE snapshot payload is missing for cached CElfFile_invoke restore")
+
+    old_state = getattr(emu, "_qsee_setup_state", None)
+    if old_state is not None:
+        old_state.release_runtime_hooks(emu.ql)
 
     state = QseeSessionState.from_snapshot(snapshot)
     state.rebind_runtime(emu.ql, emu)

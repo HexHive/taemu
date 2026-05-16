@@ -115,6 +115,7 @@ def init_qsee_session_state(self: "TAEMU") -> QseeSessionState:
         exec_ref_size=QSEE_EXEC_REF_TOTAL_SIZE,
         exec_ref_next=exec_ref_next,
     )
+    setup_state.bind_exec_ref_slots(self.ql, self)
 
     ref_0 = setup_state.reserve_exec_ref_slot()
     # This address is not called, if it points to NULL

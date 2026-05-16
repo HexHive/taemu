@@ -266,6 +266,7 @@ def qsee_open(ql: Qiling, hook_data:'HookData'):
 
     qsee_state = get_active_qsee_session_state(hook_data.emu)
     obj = qsee_state.open_object(ql, hook_data.emu, objdid)
+    ql.log.debug("object opened: %#x", obj.addr)
     ql.mem.write(dest, pwn.p64(obj.addr))
     _ret(ql, 0)
 
