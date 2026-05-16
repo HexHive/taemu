@@ -1,0 +1,15 @@
+CElfFile_invoke:
+  end:
+    - 57448
+  start: 56904
+command_handler:
+  end:
+    - 58508
+  start: 57896
+setup_teardown:
+  end:
+    - 57872
+  start: 57636
+tz_app_cmd_handler:
+  end: [10652, 10776, 10768]
+  start: 10448
