@@ -16,13 +16,18 @@ def place_input_callback(ql: Qiling, input: bytes, iters: int):
     del iters  # We are not using pers iters
     ql.log.info("%s custom harness!!!! Placing input: %s", filename.upper(), input[:10])
 
-    # Example setup
-    REQ_LEN = 0x1000
-    RSP_LEN = 0x1000
-    if len(input) < 8:
-        return False
+    # Example values, they just have to be >=0x20, and >=0x8
+    REQ_LEN = 0x20
+    RSP_LEN = 0x20
 
-    cmds = [0,1,2,3,4,5]
+    cmds = [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+    ]
     cmd = cmds[input[0] % len(cmds)]
 
     data = pwn.flat({0: pwn.p32(cmd), 4: input[1:]})
