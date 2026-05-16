@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import fnmatch
 import json
 import os
 import re
@@ -29,8 +30,10 @@ DEFAULT_REPEAT = 5
 DEFAULT_FUZZTIME = 86400
 DEFAULT_FUZZTIME_GRACE = 60
 DEFAULT_SHM_SIZE = "100g"
+DEFAULT_REPLAY_TIMEOUT = 120
 STOP_REQUEST_FILE = "STOP_REQUESTED"
 STATE_ORDER = ("planned", "running", "done", "timed_out", "failed", "interrupted")
+TRIAGE_RESULT_TYPES = {"real-crash", "function-missing", "hang", "triage-failed"}
 
 
 class BatchError(Exception):
@@ -656,9 +659,13 @@ def build_docker_command(args: argparse.Namespace, run_dir: Path, job: Job, cpu:
     ]
     shell = (
         "set -u; "
+        "status=0; notified=0; "
+        f"notify_stop() {{ if [ \"$notified\" -eq 0 ]; then notified=1; {quote_cmd(notify_cmd)} \"exit_status=$status\" || true; fi; }}; "
+        "trap 'status=$?; notify_stop; exit $status' EXIT; "
+        "trap 'status=130; notify_stop; exit $status' INT; "
+        "trap 'status=143; notify_stop; exit $status' TERM; "
         f"{quote_cmd(fuzz_cmd)}; "
         "status=$?; "
-        f"{quote_cmd(notify_cmd)} \"exit_status=$status\"; "
         "exit $status"
     )
 
@@ -721,6 +728,169 @@ def docker_env(args: argparse.Namespace) -> dict[str, str]:
 
 def docker_stop(container_name: str) -> None:
     subprocess.run(["docker", "stop", container_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+
+
+def rewrite_campaign_path(raw: str | None, run_dir: Path, original_run_dir: str | None) -> Path | None:
+    if not raw:
+        return None
+    raw_path = Path(raw)
+    if original_run_dir:
+        original = Path(original_run_dir).as_posix().rstrip("/")
+        raw_posix = raw_path.as_posix()
+        if raw_posix == original:
+            return run_dir
+        if raw_posix.startswith(original + "/"):
+            return run_dir / raw_posix[len(original) + 1 :]
+    if raw_path.is_absolute():
+        return raw_path
+    return run_dir / raw_path
+
+
+def campaign_container_path(local_path: Path, run_dir: Path) -> str:
+    try:
+        rel = local_path.resolve().relative_to(run_dir.resolve())
+    except ValueError as exc:
+        raise BatchError(f"path is not inside run-dir and cannot be mounted as /campaign: {local_path}") from exc
+    return f"/campaign/{rel.as_posix()}"
+
+
+def parse_artifact_kinds(raw: str) -> set[str]:
+    aliases = {
+        "crash": "crashes",
+        "crashes": "crashes",
+        "hang": "hangs",
+        "hangs": "hangs",
+    }
+    kinds: set[str] = set()
+    for part in raw.split(","):
+        value = part.strip().lower()
+        if not value:
+            continue
+        kind = aliases.get(value)
+        if kind is None:
+            raise BatchError(f"invalid --artifacts value: {part}; expected crashes, hangs, or both")
+        kinds.add(kind)
+    if not kinds:
+        raise BatchError("--artifacts must select crashes, hangs, or both")
+    return kinds
+
+
+def parse_csv_filter(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    return [part.strip() for part in raw.split(",") if part.strip()]
+
+
+def matches_any_pattern(values: list[str], patterns: list[str]) -> bool:
+    if not patterns:
+        return True
+    for pattern in patterns:
+        for value in values:
+            if value == pattern or fnmatch.fnmatch(value, pattern):
+                return True
+    return False
+
+
+def discover_triage_artifacts(out_dir: Path, artifact_kinds: set[str]) -> list[dict[str, Any]]:
+    default_dir = out_dir / "default"
+    if not default_dir.is_dir():
+        return []
+    artifacts: list[dict[str, Any]] = []
+    for pattern, kind in (("crashes*", "crashes"), ("hangs*", "hangs")):
+        if kind not in artifact_kinds:
+            continue
+        for artifact_dir in sorted(default_dir.glob(pattern)):
+            if not artifact_dir.is_dir():
+                continue
+            for artifact in sorted(artifact_dir.iterdir()):
+                if not artifact.is_file() or artifact.name == "README.txt":
+                    continue
+                stat = artifact.stat()
+                artifacts.append(
+                    {
+                        "kind": kind,
+                        "path": artifact,
+                        "source_dir": artifact_dir,
+                        "mtime": int(stat.st_mtime),
+                        "size": stat.st_size,
+                    }
+                )
+    artifacts.sort(key=lambda item: (item["mtime"], str(item["path"])))
+    return artifacts
+
+
+def safe_artifact_name(path: Path) -> str:
+    parent = safe_name(path.parent.name)
+    name = re.sub(r"[^A-Za-z0-9_.:+=,@%-]+", "_", path.name)
+    return f"{parent}__{name}"
+
+
+def parse_triage_output(output: str) -> tuple[str, str]:
+    for line in reversed(output.splitlines()):
+        if "\t" not in line:
+            continue
+        result_type, detail = line.split("\t", 1)
+        if result_type in TRIAGE_RESULT_TYPES:
+            return result_type, detail
+    stripped = output.strip().replace("\n", " | ")
+    return "triage-failed", f"reason=unparseable-output output={stripped[:500]}"
+
+
+def build_replay_docker_command(
+    args: argparse.Namespace,
+    run_dir: Path,
+    harness_relpath: str,
+    fuzz_out: Path,
+    report_dir: Path,
+    artifact: Path,
+) -> list[str]:
+    cmd = [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "host",
+        "--volume",
+        f"{REPO_ROOT}:/srv",
+        "--volume",
+        f"{run_dir}:/campaign",
+        "--workdir",
+        "/srv/emulator",
+        "--shm-size",
+        DEFAULT_SHM_SIZE,
+        "--ipc",
+        "host",
+        "--user",
+        "root",
+        "-e",
+        "AFL_NO_AFFINITY=1",
+        "-e",
+        "TAEMU_CRASH_NOTIMPL=1",
+        "-e",
+        f"REPLAY_FUZZ_TIMEOUT={args.replay_timeout}",
+    ]
+    for key in ("NTFY_TOKEN", "NTFY_TOPIC", "NTFY_URL"):
+        if os.environ.get(key):
+            cmd.extend(["-e", f"{key}={os.environ[key]}"])
+    cmd.extend(
+        [
+            args.image,
+            "/srv/medic/replay-fuzz.sh",
+            f"/srv/{harness_relpath}",
+            campaign_container_path(fuzz_out, run_dir),
+            campaign_container_path(report_dir, run_dir),
+            campaign_container_path(artifact, run_dir),
+        ]
+    )
+    return cmd
+
+
+def notify_backfill_real_crash(harness_path: str, fuzz_out: Path, detail: str) -> None:
+    subprocess.run(
+        [str(REPO_ROOT / "medic" / "ntfy-hook.sh"), "real-crash", harness_path, str(fuzz_out), detail],
+        cwd=REPO_ROOT,
+        check=False,
+    )
 
 
 def read_states(run_dir: Path) -> list[dict[str, Any]]:
@@ -1017,6 +1187,159 @@ def cmd_stop(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_triage_missed(args: argparse.Namespace) -> int:
+    run_dir = Path(args.run_dir).resolve()
+    if not run_dir.is_dir():
+        raise BatchError(f"run-dir not found: {run_dir}")
+    if not args.dry_run and shutil.which("docker") is None:
+        raise BatchError("docker is not available on PATH")
+
+    states = read_states(run_dir)
+    allowed_states = {state.strip() for state in args.jobs.split(",") if state.strip()}
+    if not allowed_states:
+        raise BatchError("--jobs must contain at least one state")
+    artifact_kinds = parse_artifact_kinds(args.artifacts)
+    harness_patterns = parse_csv_filter(args.harnesses)
+
+    selected: list[dict[str, Any]] = []
+    for state in states:
+        if state.get("state") not in allowed_states:
+            continue
+        job_id = state.get("job_id")
+        harness_relpath = state.get("harness_relpath")
+        if not job_id or not harness_relpath:
+            continue
+        harness_name = str(state.get("harness") or Path(harness_relpath).name)
+        if not matches_any_pattern([str(job_id), harness_name, str(harness_relpath)], harness_patterns):
+            continue
+        out_dir = rewrite_campaign_path(state.get("out_dir"), run_dir, args.original_run_dir)
+        if out_dir is None:
+            out_dir = run_dir / "jobs" / job_id / "out"
+        artifacts = discover_triage_artifacts(out_dir, artifact_kinds)
+        for artifact in artifacts:
+            selected.append(
+                {
+                    "state": state,
+                    "job_id": job_id,
+                    "harness_relpath": harness_relpath,
+                    "out_dir": out_dir,
+                    "artifact": artifact,
+                }
+            )
+
+    if args.dry_run:
+        print(f"dry-run: jobs={len({item['job_id'] for item in selected})} artifacts={len(selected)}")
+        for item in selected[: args.limit or len(selected)]:
+            artifact = item["artifact"]
+            print(f"{item['job_id']}\t{artifact['kind']}\t{artifact['path']}")
+        if args.limit and len(selected) > args.limit:
+            print(f"... {len(selected) - args.limit} more artifacts omitted by --limit")
+        return 0
+
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    backfill_dir = run_dir / "backfill-triage" / timestamp
+    artifacts_root = backfill_dir / "artifacts"
+    reports_root = backfill_dir / "reports"
+    backfill_dir.mkdir(parents=True)
+    artifacts_root.mkdir()
+    reports_root.mkdir()
+
+    manifest_path = backfill_dir / "manifest.tsv"
+    results_jsonl = backfill_dir / "results.jsonl"
+    summary_tsv = backfill_dir / "summary.tsv"
+    text_outputs = {
+        "real-crash": backfill_dir / "real-crashes.txt",
+        "function-missing": backfill_dir / "function-missing.txt",
+        "hang": backfill_dir / "hangs.txt",
+        "triage-failed": backfill_dir / "triage-failed.txt",
+    }
+    counts = {result_type: 0 for result_type in TRIAGE_RESULT_TYPES}
+
+    with manifest_path.open("w", newline="") as manifest_fh, summary_tsv.open("w", newline="") as summary_fh:
+        manifest = csv.writer(manifest_fh, delimiter="\t")
+        summary = csv.writer(summary_fh, delimiter="\t")
+        manifest.writerow(["job_id", "kind", "source_path", "local_copy", "mtime", "size"])
+        summary.writerow(["job_id", "kind", "result", "replay_status", "source_path", "local_copy", "report_dir", "detail"])
+
+        for index, item in enumerate(selected, start=1):
+            if args.limit and index > args.limit:
+                break
+            artifact = item["artifact"]
+            job_id = item["job_id"]
+            kind = artifact["kind"]
+            source_path = artifact["path"]
+            local_artifact_dir = artifacts_root / job_id / kind
+            local_artifact_dir.mkdir(parents=True, exist_ok=True)
+            local_copy = local_artifact_dir / safe_artifact_name(source_path)
+            report_dir = reports_root / job_id / f"{index:06d}-{safe_name(kind)}"
+            report_dir.mkdir(parents=True, exist_ok=True)
+
+            try:
+                shutil.copy2(source_path, local_copy)
+                manifest.writerow([job_id, kind, source_path, local_copy, artifact["mtime"], artifact["size"]])
+                cmd = build_replay_docker_command(
+                    args,
+                    run_dir,
+                    item["harness_relpath"],
+                    item["out_dir"],
+                    report_dir,
+                    local_copy,
+                )
+                completed = subprocess.run(
+                    cmd,
+                    cwd=REPO_ROOT,
+                    text=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    timeout=args.replay_timeout + 30,
+                    check=False,
+                )
+                result_type, detail = parse_triage_output(completed.stdout)
+                if completed.returncode != 0 and result_type != "triage-failed":
+                    detail = f"{detail} docker_status={completed.returncode}"
+            except Exception as exc:
+                result_type = "triage-failed"
+                detail = f"reason=exception error={exc}"
+
+            counts[result_type] = counts.get(result_type, 0) + 1
+            replay_status = "-"
+            match = re.search(r"(?:^| )replay_status=([^ ]+)", detail)
+            if match:
+                replay_status = match.group(1)
+            summary.writerow([job_id, kind, result_type, replay_status, source_path, local_copy, report_dir, detail])
+            with results_jsonl.open("a") as results_fh:
+                results_fh.write(
+                    json.dumps(
+                        {
+                            "job_id": job_id,
+                            "harness_relpath": item["harness_relpath"],
+                            "kind": kind,
+                            "result": result_type,
+                            "replay_status": replay_status,
+                            "source_path": str(source_path),
+                            "local_copy": str(local_copy),
+                            "report_dir": str(report_dir),
+                            "detail": detail,
+                        },
+                        sort_keys=True,
+                    )
+                    + "\n"
+                )
+            with text_outputs.get(result_type, text_outputs["triage-failed"]).open("a") as out_fh:
+                out_fh.write(f"{job_id}\t{kind}\t{source_path}\t{detail}\n")
+            print(f"[{index}/{len(selected)}] {result_type} {job_id} {kind} {source_path}", flush=True)
+
+            if result_type == "real-crash" and not args.no_notify:
+                notify_backfill_real_crash(f"/srv/{item['harness_relpath']}", item["out_dir"], detail)
+
+    print(
+        "backfill complete: "
+        + " ".join(f"{result_type}={counts.get(result_type, 0)}" for result_type in sorted(counts))
+        + f" dir={backfill_dir}"
+    )
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run fixed-slot Docker fuzzing batches.")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -1052,6 +1375,33 @@ def build_parser() -> argparse.ArgumentParser:
     stop = subparsers.add_parser("stop", help="stop running containers recorded in a campaign")
     stop.add_argument("--run-dir", required=True)
     stop.set_defaults(func=cmd_stop)
+
+    triage = subparsers.add_parser("triage-missed", help="replay and classify saved AFL crashes/hangs from a campaign")
+    triage.add_argument("--run-dir", required=True, help="local campaign directory")
+    triage.add_argument(
+        "--original-run-dir",
+        help="original absolute campaign root embedded in status files; rewritten to --run-dir when reading artifacts",
+    )
+    triage.add_argument(
+        "--jobs",
+        default="running,done,timed_out,failed,interrupted",
+        help="comma-separated job states to scan; default includes running/done/timed_out/failed/interrupted",
+    )
+    triage.add_argument(
+        "--artifacts",
+        default="crashes,hangs",
+        help="artifact kinds to scan: crashes, hangs, or crashes,hangs; default crashes,hangs",
+    )
+    triage.add_argument(
+        "--harnesses",
+        help="comma-separated harness/job filters; matches harness name, harness relpath, or job id, with shell globs",
+    )
+    triage.add_argument("--replay-timeout", type=int, default=DEFAULT_REPLAY_TIMEOUT, help=f"default {DEFAULT_REPLAY_TIMEOUT}")
+    triage.add_argument("--image", default=DEFAULT_IMAGE, help=f"Docker image; default {DEFAULT_IMAGE}")
+    triage.add_argument("--limit", type=int, help="process at most this many artifacts")
+    triage.add_argument("--no-notify", action="store_true", help="do not send ntfy notifications for real crashes")
+    triage.add_argument("--dry-run", action="store_true", help="list selected artifacts without copying or replaying")
+    triage.set_defaults(func=cmd_triage_missed)
 
     return parser
 

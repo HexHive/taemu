@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-    echo "usage: $0 <function-missing|default-message|real-crash|afl-stopped> <harness_path> <fuzz_out> [detail]"
+    echo "usage: $0 <function-missing|default-message|real-crash|hang|triage-failed|afl-stopped> <harness_path> <fuzz_out> [detail]"
 }
 
 message_type="${1:-}"
@@ -16,7 +16,7 @@ shift
 # Backward compatibility for the old AFL -I contract:
 # ntfy-hook.sh <harness_path> <fuzz_out>
 case "$message_type" in
-    function-missing|default-message|real-crash|afl-stopped) ;;
+    function-missing|default-message|real-crash|hang|triage-failed|afl-stopped) ;;
     *)
         set -- "$message_type" "$@"
         message_type="default-message"
@@ -65,6 +65,16 @@ case "$message_type" in
         priority="high"
         tags="rotating_light"
         ;;
+    hang)
+        title="hang: $harness_name"
+        priority="default"
+        tags="hourglass"
+        ;;
+    triage-failed)
+        title="triage failed: $harness_name"
+        priority="default"
+        tags="warning"
+        ;;
     afl-stopped)
         title="AFL stopped: $harness_name"
         priority="default"
@@ -84,10 +94,21 @@ if [ -n "$detail" ]; then
 detail=$detail"
 fi
 
-curl -fsS \
-    -H "Authorization: Bearer $NTFY_TOKEN" \
-    -H "Title: $title" \
-    -H "Priority: $priority" \
-    -H "Tags: $tags" \
-    -d "$message" \
-    "$ntfy_url/$NTFY_TOPIC"
+for attempt in 1 2 3 4; do
+    if curl -fsS \
+        --connect-timeout 10 \
+        --max-time 30 \
+        -H "Authorization: Bearer $NTFY_TOKEN" \
+        -H "Title: $title" \
+        -H "Priority: $priority" \
+        -H "Tags: $tags" \
+        -d "$message" \
+        "$ntfy_url/$NTFY_TOPIC"; then
+        exit 0
+    fi
+    if [ "$attempt" -lt 4 ]; then
+        sleep 2
+    fi
+done
+
+exit 1
