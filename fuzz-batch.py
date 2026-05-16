@@ -405,9 +405,9 @@ def copy_or_seed_corpus(harness: Harness, dst: Path) -> None:
 def generate_jobs(run_dir: Path, harnesses: list[Harness], repeat: int) -> list[Job]:
     jobs: list[Job] = []
     used_ids: set[str] = set()
-    for harness in harnesses:
-        base = safe_name(harness.name)
-        for repeat_index in range(1, repeat + 1):
+    for repeat_index in range(1, repeat + 1):
+        for harness in harnesses:
+            base = safe_name(harness.name)
             job_id = f"{base}-r{repeat_index:03d}"
             if job_id in used_ids:
                 job_id = f"{safe_name(str(harness.relpath))}-r{repeat_index:03d}"
@@ -486,6 +486,7 @@ def append_scheduler_log(run_dir: Path, message: str) -> None:
 
 def job_to_state(job: Job) -> dict[str, Any]:
     crash_stats = get_crash_stats(job)
+    afl_stats = read_afl_stats(job.out_dir)
     return {
         "job_id": job.job_id,
         "state": job.state,
@@ -505,6 +506,7 @@ def job_to_state(job: Job) -> dict[str, Any]:
         "log_path": str(job.log_path) if job.log_path else None,
         "crash_count": crash_stats["crash_count"],
         "latest_crash": crash_stats["latest_crash"],
+        "afl_stats": afl_stats,
     }
 
 
@@ -536,6 +538,95 @@ def get_crash_stats(job: Job) -> dict[str, Any]:
 def update_crash_stats(_job: Job) -> None:
     # Crash stats are computed from disk when state is written.
     return
+
+
+def read_afl_stats(out_dir: Path) -> dict[str, Any] | None:
+    stats_path = out_dir / "default" / "fuzzer_stats"
+    if not stats_path.is_file():
+        return None
+    raw: dict[str, str] = {}
+    try:
+        for line in stats_path.read_text(errors="replace").splitlines():
+            if ":" not in line:
+                continue
+            key, value = line.split(":", 1)
+            raw[key.strip()] = value.strip()
+    except OSError as exc:
+        return {"error": str(exc), "path": str(stats_path)}
+
+    stats: dict[str, Any] = {"path": str(stats_path), "raw": raw}
+    int_keys = {
+        "start_time",
+        "last_update",
+        "run_time",
+        "fuzzer_pid",
+        "cycles_done",
+        "cycles_wo_finds",
+        "time_wo_finds",
+        "fuzz_time",
+        "calibration_time",
+        "sync_time",
+        "trim_time",
+        "execs_done",
+        "corpus_count",
+        "corpus_favored",
+        "corpus_found",
+        "corpus_imported",
+        "corpus_variable",
+        "max_depth",
+        "cur_item",
+        "pending_favs",
+        "pending_total",
+        "saved_crashes",
+        "saved_hangs",
+        "total_tmout",
+        "last_find",
+        "last_crash",
+        "last_hang",
+        "execs_since_crash",
+        "exec_timeout",
+        "slowest_exec_ms",
+        "peak_rss_mb",
+        "edges_found",
+        "total_edges",
+    }
+    float_keys = {"execs_per_sec", "execs_ps_last_min"}
+    percent_keys = {"stability", "bitmap_cvg"}
+    for key, value in raw.items():
+        if key in int_keys:
+            stats[key] = parse_int(value)
+        elif key in float_keys:
+            stats[key] = parse_float(value)
+        elif key in percent_keys:
+            stats[key] = parse_percent(value)
+        elif key in {"afl_banner", "afl_version", "target_mode", "command_line"}:
+            stats[key] = value
+    now = int(time.time())
+    if isinstance(stats.get("last_update"), int):
+        stats["last_update_ago"] = max(0, now - stats["last_update"])
+    if isinstance(stats.get("last_find"), int) and stats["last_find"] > 0:
+        stats["last_find_ago"] = max(0, now - stats["last_find"])
+    if isinstance(stats.get("last_crash"), int) and stats["last_crash"] > 0:
+        stats["last_crash_ago"] = max(0, now - stats["last_crash"])
+    return stats
+
+
+def parse_int(value: str) -> int | None:
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+
+def parse_float(value: str) -> float | None:
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
+
+def parse_percent(value: str) -> float | None:
+    return parse_float(value.rstrip("%"))
 
 
 def build_docker_command(args: argparse.Namespace, run_dir: Path, job: Job, cpu: str) -> list[str]:
@@ -641,6 +732,22 @@ def read_states(run_dir: Path) -> list[dict[str, Any]]:
     return states
 
 
+def enrich_state(run_dir: Path, state: dict[str, Any]) -> dict[str, Any]:
+    enriched = dict(state)
+    out_dir_raw = enriched.get("out_dir")
+    if out_dir_raw:
+        afl_stats = read_afl_stats(Path(out_dir_raw))
+        if afl_stats is not None:
+            enriched["afl_stats"] = afl_stats
+            if afl_stats.get("saved_crashes") is not None:
+                enriched["crash_count"] = afl_stats["saved_crashes"]
+    return enriched
+
+
+def enrich_states(run_dir: Path, states: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [enrich_state(run_dir, state) for state in states]
+
+
 def state_counts_from_states(states: list[dict[str, Any]]) -> dict[str, int]:
     counts = {state: 0 for state in STATE_ORDER}
     for state in states:
@@ -653,6 +760,33 @@ def state_counts(jobs: list[Job]) -> dict[str, int]:
     for job in jobs:
         counts[job.state] = counts.get(job.state, 0) + 1
     return counts
+
+
+def aggregate_afl(states: list[dict[str, Any]]) -> dict[str, Any]:
+    totals = {
+        "execs_done": 0,
+        "execs_per_sec": 0.0,
+        "saved_crashes": 0,
+        "saved_hangs": 0,
+        "total_tmout": 0,
+    }
+    seen = 0
+    stale: list[dict[str, Any]] = []
+    for state in states:
+        stats = state.get("afl_stats") or {}
+        if not stats or stats.get("error"):
+            continue
+        seen += 1
+        for key in ("execs_done", "saved_crashes", "saved_hangs", "total_tmout"):
+            if isinstance(stats.get(key), int):
+                totals[key] += stats[key]
+        if isinstance(stats.get("execs_per_sec"), float):
+            totals["execs_per_sec"] += stats["execs_per_sec"]
+        if state.get("state") == "running" and isinstance(stats.get("last_update_ago"), int) and stats["last_update_ago"] > 120:
+            stale.append(state)
+    totals["jobs_with_afl_stats"] = seen
+    totals["stale_running_jobs"] = stale
+    return totals
 
 
 def render_dashboard(
@@ -746,6 +880,40 @@ def format_duration(seconds: int) -> str:
     return f"{secs}s"
 
 
+def format_stat_duration(value: Any) -> str:
+    if isinstance(value, int):
+        return format_duration(value)
+    return "-"
+
+
+def format_int(value: Any) -> str:
+    if isinstance(value, int):
+        return str(value)
+    return "-"
+
+
+def format_float(value: Any) -> str:
+    if isinstance(value, float):
+        return f"{value:.2f}"
+    if isinstance(value, int):
+        return str(value)
+    return "-"
+
+
+def format_percent(value: Any) -> str:
+    if isinstance(value, float):
+        return f"{value:.2f}%"
+    if isinstance(value, int):
+        return f"{value}%"
+    return "-"
+
+
+def format_ago(value: Any) -> str:
+    if isinstance(value, int):
+        return f"{format_duration(value)} ago"
+    return "-"
+
+
 def cmd_start(args: argparse.Namespace) -> int:
     cpus, harnesses = validate_preflight(args)
     run_dir = Path(args.run_dir).resolve()
@@ -767,14 +935,16 @@ def cmd_start(args: argparse.Namespace) -> int:
 
 def cmd_status(args: argparse.Namespace) -> int:
     run_dir = Path(args.run_dir).resolve()
-    states = read_states(run_dir)
+    states = enrich_states(run_dir, read_states(run_dir))
     counts = state_counts_from_states(states)
+    afl = aggregate_afl(states)
     active = [state for state in states if state.get("state") == "running"]
     failures = [state for state in states if state.get("state") in {"failed", "interrupted"}]
 
     summary = {
         "run_dir": str(run_dir),
         "totals": counts,
+        "afl": afl,
         "active": active,
         "failures": failures[-10:],
         "jobs": states,
@@ -788,17 +958,43 @@ def cmd_status(args: argparse.Namespace) -> int:
         f"planned={counts['planned']} running={counts['running']} done={counts['done']} "
         f"timed_out={counts['timed_out']} failed={counts['failed']} interrupted={counts['interrupted']}"
     )
+    print(
+        f"afl: stats_jobs={afl['jobs_with_afl_stats']} execs={afl['execs_done']} "
+        f"execs/sec={afl['execs_per_sec']:.2f} crashes={afl['saved_crashes']} "
+        f"hangs={afl['saved_hangs']} timeouts={afl['total_tmout']}"
+    )
     if active:
         print("active:")
         for state in active:
+            stats = state.get("afl_stats") or {}
             print(
                 f"  slot={state.get('slot')} cpu={state.get('cpu')} job={state.get('job_id')} "
-                f"harness={state.get('harness')} crashes={state.get('crash_count')} latest={state.get('latest_crash')}"
+                f"harness={state.get('harness')} runtime={format_stat_duration(stats.get('run_time'))} "
+                f"eps={format_float(stats.get('execs_per_sec'))} execs={format_int(stats.get('execs_done'))} "
+                f"corpus={format_int(stats.get('corpus_count'))} crashes={format_int(stats.get('saved_crashes'))} "
+                f"hangs={format_int(stats.get('saved_hangs'))} bitmap={format_percent(stats.get('bitmap_cvg'))} "
+                f"stability={format_percent(stats.get('stability'))} updated={format_ago(stats.get('last_update_ago'))}"
             )
+    stale_jobs = afl["stale_running_jobs"]
+    if stale_jobs:
+        print("stale running jobs:")
+        for state in stale_jobs[:10]:
+            stats = state.get("afl_stats") or {}
+            print(f"  job={state.get('job_id')} last_update={format_ago(stats.get('last_update_ago'))} stats={stats.get('path')}")
     if failures:
         print("recent failures:")
         for state in failures[-10:]:
             print(f"  {state.get('state')} exit={state.get('exit_status')} job={state.get('job_id')} log={state.get('log_path')}")
+    completed = [state for state in states if state.get("state") in {"done", "timed_out"}]
+    if completed:
+        print("recent completed:")
+        for state in completed[-10:]:
+            stats = state.get("afl_stats") or {}
+            print(
+                f"  {state.get('state')} job={state.get('job_id')} "
+                f"execs={format_int(stats.get('execs_done'))} crashes={format_int(stats.get('saved_crashes'))} "
+                f"hangs={format_int(stats.get('saved_hangs'))} log={state.get('log_path')}"
+            )
     return 0
 
 
