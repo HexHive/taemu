@@ -170,8 +170,9 @@ if __name__ == "__main__":
         )
         custom_logger = logging.getLogger()
 
-    if args.tee != "":
-        TEE = args.tee
+    specified_tee = args.tee or os.environ.get("TAEMU_TEE")
+    if specified_tee:
+        TEE = specified_tee
     elif b"TEEGRIS" in open(ta_path, "rb").read():
         TEE = "teegris"
     elif b"optee" in open(ta_path, "rb").read() and b"ta_head" in open(ta_path, "rb").read():
