@@ -1,18 +1,18 @@
-no_pac: true
-
 CElfFile_invoke:
-    start: 0x
-    end: [0x]
+  start: 0x14d18
+  end: [0x14f38]
 
 setup_teardown:
-    start: 0x
-    end: [0x]
+  start: 0x14554
+  end: [0x150e0]
 
 command_handler:
-    start: 0x
-    end: [0x]
+  start: 0x150f8
+  end: [0x1535c]
 
 tz_app_cmd_handler:
-    start: 0x
-    end: [
+  start: 0x3b0
+  end: [
+      0x474, # b TLOG
+      0x4d0, # qsee_err_fatal
     ]
