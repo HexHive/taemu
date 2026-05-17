@@ -12,4 +12,8 @@ command_handler:
 
 tz_app_cmd_handler:
   start: 0x9a74
-  end: [0x9d7c, 0x9b48, 0x9d88]
+  end: [
+      0x9d80, # b TEE_bzero
+      0x9b4c, # b qsee_log
+      0x9d88, # bl qsee_err_fatal
+    ]
