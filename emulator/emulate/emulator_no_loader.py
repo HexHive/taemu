@@ -416,4 +416,8 @@ def mitee_setup(ql: Qiling, ta_path:Path, ta_base:int):
 
 
 def trace_block(ql: Qiling, address, size):
-    ql.log.info("basic block at 0x%x" % (address))
+    for start, end, _, label, _ in ql.mem.get_mapinfo():
+        if start <= address < end:
+            ql.log.info("basic block at %#x - %#x ([%s] + %#x)", address, address+size, label, address - start)
+            return
+    ql.log.info("basic block at %#x - %#x", address, address+size)
