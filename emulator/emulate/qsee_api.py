@@ -58,6 +58,7 @@ def qsee_log(ql: Qiling, hook_data):
         format_param_ptr = p["format"]
         hook_data.emu.update_shm(format_param_ptr)
         format_param = ql.mem.string(format_param_ptr)
+        ql.log.debug("qsee_log: lvl: %d, fmt: %s", log_level, format_param)
         final_params = {"log_level": INT, "format": STRING}
         params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
         format_param = fixup_format(format_param)
@@ -161,6 +162,12 @@ def GPAppLib_appShutdown(ql: Qiling, hook_data):
 def __funcs_on_exit(ql: Qiling, hook_data:'HookData'):
     ql.log.info("__funcs_on_exit, back to %#x", ql.arch.regs.lr)
     _ret(ql, 0)
+
+
+def qsee_err_fatal(ql: Qiling, hook_data:'HookData'):
+    ql.log.critical("stack_chk_fail ***stack smashing detected***")
+    crash(ql, hook_data.func_name)
+
 
 def qsee_prng_getdata(ql: Qiling, hook_data:'HookData'):
     args = ql.os.resolve_fcall_params({
