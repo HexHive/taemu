@@ -1,15 +1,19 @@
 CElfFile_invoke:
-  start: 290796
-  end: [291340]
+  end: [0x4720c]
+  start: 0x46fec
 
 command_handler:
-  start: 291788
-  end: [292400]
+  end: [0x47630]
+  start: 0x473cc
 
 setup_teardown:
-  start: 291528
-  end: [291764]
+  end: [0x473b4]
+  start: 0x472c8
 
 tz_app_cmd_handler:
-  start: 512
-  end: [720]
+  end: [
+      0x2d0,
+      0x360, # b memcpy
+      0x364, # qsee_err_fatal
+    ]
+  start: 0x200
