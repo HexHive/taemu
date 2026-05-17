@@ -41,12 +41,13 @@ help:
 
 .PHONY: own-project
 own-project:
-		@sed -i -E 's|(<STATE NAME="OWNER" TYPE="string" VALUE=")[^"]*(" />)|\1root\2|' $(PROJECTS_HOST_DIR)/$(PROJECT_NAME).rep/project.prp
+		@rsync -avhP $(PROJECTS_HOST_DIR)/$(PROJECT_NAME).* $(PROJECTS_HOST_DIR)/headless
+		@sed -i -E 's|(<STATE NAME="OWNER" TYPE="string" VALUE=")[^"]*(" />)|\1root\2|' $(PROJECTS_HOST_DIR)/headless/$(PROJECT_NAME).rep/project.prp
 
 GHIDRA_SCRIPT := timeout --foreground 10m \
 		$(DOCKER_RUN) \
 		/ghidra/support/analyzeHeadless \
-		"$(PROJECTS_CONT_DIR)" \
+		"$(PROJECTS_CONT_DIR)/headless" \
 		"$(PROJECT_NAME)" \
 		-scriptPath /src/ghidra_scripts/
 

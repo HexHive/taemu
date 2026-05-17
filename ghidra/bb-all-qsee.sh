@@ -1,11 +1,15 @@
 #!/bin/bash
 set -e
 
+ta_base_dir="../qsee_nongp/tas"
 if [ $# -gt 0 ]; then
   files=("$@")
 else
-  files=("../qsee_nongp/tas"/*.elf)
+  files=("${ta_base_dir}"/*.elf)
 fi
+
+#target files are in shape of ../qsee_nongp/tas/bbs/bb_<name>.elf.json
+target_files=()
 
 for file in "${files[@]}"; do
   [ -e "$file" ] || continue
@@ -24,19 +28,10 @@ for file in "${files[@]}"; do
 
   # ymlfile="${file%.elf}.yml"
   # [ -e "$ymlfile" ] || { echo "YML file not found for $file"; continue; }
-
-  # Check the file is below 1.2 MB.
-  size=$(stat -c%s "$file")
-  [ "$size" -lt 2200000 ] || {
-    echo "File is too large: $file"
-    continue
-  }
-
-  GHIDRA_MAXMEM=8G GHIDRA_MAX_CPU=10 \
-    make -f direct.mk \
-      own-project qsee-nongp-one \
-      TARGET="$file" \
-      PROJECTS_CONT_DIR=/mnt/.ghidra-projects/qsee_nongp/headless \
-      PROJECTS_HOST_DIR=../.ghidra-projects/qsee_nongp/headless \
-      --debug=v
+  target_files+=("${ta_base_dir}/bbs/bb_${stem}.elf.json")
 done
+make -f direct.mk own-project
+GHIDRA_MAXMEM=8G GHIDRA_MAX_CPU=10 \
+  make -f direct.mk \
+    ${target_files[@]} \
+    --debug=v
