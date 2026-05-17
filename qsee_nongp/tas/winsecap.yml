@@ -1,0 +1,21 @@
+CElfFile_invoke:
+  end: [0x43bc]
+  start: 0x419c
+
+command_handler:
+  end: [0x47e0]
+  start: 0x457c
+
+setup_teardown:
+  end: [0x4564]
+  start: 0x4478
+
+tz_app_cmd_handler:
+  end: [
+      0x3b54, # b qsee_log
+      0x3b68,
+      0x3b84, # b watermark_
+      0x3b74, # b svc_test_
+      0x3b7c, # b opm_svc_
+    ]
+  start: 0x3aec
