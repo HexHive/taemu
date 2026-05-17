@@ -529,18 +529,27 @@ def start_qsee_fuzz(
         ]
 
     try:
-        self.log.info("[TAEMU] starting afl")
+        def afl_hook(ql: Qiling):
+            log_regs(ql, "[AFL hook pre-run]")
+            ql_afl_fuzz_custom(
+                ql,
+                input_file=input_file,
+                place_input_callback=place_input_callback_verbose,
+                fuzzing_callback=fuzz_callback_verbose,
+                exits=[QSEE_FUZZ_RET_ADDR_OK],
+                validate_crash_callback=crash_validation,
+                always_validate=True,
+            )
+        
+        self.ql.hook_address(
+            callback=afl_hook,
+            address=self.ta_funcs[TA_Function.CommandHandler].start,
+        )
+
         log_regs(self.ql, "[Parent pre-run]")
         self.ql.arch.regs.lr = QSEE_FUZZ_RET_ADDR_OK
-        ql_afl_fuzz_custom(
-            self.ql,
-            input_file=input_file,
-            place_input_callback=place_input_callback_verbose,
-            fuzzing_callback=fuzz_callback_verbose,
-            exits=[QSEE_FUZZ_RET_ADDR_OK],
-            validate_crash_callback=crash_validation,
-            always_validate=True,
-        )
+        self.ql.run(begin=self.ta_funcs[TA_Function.CommandHandler].start)
+
         ret = self.ql.os.fcall.cc.getReturnValue()
         self.log.info("InvokeCommand returned: %#0x", ret)
         return
