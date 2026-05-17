@@ -1,20 +1,18 @@
 CElfFile_invoke:
-    start: 0xbb0c
-    end: [0xbd24]
+  start: 0xbb0c
+  end: [0xbd24]
 
 setup_teardown:
-    start: 0xbde4
-    end: [0xbec8]
+  start: 0xbde4
+  end: [0xbec8]
 
 command_handler:
-    start: 0xbee4
-    end: [0xc130]
+  start: 0xbee4
+  end: [0xc130]
 
 tz_app_cmd_handler:
-    start: 0x26c
-    end: [
-    # One after b pass_to_kernel_log
-        0x36c, 
-    # One after b no_printf
-        0x2d4
-        ]
+  start: 0x26c
+  end: [
+      0x36c, #  b pass_to_kernel_log
+      0x2d4, # b no_printf
+    ]
