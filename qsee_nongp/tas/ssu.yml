@@ -1,16 +1,19 @@
 CElfFile_invoke:
-    end:
-    - 72344
-    start: 71808
+  end: [0x11a98]
+  start: 0x11880
+
 command_handler:
-    end:
-    - 73380
-    start: 72792
+  end: [0x11ea4]
+  start: 0x11c58
+
 setup_teardown:
-    end:
-    - 72764
-    start: 72536
+  end: [0x11c3c]
+  start: 0x11b58
+
 tz_app_cmd_handler:
-    end:
-    - 71524
-    start: 71352
+  end: [
+      0x11764,
+      0x117c8, # qsee_err_fatal
+      0x117c0, # b TEES_Log
+    ]
+  start: 0x116b8
