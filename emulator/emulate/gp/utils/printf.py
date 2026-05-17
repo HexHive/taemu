@@ -17,6 +17,7 @@ def fixup_format(format_param):
     format_param = format_param.replace("%p", "0x%x")
     format_param = format_param.replace("%llu", "%u")
     format_param = format_param.replace("%zu", "%u")
+    format_param = format_param.replace("%zd", "%d")
     format_param = format_param.replace("%#zx", "%#x")
     return format_param
 
