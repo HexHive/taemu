@@ -1,17 +1,21 @@
 CElfFile_invoke:
-    end:
-    - 46004
-    start: 45460
+  end: [0xb3b4]
+  start: 0xb194
+
 command_handler:
-    end:
-    - 47064
-    start: 46452
-no_pac: false
+  end: [0xb7d8]
+  start: 0xb574
+
 setup_teardown:
-    end:
-    - 46428
-    start: 46192
+  end: [0xb55c]
+  start: 0xb470
+
 tz_app_cmd_handler:
-    end:
-    - 1376
-    start: 676
+  end: [
+      0x560,
+      0x3bc, # b qsee_log
+      0x430, # b qsee_log
+      0x49c, # b qsee_log
+      0x568, # qsee_err_fail
+    ]
+  start: 0x2a4
