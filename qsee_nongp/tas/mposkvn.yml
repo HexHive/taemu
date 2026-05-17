@@ -13,7 +13,7 @@ command_handler:
 tz_app_cmd_handler:
   start: 0x4a24
   end: [
-      0x4ce8, # b TZ_bzero
-      0x4af0, # after b qsee_log
+      0x4cec, # b TZ_bzero
+      0x4af4, # b qsee_log
       0x4cf4, # Fatal
     ]
