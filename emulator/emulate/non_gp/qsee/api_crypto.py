@@ -1,3 +1,4 @@
+import hashlib
 import pwn
 from qiling import Qiling
 from qiling.os.const import INT, POINTER
@@ -436,18 +437,36 @@ def qsee_hash_set_param(ql: Qiling, hook_data: "HookData"):
 
     _ret(ql, 0)
 
+QSEE_HASH_ALGS = {
+    1: ("sha1",   hashlib.sha1), # 20
+    2: ("sha256", hashlib.sha256), # 32
+    3: ("sha384", hashlib.sha384), # 48
+    4: ("sha512", hashlib.sha512), # 64
+    
+    # 100% sure
+    5: ("sha224", hashlib.sha224), # 28
+}
 def qsee_hash(ql: Qiling, hook_data: "HookData"):
+    # Return is "is_error" styled
     args = ql.os.resolve_fcall_params({
         "algo": INT,
         "data": POINTER,
         "data_len": INT,
         "out_digest": POINTER,
-        "out_len": INT,
+        "out_len": POINTER,
     })
     data = ql.mem.read(args["data"], args["data_len"])
     ql.log.info("qsee_hash(algo=%#x, data(ptr+len)=%s), dest=%#x", args["algo"], data, args["out_digest"])
 
-    digest = marker_bytes(0x61, args["out_len"])
-    ql.mem.write(args["out_digest"], digest)
+    algo = args["algo"]
+    if algo not in QSEE_HASH_ALGS:
+        ql.log.warning("qsee_hash: invalid algo %#x", algo)
+        return _ret(ql, 1)
+    
+    name, fn = QSEE_HASH_ALGS[algo]
+    ql.log.debug("qsee_hash: using %s", name)
+    digest = fn(data).digest()
 
+    ql.mem.write(args["out_digest"], digest)
+    ql.mem.write(args["out_len"], pwn.p32(len(digest)))
     _ret(ql, 0)
