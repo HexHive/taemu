@@ -345,6 +345,7 @@ def qsee_hash_init(ql: Qiling, hook_data: "HookData"):
         "algo": INT,
         "ctx_out": POINTER,
     })
+    ql.log.warning("USING NOPPED CRYPTO:")
     _log_args(ql, "qsee_hash_init", args)
     ctx_out = args["ctx_out"]
 
@@ -373,6 +374,7 @@ def qsee_hash_update(ql: Qiling, hook_data: "HookData"):
 
     data = ql.mem.read(args["data"], args["data_len"])
     ctx = ql.mem.read_ptr(args["ctx"])
+    ql.log.warning("USING NOPPED CRYPTO:")
     ql.log.info("qsee_hash_update(ctx=&%#x, data(ptr+len)=%s)", ctx, data)
 
     _ret(ql, 0)
@@ -384,7 +386,9 @@ def qsee_hash_final(ql: Qiling, hook_data: "HookData"):
         "out_digest": POINTER,
         "out_len": INT,
     })
+
     ctx = ql.mem.read_ptr(args["ctx"])
+    ql.log.warning("USING NOPPED CRYPTO:")
     ql.log.info("qsee_hash_final(ctx=&%#x, out_digest=&%#x, out_len=%#x)", ctx, args["out_digest"], args["out_len"])
 
     digest = marker_bytes(0x62, args["out_len"])
@@ -399,6 +403,7 @@ def qsee_hash_free_ctx(ql: Qiling, hook_data: "HookData"):
     })
 
     ctx = ql.mem.read_ptr(args["ctx"])
+    ql.log.warning("USING NOPPED CRYPTO:")
     ql.log.info("qsee_hash_free_ctx(ctx=&%#x)", ctx)
     _ret(ql, 0)
 
@@ -409,6 +414,7 @@ def qsee_hash_reset(ql: Qiling, hook_data: "HookData"):
     })
 
     ctx = ql.mem.read_ptr(args["ctx"])
+    ql.log.warning("USING NOPPED CRYPTO:")
     ql.log.info("qsee_hash_reset(ctx=&%#x)", ctx)
     _ret(ql, 0)
 
@@ -425,6 +431,7 @@ def qsee_hash_set_param(ql: Qiling, hook_data: "HookData"):
     value = ql.mem.read(args["value"], args["value_len"])
     param_id = args["param_id"]
 
+    ql.log.warning("USING NOPPED CRYPTO:")
     ql.log.info("qsee_hash_set_param(ctx=&%#x, param_id=%#x, value='%s')", ctx, param_id, value)
 
     _ret(ql, 0)
