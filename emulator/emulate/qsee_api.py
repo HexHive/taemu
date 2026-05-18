@@ -620,3 +620,86 @@ def qsee_get_global_flag(ql: Qiling, hook_data: "HookData"):
     global GLOBAL_FLAGS
     _log_args(ql, "qsee_get_global_flag", {})
     _ret(ql, GLOBAL_FLAGS)
+
+
+def qsee_util_init_s_bigint(ql: Qiling, hook_data: "HookData"):
+    args = ql.os.resolve_fcall_params({
+        "out": POINTER,
+    })
+    _log_args(ql, "qsee_util_init_s_bigint", args)
+    out = args["out"]
+    if out == 0:
+        return _ret(ql, pwn.p32(-6, sign="signed"))
+    
+    addr = malloc_core(ql, 0x20c, hook_data, True)
+    # if addr == 0 -> return -5
+    ql.mem.write(addr, 0x20c * b"\x00")
+    ql.mem.write_ptr(out, addr)
+    _ret(ql, 0)
+
+
+# WARNING: This is some Quasi-Encapsulation. Useless if app only need decapsulation of the messages. Needs more investigation.
+
+def qsee_encapsulate_inter_app_message(ql: Qiling, hook_data: "HookData"):
+    args = ql.os.resolve_fcall_params({
+        "dest_app_name": STRING,
+        "plain_msg": POINTER,
+        "plain_msg_len": INT,
+        "encap_msg_out": POINTER,
+        "encap_msg_out_len": POINTER, # in + out pointer
+    })
+    _log_args(ql, "qsee_decapsulate_inter_app_message", args)
+    input_msg = ql.mem.read(args["encap_msg_out"], args["encap_msg_out_len"])
+
+    dest_app_name = args["dest_app_name"]
+    if len(dest_app_name) > 0x80:
+        ql.log.error("dest_app_name too long")
+        return _ret(ql, 0xff000fff)
+    
+    # Our quasi encapsulation
+    "Taemu Encapsulation: len dest app, len enc msg, dest app, enc msg"
+    quasi_encrypted_msg = b"TE:" + struct.pack("<II", len(dest_app_name), len(input_msg)) + dest_app_name + input_msg
+
+    available_out_buf = ql.mem.read_ptr(args["encap_msg_out_len"])
+    if len(quasi_encrypted_msg) > available_out_buf:
+        ql.log.error("qsee_decapsulate_inter_app_message: not enough space for output")
+        return _ret(ql, 0xff000fff) # vibes based error from cmlib
+
+    ql.mem.write(args["plain_msg"], quasi_encrypted_msg)
+    ql.mem.write(args["plain_msg_len"], pwn.p32(len(quasi_encrypted_msg)))
+    _ret(ql, 0)
+
+def qsee_decapsulate_inter_app_messages(ql: Qiling, hook_data: "HookData"):
+    args = ql.os.resolve_fcall_params({
+        "peer_app_name_out": STRING,
+        "encap_msg": POINTER,
+        "encap_msg_len": INT,
+        "plain_msg_out": POINTER,
+        "plain_msg_out_len": POINTER,
+    })
+    _log_args(ql, "qsee_encapsulate_inter_app_message", args)
+    input_msg = ql.mem.read(args["encap_msg"], args["encap_msg_len"])
+    if len(input_msg) < 8:
+        ql.log.error("input_msg too short for our Quasi Encapsulation")
+        return _ret(ql, 0xff000fff)
+    
+    # Our quasi encapsulation
+    if input_msg[:4] != b"TE:":
+        ql.log.error("input_msg is not our Quasi Encapsulation")
+        return _ret(ql, 0xff000fff)
+    len_dest_app, len_enc_msg = struct.unpack("<I", input_msg[4:12])
+    if len_dest_app + len_enc_msg + 12 > len(input_msg):
+        ql.log.error("input_msg too short for our Quasi Encapsulation")
+        return _ret(ql, 0xff000fff)
+    
+    dest_app = input_msg[12:12+len_dest_app]
+    enc_msg = input_msg[12+len_dest_app:12+len_dest_app+len_enc_msg]
+
+    if len(dest_app) > 0x80:
+        ql.log.error("dest_app too long")
+        return _ret(ql, 0xff000fff)
+
+    ql.mem.write(args["peer_app_name_out"], dest_app)
+    ql.mem.write(args["plain_msg_out"], enc_msg)
+    ql.mem.write(args["plain_msg_out_len"], pwn.p32(len(enc_msg)))
+    _ret(ql, 0)
