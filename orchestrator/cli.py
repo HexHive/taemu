@@ -192,16 +192,47 @@ class Scheduler:
             "exec bash -i"
         )
         if not self.tmux_session_created:
-            tmux_cmd = ["tmux", "new-session", "-d", "-s", self.args.tmux_session, "-n", window_name, "-c", str(REPO_ROOT), shell]
-            self.tmux_session_created = True
+            tmux_cmd = [
+                "tmux",
+                "new-session",
+                "-d",
+                "-P",
+                "-F",
+                "#{pane_id}",
+                "-s",
+                self.args.tmux_session,
+                "-n",
+                window_name,
+                "-c",
+                str(REPO_ROOT),
+                shell,
+            ]
         else:
-            tmux_cmd = ["tmux", "new-window", "-t", self.args.tmux_session, "-n", window_name, "-c", str(REPO_ROOT), shell]
-        subprocess.run(tmux_cmd, check=True)
+            tmux_cmd = [
+                "tmux",
+                "new-window",
+                "-P",
+                "-F",
+                "#{pane_id}",
+                "-t",
+                self.args.tmux_session,
+                "-n",
+                window_name,
+                "-c",
+                str(REPO_ROOT),
+                shell,
+            ]
+        created = subprocess.run(tmux_cmd, check=True, capture_output=True, text=True)
+        tmux_pane = created.stdout.strip()
+        if not tmux_pane:
+            raise BatchError(f"tmux did not report a pane id for job {job.job_id}")
+        if not self.tmux_session_created:
+            self.tmux_session_created = True
         if job.log_path:
             pipe_cmd = f"cat >> {shlex.quote(str(job.log_path))}"
-            subprocess.run(["tmux", "pipe-pane", "-o", "-t", f"{self.args.tmux_session}:{window_name}", pipe_cmd], check=False)
+            subprocess.run(["tmux", "pipe-pane", "-o", "-t", tmux_pane, pipe_cmd], check=False)
         self._verbose(
-            f"tmux window ready: session={self.args.tmux_session} window={window_name}; "
+            f"tmux window ready: session={self.args.tmux_session} window={window_name} pane={tmux_pane}; "
             f"attach with: tmux attach -t {self.args.tmux_session}"
         )
 
