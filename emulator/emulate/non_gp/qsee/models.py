@@ -11,18 +11,17 @@ from qiling.os.const import INT, POINTER
 import unicorn
 
 if TYPE_CHECKING:
-    from emulator.emulate.ta_mgr import TAEMU
+    from emulate.ta_mgr import TAEMU
+
+@dataclass
+class HookData:
+    emu: 'TAEMU'
+    func_name: str
 
 
 QSEE_EXEC_REF_SLOT_SIZE = 0x10
 QSEE_EXEC_REF_MAX_SLOTS = 0x100
 QSEE_EXEC_REF_TOTAL_SIZE = QSEE_EXEC_REF_SLOT_SIZE * QSEE_EXEC_REF_MAX_SLOTS
-
-
-@dataclass
-class HookData:
-    emu: "TAEMU"
-    func_name: str
 
 
 class SetupTeardownAction(Enum):
@@ -45,7 +44,7 @@ class QseeCallback:
     singleton_key: str | None = None
 
 
-def _noop_callback(ql: Qiling, hook_data: HookData) -> None:
+def _noop_callback(ql: Qiling, hook_data: 'HookData') -> None:
     args = ql.os.resolve_fcall_params(
         {
             "function": POINTER,

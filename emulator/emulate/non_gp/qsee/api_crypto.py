@@ -6,7 +6,7 @@ from qiling.os.const import INT, POINTER
 from typing import TYPE_CHECKING
 
 from emulate.non_gp.qsee.models import get_active_qsee_session_state
-from .api_common import _ret, _log_args
+from .api_common import _ret, _log_args, nonfaithful
 
 if TYPE_CHECKING:
     from emulate.emulator_no_loader import HookData
@@ -94,6 +94,7 @@ def qsee_SW_GENERIC_ECDSA_sign_ex(ql: Qiling, hook_data: "HookData"):
     _ret(ql, 0)
 
 
+@nonfaithful
 def qsee_SW_GENERIC_ECDSA_sign(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "priv_key_bigval": POINTER,
@@ -112,6 +113,7 @@ def qsee_SW_GENERIC_ECDSA_sign(ql: Qiling, hook_data: "HookData"):
     _ret(ql, 0)
 
 
+@nonfaithful
 def qsee_SW_GENERIC_ECDSA_verify_ex(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "curve": INT,
@@ -128,6 +130,7 @@ def qsee_SW_GENERIC_ECDSA_verify_ex(ql: Qiling, hook_data: "HookData"):
     _ret(ql, 0)
 
 
+@nonfaithful
 def qsee_SW_GENERIC_ECDSA_verify(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "pub_key_bigval": POINTER,
@@ -143,6 +146,7 @@ def qsee_SW_GENERIC_ECDSA_verify(ql: Qiling, hook_data: "HookData"):
     _ret(ql, 0)
 
 
+@nonfaithful
 def qsee_SW_GENERIC_ECDH_shared_key_derive(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "priv_key": POINTER,
@@ -158,6 +162,7 @@ def qsee_SW_GENERIC_ECDH_shared_key_derive(ql: Qiling, hook_data: "HookData"):
     _ret(ql, 0)
 
 
+@nonfaithful
 def qsee_SW_GENERIC_ECC_keypair_generate(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "priv_key": POINTER,
@@ -174,6 +179,7 @@ def qsee_SW_GENERIC_ECC_keypair_generate(ql: Qiling, hook_data: "HookData"):
     _ret(ql, 0)
 
 
+@nonfaithful
 def qsee_SW_GENERIC_ECC_pubkey_generate(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "priv_key": POINTER,
@@ -188,6 +194,7 @@ def qsee_SW_GENERIC_ECC_pubkey_generate(ql: Qiling, hook_data: "HookData"):
     _ret(ql, 0)
 
 
+@nonfaithful
 def qsee_SW_GENERIC_ECC_binary_to_bigval(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "dst_bigval": POINTER,
@@ -206,6 +213,7 @@ def qsee_SW_GENERIC_ECC_binary_to_bigval(ql: Qiling, hook_data: "HookData"):
     _ret(ql, 0)
 
 
+@nonfaithful
 def qsee_SW_GENERIC_ECC_bigval_to_binary(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "out_bin": POINTER,
@@ -223,6 +231,7 @@ def qsee_SW_GENERIC_ECC_bigval_to_binary(ql: Qiling, hook_data: "HookData"):
     _ret(ql, 0)
 
 
+@nonfaithful
 def qsee_SW_GENERIC_ECC_compare(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "a": POINTER,
@@ -236,6 +245,7 @@ def qsee_SW_GENERIC_ECC_compare(ql: Qiling, hook_data: "HookData"):
     _ret(ql, 0)
 
 
+@nonfaithful
 def qsee_SW_GENERIC_ECC_convert_input_to_bigval(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "dst_bigval": POINTER,
@@ -252,6 +262,7 @@ def qsee_SW_GENERIC_ECC_convert_input_to_bigval(ql: Qiling, hook_data: "HookData
     _ret(ql, 0)
 
 
+@nonfaithful
 def qsee_SW_GENERIC_ECC_affine_point_on_curve(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "point_x": POINTER,
@@ -263,6 +274,7 @@ def qsee_SW_GENERIC_ECC_affine_point_on_curve(ql: Qiling, hook_data: "HookData")
     _ret(ql, 1)
 
 
+@nonfaithful
 def qsee_SW_Hash_Init(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "ctx_out": POINTER,
@@ -275,7 +287,7 @@ def qsee_SW_Hash_Init(ql: Qiling, hook_data: "HookData"):
     ql.mem.write_ptr(args["ctx_out"], noop_ref)
     _ret(ql, 0)
 
-
+@nonfaithful
 def qsee_SW_Hash_Update(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "ctx": POINTER,
@@ -285,7 +297,7 @@ def qsee_SW_Hash_Update(ql: Qiling, hook_data: "HookData"):
     _log_args(ql, "qsee_SW_Hash_Update", args)
     _ret(ql, 0)
 
-
+@nonfaithful
 def qsee_SW_Hash_Final(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "ctx": POINTER,
@@ -296,7 +308,7 @@ def qsee_SW_Hash_Final(ql: Qiling, hook_data: "HookData"):
     ql.mem.write(args["out"], marker_bytes(0x63, 0x10))
     _ret(ql, 0)
 
-
+@nonfaithful
 def qsee_SW_Hash_Deinit(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "ctx_ptr": POINTER,
@@ -304,7 +316,7 @@ def qsee_SW_Hash_Deinit(ql: Qiling, hook_data: "HookData"):
     _log_args(ql, "qsee_SW_Hash_Deinit", args)
     _ret(ql, 0)
 
-
+@nonfaithful
 def qsee_SW_Hash_Reset(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "ctx": POINTER,
@@ -365,7 +377,7 @@ def qsee_hash_init(ql: Qiling, hook_data: "HookData"):
     ql.mem.write_ptr(ctx_out, ref)
     _ret(ql, 0)
 
-
+@nonfaithful
 def qsee_hash_update(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "ctx": POINTER,
@@ -375,12 +387,11 @@ def qsee_hash_update(ql: Qiling, hook_data: "HookData"):
 
     data = ql.mem.read(args["data"], args["data_len"])
     ctx = ql.mem.read_ptr(args["ctx"])
-    ql.log.warning("USING NOPPED CRYPTO:")
     ql.log.info("qsee_hash_update(ctx=&%#x, data(ptr+len)=%s)", ctx, data)
 
     _ret(ql, 0)
 
-
+@nonfaithful
 def qsee_hash_final(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "ctx": POINTER,
@@ -389,7 +400,6 @@ def qsee_hash_final(ql: Qiling, hook_data: "HookData"):
     })
 
     ctx = ql.mem.read_ptr(args["ctx"])
-    ql.log.warning("USING NOPPED CRYPTO:")
     ql.log.info("qsee_hash_final(ctx=&%#x, out_digest=&%#x, out_len=%#x)", ctx, args["out_digest"], args["out_len"])
 
     digest = marker_bytes(0x62, args["out_len"])
@@ -397,29 +407,27 @@ def qsee_hash_final(ql: Qiling, hook_data: "HookData"):
     ql.mem.write(args["out_digest"], digest)
     _ret(ql, 0)
 
-
+@nonfaithful
 def qsee_hash_free_ctx(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "ctx": POINTER,
     })
 
     ctx = ql.mem.read_ptr(args["ctx"])
-    ql.log.warning("USING NOPPED CRYPTO:")
     ql.log.info("qsee_hash_free_ctx(ctx=&%#x)", ctx)
     _ret(ql, 0)
 
-
+@nonfaithful
 def qsee_hash_reset(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "ctx": POINTER,
     })
 
     ctx = ql.mem.read_ptr(args["ctx"])
-    ql.log.warning("USING NOPPED CRYPTO:")
     ql.log.info("qsee_hash_reset(ctx=&%#x)", ctx)
     _ret(ql, 0)
 
-
+@nonfaithful
 def qsee_hash_set_param(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "ctx": POINTER,
@@ -432,7 +440,6 @@ def qsee_hash_set_param(ql: Qiling, hook_data: "HookData"):
     value = ql.mem.read(args["value"], args["value_len"])
     param_id = args["param_id"]
 
-    ql.log.warning("USING NOPPED CRYPTO:")
     ql.log.info("qsee_hash_set_param(ctx=&%#x, param_id=%#x, value='%s')", ctx, param_id, value)
 
     _ret(ql, 0)

@@ -39,11 +39,15 @@ def nonfaithful(func):
         arm_instruction_size = 0x4
         ql.log.warning("Non-faithful call to %s from %#x", hook_data.func_name, ql.arch.regs.lr - arm_instruction_size)
         d = getattr(hook_data.emu, '__nonfaithful_frequency', None)
-        if d is None:
-            d = hook_data.emu.__nonfaithful_frequency = defaultdict(int)
-        d[hook_data.func_name] += 1
+        if d is not None:
+            d[hook_data.func_name] += 1
         return func(ql, hook_data)
     return wrapper
+
+# WARNING: Tracking may lead to OOM issues after long time. Only enable this for replay, interactive and other short-lived use cases.
+
+def emu_enable_nonfaithful_tracking(emu: 'TAEMU'):
+    setattr(emu, '__nonfaithful_frequency', defaultdict(int))
 
 def emu_report_nonfaithful(emu: 'TAEMU'):
     d = getattr(emu, '__nonfaithful_frequency', defaultdict(int))

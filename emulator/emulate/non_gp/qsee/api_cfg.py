@@ -14,7 +14,7 @@ from qiling.os.const import LONGLONG, STRING, INT, BYTE, POINTER, UINT
 
 import time
 from typing import TYPE_CHECKING, Dict
-from .api_common import _ret, _read_u32, _log_args
+from .api_common import _ret, _read_u32, _log_args, nonfaithful
 if TYPE_CHECKING:
     from emulate.emulator_no_loader import HookData
     from emulate.ta_mgr import TAEMU

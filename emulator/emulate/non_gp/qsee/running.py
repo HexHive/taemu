@@ -30,6 +30,7 @@ from emulate.non_gp.qsee.models import (
     get_active_qsee_session_state,
 )
 from emulate.non_gp.qsee.utils import log_regs
+from emulate.non_gp.qsee.api_common import emu_report_nonfaithful, emu_enable_nonfaithful_tracking
 
 if TYPE_CHECKING:
     from emulate.ta_mgr import TAEMU
@@ -266,6 +267,7 @@ def CElfFile_invoke(self: "TAEMU"):
 
 
 def start_qsee_interactive(self: "TAEMU"):
+    emu_enable_nonfaithful_tracking(self)
     with self.just_run():
         init_qsee_session_state(self)
         ret = CElfFile_invoke(self)
@@ -327,6 +329,7 @@ def start_qsee_interactive(self: "TAEMU"):
         client_socket.close()
         sock.close()
         ret = teardown(self, setup_state)
+        emu_report_nonfaithful(self)
         if ret != TEE_SUCCESS:
             self.ql.log.warning("teardown ret != TEE_SUCCESS %#0x", ret)
             raise Exception(f"teardown ret != TEE_SUCCESS {ret:#0x}")
@@ -335,7 +338,7 @@ def start_qsee_interactive(self: "TAEMU"):
 
 
 def start_qsee_fuzz_replay(self: "TAEMU", input_file: Path, fuzz_harness: Path, rec_cov=False,):
-
+    emu_enable_nonfaithful_tracking(self)
     with self.just_run():
         init_qsee_session_state(self)
         ret = CElfFile_invoke(self)
@@ -412,6 +415,8 @@ def start_qsee_fuzz_replay(self: "TAEMU", input_file: Path, fuzz_harness: Path, 
             self.ql.log.warning(
                 "[////Qsee teardown////] return != TEE_SUCCESS %#0x", ret
             )
+        
+        emu_report_nonfaithful(self)
 
 
 def start_qsee_fuzz(
