@@ -35,7 +35,7 @@ from .gp import (
 from unicorn.arm64_const import UC_ARM64_INS_MRS, UC_ARM64_REG_PC
 from unicorn import UC_PROT_READ, UC_PROT_WRITE, UC_PROT_EXEC
 from .custom.mitee_loader import mitee_read_relocs, mitee_relr_relocs, mitee_rela_relocs
-from .custom.qsee_loader import qsee_fix_got, qsee_read_relocs
+from .custom.qsee_loader import qsee_read_relocs
 from .custom.teegris_32_loader import teegris_32_rel
 from .custom.tc_loader import tc_read_relcall
 from keystone import Ks, KS_ARCH_ARM, KS_MODE_ARM
@@ -180,30 +180,31 @@ def hook_ta_dl(
                 user_data=HookData(emu, func),
             )
             counter += ql.arch.pointersize
-    
+
     if is_qsee:
-        to_hook = qsee_fix_got(ql, ta_path, ta_elf, ql_resolve_mem+counter)
-        ql.log.info(f"[qsee] leftover relocations: {len(to_hook)}")
-        for qsee_reloc in to_hook:
+        for qsee_reloc in qsee_read_relocs(ta_path):
             funcname = qsee_reloc.name
             off = qsee_reloc.offset
             sym = qsee_reloc.symbol_value
+
+            intercept_addr = ql_resolve_mem + counter
+            counter += ql.arch.pointersize
+
             ql.mem.write(
                 ta_base + off,
-                (ql_resolve_mem + counter).to_bytes(ql.arch.pointersize, "little"),
+                intercept_addr.to_bytes(ql.arch.pointersize, "little"),
             )
             ql.log.info(
-                f"[qsee] hooking plt relocation function {funcname}, {hex(off)}, {hex(ql_resolve_mem+counter)}"
+                "[qsee] hooking plt relocation function %s@%#x -> %#x", funcname, off, intercept_addr
             )
             func_impl = get_api_impl(funcname)
             if func_impl is None:
                 ql.log.warning(f"[qsee] function {funcname} not found")
             ql.hook_address(
                 func_impl,
-                ql_resolve_mem + counter,
+                intercept_addr,
                 user_data=HookData(emu, funcname),
             )
-            counter += ql.arch.pointersize
     
     if is_tc:
         # IGNORE ME!!
