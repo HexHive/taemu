@@ -1,3 +1,4 @@
+from pathlib import Path
 import threading
 import queue
 import os
@@ -165,29 +166,34 @@ def main():
         for harness in os.listdir(os.path.join(BASE, tee, "harness")):
             if harness == "__pycache__":
                 continue
-            if not os.path.exists(
-                os.path.join(BASE, tee, "harness", harness, "ta.txt")
-            ):
-                print(
-                    f'!!!!!! {os.path.join(BASE, tee, "harness", harness)} has no ta.txt!!!!!'
-                )
-                exit(-1)
+            if not os.path.isdir(os.path.join(BASE, tee, "harness", harness)):
+                print("Harness is not a dir")
+                continue
+            # if not os.path.exists(
+            #     os.path.join(BASE, tee, "harness", harness, "ta.txt")
+            # ):
+            #     print(
+            #         f'!!!!!! {os.path.join(BASE, tee, "harness", harness)} has no ta.txt!!!!!'
+            #     )
+            #     exit(-1)
             if os.path.exists(os.path.join(BASE, tee, "harness", harness, "IGNOREME")):
                 continue
-            ta_name = (
-                open(os.path.join(BASE, tee, "harness", harness, "ta.txt"))
-                .read()
-                .strip("\n")
-            )
-            if not os.path.exists(os.path.join(BASE, tee, "harness", harness, ta_name)):
-                os.symlink(
-                    os.path.join("..", "..", "tas", ta_name),
-                    os.path.join("..", tee, "harness", harness, ta_name),
-                )
-                os.symlink(
-                    os.path.join("..", "..", "tas", ta_name[:-3] + ".json"),
-                    os.path.join("..", tee, "harness", harness, ta_name[:-3] + ".json"),
-                )
+            if os.path.exists(os.path.join(BASE, tee, "harness", harness, "IGNORE")):
+                continue
+            # ta_name = (
+            #     open(os.path.join(BASE, tee, "harness", harness, "ta.txt"))
+            #     .read()
+            #     .strip("\n")
+            # )
+            # if not os.path.exists(os.path.join(BASE, tee, "harness", harness, ta_name)):
+            #     os.symlink(
+            #         os.path.join("..", "..", "tas", ta_name),
+            #         os.path.join("..", tee, "harness", harness, ta_name),
+            #     )
+            #     os.symlink(
+            #         os.path.join("..", "..", "tas", Path(ta_name).with_suffix(".json")),
+            #         os.path.join("..", tee, "harness", harness, Path(ta_name).with_suffix(".json")),
+            #     )
             job_queue.put(os.path.join(tee, "harness", harness))
             if os.path.exists(f"{BASE}/{tee}/harness/{harness}/out"):
                 os.system(
