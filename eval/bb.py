@@ -189,7 +189,15 @@ def load_ta_yml(yml_path: Path):
         ta_info[f"{k}_start"] = v["start"]
         ta_info[f"{k}_end"] = v["end"]
     return ta_info
-    
+
+def load_bbs_json(ta_dir:str, ta_name:str):
+    p1 = Path(ta_dir, 'bbs', 'bb_' + ta_name + '.json')
+    p2 = Path(ta_dir, 'bbs', 'bb_' + ta_name.replace(".nopauth", "") + '.json')
+    for p in (p1, p2):
+        if p.exists():
+            return json.load(p.open("r"))
+    raise FileNotFoundError(f"missing BB CFG for {ta_name}")
+
 def cfg_ta(ta_path):
     global ta_uuid
     cfg = nx.DiGraph()
@@ -200,7 +208,7 @@ def cfg_ta(ta_path):
     ta_name = os.path.basename(ta_path)
     ta_uuid = os.path.splitext(ta_name)[0]
     ta_json = load_ta_yml(_ta_path.with_suffix(".yml"))
-    bb_data = json.load(open(os.path.join(ta_dir, 'bbs', 'bb_' + ta_name + '.json')))
+    bb_data = load_bbs_json(ta_dir, ta_name)
     cfg.add_node(label(root))
     for ta_entry, ta_entry_addr in entry_addrs(ta_json, tee):
         try:
