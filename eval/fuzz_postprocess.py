@@ -1,3 +1,10 @@
+# Purpose: Parse fuzzing campaign drcov outputs and produce coverage-over-time
+# graphs for each TEE and merged datasets.
+# Depends on: campaign_out directories from eval/fuzz.py, drcov logs in harness
+# coverage directories, eval/graphs CFG helpers, matplotlib, and numpy.
+# Input: No CLI arguments; optional TAEMU_FUZZ_TEE restricts discovered TEEs.
+
+from pathlib import Path
 import threading
 import numpy as np
 import matplotlib
@@ -9,7 +16,7 @@ import time
 import subprocess
 import sys
 
-from graphs.bb import build_tee_cfg
+from bb import build_tee_cfg
 from fuzz import FUZZ_TIME, TEES, FUZZ_CHUNKS, FUZZ_ITERATIONS, COV_DIR, CAMPAIGN_DIR
 
 """
@@ -44,7 +51,7 @@ class BB:
 
 def get_root_ta_node(cfg, ta):
     for n in cfg.nodes:
-        if f'{ta[:-3]}_{8*"0"}' in n:
+        if f'{Path(ta).stem}_{8*"0"}' in n:
             return n
     return None
 
@@ -65,7 +72,7 @@ def parse_drcov(tee, ta, path):
     raw = open(path, "rb").read()
     ta_base = raw.split(b"timestamp, path\n")[-1]
     for l in ta_base.split(b"\n"):
-        if b"emulator/rootfs" in l and b".ta" in l:
+        if b"emulator/rootfs" in l and (b".ta" in l or b".elf" in l):
             base = l.split(b",")[1]
             base = int(base.decode())
             ta_id = int(l.split(b",")[0])
@@ -219,11 +226,18 @@ for tee in TEES:
     for harness in os.listdir(os.path.join(BASE, tee, "harness")):
         ta = None
         harness_path = os.path.join(BASE, tee, "harness", harness)
+        if not os.path.isdir(os.path.join(BASE, tee, "harness", harness)):
+            print("Harness is not a dir")
+            continue
         if os.path.exists(os.path.join(BASE, tee, "harness", harness, "IGNOREME")):
+            print("Harness is ignored")
+            continue
+        if os.path.exists(os.path.join(BASE, tee, "harness", harness, "IGNORE")):
+            print("Harness is ignored")
             continue
         print(f"handling {harness_path}")
         for f in os.listdir(harness_path):
-            if f.endswith(".ta"):
+            if f.endswith(".ta") or f.endswith(".elf"):
                 ta = f
                 tas.append(os.path.realpath(os.path.join(harness_path, f)))
                 break
@@ -234,7 +248,7 @@ for tee in TEES:
         ta2bbs[ta] = {}
         for campaign_iteration in range(0, FUZZ_ITERATIONS):
             print(f"processing {campaign_out} {campaign_iteration}")
-            iteration_dir = os.path.join(campaign_out, campaign_iteration)
+            iteration_dir = os.path.join(campaign_out, f"{campaign_iteration}")
             if FUZZ_TIME > 60 * 60:
                 ta2bbs[ta][campaign_iteration] = parse_cov_seeds(
                     tee, ta, os.path.join(iteration_dir, FUZZ_CHUNKS)
@@ -265,7 +279,7 @@ for tee in TEES:
     tee_cfg = build_tee_cfg(tee, only_tee=True, specific_tas=tas)
 
     def in_cfg(ta, bb, cfg):
-        nodes = nx.descendants(cfg, ta[:-3] + "_" + 8 * "0")
+        nodes = nx.descendants(cfg, Path(ta).stem + "_" + 8 * "0")
         for n in nodes:
             if not "start" in cfg.nodes[n] or not "end" in cfg.nodes[n]:
                 continue
