@@ -6,6 +6,7 @@
 # "tee-select" followed by TA paths.
 
 from collections import Counter
+import hashlib
 import logging
 from pathlib import Path
 from typing import List, Tuple
@@ -13,6 +14,7 @@ import networkx as nx
 import matplotlib
 import json
 import os
+import pickle
 import sys
 import subprocess
 import matplotlib.pyplot as plt
@@ -111,6 +113,11 @@ class Call:
         }
 
 root = '0'*8
+CFG_CACHE_VERSION = 1
+CFG_CACHE_DIR = Path(__file__).resolve().parent / ".cache" / "bb_cfg"
+CFG_CACHE_DISABLED = os.environ.get("TAEMU_DISABLE_CFG_CACHE") == "1"
+BBS_OUT_DIR = Path(__file__).resolve().parent / "bbs_out"
+_reachable_nodes_cache = {}
 
 def is_address(func_name):
     try:
@@ -153,6 +160,47 @@ def find_bb_entry(bb_data:dict, addr:int)->dict:
     raise KeyError(f"missing BB CFG for entry address {hex(addr)}")
 
 
+def file_signature(path):
+    path = Path(path)
+    st = path.stat()
+    return {
+        "path": path.resolve().as_posix(),
+        "size": st.st_size,
+        "mtime_ns": st.st_mtime_ns,
+    }
+
+
+def cache_key(payload):
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+def read_pickle_cache(namespace, payload):
+    if CFG_CACHE_DISABLED:
+        return None
+    path = CFG_CACHE_DIR / namespace / f"{cache_key(payload)}.pickle"
+    try:
+        with path.open("rb") as f:
+            return pickle.load(f)
+    except FileNotFoundError:
+        return None
+    except Exception as exc:
+        log.warning(f"ignoring corrupt CFG cache {path}: {exc}")
+        return None
+
+
+def write_pickle_cache(namespace, payload, value):
+    if CFG_CACHE_DISABLED:
+        return
+    path = CFG_CACHE_DIR / namespace / f"{cache_key(payload)}.pickle"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(".tmp")
+    with tmp_path.open("wb") as f:
+        pickle.dump(value, f, protocol=pickle.HIGHEST_PROTOCOL)
+    os.replace(tmp_path, path)
+
+
 def iter_ta_targets(tas_dir):
     for ta in sorted(os.listdir(tas_dir)):
         ta_path = Path(tas_dir, ta)
@@ -190,15 +238,48 @@ def load_ta_yml(yml_path: Path):
         ta_info[f"{k}_end"] = v["end"]
     return ta_info
 
-def load_bbs_json(ta_dir:str, ta_name:str):
+def find_bbs_json_path(ta_dir: str, ta_name: str):
     p1 = Path(ta_dir, 'bbs', 'bb_' + ta_name + '.json')
     p2 = Path(ta_dir, 'bbs', 'bb_' + ta_name.replace(".nopauth", "") + '.json')
     for p in (p1, p2):
         if p.exists():
-            return json.load(p.open("r"))
+            return p
     raise FileNotFoundError(f"missing BB CFG for {ta_name}")
 
+
+def load_bbs_json(ta_dir:str, ta_name:str):
+    with find_bbs_json_path(ta_dir, ta_name).open("r") as f:
+        return json.load(f)
+
+
+def cfg_ta_cache_payload(ta_path):
+    _ta_path = Path(ta_path)
+    ta_dir = os.path.dirname(ta_path)
+    ta_name = os.path.basename(ta_path)
+    yml_path = _ta_path.with_suffix(".yml")
+    bbs_path = find_bbs_json_path(ta_dir, ta_name)
+    return {
+        "version": CFG_CACHE_VERSION,
+        "kind": "cfg_ta",
+        "ta": file_signature(_ta_path),
+        "yml": file_signature(yml_path),
+        "bbs": file_signature(bbs_path),
+        "do_ta_uuid": do_ta_uuid,
+    }
+
+
 def cfg_ta(ta_path):
+    payload = cfg_ta_cache_payload(ta_path)
+    cached = read_pickle_cache("cfg_ta", payload)
+    if cached is not None:
+        log.info(f"cfg_ta cache hit: {ta_path}")
+        return cached
+    cfg = cfg_ta_uncached(ta_path)
+    write_pickle_cache("cfg_ta", payload, cfg)
+    return cfg
+
+
+def cfg_ta_uncached(ta_path):
     global ta_uuid
     cfg = nx.DiGraph()
     _ta_path = Path(ta_path)
@@ -278,9 +359,22 @@ def trim_cfg(cfg, implemented_apis):
                     to_remove.append(node)
     return nx.restricted_view(cfg, to_remove, [])
 
+def _api_cache_key(api):
+    return (api.func, api.is_api, api.api_type)
+
+
+def _implemented_apis_cache_key(implemented_apis):
+    return tuple(sorted(_api_cache_key(api) for api in implemented_apis))
+
+
 def reachable_nodes(cfg, implemented_apis):
+    cache_key = (id(cfg), root, _implemented_apis_cache_key(implemented_apis))
+    if cache_key in _reachable_nodes_cache:
+        return _reachable_nodes_cache[cache_key]
     trimmed_cfg = trim_cfg(cfg, implemented_apis)
-    return len(nx.descendants(trimmed_cfg, root)) 
+    reachable = len(nx.descendants(trimmed_cfg, root))
+    _reachable_nodes_cache[cache_key] = reachable
+    return reachable
 
 def pool_worker(data):
     cfg, implemented_apis, api = data
@@ -530,13 +624,26 @@ def build_tee_cfg(tee_path, only_tee=True, specific_tas=None):
     do_ta_uuid = True
     tee = os.path.basename(tee_path)
     tee_name = tee
-    ta_cfgs = [] 
+    ta_paths = []
     if specific_tas is None:
-        for ta_path in iter_ta_targets(os.path.join(tee_path, "tas")):
-            ta_cfgs.append(cfg_ta(ta_path))
+        ta_paths = list(iter_ta_targets(os.path.join(tee_path, "tas")))
     else:
-        for ta_path in specific_tas:
-            ta_cfgs.append(cfg_ta(ta_path))
+        ta_paths = [Path(ta_path) for ta_path in specific_tas]
+    payload = {
+        "version": CFG_CACHE_VERSION,
+        "kind": "build_tee_cfg",
+        "tee_path": Path(tee_path).resolve().as_posix(),
+        "tee": tee,
+        "only_tee": only_tee,
+        "tas": [cfg_ta_cache_payload(ta_path) for ta_path in ta_paths],
+    }
+    cached = read_pickle_cache("build_tee_cfg", payload)
+    if cached is not None:
+        log.info(f"build_tee_cfg cache hit: {tee_path}")
+        return cached
+    ta_cfgs = []
+    for ta_path in ta_paths:
+        ta_cfgs.append(cfg_ta(ta_path))
 
     function_counter = Counter()
     api_type_counter = Counter()
@@ -549,7 +656,8 @@ def build_tee_cfg(tee_path, only_tee=True, specific_tas=None):
         print(f'[{tee}] nr tas using {api_type} {count}')
 
     print(f'[{tee}] analyzing {tee}, nr cfgs: {len(ta_cfgs)}') 
-    with open(f'bbs_out/{tee}_func_count.txt', 'w') as f:
+    BBS_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    with (BBS_OUT_DIR / f"{tee}_func_count.txt").open('w') as f:
         for k, a in sorted(function_counter.items(), key=lambda x: x[1], reverse=True):
             f.write(f'{k} {a}\n')
 
@@ -563,6 +671,7 @@ def build_tee_cfg(tee_path, only_tee=True, specific_tas=None):
         ta_root_node = get_root_node(ta_cfg)
         tee_cfg.add_edge(root_name, ta_root_node) 
     print(f'size tee cfg: ', len(nx.descendants(tee_cfg, root_name)))
+    write_pickle_cache("build_tee_cfg", payload, tee_cfg)
     return tee_cfg 
 
 def analyze_tee(tee_path, specific_tas=None, strategy=None):

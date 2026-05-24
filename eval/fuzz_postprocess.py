@@ -67,7 +67,7 @@ def is_covered(node, bbbs):
     return False
 
 
-def parse_drcov(tee, ta, path):
+def parse_drcov_uncached(tee, ta, path):
     bbs_out = []
     raw = open(path, "rb").read()
     ta_base = raw.split(b"timestamp, path\n")[-1]
@@ -89,6 +89,10 @@ def parse_drcov(tee, ta, path):
             bbs_out.append(BB(ta, start, size))
         bbs = bbs[8:]
     return bbs_out
+
+
+def parse_drcov(tee, ta, path):
+    return parse_drcov_uncached(tee, ta, path)
 
 
 def parse_cov(tee, ta, drcov_path):
@@ -150,7 +154,8 @@ def gen_graph(tee, ta2bbs, max_bbs):
     coords = []
     for campaign_iteration in range(0, FUZZ_ITERATIONS):
         t2bbs = {}
-        for ta, data in ta2bbs[campaign_iteration].items():
+        for ta, iterations in ta2bbs.items():
+            data = iterations.get(campaign_iteration, {})
             for timestamp, bbs in data.items():
                 if timestamp > FUZZ_TIME:
                     continue
@@ -276,7 +281,7 @@ for tee in TEES:
     tas = list(set(tas))
     print(f"{tee}, {tas}")
     out[tee]["nr_tas"] = len(tas)
-    tee_cfg = build_tee_cfg(tee, only_tee=True, specific_tas=tas)
+    tee_cfg = build_tee_cfg(os.path.join(BASE, tee), only_tee=True, specific_tas=tas)
 
     def in_cfg(ta, bb, cfg):
         nodes = nx.descendants(cfg, Path(ta).stem + "_" + 8 * "0")
@@ -322,8 +327,8 @@ all_bugs = 0
 all_notimpl = 0
 all_tas = 0
 for tee in TEES:
-    max_bbs = gen_graph(tee, out[tee]["ta2bbs"], out[tee]["max_bbs"])
-    out[tee]["bbs"] = max_bbs
+    x, y = gen_graph(tee, out[tee]["ta2bbs"], out[tee]["max_bbs"])
+    out[tee]["bbs"] = max(y)
     all_ta2bbs = all_ta2bbs | out[tee]["ta2bbs"]
     all_bbs += out[tee]["max_bbs"]
     all_crashes += out[tee]["crashes"]
