@@ -1,0 +1,830 @@
+{
+    "0x1c4": {
+        "function": "0x1c4",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "000001c4",
+                "end": "00000203",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_5",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "00000204",
+                "end": "0000020b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_5",
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "0000020c",
+                "end": "00000217",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_8",
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "00000218",
+                "end": "0000022f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_56",
+                    "BB_4"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "00000230",
+                "end": "0000023b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_5",
+                "start": "0000023c",
+                "end": "00000253",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_56",
+                    "BB_6"
+                ]
+            },
+            {
+                "name": "BB_6",
+                "start": "00000254",
+                "end": "0000025b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_7",
+                "start": "0000025c",
+                "end": "00000287",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_8",
+                "start": "0000028c",
+                "end": "000002ab",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_15",
+                    "BB_9"
+                ]
+            },
+            {
+                "name": "BB_9",
+                "start": "000002ac",
+                "end": "000002b3",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_10"
+                ]
+            },
+            {
+                "name": "BB_10",
+                "start": "000002b4",
+                "end": "000002bb",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_11"
+                ]
+            },
+            {
+                "name": "BB_11",
+                "start": "000002bc",
+                "end": "000002c3",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_12"
+                ]
+            },
+            {
+                "name": "BB_12",
+                "start": "000002c4",
+                "end": "000002d3",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_13"
+                ]
+            },
+            {
+                "name": "BB_13",
+                "start": "000002d4",
+                "end": "000002eb",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_56",
+                    "BB_14"
+                ]
+            },
+            {
+                "name": "BB_14",
+                "start": "000002ec",
+                "end": "0000030f",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_15",
+                "start": "00000314",
+                "end": "00000363",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_18",
+                    "BB_16"
+                ]
+            },
+            {
+                "name": "BB_16",
+                "start": "00000364",
+                "end": "0000036b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_20",
+                    "BB_17"
+                ]
+            },
+            {
+                "name": "BB_17",
+                "start": "0000036c",
+                "end": "00000387",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_11"
+                ]
+            },
+            {
+                "name": "BB_18",
+                "start": "00000388",
+                "end": "000003b7",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_56",
+                    "BB_19"
+                ]
+            },
+            {
+                "name": "BB_19",
+                "start": "000003b8",
+                "end": "000003eb",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_20",
+                "start": "000003f0",
+                "end": "00000453",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_24",
+                    "BB_21"
+                ]
+            },
+            {
+                "name": "BB_21",
+                "start": "00000454",
+                "end": "00000457",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_24",
+                    "BB_22"
+                ]
+            },
+            {
+                "name": "BB_22",
+                "start": "00000458",
+                "end": "00000483",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_25",
+                    "BB_23"
+                ]
+            },
+            {
+                "name": "BB_23",
+                "start": "00000484",
+                "end": "0000049f",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_12"
+                ]
+            },
+            {
+                "name": "BB_24",
+                "start": "000004a0",
+                "end": "000004d7",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_11"
+                ]
+            },
+            {
+                "name": "BB_25",
+                "start": "000004d8",
+                "end": "000004e7",
+                "calls": [
+                    {
+                        "func": "qsee_register_shared_buffer",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_27",
+                    "BB_26"
+                ]
+            },
+            {
+                "name": "BB_26",
+                "start": "000004e8",
+                "end": "000004ff",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_29"
+                ]
+            },
+            {
+                "name": "BB_27",
+                "start": "00000500",
+                "end": "0000050f",
+                "calls": [
+                    {
+                        "func": "qsee_prepare_shared_buf_for_secure_read",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_30",
+                    "BB_28"
+                ]
+            },
+            {
+                "name": "BB_28",
+                "start": "00000510",
+                "end": "0000052b",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "qsee_deregister_shared_buffer",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_29"
+                ]
+            },
+            {
+                "name": "BB_29",
+                "start": "0000052c",
+                "end": "00000537",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_10"
+                ]
+            },
+            {
+                "name": "BB_30",
+                "start": "00000538",
+                "end": "000005c7",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "qsee_open",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_34",
+                    "BB_31"
+                ]
+            },
+            {
+                "name": "BB_31",
+                "start": "000005c8",
+                "end": "000005cf",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_34",
+                    "BB_32"
+                ]
+            },
+            {
+                "name": "BB_32",
+                "start": "000005d0",
+                "end": "00000647",
+                "calls": [
+                    {
+                        "func": "000008e0",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_35",
+                    "BB_33"
+                ]
+            },
+            {
+                "name": "BB_33",
+                "start": "00000648",
+                "end": "0000066f",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_49"
+                ]
+            },
+            {
+                "name": "BB_34",
+                "start": "00000670",
+                "end": "0000068f",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_50"
+                ]
+            },
+            {
+                "name": "BB_35",
+                "start": "00000690",
+                "end": "000006b7",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "qsee_spcom_register_client",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_44",
+                    "BB_36"
+                ]
+            },
+            {
+                "name": "BB_36",
+                "start": "000006b8",
+                "end": "000006bf",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_37"
+                ]
+            },
+            {
+                "name": "BB_37",
+                "start": "000006c0",
+                "end": "000006cf",
+                "calls": [
+                    {
+                        "func": "qsee_spcom_client_is_server_connected",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_45",
+                    "BB_38"
+                ]
+            },
+            {
+                "name": "BB_38",
+                "start": "000006d0",
+                "end": "000006db",
+                "calls": [
+                    {
+                        "func": "qsee_get_uptime",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_39"
+                ]
+            },
+            {
+                "name": "BB_39",
+                "start": "000006dc",
+                "end": "000006e7",
+                "calls": [
+                    {
+                        "func": "qsee_get_uptime",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_39",
+                    "BB_40"
+                ]
+            },
+            {
+                "name": "BB_40",
+                "start": "000006e8",
+                "end": "000006eb",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_37",
+                    "BB_41"
+                ]
+            },
+            {
+                "name": "BB_41",
+                "start": "000006ec",
+                "end": "00000747",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "qsee_spcom_client_send_message_sync",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_46",
+                    "BB_42"
+                ]
+            },
+            {
+                "name": "BB_42",
+                "start": "00000748",
+                "end": "0000074f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_55",
+                    "BB_43"
+                ]
+            },
+            {
+                "name": "BB_43",
+                "start": "00000750",
+                "end": "00000767",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_47"
+                ]
+            },
+            {
+                "name": "BB_44",
+                "start": "00000768",
+                "end": "00000787",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_48"
+                ]
+            },
+            {
+                "name": "BB_45",
+                "start": "00000788",
+                "end": "00000797",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_46"
+                ]
+            },
+            {
+                "name": "BB_46",
+                "start": "00000798",
+                "end": "0000079b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_47"
+                ]
+            },
+            {
+                "name": "BB_47",
+                "start": "0000079c",
+                "end": "000007a3",
+                "calls": [
+                    {
+                        "func": "qsee_spcom_unregister_client",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_48"
+                ]
+            },
+            {
+                "name": "BB_48",
+                "start": "000007a4",
+                "end": "000007b7",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_49"
+                ]
+            },
+            {
+                "name": "BB_49",
+                "start": "000007b8",
+                "end": "000007cb",
+                "calls": [
+                    {
+                        "func": "000008e0",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_50"
+                ]
+            },
+            {
+                "name": "BB_50",
+                "start": "000007cc",
+                "end": "0000084f",
+                "calls": [
+                    {
+                        "func": "qsee_prepare_shared_buf_for_nosecure_read",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_52",
+                    "BB_51"
+                ]
+            },
+            {
+                "name": "BB_51",
+                "start": "00000850",
+                "end": "0000085b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_54"
+                ]
+            },
+            {
+                "name": "BB_52",
+                "start": "0000085c",
+                "end": "00000867",
+                "calls": [
+                    {
+                        "func": "qsee_deregister_shared_buffer",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_13",
+                    "BB_53"
+                ]
+            },
+            {
+                "name": "BB_53",
+                "start": "00000868",
+                "end": "0000086f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_54"
+                ]
+            },
+            {
+                "name": "BB_54",
+                "start": "00000870",
+                "end": "0000087b",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_13"
+                ]
+            },
+            {
+                "name": "BB_55",
+                "start": "0000087c",
+                "end": "0000089b",
+                "calls": [
+                    {
+                        "func": "qsee_spcom_unregister_client",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_49"
+                ]
+            },
+            {
+                "name": "BB_56",
+                "start": "0000089c",
+                "end": "0000089f",
+                "calls": [
+                    {
+                        "func": "qsee_err_fatal",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "000008e0": {
+        "function": "000008e0",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "000008e0",
+                "end": "000008eb",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    }
+}
