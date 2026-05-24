@@ -150,7 +150,19 @@ def aggregate(coords):
     return y_max, y_min, y_med, x_aggr
 
 
-def gen_graph(tee, ta2bbs, max_bbs):
+def graph_filename(name):
+    return "".join(c if c.isalnum() or c in "._-" else "_" for c in name)
+
+
+def get_ta_max_bbs(cfg, ta):
+    ta_root = get_root_ta_node(cfg, ta)
+    if ta_root is None:
+        print(f"missing CFG root for {ta}")
+        return 0
+    return len(nx.descendants(cfg, ta_root))
+
+
+def gen_graph(name, ta2bbs, max_bbs, out_name=None):
     coords = []
     for campaign_iteration in range(0, FUZZ_ITERATIONS):
         t2bbs = {}
@@ -173,7 +185,7 @@ def gen_graph(tee, ta2bbs, max_bbs):
             y.append(len(bball))
         coords.append((x, y))
     y_max, y_min, y_median, x = aggregate(coords)
-    print(tee)
+    print(name)
     print("x", x)
     print("y", y)
     x.append(FUZZ_TIME)
@@ -208,9 +220,10 @@ def gen_graph(tee, ta2bbs, max_bbs):
     plt.tight_layout()
     plt.gcf().subplots_adjust(left=0.115)
     out = f"{BASE}/eval/fuzz_graphs"
-    if not os.path.exists(out):
-        os.system(f"mkdir -p {out}")
-    out_path = os.path.join(out, f"{tee}.pdf")
+    os.makedirs(out, exist_ok=True)
+    if out_name is None:
+        out_name = name
+    out_path = os.path.join(out, f"{graph_filename(out_name)}.pdf")
     plt.savefig(out_path, format="pdf", bbox_inches="tight", pad_inches=0.1)
     return x, y
 
@@ -319,6 +332,18 @@ for tee in TEES:
     out[tee]["max_bbs"] = len(nx.descendants(tee_cfg, root))
     out[tee]["fuzz_bbs"] = sum([len(bbs) for _, bbs in ta2bbs_merged.items()])
     out[tee]["ta2bbs"] = ta2bbs
+    out[tee]["ta_max_bbs"] = {}
+    for ta in sorted(ta2bbs):
+        max_ta_bbs = get_ta_max_bbs(tee_cfg, ta)
+        out[tee]["ta_max_bbs"][ta] = max_ta_bbs
+        if max_ta_bbs == 0:
+            continue
+        gen_graph(
+            f"{tee}/{Path(ta).stem}",
+            {ta: ta2bbs[ta]},
+            max_ta_bbs,
+            out_name=f"{tee}_{Path(ta).stem}",
+        )
 
 all_ta2bbs = {}
 all_bbs = 0
