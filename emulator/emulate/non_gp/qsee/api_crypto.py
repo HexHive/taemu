@@ -477,3 +477,14 @@ def qsee_hash(ql: Qiling, hook_data: "HookData"):
     ql.mem.write(args["out_digest"], digest)
     ql.mem.write(args["out_len"], pwn.p32(len(digest)))
     _ret(ql, 0)
+
+@nonfaithful
+def qsee_rsa_key_gen(ql: Qiling, hook_data: "HookData"):
+    args = ql.os.resolve_fcall_params({
+        "priv_key": POINTER,
+        "key_size": INT,
+        "e_bytes": POINTER,
+        "e_len": INT,
+    })
+    _log_args(ql, "qsee_rsa_key_gen", args)
+    _ret(ql, 0)

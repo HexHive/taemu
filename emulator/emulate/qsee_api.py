@@ -20,7 +20,7 @@ from .common import crash, crash_notimpl
 from .gp.utils.printf import parse_fmt_str, fixup_format, read_c_str
 import time
 from typing import TYPE_CHECKING
-from .non_gp.qsee.api_common import _ret, _read_u32, _log_args
+from .non_gp.qsee.api_common import _ret, _read_u32, _log_args, nonfaithful
 from .non_gp.qsee.api_shared_buffers import *
 from .non_gp.qsee.api_cfg import *
 from .non_gp.qsee.api_stor_device import *
@@ -204,18 +204,17 @@ def qsee_is_ns_range(ql: Qiling, hook_data:'HookData'):
     })
     addr = args['addr']
     size = args['size']
-    ql.log.info("qsee_is_ns_range ptr: %#0x size:%#0x", addr, size)
-
+    _log_args(ql, "qsee_is_ns_range", args)
     # is_mapped = False
-    # for start, end, perms, info, _ in ql.mem.get_mapinfo():
-    #     # Sanity check, that we are in the params
-    #     if start <= addr < addr + size < end:
-    #         #  and "[qsee_ns]" in info
-    #         is_mapped = True
-    #         break
-    # if not is_mapped:
-    #     ql.log.warning("qsee_is_ns_range ptr: %#0x size:%#0x not mapped", addr, size)
-    # # We just lie for simplicity
+    for start, end, perms, info, _ in ql.mem.get_mapinfo():
+        # Sanity check, that we are in the params
+        if start <= addr < addr + size < end:
+            #  and "[qsee_ns]" in info
+            is_mapped = True
+            break
+    if not is_mapped:
+        ql.log.warning("qsee_is_ns_range ptr: %#0x size:%#0x not mapped", addr, size)
+    # We just lie for simplicity
     is_mapped = True
 
     mapped_response = 0 if is_mapped else 0xffffffff
@@ -227,7 +226,7 @@ def time_getutcsec(ql: Qiling, hook_data:'HookData'):
         "dest": POINTER,
     })
     dest = args['dest']
-    ql.log.info("time_getutcsec, writing to %#x", dest)
+    _log_args(ql, "time_getutcsec", args)
     t = time.time_ns()
     sec = t // 1_000_000_000
     nsec = t % 1_000_000_000
@@ -235,6 +234,7 @@ def time_getutcsec(ql: Qiling, hook_data:'HookData'):
     ql.mem.write(dest, pwn.p64(((nsec & 0xFFFFFFFF) << 32) | (sec & 0xFFFFFFFF)))
     _ret(ql, 0)
 
+@nonfaithful
 def qsee_get_uptime(ql: Qiling, hook_data:'HookData'):
     # Should return ms time
     ql.log.info("qsee_get_uptime, back to %#x", ql.arch.regs.lr)
@@ -244,6 +244,7 @@ def qsee_get_uptime(ql: Qiling, hook_data:'HookData'):
     ql.os.fcall.cc.setReturnValue(int(t.total_seconds() * 1000))
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+@nonfaithful
 def lstat(ql: Qiling, hook_data:'HookData'):
     args = ql.os.resolve_fcall_params({
         "path": STRING,
@@ -303,7 +304,7 @@ def qsee_kdf(ql: Qiling, hook_data:'HookData'):
     # not sure if this is really output
     output_ptr = args['output']
     output_len = args['output_len']
-    ql.log.info("qsee_kdf(%#x, %#x, %#x, %#x, %#x, %#x, %#x, %#x)", a, b, label_ptr, label_len, salt_ptr, salt_len, output_ptr, output_len)
+    _log_args(ql, "qsee_kdf", args)
     ql.log.info("label: %s", label)
     ql.log.info("salt: %s", salt)
     ql.log.info("ret_addr: %#x", ql.arch.regs.lr)
@@ -452,23 +453,6 @@ QSEE_CIPHER_PARAM_IV   = 1
 QSEE_CIPHER_PARAM_MODE = 2
 QSEE_CIPHER_PARAM_PAD  = 3
 QSEE_CIPHER_CTXS = {}
-QSEE_NEXT_CTX = 0x10000000
-
-def _new_qsee_cipher_ctx(alg: int) -> int:
-    global QSEE_NEXT_CTX
-
-    ctx = QSEE_NEXT_CTX
-    QSEE_NEXT_CTX += 0x100
-
-    QSEE_CIPHER_CTXS[ctx] = {
-        "alg": alg,
-        "key": b"",
-        "iv": b"",
-        "mode": None,
-        "pad": None,
-    }
-
-    return ctx
 
 def qsee_cipher_init(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
@@ -479,11 +463,34 @@ def qsee_cipher_init(ql: Qiling, hook_data: "HookData"):
     alg = args["alg"]
     out_ctx = args["out_ctx"]
 
-    ctx = _new_qsee_cipher_ctx(alg)
+    ctxbuf = malloc_core(ql, 0x100, hook_data, True)
+    if ctxbuf == 0:
+        ql.log.error("qsee_cipher_init: failed to allocate ctx buffer")
+        return _ret(ql, -1)
+    
+    QSEE_CIPHER_CTXS[ctxbuf] = {
+        "alg": alg,
+        "key": b"",
+        "iv": b"",
+        "mode": None,
+        "pad": None,
+    }
+    ql.log.info("qsee_cipher_init(alg=%#x, out_ctx=%#x) -> ctx=%#x", alg, out_ctx, ctxbuf)
+    ql.mem.write_ptr(out_ctx, ctxbuf)
 
-    ql.log.info("qsee_cipher_init(alg=%#x, out_ctx=%#x) -> ctx=%#x", alg, out_ctx, ctx)
-    ql.mem.write_ptr(out_ctx, ctx)
+    _ret(ql, 0)
 
+def qsee_cipher_free_ctx(ql: Qiling, hook_data: "HookData"):
+    args = ql.os.resolve_fcall_params({
+        "ctx": POINTER,
+    })
+    _log_args(ql, "qsee_cipher_free_ctx", args)
+    ctx = args["ctx"]
+    if ctx not in QSEE_CIPHER_CTXS:
+        ql.log.warning("qsee_cipher_free_ctx: unknown ctx %#x", ctx)
+    else:
+        QSEE_CIPHER_CTXS.pop(ctx)
+    free_core(ql, ctx, hook_data)
     _ret(ql, 0)
 
 
@@ -499,17 +506,10 @@ def qsee_cipher_set_param(ql: Qiling, hook_data: "HookData"):
     param_id = args["param_id"]
     data = args["data"]
     data_len = args["data_len"]
-
-    ql.log.debug(
-        "qsee_cipher_set_param(ctx=%#x, param_id=%#x, data=%#x, data_len=%#x)",
-        ctx,
-        param_id,
-        data,
-        data_len,
-    )
+    _log_args(ql, "qsee_cipher_set_param", args)
 
     if ctx not in QSEE_CIPHER_CTXS:
-        ql.log.warning("qsee_cipher_set_param: unknown ctx %#x, creating permissive ctx", ctx)
+        ql.log.warning("qsee_cipher_set_param: unknown ctx %#x, creating permissive ctx, which is not malloced!", ctx)
         QSEE_CIPHER_CTXS[ctx] = {
             "alg": None,
             "key": b"",
@@ -541,7 +541,7 @@ def qsee_cipher_set_param(ql: Qiling, hook_data: "HookData"):
 
     _ret(ql, 0)
 
-
+@nonfaithful
 def qsee_cipher_encrypt(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "ctx": POINTER,
@@ -557,7 +557,7 @@ def qsee_cipher_encrypt(ql: Qiling, hook_data: "HookData"):
     ql.mem.write(out, ql.mem.read(data, data_len))
     _ret(ql, 0)
 
-
+@nonfaithful
 def qsee_cipher_decrypt(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "ctx": POINTER,
@@ -573,7 +573,7 @@ def qsee_cipher_decrypt(ql: Qiling, hook_data: "HookData"):
     ql.mem.write(out, ql.mem.read(data, data_len))
     _ret(ql, 0)
 
-
+@nonfaithful
 def qsee_hmac(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "ctx": POINTER,
@@ -590,6 +590,7 @@ def qsee_hmac(ql: Qiling, hook_data: "HookData"):
     ql.mem.write(out, bytes(range(0x20)))
     _ret(ql, 0)
 
+@nonfaithful
 def qsee_set_bandwidth(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "client_name": STRING,
@@ -638,8 +639,24 @@ def qsee_util_init_s_bigint(ql: Qiling, hook_data: "HookData"):
     _ret(ql, 0)
 
 
-# WARNING: This is some Quasi-Encapsulation. Useless if app only need decapsulation of the messages. Needs more investigation.
+def qsee_util_free_s_bigint(ql: Qiling, hook_data: "HookData"):
+    args = ql.os.resolve_fcall_params({
+        "bigint": POINTER,
+    })
+    bigint = args["bigint"]
+    ql.log.debug("qsee_util_free_s_bigint(%#x)", bigint)
+    free_core(ql, bigint, hook_data)
+    _ret(ql, 0)
 
+def qsee_spi_close(ql: Qiling, hook_data: "HookData"):
+    args = ql.os.resolve_fcall_params({
+        "spi_id": INT,
+    })
+    _log_args(ql, "qsee_spi_close", args)
+    _ret(ql, 0)
+
+# WARNING: This is some Quasi-Encapsulation. Useless if app only need decapsulation of the messages. Needs more investigation.
+@nonfaithful
 def qsee_encapsulate_inter_app_message(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "dest_app_name": STRING,
@@ -669,6 +686,7 @@ def qsee_encapsulate_inter_app_message(ql: Qiling, hook_data: "HookData"):
     ql.mem.write(args["plain_msg_len"], pwn.p32(len(quasi_encrypted_msg)))
     _ret(ql, 0)
 
+@nonfaithful
 def qsee_decapsulate_inter_app_messages(ql: Qiling, hook_data: "HookData"):
     args = ql.os.resolve_fcall_params({
         "peer_app_name_out": STRING,
