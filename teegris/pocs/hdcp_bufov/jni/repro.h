@@ -460,7 +460,7 @@ void* allocate_param_mem(TEEC_Context* context, int mem_size)
     TEEC_TempMemoryReference* memref = (TEEC_TempMemoryReference*)malloc(sizeof(TEEC_TempMemoryReference));
     memref->size = mem_size;
     memref->buffer = shared_memory;
-    shm_p[i] = memref;
+    shm_p[i] = (void*)memref;
     memset(shared_memory, 0, shm_size);
 
     // msg here

@@ -1,5 +1,8 @@
 FROM ubuntu:22.04
 
+RUN touch /.dockerenv
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+
 RUN rm -f /etc/apt/apt.conf.d/docker-clean && \
     echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 
@@ -54,6 +57,7 @@ WORKDIR /opt/src
 RUN git clone https://github.com/vanhauser-thc/drcov-merge.git && cd drcov-merge && make && mv drcov-merge /opt/afl
 
 RUN pip3 install networkx 
+COPY unicornafl.py /opt/afl/unicornafl/
 
 WORKDIR /srv/
 #RUN useradd -u 1000 ctf
