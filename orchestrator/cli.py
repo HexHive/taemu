@@ -790,11 +790,16 @@ def build_docker_command(args: argparse.Namespace, run_dir: Path, job: Job, cpu:
         f"{container_job_dir}/in",
         "--out_dir",
         f"{container_job_dir}/out",
-        "--triage_report_dir",
-        f"{container_job_dir}/triage",
-        "-I",
-        args.triage_hook,
     ]
+    if args.triage_hook:
+        fuzz_cmd.extend(
+            [
+                "--triage_report_dir",
+                f"{container_job_dir}/triage",
+                "-I",
+                args.triage_hook,
+            ]
+        )
     notify_cmd = [
         "/srv/medic/ntfy-hook.sh",
         "afl-stopped",
@@ -894,6 +899,13 @@ def rewrite_campaign_path(raw: str | None, run_dir: Path, original_run_dir: str 
     if raw_path.is_absolute():
         return raw_path
     return run_dir / raw_path
+
+
+def path_exists(path: Path) -> bool:
+    try:
+        return path.exists()
+    except OSError:
+        return False
 
 
 def rewrite_job_path(raw: str | None, run_dir: Path, job_id: str | None) -> Path | None:
@@ -1084,6 +1096,118 @@ def build_replay_docker_command(
             campaign_container_path(artifact, run_dir),
         ]
     )
+    return cmd
+
+
+def build_coverage_docker_command(
+    args: argparse.Namespace,
+    run_dir: Path,
+    job_id: str,
+    harness_relpath: str,
+    out_dir: Path,
+) -> list[str]:
+    container_harness = f"/srv/{harness_relpath}"
+    container_out = campaign_container_path(out_dir, run_dir)
+    cov_dir = f"{container_out}/cov"
+    merged = f"{container_out}/drcov.log"
+    manifest = f"{container_out}/seed-coverage.tsv"
+    summary = f"{container_out}/coverage-summary.tsv"
+    log_dir = f"{container_out}/coverage-logs"
+    replay_timeout = str(args.replay_timeout)
+    shell = (
+        "set -uo pipefail; "
+        "shopt -s nullglob; "
+        f"mkdir -p {shlex.quote(cov_dir)} {shlex.quote(log_dir)}; "
+        f"tmp_root={shlex.quote(container_out)}/.coverage-replay-tmp/replay-$$; "
+        "rm -rf \"$tmp_root\"; "
+        "mkdir -p \"$tmp_root\"; "
+        "cleanup() { rm -rf \"$tmp_root\"; }; "
+        "trap cleanup EXIT; "
+        "tmp_manifest=\"$tmp_root/seed-coverage.tsv\"; "
+        "tmp_summary=\"$tmp_root/coverage-summary.tsv\"; "
+        "printf 'seed\\tcov\\texit_status\\tstatus\\tlog\\n' > \"$tmp_manifest\"; "
+        "status=0; count=0; skipped=0; replayed=0; failed=0; "
+        f"for file in {shlex.quote(container_out)}/*/queue/*; do "
+        "[[ -e \"$file\" ]] || continue; "
+        "count=$((count + 1)); "
+        "base=$(basename \"$file\"); "
+        "safe=${base//[^A-Za-z0-9_.:+=,@%-]/_}; "
+        f"cov={shlex.quote(cov_dir)}/\"$base\".cov; "
+        f"log={shlex.quote(log_dir)}/\"$safe\".log; "
+        "if [[ -s \"$cov\" && -s \"$log\" ]]; then "
+        "skipped=$((skipped + 1)); "
+        "printf '%s\\t%s\\t%s\\t%s\\t%s\\n' \"$file\" \"$cov\" 0 skipped \"$log\" >> \"$tmp_manifest\"; "
+        "continue; "
+        "fi; "
+        "seed_tmp=\"$tmp_root/$safe\"; "
+        "tmp_out=\"$seed_tmp/out\"; "
+        "tmp_log=\"$seed_tmp/replay.log\"; "
+        "mkdir -p \"$tmp_out\"; "
+        "set +e; "
+        f"TAEMU_COV_OUT_DIR=\"$tmp_out\" timeout -k 5 {shlex.quote(replay_timeout)} "
+        f"/srv/emulator/fuzz.sh {shlex.quote(container_harness)} \"$file\" >\"$tmp_log\" 2>&1; "
+        "rc=$?; "
+        "set -e; "
+        "tmp_cov=\"$tmp_out/cov/$base.cov\"; "
+        "if [[ -s \"$tmp_cov\" ]]; then "
+        "mv -f \"$tmp_log\" \"$log\"; "
+        "mv -f \"$tmp_cov\" \"$cov\"; "
+        "replayed=$((replayed + 1)); "
+        "seed_status=replayed; "
+        "if [[ \"$rc\" -ne 0 ]]; then seed_status=replayed-nonzero; fi; "
+        "else "
+        "failed=$((failed + 1)); "
+        "status=1; "
+        "seed_status=failed-no-cov; "
+        "fi; "
+        "printf '%s\\t%s\\t%s\\t%s\\t%s\\n' \"$file\" \"$cov\" \"$rc\" \"$seed_status\" \"$log\" >> \"$tmp_manifest\"; "
+        "done; "
+        f"cov_files=( {shlex.quote(cov_dir)}/*.cov ); "
+        "if [ ${#cov_files[@]} -gt 0 ]; then "
+        "tmp_merged=\"$tmp_root/drcov.log\"; "
+        f"if /opt/afl/drcov-merge -u \"$tmp_merged\" \"${{cov_files[@]}}\"; then "
+        f"mv -f \"$tmp_merged\" {shlex.quote(merged)}; "
+        "else "
+        "status=1; "
+        "fi; "
+        "else "
+        "status=1; "
+        "fi; "
+        f"printf 'job_id\\tseeds\\tskipped\\treplayed\\tfailed\\tstatus\\tmerged\\n%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n' {shlex.quote(job_id)} \"$count\" \"$skipped\" \"$replayed\" \"$failed\" \"$status\" {shlex.quote(merged)} > \"$tmp_summary\"; "
+        f"mv -f \"$tmp_manifest\" {shlex.quote(manifest)}; "
+        f"mv -f \"$tmp_summary\" {shlex.quote(summary)}; "
+        "exit $status"
+    )
+
+    cmd = [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "host",
+        "--volume",
+        f"{REPO_ROOT}:/srv",
+        "--volume",
+        f"{run_dir}:/campaign",
+        "--workdir",
+        "/srv/emulator",
+        "--shm-size",
+        DEFAULT_SHM_SIZE,
+        "--ipc",
+        "host",
+        "--user",
+        "root",
+        "-e",
+        "AFL_NO_AFFINITY=1",
+        "-e",
+        "TAEMU_CRASH_NOTIMPL=1",
+        "-e",
+        f"REPLAY_TIMEOUT={args.replay_timeout}",
+        args.image,
+        "bash",
+        "-lc",
+        shell,
+    ]
     return cmd
 
 
@@ -1657,6 +1781,112 @@ def cmd_triage_missed(args: argparse.Namespace) -> int:
     return 0
 
 
+def select_campaign_jobs(args: argparse.Namespace) -> list[dict[str, Any]]:
+    run_dir = resolved_run_dir(args)
+    states = read_states(run_dir)
+    original_run_dir = getattr(args, "original_run_dir", None)
+    campaign_path = run_dir / "campaign.json"
+    if original_run_dir is None and campaign_path.is_file():
+        try:
+            original_run_dir = json.loads(campaign_path.read_text()).get("run_dir")
+        except (OSError, json.JSONDecodeError):
+            original_run_dir = None
+    allowed_states = {state.strip() for state in args.jobs.split(",") if state.strip()}
+    if not allowed_states:
+        raise BatchError("--jobs must contain at least one state")
+    harness_patterns = parse_csv_filter(args.harnesses)
+    selected: list[dict[str, Any]] = []
+    for state in states:
+        if state.get("state") not in allowed_states:
+            continue
+        job_id = state.get("job_id")
+        harness_relpath = state.get("harness_relpath")
+        if not job_id or not harness_relpath:
+            continue
+        harness_name = str(state.get("harness") or Path(harness_relpath).name)
+        if not matches_any_pattern([str(job_id), harness_name, str(harness_relpath)], harness_patterns):
+            continue
+        out_dir = rewrite_campaign_path(state.get("out_dir"), run_dir, original_run_dir)
+        if out_dir and not path_exists(out_dir):
+            out_dir = rewrite_job_path(state.get("out_dir"), run_dir, str(job_id))
+        if out_dir is None:
+            out_dir = run_dir / "jobs" / str(job_id) / "out"
+        selected.append(
+            {
+                "state": state,
+                "job_id": str(job_id),
+                "harness_relpath": str(harness_relpath),
+                "out_dir": out_dir,
+            }
+        )
+    selected.sort(key=lambda item: item["job_id"])
+    return selected
+
+
+def cmd_replay_coverage(args: argparse.Namespace) -> int:
+    run_dir = resolved_run_dir(args)
+    if not run_dir.is_dir():
+        raise BatchError(f"run-dir not found: {run_dir}")
+    if not args.dry_run and shutil.which("docker") is None:
+        raise BatchError("docker is not available on PATH")
+
+    selected = select_campaign_jobs(args)
+    if args.limit:
+        selected = selected[: args.limit]
+
+    if args.dry_run:
+        print(f"dry-run: jobs={len(selected)}")
+        for item in selected:
+            queue_count = sum(
+                1
+                for queue_dir in item["out_dir"].glob("*/queue")
+                if queue_dir.is_dir()
+                for seed in queue_dir.iterdir()
+                if seed.is_file()
+            )
+            print(f"{item['job_id']}\t{item['harness_relpath']}\tseeds={queue_count}\tout={item['out_dir']}")
+        return 0
+
+    if not selected:
+        print("replay-coverage: no jobs selected")
+        return 0
+
+    summary_path = run_dir / "coverage-replay.tsv"
+    failures = 0
+
+    with summary_path.open("w", newline="") as summary_fh:
+        summary = csv.writer(summary_fh, delimiter="\t")
+        summary.writerow(["job_id", "harness_relpath", "out_dir", "exit_status", "merged_drcov", "manifest", "docker_log"])
+        for index, item in enumerate(selected, start=1):
+            cmd = build_coverage_docker_command(
+                args,
+                run_dir,
+                item["job_id"],
+                item["harness_relpath"],
+                item["out_dir"],
+            )
+            completed = subprocess.run(
+                cmd,
+                cwd=REPO_ROOT,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                timeout=None,
+                check=False,
+            )
+            docker_log = item["out_dir"] / "coverage-replay-docker.log"
+            docker_log.write_text(completed.stdout)
+            merged = item["out_dir"] / "drcov.log"
+            manifest = item["out_dir"] / "seed-coverage.tsv"
+            if completed.returncode != 0:
+                failures += 1
+            summary.writerow([item["job_id"], item["harness_relpath"], item["out_dir"], completed.returncode, merged, manifest, docker_log])
+            print(f"[{index}/{len(selected)}] coverage {item['job_id']} exit={completed.returncode} merged={merged}", flush=True)
+
+    print(f"coverage replay complete: jobs={len(selected)} failures={failures} summary={summary_path}")
+    return 1 if failures else 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run fixed-slot Docker fuzzing batches.")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -1680,7 +1910,11 @@ def build_parser() -> argparse.ArgumentParser:
     start.add_argument("--image", default=DEFAULT_IMAGE, help=f"Docker image; default {DEFAULT_IMAGE}")
     start.add_argument("--memory", default=DEFAULT_MEMORY, help=f"Docker memory and memory-swap limit; default {DEFAULT_MEMORY}")
     start.add_argument("--container-prefix", default=DEFAULT_CONTAINER_PREFIX, help=f"default {DEFAULT_CONTAINER_PREFIX}")
-    start.add_argument("--triage-hook", default=DEFAULT_TRIAGE_HOOK, help=f"default {DEFAULT_TRIAGE_HOOK}")
+    start.add_argument(
+        "--triage-hook",
+        default=DEFAULT_TRIAGE_HOOK,
+        help="new-crash hook to pass to fuzz.sh; disabled by default",
+    )
     start.add_argument(
         "--tmux-session",
         help="run each active fuzz job in a tmux window with an interactive Docker TTY so the AFL screen is visible",
@@ -1745,6 +1979,31 @@ def build_parser() -> argparse.ArgumentParser:
     triage.add_argument("--force", action="store_true", help="replay artifacts even if prior triage-missed runs processed them")
     triage.add_argument("--dry-run", action="store_true", help="list selected artifacts without copying or replaying")
     triage.set_defaults(func=cmd_triage_missed)
+
+    coverage = subparsers.add_parser(
+        "replay-coverage",
+        help="replay AFL queue seeds from a campaign and merge per-seed drcov basic-block coverage",
+    )
+    coverage.add_argument("run_dir_pos", nargs="?", help="local campaign directory")
+    coverage.add_argument("--run-dir", help="local campaign directory")
+    coverage.add_argument(
+        "--original-run-dir",
+        help="original absolute campaign root embedded in status files; rewritten to --run-dir when reading queues",
+    )
+    coverage.add_argument(
+        "--jobs",
+        default="done,timed_out,failed,interrupted",
+        help="comma-separated job states to scan; default done,timed_out,failed,interrupted",
+    )
+    coverage.add_argument(
+        "--harnesses",
+        help="comma-separated harness/job filters; matches harness name, harness relpath, or job id, with shell globs",
+    )
+    coverage.add_argument("--replay-timeout", type=int, default=DEFAULT_REPLAY_TIMEOUT, help=f"per-seed timeout; default {DEFAULT_REPLAY_TIMEOUT}")
+    coverage.add_argument("--image", default=DEFAULT_IMAGE, help=f"Docker image; default {DEFAULT_IMAGE}")
+    coverage.add_argument("--limit", type=int, help="process at most this many jobs")
+    coverage.add_argument("--dry-run", action="store_true", help="list selected jobs and queue seed counts without replaying")
+    coverage.set_defaults(func=cmd_replay_coverage)
 
     return parser
 

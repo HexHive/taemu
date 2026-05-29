@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 
-DEFAULT_TRIAGE_HOOK = "/srv/medic/auto-triage.sh"
+DEFAULT_TRIAGE_HOOK = None
 DEFAULT_CONTAINER_PREFIX = "taemu-batch-fuzz-"
 DEFAULT_IMAGE = "ta_emu"
 DEFAULT_MEMORY = "8g"
