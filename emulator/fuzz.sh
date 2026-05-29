@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# Purpose: Run AFL++ fuzzing for a TA harness or replay a single seed through
+# python3 -m emulate while collecting coverage/crash artifacts.
+# Depends on: emulator Docker environment, AFL++ tools, python3 -m emulate,
+# harness.py, TA .ta/.elf binary, adjacent .json/.yml metadata, and rootfs/.
+# Input: Harness/TA path; either fuzz options (--out_suffix, --in_dir, --out_dir,
+# --triage_hook, --triage_report_dir, --log_file) or a replay seed plus emulator args.
+
 set -e
 
 export AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
@@ -59,6 +66,49 @@ quote_cmd() {
     printf '%q ' "$@"
 }
 
+generate_default_corpus() {
+    if [ ! -e "$fuzz_in/foo" ]; then
+        echo "foo" > "$fuzz_in/foo"
+        head -c 1 /dev/zero > "$fuzz_in/foo2"
+        head -c 2 /dev/zero > "$fuzz_in/foo3"
+        head -c 4 /dev/zero > "$fuzz_in/foo4"
+        head -c 8 /dev/zero > "$fuzz_in/foo5"
+    fi
+}
+
+generate_cmd_corpus() {
+    local num_cmds_file="$in_path/num_cmds.txt"
+    local num_cmds
+    local i
+
+    if [ ! -f "$num_cmds_file" ]; then
+        generate_default_corpus
+        return
+    fi
+
+    read -r num_cmds < "$num_cmds_file"
+    num_cmds="${num_cmds//[[:space:]]/}"
+
+    if [[ ! "$num_cmds" =~ ^[0-9]+$ ]]; then
+        echo "Invalid command count in $num_cmds_file; using default corpus"
+        generate_default_corpus
+        return
+    fi
+
+    if [ "$num_cmds" -gt 255 ]; then
+        echo "Command count in $num_cmds_file exceeds one-byte range; using default corpus"
+        generate_default_corpus
+        return
+    fi
+
+    for i in $(seq 0 "$num_cmds"); do
+        {
+            printf '%b' "\\$(printf '%03o' "$i")"
+            head -c 8 /dev/zero
+        } > "$fuzz_in/cmd_$i"
+    done
+}
+
 log_arg=()
 if [ -n "${log_file:-}" ]; then
     log_arg=(--log_file "$log_file")
@@ -112,13 +162,7 @@ if [ -z "$replay_seed" ]; then
         mkdir "$fuzz_in"
     fi
 
-    if [ ! -e "$fuzz_in/foo" ]; then
-        echo "foo" > "$fuzz_in/foo"
-        head -c 1 /dev/zero > "$fuzz_in/foo2"
-        head -c 2 /dev/zero > "$fuzz_in/foo3"
-        head -c 4 /dev/zero > "$fuzz_in/foo4"
-        head -c 8 /dev/zero > "$fuzz_in/foo5"
-    fi
+    generate_cmd_corpus
 
     if [ ! -e "$fuzz_out" ]; then
         mkdir "$fuzz_out"
