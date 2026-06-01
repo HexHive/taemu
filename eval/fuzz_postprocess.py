@@ -1,10 +1,15 @@
 # Purpose: Parse fuzzing campaign drcov outputs and produce coverage-over-time
-# graphs for each TEE and merged datasets.
+# graphs for qsee_nongp and the merged qsee_nongp dataset.
 # Depends on: campaign_out directories from eval/fuzz.py, drcov logs in harness
 # coverage directories, eval/graphs CFG helpers, matplotlib, and numpy.
-# Input: No CLI arguments; optional TAEMU_FUZZ_TEE restricts discovered TEEs.
+# Input: No CLI arguments; processes qsee_nongp runner/eval-style output only.
 
+from dataclasses import dataclass
+import datetime
+import json
+import logging
 from pathlib import Path
+import re
 import threading
 import numpy as np
 import matplotlib
@@ -17,36 +22,75 @@ import subprocess
 import sys
 
 from bb import build_tee_cfg
-from fuzz import FUZZ_TIME, TEES, FUZZ_CHUNKS, FUZZ_ITERATIONS, COV_DIR, CAMPAIGN_DIR
+from fuzz import FUZZ_TIME, FUZZ_CHUNKS, FUZZ_ITERATIONS, COV_DIR, CAMPAIGN_DIR
+
+import colorama
+import sys
+
+log = logging.getLogger("triage")
+log.setLevel(logging.INFO)
+handler = logging.StreamHandler(sys.stdout)
+# Make log coloured
+COLOR_MAP = {
+    "DEBUG": colorama.Fore.WHITE,
+    "INFO": colorama.Fore.GREEN,
+    "WARNING": colorama.Fore.BLACK + colorama.Style.BRIGHT + colorama.Back.YELLOW,
+    "ERROR": colorama.Fore.RED,
+    "CRITICAL": colorama.Fore.RED,
+}
+
+class ColoredFormatter(logging.Formatter):
+    def __init__(self, fmt):
+        super().__init__(fmt)
+        self.color_map = COLOR_MAP
+
+    def format(self, record):
+        levelname = record.levelname
+        if levelname in self.color_map:
+            record.levelname = self.color_map[levelname] + levelname + colorama.Style.RESET_ALL
+        return super().format(record)
+
+handler.setFormatter(ColoredFormatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+log.addHandler(handler)
 
 """
-After a fuzzing campaign, generate the coverage graphs for each TEE + merged
+After a fuzzing campaign, generate the coverage graphs for qsee_nongp + merged
 x-axis: time
 y-axis: coverage
 """
 
-if "TAEMU_FUZZ_TEE" in os.environ:
-    TEES = [os.environ["TAEMU_FUZZ_TEE"]]
+TEES = ["qsee_nongp"]
 
-root = 8 * "0"
+ROOT_NODE = 8 * "0"
 BASE = os.path.join(os.path.dirname(__file__), "..")
+THIS_PATH = Path(__file__).resolve().parent
 
-
+@dataclass(frozen=True, eq=True, unsafe_hash=True)
 class BB:
-    def __init__(self, ta, start, size):
-        self.start = start
-        self.size = size
-        self.ta = ta
+    ta: str
+    start: int
+    size: int
 
-    def __eq__(self, other):
-        return (
-            self.start == other.start
-            and self.size == other.size
-            and self.ta == other.ta
-        )
 
-    def __hash__(self):
-        return hash((self.start, self.size, self.ta))
+class BBJSONEncoder(json.JSONEncoder):
+    def default(self, value):
+        if isinstance(value, BB):
+            return {
+                "ta": value.ta,
+                "start": value.start,
+                "size": value.size,
+            }
+        if isinstance(value, set):
+            return sorted(value, key=lambda item: repr(item))
+        if isinstance(value, Path):
+            return value.as_posix()
+        if isinstance(value, np.integer):
+            return int(value)
+        if isinstance(value, np.floating):
+            return float(value)
+        if isinstance(value, np.ndarray):
+            return value.tolist()
+        return super().default(value)
 
 
 def get_root_ta_node(cfg, ta):
@@ -68,7 +112,7 @@ def is_covered(node, bbbs):
 
 
 def parse_drcov_uncached(tee, ta, path):
-    bbs_out = []
+    bbs_out:list[BB] = []
     raw = open(path, "rb").read()
     ta_base = raw.split(b"timestamp, path\n")[-1]
     for l in ta_base.split(b"\n"):
@@ -86,7 +130,7 @@ def parse_drcov_uncached(tee, ta, path):
         if mod_id == ta_id:
             if tee == "beanpod" or tee == "t6":
                 start = base + start
-            bbs_out.append(BB(ta, start, size))
+            bbs_out.append(BB(ta=ta, start=start, size=size))
         bbs = bbs[8:]
     return bbs_out
 
@@ -100,24 +144,42 @@ def parse_cov(tee, ta, drcov_path):
     for cov_file in os.listdir(drcov_path):
         try:
             timestamp = int(int(cov_file.split("time:")[-1].split(",")[0]) / 1000)
-        except:
+        except ValueError:
+            log.warning("invalid timestamp in %s", cov_file)
             continue
         bbs = parse_drcov(tee, ta, os.path.join(drcov_path, cov_file))
         out[timestamp] = bbs
     return out
 
 
-def parse_cov_seeds(tee, ta, drcov_path_seeds):
+# def __parse_drcov_seeds(tee, ta, *cov_files:Path):
+#     out = {}
+#     for cov_file in cov_files:
+#         try:
+#             timestamp = int(int(cov_file.name.split("time:")[-1].split(",")[0]) / 1000)
+#         except ValueError:
+#             log.warning("invalid timestamp in %s", cov_file)
+#             continue
+#         bbs = parse_drcov(tee, ta, cov_file.as_posix())
+#         out[timestamp + 60 * 60 * int(index)] = bbs
+
+def parse_cov_seeds(tee, ta, fuzz_chunks_dir):
     out = {}
-    for index in os.listdir(drcov_path_seeds):
-        queue_path = os.path.join(drcov_path_seeds, index, "cov")
-        for cov_file in os.listdir(queue_path):
+    for fuzz_chunk_dir in Path(fuzz_chunks_dir).iterdir():
+        cov_dir = fuzz_chunk_dir / "cov"
+        if not cov_dir.exists():
+            log.warning("no cov directory in %s", fuzz_chunk_dir)
+            continue
+        if not re.match(r"^\d+$", fuzz_chunk_dir.name):
+            log.warning("invalid fuzz chunk directory name: %s", fuzz_chunk_dir)
+            continue
+        for cov_file in cov_dir.iterdir():
             try:
-                timestamp = int(int(cov_file.split("time:")[-1].split(",")[0]) / 1000)
-            except:
+                timestamp = int(int(cov_file.name.split("time:")[-1].split(",")[0]) / 1000)
+            except ValueError:
                 continue
-            bbs = parse_drcov(tee, ta, os.path.join(queue_path, cov_file))
-            out[timestamp + 60 * 60 * int(index)] = bbs
+            bbs = parse_drcov(tee, ta, cov_file.as_posix())
+            out[timestamp + 60 * 60 * int(fuzz_chunk_dir.name)] = bbs
     return out
 
 
@@ -150,8 +212,19 @@ def aggregate(coords):
     return y_max, y_min, y_med, x_aggr
 
 
+TS = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+P = Path("postprocess_out") / TS
+P.mkdir(exist_ok=True)
+
+def write_json(relpath:Path, data:dict):
+    assert not relpath.is_absolute()
+    (P / relpath.parent).mkdir(exist_ok=True, parents=True)
+    (P / relpath.with_suffix(".json")).write_text(
+        json.dumps(data, indent=2, cls=BBJSONEncoder)
+    )
+
 def graph_filename(name):
-    return "".join(c if c.isalnum() or c in "._-" else "_" for c in name)
+    return "".join(c if c.isalnum() or c in "._-" else "_" for c in name) + TS
 
 
 def get_ta_max_bbs(cfg, ta):
@@ -227,126 +300,145 @@ def gen_graph(name, ta2bbs, max_bbs, out_name=None):
     plt.savefig(out_path, format="pdf", bbox_inches="tight", pad_inches=0.1)
     return x, y
 
+def is_valid_harness_dir(harness_path:Path):
+    if not harness_path.is_dir():
+        log.warning("Harness is not a dir: %s", harness_path)
+        return False
+    if (harness_path/"IGNOREME").exists() or (harness_path/"IGNORE").exists():
+        log.warning("Harness is ignored: %s", harness_path)
+        return False
+    return True
+
+
+CALCULATE_TRIAGE = False
+CALCULATE_COVERAGE = True
+CALCULATE_GRAPHS = True
+
+READ_CHUNKED = True
 
 out = {}
 for tee in TEES:
     out[tee] = {
-        "nr_tas": 0,
-        "max_bbs": 0,
         "fuzz_bbs": 0,
-        "crashes": 0,
-        "bugs": 0,
-        "notimpl": 0,
+        "ta_max_bbs": {},
     }
+    if CALCULATE_TRIAGE:
+        out[tee].update({
+            "crashes": 0,
+            "bugs": 0,
+            "notimpl": 0,
+        })
+
+    tas_harness = [] 
     tas = []
-    ta2bbs = {}
-    ta2bbs_merged = {}
     for harness in os.listdir(os.path.join(BASE, tee, "harness")):
         ta = None
         harness_path = os.path.join(BASE, tee, "harness", harness)
-        if not os.path.isdir(os.path.join(BASE, tee, "harness", harness)):
-            print("Harness is not a dir")
+        if not is_valid_harness_dir(Path(harness_path)):
             continue
-        if os.path.exists(os.path.join(BASE, tee, "harness", harness, "IGNOREME")):
-            print("Harness is ignored")
-            continue
-        if os.path.exists(os.path.join(BASE, tee, "harness", harness, "IGNORE")):
-            print("Harness is ignored")
-            continue
-        print(f"handling {harness_path}")
-        for f in os.listdir(harness_path):
-            if f.endswith(".ta") or f.endswith(".elf"):
-                ta = f
-                tas.append(os.path.realpath(os.path.join(harness_path, f)))
-                break
-        if ta is None:
-            print(f"?????", ta)
-            continue
-        campaign_out = os.path.join(harness_path, CAMPAIGN_DIR)
-        ta2bbs[ta] = {}
-        for campaign_iteration in range(0, FUZZ_ITERATIONS):
-            print(f"processing {campaign_out} {campaign_iteration}")
-            iteration_dir = os.path.join(campaign_out, f"{campaign_iteration}")
-            if FUZZ_TIME > 60 * 60:
-                ta2bbs[ta][campaign_iteration] = parse_cov_seeds(
-                    tee, ta, os.path.join(iteration_dir, FUZZ_CHUNKS)
-                )
-            else:
-                ta2bbs[ta][campaign_iteration] = parse_cov(
-                    tee, ta, os.path.join(harness_path, "out", "cov")
-                )
-        unique_bbs = set()
-        for campaign_iteration in range(0, FUZZ_ITERATIONS):
-            for timestamp, bbss in ta2bbs[ta][campaign_iteration].items():
-                for bb in bbss:
-                    unique_bbs.add(bb)
-        ta2bbs_merged[ta] = list(unique_bbs)
-        if os.path.exists(os.path.join(harness_path, "triage")):
-            out[tee]["bugs"] += len(os.listdir(os.path.join(harness_path, "triage")))
-            out[tee]["crashes"] += len(os.listdir(os.path.join(harness_path, "triage")))
-        if os.path.exists(os.path.join(harness_path, "notimpl")):
-            out[tee]["notimpl"] += len(
-                os.listdir(os.path.join(harness_path, "notimpl"))
-            )
-            out[tee]["crashes"] += len(
-                os.listdir(os.path.join(harness_path, "notimpl"))
-            )
-    tas = list(set(tas))
-    print(f"{tee}, {tas}")
-    out[tee]["nr_tas"] = len(tas)
-    tee_cfg = build_tee_cfg(os.path.join(BASE, tee), only_tee=True, specific_tas=tas)
-
-    def in_cfg(ta, bb, cfg):
-        nodes = nx.descendants(cfg, Path(ta).stem + "_" + 8 * "0")
-        for n in nodes:
-            if not "start" in cfg.nodes[n] or not "end" in cfg.nodes[n]:
+        log.info("handling %s", harness_path)
+        for f in Path(harness_path).iterdir():
+            if not f.is_file():
                 continue
-            if bb.start >= int(cfg.nodes[n]["start"], 16) and bb.start + bb.size <= int(
-                cfg.nodes[n]["end"], 16
-            ):
-                return True
-        return False
-
-    """
-    ta2bbs_cfg = {}
-    cfg_unique_bbs = set()
-    not_ctg_bbs = set()
-    for ta, data in ta2bbs.items():
-        ta2bbs_cfg[ta] = {}
-        for timestamp, bbs in data.items():
-            ta2bbs_cfg[ta][timestamp] = []
-            for bb in bbs:
-                if bb in not_ctg_bbs:
-                    continue
-                if bb in cfg_unique_bbs:
-                    ta2bbs_cfg[ta][timestamp].append(bb)
-                else:
-                    if in_cfg(ta, bb, tee_cfg): 
-                        ta2bbs_cfg[ta][timestamp].append(bb)
-                        cfg_unique_bbs.add(bb)
-                    else:
-                        not_ctg_bbs.add(bb)
-    #print([n for n in nx.descendants(tee_cfg, root)])
-    print("cfg bbs", len(nx.descendants(tee_cfg, root)), len(cfg_unique_bbs))
-    """
-    out[tee]["max_bbs"] = len(nx.descendants(tee_cfg, root))
-    out[tee]["fuzz_bbs"] = sum([len(bbs) for _, bbs in ta2bbs_merged.items()])
-    out[tee]["ta2bbs"] = ta2bbs
-    out[tee]["ta_max_bbs"] = {}
-    for ta in sorted(ta2bbs):
-        max_ta_bbs = get_ta_max_bbs(tee_cfg, ta)
-        out[tee]["ta_max_bbs"][ta] = max_ta_bbs
-        if max_ta_bbs == 0:
+            if f.suffix not in [".ta", ".elf"]:
+                continue
+            ta = f
+            break
+        
+        if ta is None:
+            log.error("missing TA in %s", harness_path)
             continue
-        gen_graph(
-            f"{tee}/{Path(ta).stem}",
-            {ta: ta2bbs[ta]},
-            max_ta_bbs,
-            out_name=f"{tee}_{Path(ta).stem}",
-        )
+        tas.append(ta.resolve().as_posix())
+        tas_harness.append((harness, ta.as_posix()))
+    
+    tas = list(set(tas))
+    log.info("TEE: %s, TAS: %s", tee, [Path(x).name for x in tas])
+    out[tee]["nr_tas"] = len(tas)
 
-all_ta2bbs = {}
-all_bbs = 0
+    if CALCULATE_GRAPHS:
+        if not CALCULATE_COVERAGE:
+            raise ValueError("CALCULATE_GRAPHS requires CALCULATE_COVERAGE")
+        tee_cfg = build_tee_cfg(os.path.join(BASE, tee), only_tee=True, specific_tas=tas)
+        out[tee]["max_bbs"] = len(nx.descendants(tee_cfg, ROOT_NODE))
+    else:
+        tee_cfg = None
+
+    ta2bbs = {}
+    ta2bbs_merged = {}
+    for harness, ta in tas_harness:
+        harness_path = os.path.join(BASE, tee, "harness", harness)
+        campaign_out = Path(harness_path) / CAMPAIGN_DIR
+
+        if CALCULATE_COVERAGE:
+            ta2bbs[ta] = {}
+            campaign_repetitions = [p for p in campaign_out.iterdir() if p.is_dir()]
+            campaign_repetitions.sort(key=lambda x: int(x.name))
+            log.info("Located %d campaign repetitions in %s", len(campaign_repetitions), campaign_out)
+            if len(campaign_repetitions) < FUZZ_ITERATIONS:
+                log.warning("Missing repetitions in %s. got: %s, need: %s", campaign_out, [p.name for p in sorted(campaign_repetitions)], FUZZ_ITERATIONS)
+            assert len(campaign_repetitions) > 0, f"No repetitions in {campaign_out}"
+
+
+            for campaign_out_iter in campaign_repetitions:
+                iter_name = campaign_out_iter.name
+                log.info("processing repetition %s", campaign_out_iter.relative_to(THIS_PATH))
+                if READ_CHUNKED:
+                    ta2bbs[ta][iter_name] = parse_cov_seeds(
+                        tee, ta, os.path.join(campaign_out_iter, FUZZ_CHUNKS)
+                    )
+                else:
+                    out_cov_dir = Path(harness_path) / "out" / "cov"
+                    log.info("Reading cov files from %s", out_cov_dir)
+                    ta2bbs[ta][iter_name] = parse_cov(tee, ta, out_cov_dir.as_posix())
+            
+            unique_bbs = set()
+            for campaign_out_iter in campaign_repetitions:
+                for timestamp, bbss in ta2bbs[ta][campaign_out_iter.name].items():
+                    for bb in bbss:
+                        unique_bbs.add(bb)
+            ta2bbs_merged[ta] = list(unique_bbs)
+        
+            write_json(Path(tee) / "ta2bbs" / Path(ta).stem, ta2bbs[ta])
+
+        if CALCULATE_TRIAGE: # Per harness
+        
+            triage_path = Path(harness_path) / "triage"
+            if triage_path.exists():
+                num_triage = len([x for x in triage_path.iterdir() if (x.is_dir() and x.name != "stamp")])
+                out[tee]["bugs"] += num_triage
+                out[tee]["crashes"] += num_triage
+        
+            notimpl_path = Path(harness_path) / "notimpl"
+            if notimpl_path.exists():
+                num_notimpl = len([x for x in notimpl_path.iterdir() if (x.is_dir() and x.name != "stamp")])
+                out[tee]["notimpl"] += num_notimpl
+                out[tee]["crashes"] += num_notimpl
+    
+        if CALCULATE_COVERAGE:
+            max_ta_bbs = get_ta_max_bbs(tee_cfg, ta)
+            if max_ta_bbs == 0:
+                log.warning("no bbs in %s", ta)
+                if CALCULATE_GRAPHS:
+                    log.warning("Skipping graph generation.")
+                continue
+        
+            out[tee]["ta_max_bbs"][ta] = max_ta_bbs
+            if CALCULATE_GRAPHS:
+                log.info("Generating graph for %s", Path(ta).name)
+                gen_graph(
+                    f"{tee}/{Path(ta).stem}",
+                    {ta: ta2bbs[ta]},
+                    max_ta_bbs,
+                    out_name=f"{TS}_{tee}_{Path(ta).stem}",
+                )
+
+    if CALCULATE_COVERAGE:
+        out[tee]["ta2bbs"] = ta2bbs
+        out[tee]["fuzz_bbs"] = sum([len(bbs) for _, bbs in ta2bbs_merged.items()])
+            
+
+all_ta2bbs:dict = {}
+all_bbs:int = 0
 all_crashes = 0
 all_bugs = 0
 all_notimpl = 0
@@ -361,6 +453,9 @@ for tee in TEES:
     all_notimpl += out[tee]["notimpl"]
     all_tas += out[tee]["nr_tas"]
     print(f'{tee} reached bbs: {max(y)}, max bbs: {out[tee]["max_bbs"]}')
+
+write_json(Path("out.json"), {k:v for k, v in out.items() if k != "ta2bbs"})
+
 x, y = gen_graph("all", all_ta2bbs, all_bbs)
 all_fuzz_bbs = max(y)
 print(f"all reached bbs: {max(y)}, max bbs: {all_bbs}")
@@ -383,21 +478,24 @@ def print_latex(name, num):
     print(f"\\newcommand{{\\{name}}}{{{num}\\xspace}}")
 
 
-for tee in TEES:
-    if tee == "t6":
-        tee_name = "tsix"
-    else:
-        tee_name = tee
-    print_latex(f"numfuzztas{tee_name}", out[tee]["nr_tas"])
-    print_latex(f"numfuzzcrashes{tee_name}", out[tee]["crashes"])
-    print_latex(f"numfuzznotimpl{tee_name}", out[tee]["notimpl"])
-    print_latex(f"numfuzzbug{tee_name}", out[tee]["bugs"])
-    print_latex(f"numfuzzmaxbb{tee_name}", out[tee]["max_bbs"])
-    print_latex(f"numfuzzbb{tee_name}", out[tee]["bbs"])
+if len(TEES) > 1:
+    for tee in TEES:
+        if tee == "t6":
+            tee_name = "tsix"
+        elif tee == "qsee_nongp":
+            tee_name = "nongpqsee"
+        else:
+            tee_name = tee
+        print_latex(f"numfuzztas{tee_name}", out[tee]["nr_tas"])
+        print_latex(f"numfuzzcrashes{tee_name}", out[tee]["crashes"])
+        print_latex(f"numfuzznotimpl{tee_name}", out[tee]["notimpl"])
+        print_latex(f"numfuzzbug{tee_name}", out[tee]["bugs"])
+        print_latex(f"numfuzzmaxbb{tee_name}", out[tee]["max_bbs"])
+        print_latex(f"numfuzzbb{tee_name}", out[tee]["bbs"])
 
-print_latex(f"numfuzztas", all_tas)
-print_latex(f"numfuzzcrashes", all_crashes)
-print_latex(f"numfuzznotimpl", all_notimpl)
-print_latex(f"numfuzzbug", all_bugs)
-print_latex(f"numfuzzmaxbb", all_bbs)
-print_latex(f"numfuzzbb", all_fuzz_bbs)
+print_latex("numfuzztas", all_tas)
+print_latex("numfuzzcrashes", all_crashes)
+print_latex("numfuzznotimpl", all_notimpl)
+print_latex("numfuzzbug", all_bugs)
+print_latex("numfuzzmaxbb", all_bbs)
+print_latex("numfuzzbb", all_fuzz_bbs)

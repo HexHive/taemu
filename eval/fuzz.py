@@ -1,51 +1,56 @@
+# Purpose: Run repeated AFL fuzzing campaigns across configured TEE harnesses,
+# replay coverage, preserve campaign outputs, and triage crashes.
+# Depends on: Docker image/container ta_emu, emulator/fuzz.sh, replay.sh,
+# triage.py, harness directories with ta.txt, TA binaries, and metadata symlinks.
+# Input: No CLI arguments; optional TAEMU_FUZZ_TEE restricts the selected TEE.
+
 from pathlib import Path
 import threading
 import queue
 import os
+import shutil
 import time
 import subprocess
-import sys
 
-BASE = os.path.join(os.path.dirname(__file__), "..")
+BASE = Path(__file__).resolve().parent.parent
 CAMPAIGN_DIR = "campaign_out"
 FUZZ_CHUNKS = "fuzz_chunk"
 COV_DIR = "cov"
 
 TEES = ["teegris", "mitee", "beanpod", "t6"]
-FUZZ_TIME = 60 * 60 * 24
-FUZZ_ITERATIONS = 5
-FUZZ_TIME = 60 * 60 * 2
-FUZZ_ITERATIONS = 2
+FUZZ_TIME = int(os.environ.get("TAEMU_FUZZ_TIME", 60 * 60 * 24))
+FUZZ_ITERATIONS = int(os.environ.get("TAEMU_FUZZ_ITERATIONS", 5))
 
 
 def worker(harness_path):
-    log_path = os.path.join(BASE, harness_path, "logs")
-    if not os.path.exists(log_path):
-        os.system(f"mkdir -p {log_path}")
+    harness_path = Path(harness_path)
+    harness_dir = BASE / harness_path
+    log_path = harness_dir / "logs"
+    log_path.mkdir(parents=True, exist_ok=True)
     print(f"Job {harness_path} starting to fuzz {threading.current_thread().name}")
-    open(os.path.join(log_path, "fuzz_stdout.txt"), "wb+").write(b"")
-    open(os.path.join(log_path, "fuzz_stderr.txt"), "wb+").write(b"")
-    open(os.path.join(log_path, "replay_stdout.txt"), "wb+").write(b"")
-    open(os.path.join(log_path, "replay_stderr.txt"), "wb+").write(b"")
-    fuzz_dir = os.path.join(BASE, harness_path, CAMPAIGN_DIR)
-    in_path = os.path.join(BASE, harness_path, "in")
-    out_path = os.path.join(BASE, harness_path, "out")
-    queue_path = os.path.join(out_path, "default", "queue")
-    crashes_path = os.path.join(out_path, "default", "crashes")
-    cov_path = os.path.join(out_path, COV_DIR)
-    if os.path.exists(fuzz_dir):
-        os.system(f"rm -rf {fuzz_dir}")
-    os.system(f"mkdir -p {fuzz_dir}")
+    (log_path / "fuzz_stdout.txt").write_bytes(b"")
+    (log_path / "fuzz_stderr.txt").write_bytes(b"")
+    (log_path / "replay_stdout.txt").write_bytes(b"")
+    (log_path / "replay_stderr.txt").write_bytes(b"")
+    fuzz_dir = harness_dir / CAMPAIGN_DIR
+    in_path = harness_dir / "in"
+    out_path = harness_dir / "out"
+    queue_path = out_path / "default" / "queue"
+    crashes_path = out_path / "default" / "crashes"
+    cov_path = out_path / COV_DIR
+    if fuzz_dir.exists():
+        shutil.rmtree(fuzz_dir)
+    fuzz_dir.mkdir(parents=True)
     for fuzz_iteration in range(0, FUZZ_ITERATIONS):
-        if os.path.exists(out_path):
-            os.system(f"rm -rf {out_path}")
-        fuzz_iteration_dir = os.path.join(fuzz_dir, f"{fuzz_iteration}")
-        os.system(f"mkdir -p {fuzz_iteration_dir}")
+        if out_path.exists():
+            shutil.rmtree(out_path)
+        fuzz_iteration_dir = fuzz_dir / f"{fuzz_iteration}"
+        fuzz_iteration_dir.mkdir(parents=True)
         if FUZZ_TIME > 60 * 60:
-            seed_backup_dir = os.path.join(fuzz_iteration_dir, FUZZ_CHUNKS)
-            if os.path.exists(seed_backup_dir):
-                os.system(f"rm -rf {seed_backup_dir}")
-            os.system(f"mkdir -p {seed_backup_dir}")
+            seed_backup_dir = fuzz_iteration_dir / FUZZ_CHUNKS
+            if seed_backup_dir.exists():
+                shutil.rmtree(seed_backup_dir)
+            seed_backup_dir.mkdir(parents=True)
             for i in range(0, int(FUZZ_TIME / (60 * 60))):
                 # ;; avoid memory running out
                 print(
@@ -56,16 +61,18 @@ def worker(harness_path):
                     shell=True,
                     capture_output=True,
                 )
-                open(os.path.join(log_path, "fuzz_stdout.txt"), "ab+").write(
-                    proc.stdout
-                )
-                open(os.path.join(log_path, "fuzz_stderr.txt"), "ab+").write(
-                    proc.stderr
-                )
-                os.system(f"mkdir -p {seed_backup_dir}/{i}")
-                os.system(f"cp -r {queue_path} {seed_backup_dir}/{i}")
-                os.system(f"cp -r {seed_backup_dir}/{i} {in_path}")
-                os.system(f"cp -r {crashes_path} {seed_backup_dir}/{i}")
+                with (log_path / "fuzz_stdout.txt").open("ab") as stdout:
+                    stdout.write(proc.stdout)
+                with (log_path / "fuzz_stderr.txt").open("ab") as stderr:
+                    stderr.write(proc.stderr)
+                chunk_dir = seed_backup_dir / f"{i}"
+                chunk_dir.mkdir(parents=True)
+                shutil.copytree(queue_path, chunk_dir / queue_path.name)
+                if in_path.exists():
+                    shutil.copytree(chunk_dir, in_path / chunk_dir.name)
+                else:
+                    shutil.copytree(chunk_dir, in_path)
+                shutil.copytree(crashes_path, chunk_dir / crashes_path.name)
                 print(
                     f"Job {harness_path} finished fuzzing {threading.current_thread().name}"
                 )
@@ -75,13 +82,11 @@ def worker(harness_path):
                     shell=True,
                     capture_output=True,
                 )
-                open(os.path.join(log_path, "replay_stdout.txt"), "ab+").write(
-                    proc.stdout
-                )
-                open(os.path.join(log_path, "replay_stderr.txt"), "ab+").write(
-                    proc.stderr
-                )
-                os.system(f"mv {cov_path} {seed_backup_dir}/{i}/")
+                with (log_path / "replay_stdout.txt").open("ab") as stdout:
+                    stdout.write(proc.stdout)
+                with (log_path / "replay_stderr.txt").open("ab") as stderr:
+                    stderr.write(proc.stderr)
+                shutil.move(cov_path, chunk_dir / cov_path.name)
         else:
             print(
                 f"docker exec -e FUZZTIME={FUZZ_TIME} -e AFL_NO_UI=1 -e TAEMU_CRASH_NOTIMPL=1 -it emu ./fuzz.sh ../{harness_path}"
@@ -91,8 +96,8 @@ def worker(harness_path):
                 shell=True,
                 capture_output=True,
             )
-            open(os.path.join(log_path, "fuzz_stdout.txt"), "wb+").write(proc.stdout)
-            open(os.path.join(log_path, "fuzz_stderr.txt"), "wb+").write(proc.stderr)
+            (log_path / "fuzz_stdout.txt").write_bytes(proc.stdout)
+            (log_path / "fuzz_stderr.txt").write_bytes(proc.stderr)
             print(
                 f"Job {harness_path} finished fuzzing {threading.current_thread().name}"
             )
@@ -101,27 +106,25 @@ def worker(harness_path):
                 shell=True,
                 capture_output=True,
             )
-            open(os.path.join(log_path, "replay_stdout.txt"), "wb+").write(proc.stdout)
-            open(os.path.join(log_path, "replay_stderr.txt"), "wb+").write(proc.stderr)
-            os.system(f"mv {cov_path} {fuzz_iteration_dir}/")
-            os.system(f"cp -r {queue_path} {fuzz_iteration_dir}/")
-            os.system(f"cp -r {crashes_path} {fuzz_iteration_dir}/")
+            (log_path / "replay_stdout.txt").write_bytes(proc.stdout)
+            (log_path / "replay_stderr.txt").write_bytes(proc.stderr)
+            shutil.move(cov_path, fuzz_iteration_dir / cov_path.name)
+            shutil.copytree(queue_path, fuzz_iteration_dir / queue_path.name)
+            shutil.copytree(crashes_path, fuzz_iteration_dir / crashes_path.name)
 
-        os.system(f"rm -rf {in_path}")
+        if in_path.exists():
+            shutil.rmtree(in_path)
 
     for fuzz_iteration in range(0, FUZZ_ITERATIONS):
-        fuzz_iteration_dir = os.path.join(fuzz_dir, f"{fuzz_iteration}")
+        fuzz_iteration_dir = fuzz_dir / f"{fuzz_iteration}"
         if FUZZ_TIME > 60 * 60:
-            seed_backup_dir = os.path.join(fuzz_iteration_dir, FUZZ_CHUNKS)
-            for index in os.listdir(seed_backup_dir):
-                for crash in os.listdir(
-                    os.path.join(seed_backup_dir, index, "crashes")
-                ):
-                    os.system(
-                        f"cp {seed_backup_dir}/{index}/crashes/{crash} {crashes_path}"
-                    )
+            seed_backup_dir = fuzz_iteration_dir / FUZZ_CHUNKS
+            for index in seed_backup_dir.iterdir():
+                for crash in (index / "crashes").iterdir():
+                    shutil.copy2(crash, crashes_path)
         else:
-            os.system(f"cp {fuzz_iteration_dir}/crashes/* {crashes_path}")
+            for crash in (fuzz_iteration_dir / "crashes").iterdir():
+                shutil.copy2(crash, crashes_path)
 
     print(f"Job {harness_path} finished replay {threading.current_thread().name}")
     proc = subprocess.run(
@@ -129,8 +132,8 @@ def worker(harness_path):
         shell=True,
         capture_output=True,
     )
-    open(os.path.join(log_path, "triage_stdout.txt"), "wb+").write(proc.stdout)
-    open(os.path.join(log_path, "triage_stderr.txt"), "wb+").write(proc.stderr)
+    (log_path / "triage_stdout.txt").write_bytes(proc.stdout)
+    (log_path / "triage_stderr.txt").write_bytes(proc.stderr)
     print(f"Job {harness_path} finished triage {threading.current_thread().name}")
 
 
@@ -152,7 +155,7 @@ def main():
         tees = [os.environ["TAEMU_FUZZ_TEE"]]
     else:
         tees = TEES
-    subprocess.run(f"docker kill emu", shell=True)
+    subprocess.run("docker kill emu", shell=True)
     if "emu" not in str(subprocess.run("docker ps", shell=True)):
         subprocess.run(
             f"cd {BASE}  && docker run --rm --name emu --network host -d -v .:/srv -w /srv/emulator -v /dev/shm:/dev/shm --ipc=host --shm-size=100g ta_emu tail -f",
@@ -162,61 +165,62 @@ def main():
     num_threads = max(1, num_cores - 5)  # at least 1 thread
     print(f"Using {num_threads} threads")
     job_queue = queue.Queue()
+    now_time = time.time()
     for tee in tees:
-        for harness in os.listdir(os.path.join(BASE, tee, "harness")):
-            if harness == "__pycache__":
+        harness_root = BASE / tee / "harness"
+        for harness_dir in harness_root.iterdir():
+            if harness_dir.name == "__pycache__":
                 continue
-            if not os.path.isdir(os.path.join(BASE, tee, "harness", harness)):
+            if not harness_dir.is_dir():
                 print("Harness is not a dir")
                 continue
-            # if not os.path.exists(
-            #     os.path.join(BASE, tee, "harness", harness, "ta.txt")
-            # ):
-            #     print(
-            #         f'!!!!!! {os.path.join(BASE, tee, "harness", harness)} has no ta.txt!!!!!'
-            #     )
+            # if not (harness_dir / "ta.txt").exists():
+            #     print(f"!!!!!! {harness_dir} has no ta.txt!!!!!")
             #     exit(-1)
-            if os.path.exists(os.path.join(BASE, tee, "harness", harness, "IGNOREME")):
+            if (harness_dir / "IGNOREME").exists():
                 continue
-            if os.path.exists(os.path.join(BASE, tee, "harness", harness, "IGNORE")):
+            if (harness_dir / "IGNORE").exists():
                 continue
             # ta_name = (
-            #     open(os.path.join(BASE, tee, "harness", harness, "ta.txt"))
-            #     .read()
+            #     (harness_dir / "ta.txt")
+            #     .read_text()
             #     .strip("\n")
             # )
-            # if not os.path.exists(os.path.join(BASE, tee, "harness", harness, ta_name)):
+            # if not (harness_dir / ta_name).exists():
             #     os.symlink(
-            #         os.path.join("..", "..", "tas", ta_name),
-            #         os.path.join("..", tee, "harness", harness, ta_name),
+            #         Path("..", "..", "tas", ta_name),
+            #         Path("..", tee, "harness", harness_dir.name, ta_name),
             #     )
             #     os.symlink(
-            #         os.path.join("..", "..", "tas", Path(ta_name).with_suffix(".json")),
-            #         os.path.join("..", tee, "harness", harness, Path(ta_name).with_suffix(".json")),
+            #         Path("..", "..", "tas", Path(ta_name).with_suffix(".json")),
+            #         Path(
+            #             "..",
+            #             tee,
+            #             "harness",
+            #             harness_dir.name,
+            #             Path(ta_name).with_suffix(".json"),
+            #         ),
             #     )
-            job_queue.put(os.path.join(tee, "harness", harness))
-            if os.path.exists(f"{BASE}/{tee}/harness/{harness}/out"):
-                os.system(
-                    f"mv {BASE}/{tee}/harness/{harness}/out {BASE}/{tee}/harness/{harness}/backup_out_{time.time()}"
-                )
-            if os.path.exists(f"{BASE}/{tee}/harness/{harness}/triage"):
-                os.system(
-                    f"mv {BASE}/{tee}/harness/{harness}/triage {BASE}/{tee}/harness/{harness}/backup_triage_{time.time()}"
-                )
-            if os.path.exists(f"{BASE}/{tee}/harness/{harness}/notimpl"):
-                os.system(
-                    f"mv {BASE}/{tee}/harness/{harness}/notimpl {BASE}/{tee}/harness/{harness}/backup_notimpl_{time.time()}"
-                )
+            job_queue.put(Path(tee) / "harness" / harness_dir.name)
+            out_dir = harness_dir / "out"
+            if out_dir.exists():
+                shutil.move(out_dir, harness_dir / f"backup_out_{now_time}")
+            triage_dir = harness_dir / "triage"
+            if triage_dir.exists():
+                shutil.move(triage_dir, harness_dir / f"backup_triage_{now_time}")
+            notimpl_dir = harness_dir / "notimpl"
+            if notimpl_dir.exists():
+                shutil.move(notimpl_dir, harness_dir / f"backup_notimpl_{now_time}")
 
     threads = []
     for _ in range(num_threads):
-        t = threading.Thread(target=thread_worker, args=(job_queue,))
-        t.start()
+        now_time = threading.Thread(target=thread_worker, args=(job_queue,))
+        now_time.start()
         time.sleep(1)
-        threads.append(t)
+        threads.append(now_time)
     job_queue.join()
-    for t in threads:
-        t.join()
+    for now_time in threads:
+        now_time.join()
 
     print("All jobs completed")
 

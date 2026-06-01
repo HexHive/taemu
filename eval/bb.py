@@ -59,6 +59,18 @@ handler.setFormatter(ColoredFormatter('%(asctime)s - %(name)s - %(levelname)s - 
 log.addHandler(handler)
 
 
+IMPLEMENTED_ON_START = {'qsee_is_sw_fuse_blown', 'strcat',
+ 'TEE_SeekObjectData', 'qsee_log', 'qsee_err_fatal', 'qsee_free', 'strnlen',
+  'TEE_InitRefAttribute', 'TEE_CloseObject', 'TEE_FreeTransientObject', 'TEE_CipherInit', 'TEE_MemCompare', 'TEE_AllocateOperation', 'qsee_printf', 
+ 'TEE_GetObjectInfo1', 'TEE_CloseAndDeletePersistentObject1', '__errno_location', 'TEE_AsymmetricDecrypt', 
+ 'TEE_MemFill', 'TEE_MemMove', 'qsee_realloc', 'TEE_Wait', 'TEE_WriteObjectData', 'TEE_Malloc',
+  'TEE_SetOperationKey', 'TEE_GenerateRandom', 'TEE_Free', 'TEE_CipherDoFinal', 'qsee_malloc', 
+  'TEE_FreeOperation', 'qsee_log_set_mask', 'TEE_AllocateTransientObject', 'TEE_PopulateTransientObject', 
+  'TEE_ReadObjectData', 'TEE_CreatePersistentObject', 'TEE_OpenPersistentObject'}
+
+IMPLEMENTED_ON_END={'qsee_SW_GENERIC_ECC_keypair_generate', 'TEE_PopulateTransientObject', 'TEE_AllocateTransientObject', 'TEE_AllocateOperation', 'TEE_CloseAndDeletePersistentObject1', 'qsee_util_free_s_bigint', 'qsee_cipher_free_ctx', 'qsee_spin', 'qsee_cipher_decrypt', 'TEE_CreatePersistentObject', 'qsee_hmac', 'qsee_prepare_shared_buf_for_nosecure_read', 'TEE_Wait', 'TEE_WriteObjectData', 'qsee_disable_all_interrupts', 'TEE_FreeTransientObject', 'qsee_SW_GENERIC_ECDSA_sign', 'TEE_MemMove', 'qsee_SW_Hash_Update', 'qsee_SW_Hash_Deinit', 'qsee_stor_write_sectors', 'qsee_stor_client_get_info', 'qsee_SW_Hash_Init', 'TEE_AsymmetricDecrypt', 'TEE_Malloc', 'qsee_is_s_tag_area', 'qsee_set_bandwidth', 'qsee_cipher_encrypt', 'TEE_CipherInit', 'qsee_SW_Hash_SetParam', 'qsee_malloc', 'qsee_get_uptime', 'qsee_kdf', 'qsee_hash_free_ctx', 'TEE_Free', 'qsee_log', 'qsee_spi_close', 'lstat', 'qsee_cfg_getpropval', 'qsee_stor_read_sectors', 'qsee_stor_device_get_info', 'qsee_set_intmask', 'strnlen', 'TEE_MemCompare', 'qsee_hash', 'TEE_OpenPersistentObject', 'qsee_deregister_shared_buffer', 'TEE_CipherDoFinal', 'qsee_tlmm_release_gpio_id', 'TEE_SetOperationKey', '__errno_location', 'qsee_rsa_key_gen', 'qsee_SW_GENERIC_ECC_init', 'strcat', 'qsee_tlmm_gpio_id_out', 'TEE_GetObjectInfo1', 'qsee_get_secure_state', 'TEE_MemFill', 'qsee_query_rpmb_enablement', 'qsee_cipher_set_param', 'qsee_log_set_mask', 'qsee_stor_device_init', 'qsee_printf', 'TEE_CloseObject', 'qsee_tlmm_config_gpio_id', 'qsee_prng_getdata', 'qsee_get_global_flag', 'TEE_FreeOperation', 'qsee_SW_GENERIC_ECDSA_verify', 'qsee_SW_Hash_Final', 'qsee_set_global_flag', 'qsee_is_sw_fuse_blown', 'qsee_free', 'qsee_prepare_shared_buf_for_secure_read', 'qsee_cipher_init', 'qsee_open', 'qsee_register_shared_buffer', 'TEE_ReadObjectData', 'qsee_encapsulate_inter_app_message', 'qsee_SW_GENERIC_ECC_binary_to_bigval', 'qsee_SW_GENERIC_ECDH_shared_key_derive', 'qsee_hash_init', 'qsee_get_intmask', 'TEE_SeekObjectData', 'TEE_InitRefAttribute', 'qsee_SW_GENERIC_ECC_bigval_to_binary', 'qsee_is_ns_range', 'TEE_GenerateRandom', 'qsee_realloc', 'qsee_stor_open_partition', 'qsee_util_init_s_bigint', 'qsee_tlmm_get_gpio_id', 'qsee_err_fatal', 'qsee_decapsulate_inter_app_message', 'qsee_get_random_bytes'}
+
+
 
 def int2hex(nr):
     h = hex(nr)[2:]
@@ -429,7 +441,21 @@ def get_api(api_list, api_name):
             return api
     return None
 
-def generate_graph(cfg, todo=None, strategy="legacy"):
+def resolve_already_implemented_apis(used_apis, already_implemented_apis):
+    if not already_implemented_apis:
+        return []
+
+    remaining = set(used_apis)
+    resolved = []
+    for api_name in already_implemented_apis:
+        api = get_api(remaining, api_name)
+        if api is None:
+            continue
+        resolved.append(api)
+        remaining.remove(api)
+    return resolved
+
+def generate_graph(cfg, todo=None, strategy="legacy", already_implemented_apis: None|list = None):
     #TODO: implemented using the cache
     reachable = []
     used_apis = get_apis(cfg)
@@ -442,9 +468,15 @@ def generate_graph(cfg, todo=None, strategy="legacy"):
     print("nr libc apis", len([a for a in used_apis if a.api_type == "libc"]))
     print("nr tee apis", len([a for a in used_apis if a.api_type.startswith("tee")]))
     print(f"max nodes: {max_nodes}")
-    implemented_apis = []
+    baseline_apis = resolve_already_implemented_apis(
+        used_apis, already_implemented_apis
+    )
+    implemented_apis = list(baseline_apis)
+    used_apis -= set(baseline_apis)
     i = 0
-    reachable.append(reachable_nodes(cfg, implemented_apis))
+    r = reachable_nodes(cfg, implemented_apis)
+    print(f"reachable{i}: {r}")
+    reachable.append(r)
     i+= 1
     if strategy == "pure_gain":
         while 1:
@@ -454,7 +486,9 @@ def generate_graph(cfg, todo=None, strategy="legacy"):
             print("api", max_api)
             used_apis.remove(max_api)
             implemented_apis.append(max_api)
-            reachable.append(reachable_nodes(cfg, implemented_apis))
+            r = reachable_nodes(cfg, implemented_apis)
+            print(f"reachable{i}: {r}")
+            reachable.append(r)
             i += 1
     elif "BB_USE_CACHE" in os.environ and os.path.exists(f'bbs_out/{todo}_order.txt'):
         api_order = open(f'bbs_out/{todo}_order.txt').read().split('\n')
@@ -462,8 +496,11 @@ def generate_graph(cfg, todo=None, strategy="legacy"):
             max_api = get_api(used_apis, api_name)
             if max_api is None: continue
             print(max_api)
+            used_apis.remove(max_api)
             implemented_apis.append(max_api)
-            reachable.append(reachable_nodes(cfg, implemented_apis)) 
+            r = reachable_nodes(cfg, implemented_apis)
+            print(f"reachable{i}: {r}")
+            reachable.append(r)
             i += 1
     else:
         while 1:
@@ -494,7 +531,7 @@ def generate_graph(cfg, todo=None, strategy="legacy"):
             reachable.append(reachable_nodes(cfg, implemented_apis))
             i += 1
     print("imlemented apis", len(implemented_apis)) 
-    return reachable, max_nodes, nr_gp, nr_libc, nr_tee, implemented_apis
+    return reachable, max_nodes, nr_gp, nr_libc, nr_tee, implemented_apis, baseline_apis
 
 def get_root_node(ta_cfg, tee=None):
     for n in ta_cfg.nodes:
@@ -559,10 +596,12 @@ def print_info(cfg, reachable, max_nodes, nr_gp, nr_libc, nr_tee, strategy="lega
         std_reachable = min(reachable[-nr_tee-1::])
         print(f'% reachable with gp, libc and tee-std', 100* std_reachable/reachable[-1], '%')
 
-def build_ranking_output(reachable, max_nodes, implemented_apis, strategy):
+def build_ranking_output(reachable, max_nodes, implemented_apis, strategy, baseline_apis=None):
+    baseline_apis = baseline_apis or []
+    ranked_apis = implemented_apis[len(baseline_apis):]
     ranking = []
     previous = reachable[0] if reachable else 0
-    for idx, call in enumerate(implemented_apis):
+    for idx, call in enumerate(ranked_apis):
         current = reachable[idx + 1]
         ranking.append({
             "rank": idx + 1,
@@ -576,7 +615,10 @@ def build_ranking_output(reachable, max_nodes, implemented_apis, strategy):
         "strategy": strategy,
         "baseline_reachable_bbs": reachable[0] if reachable else 0,
         "max_reachable_bbs": max_nodes,
+        "already_implemented_api_count": len(baseline_apis),
+        "already_implemented_apis": [call.to_dict() for call in baseline_apis],
         "implemented_api_count": len(implemented_apis),
+        "ranked_api_count": len(ranked_apis),
         "ranking": ranking,
     }
 
@@ -603,7 +645,7 @@ def analyze_ta(ta_path):
     nx.draw(nothing_cfg, pos, with_labels=True, node_color="lightblue", arrows=True)
     plt.show()    
     """
-    reachable, max_nodes, nr_gp, nr_libc, nr_tee, implemented_apis = generate_graph(
+    reachable, max_nodes, nr_gp, nr_libc, nr_tee, implemented_apis, baseline_apis = generate_graph(
         cfg, strategy=strategy
     )
     print("max_nodes", max_nodes)
@@ -613,7 +655,9 @@ def analyze_ta(ta_path):
     ta_path = os.path.abspath(ta_path)
     ta_dir = os.path.dirname(ta_path)
     ta_name = os.path.basename(ta_path)
-    ranking_json = build_ranking_output(reachable, max_nodes, implemented_apis, strategy)
+    ranking_json = build_ranking_output(
+        reachable, max_nodes, implemented_apis, strategy, baseline_apis
+    )
     open(os.path.join(ta_dir, "bbs", f"rank_{ta_name}.json"), "w+").write(json.dumps(ranking_json, indent=2))
     open(os.path.join(ta_dir, "bbs", f"order_{ta_name}.txt"), "w+").write('\n'.join(c.func for c in implemented_apis))
     print_info(cfg, reachable, max_nodes, nr_gp, nr_libc, nr_tee, strategy=strategy)
@@ -661,7 +705,7 @@ def build_tee_cfg(tee_path, only_tee=True, specific_tas=None):
         for k, a in sorted(function_counter.items(), key=lambda x: x[1], reverse=True):
             f.write(f'{k} {a}\n')
 
-    tee_cfg = nx.compose_all(ta_cfgs)
+    tee_cfg: nx.DiGraph = nx.compose_all(ta_cfgs)
     if only_tee:
         root_name = label(root, no_uuid=True)
     else:
@@ -674,7 +718,7 @@ def build_tee_cfg(tee_path, only_tee=True, specific_tas=None):
     write_pickle_cache("build_tee_cfg", payload, tee_cfg)
     return tee_cfg 
 
-def analyze_tee(tee_path, specific_tas=None, strategy=None):
+def analyze_tee(tee_path, specific_tas=None, strategy=None, already_implemented_apis: None|list = None):
     tee = os.path.basename(tee_path)
     if strategy is None:
         strategy = "pure_gain" if tee == "qsee_nongp" else "legacy"
@@ -684,15 +728,23 @@ def analyze_tee(tee_path, specific_tas=None, strategy=None):
     #pos = graphviz_layout(tee_cfg, prog="dot", args="-Grankdir=TB")
     #nx.draw(tee_cfg, pos, with_labels=True, node_color="lightblue", arrows=True)
     #plt.show() 
-    reachable, max_nodes, nr_gp, nr_libc, nr_tee, implemented_apis = generate_graph(
-        tee_cfg, todo=tee, strategy=strategy
+    reachable, max_nodes, nr_gp, nr_libc, nr_tee, implemented_apis, baseline_apis = generate_graph(
+        tee_cfg, todo=tee, strategy=strategy, already_implemented_apis=already_implemented_apis
     )
     plt = gen_plot(reachable, max_nodes, nr_gp, nr_libc, nr_tee, strategy=strategy)
-    out_path = f'bbs_out/{tee}_reachable.pdf'
-    open(f'bbs_out/{tee}_order.txt', 'w+').write('\n'.join(c.func for c in implemented_apis))
-    open(f'bbs_out/{tee}.json','w+').write(json.dumps(reachable))
-    open(f'bbs_out/{tee}_ranking.json', 'w+').write(
-        json.dumps(build_ranking_output(reachable, max_nodes, implemented_apis, strategy), indent=2)
+    alreadysfx=""
+    if already_implemented_apis is not None:
+        alreadysfx=f"_already_{len(already_implemented_apis)}"
+    out_path = f'bbs_out/{tee}_reachable{alreadysfx}.pdf'
+    open(f'bbs_out/{tee}_order{alreadysfx}.txt', 'w+').write('\n'.join(c.func for c in implemented_apis))
+    open(f'bbs_out/{tee}{alreadysfx}.json','w+').write(json.dumps(reachable))
+    open(f'bbs_out/{tee}_ranking{alreadysfx}.json', 'w+').write(
+        json.dumps(
+            build_ranking_output(
+                reachable, max_nodes, implemented_apis, strategy, baseline_apis
+            ),
+            indent=2,
+        )
     )
     plt.savefig(out_path, format="pdf",bbox_inches='tight', pad_inches=0.1) 
     print_info(tee_cfg, reachable, max_nodes, nr_gp, nr_libc, nr_tee, strategy=strategy)
@@ -716,7 +768,7 @@ def analyze_all():
         print('size tee_cfg', len(nx.descendants(tee_cfg, tee_root_node)))
         all_cfg.add_edge(root_all, tee_root_node)
         print('size all cfg', len(nx.descendants(all_cfg, root_all)))
-    reachable, max_nodes, nr_gp, nr_libc, nr_tee, implemented_apis = generate_graph(all_cfg, todo='all')
+    reachable, max_nodes, nr_gp, nr_libc, nr_tee, implemented_apis, baseline_apis = generate_graph(all_cfg, todo='all')
     #if all_gp_idx > all_tee_std_idx: 
         #print("bricked!!")
         #exit(-1)
@@ -743,7 +795,7 @@ if __name__ == "__main__":
     elif inp_path == "tee-select":
         all_tas = list(sys.argv[2:])
         tee_path = Path(sys.argv[2]).parent.parent
-        analyze_tee(tee_path.as_posix(), specific_tas=all_tas)
+        analyze_tee(tee_path.as_posix(), specific_tas=all_tas, already_implemented_apis=IMPLEMENTED_ON_END)
     elif Path(inp_path).is_dir():
         log.info(f"analyzing tee: {inp_path.strip('/')}")
         analyze_tee(inp_path.strip('/'))
