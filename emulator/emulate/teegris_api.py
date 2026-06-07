@@ -9,6 +9,23 @@ from .common import crash, crash_notimpl
 
 from .gp_api import TEE_LogvPrintf, TEE_LogPrintf
 
+def TEES_GetClientCredentials(ql: Qiling, hook_data):
+    p = ql.os.resolve_fcall_params({"out": POINTER})
+    ql.mem.write_ptr(p["out"], 0x133)
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def vltkpr_authenticate_ca_softpass(ql: Qiling, hook_data):
+    # Phase-B model of vltkpr's PROCA soft-pass. On a custom-kernel /
+    # PROCA-stripped device vk_authenticate_ca (RE @0x1a6a0) returns 0 and
+    # TA_InvokeCommandEntryPoint dispatches to vk_switcher. The emulator has no
+    # PROCA driver (ioctl on /dev/pa_driver is unmodeled -> emu_stop), so we
+    # model the documented soft-pass directly via an inline address hook.
+    # See RE/samsung_teegris/vltkpr.md "Caller authentication" (returns
+    # 0 / 0x110019 custom-kernel / 0x120000 no-PROCA all proceed).
+    ql.log.info("[vltkpr] vk_authenticate_ca stubbed -> 0 (PROCA soft-pass)")
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def TEES_GetIrsFlagValue(ql: Qiling, hook_data):
     ql.log.info(f"{hook_data.func_name} returning 0")
