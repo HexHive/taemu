@@ -80,6 +80,90 @@ def _wr_u32(ql, addr, val):
 
 
 # ---------------------------------------------------------------------------
+# OPENSSL_STACK (sk_* / OPENSSL_sk_*) — a growable pointer-array container, not
+# a cryptographic primitive. KeyMaster's TA_OpenSessionEntryPoint builds a cert
+# stack via sk_new_null during "Tl initialization"; without it OpenSession dies
+# before the TA is ever drivable. Model it faithfully with a Python list keyed
+# by the handle we hand back; it stores opaque guest pointers (e.g. X509*).
+# ---------------------------------------------------------------------------
+_STACKS = {}   # handle -> python list of guest pointers
+
+def _sk_new(ql, hook_data):
+    h = _handle(ql, "OPENSSL_STACK")
+    _STACKS[h] = []
+    _ret(ql, h)
+
+def sk_new_null(ql, hook_data):   _sk_new(ql, hook_data)
+def sk_new(ql, hook_data):        _sk_new(ql, hook_data)
+def OPENSSL_sk_new_null(ql, hook_data): _sk_new(ql, hook_data)
+def OPENSSL_sk_new(ql, hook_data):      _sk_new(ql, hook_data)
+
+def _sk_push(ql, hook_data):
+    p = ql.os.resolve_fcall_params({"sk": POINTER, "ptr": POINTER})
+    lst = _STACKS.get(p["sk"])
+    if lst is None:
+        _ret(ql, 0); return
+    lst.append(p["ptr"])
+    _ret(ql, len(lst))     # OpenSSL returns the new element count
+
+def sk_push(ql, hook_data):          _sk_push(ql, hook_data)
+def OPENSSL_sk_push(ql, hook_data):  _sk_push(ql, hook_data)
+
+def _sk_num(ql, hook_data):
+    p = ql.os.resolve_fcall_params({"sk": POINTER})
+    lst = _STACKS.get(p["sk"])
+    _ret(ql, len(lst) if lst is not None else 0xFFFFFFFF)  # -1 for NULL stack
+
+def sk_num(ql, hook_data):          _sk_num(ql, hook_data)
+def OPENSSL_sk_num(ql, hook_data):  _sk_num(ql, hook_data)
+
+def _sk_value(ql, hook_data):
+    p = ql.os.resolve_fcall_params({"sk": POINTER, "i": INT})
+    lst = _STACKS.get(p["sk"])
+    if lst is None or not (0 <= p["i"] < len(lst)):
+        _ret(ql, 0); return
+    _ret(ql, lst[p["i"]])
+
+def sk_value(ql, hook_data):          _sk_value(ql, hook_data)
+def OPENSSL_sk_value(ql, hook_data):  _sk_value(ql, hook_data)
+
+def _sk_pop(ql, hook_data):
+    p = ql.os.resolve_fcall_params({"sk": POINTER})
+    lst = _STACKS.get(p["sk"])
+    _ret(ql, lst.pop() if lst else 0)
+
+def sk_pop(ql, hook_data):          _sk_pop(ql, hook_data)
+def OPENSSL_sk_pop(ql, hook_data):  _sk_pop(ql, hook_data)
+
+def _sk_free(ql, hook_data):
+    p = ql.os.resolve_fcall_params({"sk": POINTER})
+    _STACKS.pop(p["sk"], None)
+    _void(ql)
+
+def sk_free(ql, hook_data):              _sk_free(ql, hook_data)
+def sk_pop_free(ql, hook_data):          _sk_free(ql, hook_data)
+def OPENSSL_sk_free(ql, hook_data):      _sk_free(ql, hook_data)
+def OPENSSL_sk_pop_free(ql, hook_data):  _sk_free(ql, hook_data)
+
+def _sk_zero(ql, hook_data):
+    p = ql.os.resolve_fcall_params({"sk": POINTER})
+    lst = _STACKS.get(p["sk"])
+    if lst is not None:
+        lst.clear()
+    _void(ql)
+
+def sk_zero(ql, hook_data):          _sk_zero(ql, hook_data)
+def OPENSSL_sk_zero(ql, hook_data):  _sk_zero(ql, hook_data)
+
+
+# ---------------------------------------------------------------------------
+# BoringSSL RNG configuration — no-ops in the emulator (RNG never forks).
+# ---------------------------------------------------------------------------
+def RAND_enable_fork_unsafe_buffering(ql, hook_data):
+    _void(ql)
+
+
+# ---------------------------------------------------------------------------
 # EVP cipher selectors
 # ---------------------------------------------------------------------------
 def EVP_aes_256_gcm(ql: Qiling, hook_data):

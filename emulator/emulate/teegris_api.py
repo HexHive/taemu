@@ -161,10 +161,14 @@ def _write(ql: Qiling, hook_data):
         ql.arch.regs.arch_pc = ql.arch.regs.lr
         return
     else:
-        ql.log.warning(f"write on unknown device: {fds[fd]}")
+        ql.log.warning(f'write on unknown device {fds[fd]}: discarding {p["len"]} bytes')
         if hook_data.emu.crash_on_not_implemented:
-            crash_notimpl(f"write on unknown device: {fds[fd]}")
+            crash_notimpl(ql, f'write on unknown device: {fds[fd]}')
             return
+        # benign default: pretend the write succeeded and return to the caller
+        # (previously fell through without setting a result or advancing PC)
+        ql.os.fcall.cc.setReturnValue(p["len"])
+        ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
 def _close(ql: Qiling, hook_data):
@@ -344,6 +348,102 @@ def eventfd(ql: Qiling, hook_data):
     fds[fd_counter] = f"eventfd:{fd_counter}"
     fd_counter += 1
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+# --- pthread ----------------------------------------------------------------
+# The emulator runs a single guest thread, so mutexes/cond-vars/rwlocks are
+# uncontended no-ops. TIdspl/TIthLl (and others) take a pthread_mutex_lock in
+# TA_OpenSessionEntryPoint, so without these the TA dies in OpenSession and is
+# never drivable -- it boots (Create) but can't be invoked. pthread_create is a
+# no-op that does NOT run the thread body (no threading model); fine for TAs
+# whose worker thread is not on the critical create/open/invoke path.
+
+def _ok0(ql):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def pthread_mutex_lock(ql: Qiling, hook_data):       _ok0(ql)
+def pthread_mutex_unlock(ql: Qiling, hook_data):     _ok0(ql)
+def pthread_mutex_trylock(ql: Qiling, hook_data):    _ok0(ql)
+def pthread_mutex_init(ql: Qiling, hook_data):       _ok0(ql)
+def pthread_mutex_destroy(ql: Qiling, hook_data):    _ok0(ql)
+def pthread_mutexattr_init(ql: Qiling, hook_data):   _ok0(ql)
+def pthread_mutexattr_destroy(ql: Qiling, hook_data): _ok0(ql)
+def pthread_mutexattr_settype(ql: Qiling, hook_data): _ok0(ql)
+def pthread_cond_init(ql: Qiling, hook_data):        _ok0(ql)
+def pthread_cond_destroy(ql: Qiling, hook_data):     _ok0(ql)
+def pthread_cond_signal(ql: Qiling, hook_data):      _ok0(ql)
+def pthread_cond_broadcast(ql: Qiling, hook_data):   _ok0(ql)
+def pthread_cond_wait(ql: Qiling, hook_data):        _ok0(ql)
+def pthread_cond_timedwait(ql: Qiling, hook_data):   _ok0(ql)
+def pthread_rwlock_init(ql: Qiling, hook_data):      _ok0(ql)
+def pthread_rwlock_destroy(ql: Qiling, hook_data):   _ok0(ql)
+def pthread_rwlock_rdlock(ql: Qiling, hook_data):    _ok0(ql)
+def pthread_rwlock_wrlock(ql: Qiling, hook_data):    _ok0(ql)
+def pthread_rwlock_unlock(ql: Qiling, hook_data):    _ok0(ql)
+
+def pthread_self(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(1)   # a single fixed thread id
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+# --- process / thread identity ----------------------------------------------
+# Fixed identities for the single emulated TA process.
+def getpid(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(1337)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def gettid(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(1337)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def getuid(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def geteuid(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def getgid(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def getegid(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def pthread_create(ql: Qiling, hook_data):
+    # No threading model: don't run the start routine, just report success so
+    # the caller proceeds. (Worker threads that ARE the only consumer of their
+    # work won't run -- acceptable for create/open/invoke-path verification.)
+    ql.log.warning("pthread_create: stubbed, thread body NOT run")
+    _ok0(ql)
+
+def pthread_join(ql: Qiling, hook_data):    _ok0(ql)
+def pthread_detach(ql: Qiling, hook_data):  _ok0(ql)
+
+def pthread_once(ql: Qiling, hook_data):
+    # Faithfully run a one-time init: if not yet done, set the flag and
+    # tail-call init_routine with lr unchanged so it RETs to our caller (a
+    # plain redirect, no separate stack frame needed). A no-op here would skip
+    # initialization the TA relies on.
+    p = ql.os.resolve_fcall_params({"once": POINTER, "init": POINTER})
+    once, init = p["once"], p["init"]
+    done = 0
+    try:
+        done = int.from_bytes(ql.mem.read(once, 4), "little")
+    except unicorn.unicorn_py3.unicorn.UcError:
+        pass
+    if done != 0 or not init:
+        _ok0(ql)
+        return
+    try:
+        ql.mem.write(once, (1).to_bytes(4, "little"))
+    except unicorn.unicorn_py3.unicorn.UcError:
+        pass
+    ql.log.info(f"pthread_once -> running init_routine {hex(init)}")
+    ql.arch.regs.arch_pc = init   # lr still points at pthread_once's caller
 
 
 # --- errno / mmap / driver registration -------------------------------------
