@@ -63,40 +63,19 @@ def parse_fmt_str(ql, format_param, final_params, func_name, arg=None):
             else:
                 final_params[f"{i}"] = INT
         params = ql.os.resolve_fcall_params(final_params)
-        if (
-            func_name == "TEE_LogPrintf"
-            or func_name == "printf"
-            or func_name == "msee_ta_printf_va"
-            or func_name == "qsee_printf"
-        ):
-            del params["format"]
-        elif func_name == "snprintf":
-            del params["format"]
-            del params["s"]
-            del params["n"]
-        elif func_name == "sprintf":
-            del params["format"]
-            del params["s"]
-        elif func_name == "ut_pf_log_msg" or func_name == "TEE_LogvPrintf":
-            del params["format"]
-            del params["log_level"]
-        elif func_name == "debug_log":
-            del params["format"]
-            del params["log_level"]
-            del params["filename"]
-        elif func_name == "debug_log2":
-            del params["format"]
-            del params["filename"]
-            del params["nr1"]
-            del params["nr2"]
-            del params["linenumber"]
-        elif func_name == "qsee_log":
-            del params["format"]
-            del params["log_level"]
-        elif func_name == "tz_log":
-            del params["format"]
-            del params["log_level"]
-        else:
-            ql.log.error(f"unkown printf format resolving function: {func_name}")
-            ql.emu_stop()
+        # Keep only the positional conversion args ("0".."N-1"); drop whatever
+        # fixed named params this wrapper had (format / s / n / log_level /
+        # filename / ...). This is robust for ANY printf-family wrapper without
+        # per-function-name registration -- previously an unregistered name
+        # (e.g. qsee_log, the capital-P TEE_LogPrintf) hit emu_stop and left the
+        # named keys in, so the caller's range(len(params)) KeyError'd.
+        params = {k: v for k, v in params.items() if k.isdigit()}
+        # resolve_fcall_params can surface fewer positional args than the format
+        # has conversions (more %-specifiers than the calling convention exposed,
+        # or garbage args under fuzzing). Backfill each with a type-appropriate
+        # default so callers can iterate range(len(params)) and the `%` apply
+        # won't raise.
+        for i, fm in enumerate(format_dict):
+            params.setdefault(f"{i}", "" if fm == "s" else 0)
     return params
+

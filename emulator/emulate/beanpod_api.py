@@ -377,6 +377,11 @@ def ut_pf_ts_lseek(ql: Qiling, hook_data): ut_pf_ts_cp_lseek(ql, hook_data)
 def TEE_RpmbOpenSession(ql: Qiling, hook_data):
     rpmb.TEE_RpmbOpenSession(ql, hook_data)
 
+def msee_get_system_free_memory(ql: Qiling, hook_data):
+    # report a plausible amount of free heap (1 MiB) so size checks pass
+    ql.os.fcall.cc.setReturnValue(0x100000)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
 
 def ut_pf_km_get_hmac_key(ql: Qiling, func_name):
     # will go into subroutine so lr needs to be recorded
