@@ -75,6 +75,12 @@ def debug_log2(ql: Qiling, hook_data):
 
 
 def debug_log(ql: Qiling, hook_data):
+    # A logging call whose args we can't fully parse is NOT memory corruption --
+    # this t6 build's debug_log doesn't match the assumed
+    # {log_level, filename, format} layout (it passes a non-pointer where the
+    # filename string is expected), which made the old `except UcError: crash()`
+    # abort CreateEntryPoint with a bogus "memory corruption". Parse best-effort
+    # and always return cleanly to the caller.
     try:
         p = ql.os.resolve_fcall_params(
             {"log_level": INT, "filename": STRING, "format": POINTER}
@@ -96,9 +102,8 @@ def debug_log(ql: Qiling, hook_data):
                 crash_notimpl(ql, f"format string not supported: {format_param}")
                 return
         ql.log.info(f"{hook_data.func_name}: {log_level}, {filename}{out_str}")
-    except unicorn.unicorn_py3.unicorn.UcError:
-        crash(ql, hook_data.func_name)
-        return
+    except (unicorn.unicorn_py3.unicorn.UcError, TypeError, ValueError, KeyError) as e:
+        ql.log.info(f"{hook_data.func_name}: <unparsable log args: {type(e).__name__}>")
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 

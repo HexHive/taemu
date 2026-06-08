@@ -21,6 +21,24 @@ handle2obj = {}
 filepaths2tranobjs = {}
 
 
+def _read_key_bounded(ql, ref_attr, max_size):
+    # Read a TEE_Ref_Attribute's key material, tolerating an implausible length
+    # (e.g. one derived from an unmodelled TA-to-TA peer): clamp to the object's
+    # max size and never let a bad length raise a raw UC_ERR_ARG that would
+    # abort the whole emulation. Returns the (possibly empty/clamped) key bytes.
+    length = ref_attr.length
+    cap = max_size if (isinstance(max_size, int) and max_size > 0) else 0x1000
+    if not isinstance(length, int) or length < 0 or length > cap:
+        ql.log.warning(f"populate: implausible key length {length!r}; clamping to <= {cap}")
+        length = max(0, min(length if isinstance(length, int) else 0, cap))
+    if length == 0:
+        return b""
+    try:
+        return bytes(ql.mem.read(ref_attr.buffer, length))
+    except Exception:
+        ql.log.warning("populate: key buffer unreadable; using empty key")
+        return b""
+
 class Object:
     # @TODO: meaning of size, does it both include key size and attr size??
     def __init__(self, size, ql: Qiling) -> None:
@@ -84,7 +102,7 @@ class AES_Obj(Object):
             ql.log.error(f"populate: attrs error in AES_Obj")
             ql.emu_stop()
 
-        self.key = bytes(ql.mem.read(parsed_attrs[0].buffer, parsed_attrs[0].length))
+        self.key = _read_key_bounded(ql, parsed_attrs[0], self.maxSize)
         # ret = self.retrieve_rsa_params(parsed_attrs, ql)
 
         # if ret != TEE_SUCCESS:
@@ -111,7 +129,7 @@ class GenericSecret_Obj(Object):
         parsed_attrs = self.parse_params(attrs, attrsCount, ql)
         for a in parsed_attrs:
             if type(a) == TEE_Ref_Attribute:
-                self.key = bytes(ql.mem.read(a.buffer, a.length))
+                self.key = _read_key_bounded(ql, a, self.maxSize)
                 self.attrs[a.attributeID] = (a.buffer, a.length)
         self.initialized = True
         return TEE_SUCCESS
@@ -152,7 +170,7 @@ class SHA256HMAC_Obj(Object):
             ql.log.error(f"populate: attrs error in AES_Obj")
             ql.emu_stop()
 
-        self.key = bytes(ql.mem.read(parsed_attrs[0].buffer, parsed_attrs[0].length))
+        self.key = _read_key_bounded(ql, parsed_attrs[0], self.maxSize)
         # ret = self.retrieve_rsa_params(parsed_attrs, ql)
 
         # if ret != TEE_SUCCESS:
@@ -160,6 +178,10 @@ class SHA256HMAC_Obj(Object):
 
         self.initialized = True
         return TEE_SUCCESS
+
+    def generateKey(self, keySize, params, paramCount, ql:Qiling) -> int:
+        key_buffer = ql.mem.map_anywhere(0x1000, minaddr=ATTRIBUTE_MEM, perms=3, info='TEE_Ref_Attribute') 
+        key = os.urandom(32)  # TEE_TYPE_HMAC_SHA256 allows keys up to 512 bits, but 256 bits is common
 
     def generateKey(self, keySize, params, paramCount, ql: Qiling) -> int:
         key_buffer = ql.mem.map_anywhere(

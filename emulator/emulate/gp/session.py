@@ -111,9 +111,17 @@ def TEE_InvokeTACommand(ql: Qiling, hook_data):
         f"TEE_InvokeTACommand: {hex(para_session)},{para_cancellationRequestTimeout},{hex(para_commandID)},{para_paramTypes},{hex(para_params)},{hex(para_returnOrigin)}"
     )
 
-    if para_session not in SESSIONS:
-        ql.log.error(f"TEE_InvokeTACommand: not valid session {hex(para_session)}")
-        ql.emu_stop()
+    synthesized = para_session not in SESSIONS
+    if synthesized:
+        # Unknown session: the TA invoked a TA-to-TA command without a recorded
+        # OpenTASession (or with a handle we didn't model). The old code called
+        # emu_stop() but fell through to SESSIONS[para_session] -> KeyError,
+        # aborting the run. Synthesize a placeholder and (below) return well-
+        # formed empty output so the TA proceeds instead of crashing.
+        ql.log.warning(
+            f"TEE_InvokeTACommand: unknown session {hex(para_session)}, synthesizing placeholder"
+        )
+        SESSIONS[para_session] = Session(para_session, b"")
 
     session = SESSIONS[para_session]
 
@@ -147,6 +155,24 @@ def TEE_InvokeTACommand(ql: Qiling, hook_data):
 
     if para_returnOrigin != 0:
         ql.mem.write_ptr(para_returnOrigin, TEE_SUCCESS)
+
+    if synthesized:
+        # No modelled peer for this session: hand back well-formed empty output
+        # (zero-fill the OUT/INOUT memrefs to their granted length) and SUCCESS,
+        # so downstream code reads valid-length data instead of crashing on an
+        # uninitialized buffer/length (e.g. a HMAC key populated right after).
+        for i in range(4):
+            ct = TEE_PARAM_TYPE_GET(para_paramTypes, i)
+            if ct in (TEE_PARAM_TYPE_MEMREF_OUTPUT, TEE_PARAM_TYPE_MEMREF_INOUT) \
+                    and buffer[i] and 0 < size[i] <= 0x10000:
+                try:
+                    ql.mem.write(buffer[i], b"\x00" * size[i])
+                except Exception:
+                    pass
+        ql.log.info("TEE_InvokeTACommand: synthesized session -> zero-filled OUT memrefs, SUCCESS")
+        ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+        ql.arch.regs.arch_pc = ql.arch.regs.lr
+        return
 
     # --- STST ICCC ReadData soft-pass (duldar verify_trusted_boot gate) ---
     # The STST sibling TA (UUID ...0053545354ab) is not in the corpus.
