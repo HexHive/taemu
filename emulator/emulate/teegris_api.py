@@ -5,6 +5,10 @@ from qiling.os.const import STRING, INT, BYTE, POINTER
 from .gp.utils.param import TEE_Param_Memref
 from .gp.utils.err import *
 from .gp.utils.string import *
+from .gp.session import TEE_OpenTASession
+from Crypto.Random import get_random_bytes
+from .custom import rpmb
+from unicorn import UC_PROT_READ, UC_PROT_WRITE, UC_PROT_EXEC
 from .common import crash, crash_notimpl
 
 from .gp_api import TEE_LogvPrintf, TEE_LogPrintf
@@ -171,6 +175,254 @@ def _close(ql: Qiling, hook_data):
         crash(ql, hook_data.func_name)
         return
     del fds[fd]
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+# --- TEEGRIS driver-client I/O ----------------------------------------------
+# TEEGRIS TAs talk to kernel drivers (/dev/iccc_driver, /dev/pa_driver,
+# /dev/vk_driver, /dev/crypto_manager, ...) through the libc-style
+# open()/ioctl()/read()/write()/close() wrappers that libteesl exposes as
+# drv_client_*.  Without an ioctl/read model the *create* path of every driver
+# TA (STST, vltkpr, ...) dies the moment it issues its first ioctl -- before a
+# single command can be driven.  We model the driver client benignly: open
+# hands out an fd (already done above), ioctl/read succeed and return zeroed
+# data.  For the common "read a config/phys cell" ioctl this yields an
+# all-zero cell, which is the unprovisioned / nothing-set state the create
+# path treats as success (e.g. STST's Iccc_phys_read -> flags clear).  Devices
+# that need a non-zero answer can register a handler in IOCTL_HANDLERS.
+
+# Per-device ioctl handlers: dev-path-substring -> fn(ql, fd, request, argp) -> int.
+# Return an int to use as the ioctl() result; the handler is responsible for
+# writing any out-data into argp.  Absent/None handler => benign success (0).
+IOCTL_HANDLERS = {}
+
+def _ioctl_dispatch(ql: Qiling, fd, request, argp):
+    dev = fds.get(fd, "")
+    for needle, handler in IOCTL_HANDLERS.items():
+        if needle in dev:
+            return handler(ql, fd, request, argp)
+    return 0
+
+def ioctl(ql: Qiling, hook_data):
+    p = ql.os.resolve_fcall_params({"fd": INT, "request": INT, "argp": POINTER})
+    fd = p["fd"]
+    request = p["request"]
+    argp = p["argp"]
+    dev = fds.get(fd, "<unknown-fd>")
+    try:
+        ret = _ioctl_dispatch(ql, fd, request, argp)
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
+    ql.log.info(
+        f"ioctl(fd={fd} dev={dev} request={hex(request)} argp={hex(argp)}) -> {ret} "
+        f"(driver-client stub)"
+    )
+    ql.os.fcall.cc.setReturnValue(ret)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def _read(ql: Qiling, hook_data):
+    p = ql.os.resolve_fcall_params({"fd": INT, "buf": POINTER, "len": INT})
+    fd = p["fd"]
+    buf = p["buf"]
+    length = p["len"]
+    dev = fds.get(fd, "<unknown-fd>")
+    # A device/file the create path opened returns benign zeros (an unmodeled
+    # driver / /dev/random surrogate).  Cap the fill so a bogus length can't
+    # blow up, and report exactly that many bytes "read".
+    n = max(0, min(length, 0x10000))
+    if buf and n:
+        try:
+            ql.mem.write(buf, b"\x00" * n)
+        except unicorn.unicorn_py3.unicorn.UcError:
+            crash(ql, hook_data.func_name)
+            return
+    ql.log.info(f"read(fd={fd} dev={dev} len={length}) -> {n} zero bytes (stub)")
+    ql.os.fcall.cc.setReturnValue(n)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+# --- socket-family stubs ----------------------------------------------------
+# A few TEEGRIS TAs reach an external peer over a unix/local socket: SEMeSE
+# (eSE APDU bridge: socket/select/send/recv), spidrv (socket at driver-init),
+# knxgud (send).  The peer is not modeled, so the goal is only to keep boot
+# alive and let the TA take its own timeout / error path rather than die at an
+# unimplemented import.  socket() hands out an fd via the same table as
+# open(); the wait primitives report "nothing ready" so the TA does not block
+# forever on a reply that will never come.
+
+def socket(ql: Qiling, hook_data):
+    global fds, fd_counter
+    ql.os.fcall.cc.setReturnValue(fd_counter)
+    fds[fd_counter] = f"socket:{fd_counter}"
+    ql.log.info(f"socket() -> fd {fd_counter} (stub)")
+    fd_counter += 1
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def connect(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def bind(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def listen(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def accept(ql: Qiling, hook_data):
+    # No incoming connection in the model.
+    ql.os.fcall.cc.setReturnValue(-1)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def socketpair(ql: Qiling, hook_data):
+    # socketpair(domain, type, protocol, int sv[2]) -> two connected fds.
+    global fds, fd_counter
+    p = ql.os.resolve_fcall_params({"domain": INT, "type": INT, "protocol": INT, "sv": POINTER})
+    a, b = fd_counter, fd_counter + 1
+    fds[a] = f"socketpair:{a}"
+    fds[b] = f"socketpair:{b}"
+    fd_counter += 2
+    try:
+        ql.mem.write(p["sv"], a.to_bytes(4, "little") + b.to_bytes(4, "little"))
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
+    ql.log.info(f"socketpair() -> fds ({a},{b}) (stub)")
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def send(ql: Qiling, hook_data):
+    p = ql.os.resolve_fcall_params({"fd": INT, "buf": POINTER, "len": INT})
+    ql.log.info(f"send(fd={p['fd']} len={p['len']}) -> {p['len']} (stub, discarded)")
+    ql.os.fcall.cc.setReturnValue(p["len"])
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def recv(ql: Qiling, hook_data):
+    # No peer data -> 0 = orderly shutdown / no bytes.
+    ql.log.info(f"recv() -> 0 (stub, no peer)")
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def select(ql: Qiling, hook_data):
+    # 0 = timeout, nothing ready (no peer is modeled).
+    ql.log.info(f"select() -> 0 (stub, timeout)")
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def poll(ql: Qiling, hook_data):
+    ql.log.info(f"poll() -> 0 (stub, timeout)")
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def epoll_create(ql: Qiling, hook_data):
+    global fds, fd_counter
+    ql.os.fcall.cc.setReturnValue(fd_counter)
+    fds[fd_counter] = f"epoll:{fd_counter}"
+    ql.log.info(f"epoll_create() -> fd {fd_counter} (stub)")
+    fd_counter += 1
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def epoll_create1(ql: Qiling, hook_data):
+    epoll_create(ql, hook_data)
+
+def epoll_ctl(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def epoll_wait(ql: Qiling, hook_data):
+    # 0 = no events ready before timeout (no peer is modeled).
+    ql.log.info(f"epoll_wait() -> 0 (stub, no events)")
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def eventfd(ql: Qiling, hook_data):
+    global fds, fd_counter
+    ql.os.fcall.cc.setReturnValue(fd_counter)
+    fds[fd_counter] = f"eventfd:{fd_counter}"
+    fd_counter += 1
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+# --- errno / mmap / driver registration -------------------------------------
+# A handful of TEEGRIS TAs touch plain libc/runtime primitives during their
+# create path that the emulator did not model, so they died at boot before any
+# command could be driven: get_errno_addr (HvAUtW), mmap (fingerprint), and the
+# driver-registration TEES_RegisterDriver{Constructor,Destructor} (Mps* driver
+# TAs). These are runtime plumbing, not security-relevant logic -- model them
+# benignly so the TA reaches TA_InvokeCommandEntryPoint.
+
+_errno_addr = None
+
+def get_errno_addr(ql: Qiling, hook_data):
+    # libc get_errno_addr()/__errno_location() returns a stable int* the TA
+    # reads/writes errno through. Back it with a single page mapped on first use.
+    global _errno_addr
+    if _errno_addr is None:
+        _errno_addr = ql.mem.map_anywhere(0x1000, minaddr=0x70000, perms=UC_PROT_READ | UC_PROT_WRITE, info="errno")
+        ql.mem.write(_errno_addr, b"\x00" * 8)
+    ql.os.fcall.cc.setReturnValue(_errno_addr)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def __errno_location(ql: Qiling, hook_data):
+    get_errno_addr(ql, hook_data)
+
+def mmap(ql: Qiling, hook_data):
+    # Anonymous-only mmap model: ignore the addr hint / fd, hand back a fresh
+    # zero-filled region of the requested length with prot-derived perms.
+    p = ql.os.resolve_fcall_params(
+        {"addr": POINTER, "length": INT, "prot": INT, "flags": INT, "fd": INT, "offset": INT}
+    )
+    length = p["length"]
+    if length <= 0 or length > 0x10000000:
+        ql.os.fcall.cc.setReturnValue(0xFFFFFFFFFFFFFFFF)  # MAP_FAILED
+        ql.arch.regs.arch_pc = ql.arch.regs.lr
+        return
+    size = (length + 0xFFF) & ~0xFFF
+    prot = p["prot"]
+    perms = 0
+    if prot & 1:
+        perms |= UC_PROT_READ
+    if prot & 2:
+        perms |= UC_PROT_WRITE
+    if prot & 4:
+        perms |= UC_PROT_EXEC
+    if perms == 0:
+        perms = UC_PROT_READ | UC_PROT_WRITE
+    try:
+        addr = ql.mem.map_anywhere(size, minaddr=0x50000000, perms=perms, info="mmap")
+    except Exception as e:
+        ql.log.warning(f"mmap(len={hex(length)}) failed: {e}")
+        ql.os.fcall.cc.setReturnValue(0xFFFFFFFFFFFFFFFF)
+        ql.arch.regs.arch_pc = ql.arch.regs.lr
+        return
+    ql.log.info(f"mmap(len={hex(length)} prot={hex(prot)}) -> {hex(addr)} (anon, {hex(size)}B)")
+    ql.os.fcall.cc.setReturnValue(addr)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def munmap(ql: Qiling, hook_data):
+    p = ql.os.resolve_fcall_params({"addr": POINTER, "length": INT})
+    try:
+        size = (p["length"] + 0xFFF) & ~0xFFF
+        ql.mem.unmap(p["addr"] & ~0xFFF, size)
+    except Exception:
+        pass  # best-effort; unmapping an unknown region is harmless here
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def TEES_RegisterDriverConstructor(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def TEES_RegisterDriverDestructor(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def TEES_WrapSecureObject(ql: Qiling, hook_data):
+    # Pair to the existing TEES_UnwrapSecureObject stub; returns success so the
+    # wrap path proceeds (no real secure-object cryptography is modeled).
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 

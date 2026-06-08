@@ -54,6 +54,8 @@ from .emulator_no_loader import (
     optee_setup,
 )
 from .common import CRASH_PC, NOTIMPL_PC, CRASH_PC_2, finalize_fuzzing
+from capstone import Cs, CS_ARCH_ARM64, CS_ARCH_ARM, CS_MODE_ARM, CS_MODE_THUMB
+from elftools.elf.elffile import ELFFile
 from typing import Any, Callable, Optional, List, Dict
 from .fuzz_record import Record, Status
 
@@ -92,6 +94,97 @@ def pivot(ql: Qiling, cur) -> None:
         + Style.RESET_ALL
     )
     ql.stop()
+
+def derive_entrypoint_ends(ta_path, ep_name, json_start):
+    """Recover an entry point's return address(es) when the .json metadata left
+    its TA_*EntryPoint_end list empty.
+
+    ghidra leaves _end empty when it can't pin a RET -- which happens precisely
+    when the entry point is a *tail-call thunk*: it restores its frame then
+    `b`-branches to the real handler, which RETs straight to our caller (a
+    plain `b` preserves lr). 7 corpus TEEGRIS TAs (HvAUtW, KEYMST, MpNCIT,
+    Mpsaut, TIdspl, TIthLl, ...) are otherwise un-loadable for this reason, and
+    in every observed case the affected entry point is CloseSession or Destroy,
+    both of which return void -- so stopping at the tail-branch (where x0 is not
+    yet the callee's return value) is harmless.
+
+    The 5 GP entry-point FUNC symbols survive even in these stripped TAs, so we
+    bound the scan to the symbol's [value, value+size) and treat as a stop point
+    any RET, or any unconditional B/BR whose target leaves that range (the tail
+    call). Conditional branches (the stack-canary `b.ne`, loops) stay in range
+    and are ignored. Returns a list of file-offset addresses (the json
+    convention), or [] if nothing could be derived (caller then hard-fails as
+    before).
+    """
+    try:
+        with open(ta_path, "rb") as f:
+            elf = ELFFile(f)
+            is64 = elf.elfclass == 64
+            # locate the surviving FUNC symbol for this entry point
+            sym = None
+            for sec in elf.iter_sections():
+                if sec.header["sh_type"] not in ("SHT_SYMTAB", "SHT_DYNSYM"):
+                    continue
+                for s in sec.iter_symbols():
+                    if s.name == ep_name and s["st_info"]["type"] == "STT_FUNC" and s["st_size"] > 0:
+                        sym = (s["st_value"], s["st_size"])
+                        break
+                if sym:
+                    break
+            if sym is None:
+                return []
+            val, size = sym
+            # only trust an exact match with the json start (they coincide for
+            # every corpus TA: PIE base 0 -> file offset == vaddr). A mismatch
+            # means the symbol isn't the thing the json points at -- don't guess.
+            if json_start is not None and val != json_start:
+                return []
+            # map [val, val+size) to file bytes
+            code = None
+            for seg in elf.iter_segments():
+                if seg["p_type"] != "PT_LOAD":
+                    continue
+                if seg["p_vaddr"] <= val < seg["p_vaddr"] + seg["p_filesz"]:
+                    off = seg["p_offset"] + (val - seg["p_vaddr"])
+                    f.seek(off)
+                    code = f.read(min(size, seg["p_filesz"] - (val - seg["p_vaddr"])))
+                    break
+            if not code:
+                return []
+
+        lo, hi = val, val + size
+        ends = []
+
+        def scan(md):
+            found = []
+            for ins in md.disasm(code, val):
+                m = ins.mnemonic
+                if m == "ret" or (not is64 and m == "bx" and ins.op_str.strip() == "lr"):
+                    found.append(ins.address)
+                elif m in ("b", "br"):  # unconditional only (conditionals carry a suffix)
+                    tgt = None
+                    try:
+                        tgt = int(ins.op_str.strip().lstrip("#"), 0)
+                    except ValueError:
+                        pass
+                    if m == "br" or (tgt is not None and not (lo <= tgt < hi)):
+                        found.append(ins.address)
+                elif not is64 and m in ("pop", "ldm", "ldmia") and "pc" in ins.op_str:
+                    found.append(ins.address)
+            return found
+
+        if is64:
+            ends = scan(Cs(CS_ARCH_ARM64, CS_MODE_ARM))
+        else:
+            # 32-bit teegris: try ARM, fall back to THUMB
+            ends = scan(Cs(CS_ARCH_ARM, CS_MODE_ARM))
+            if not ends:
+                ends = scan(Cs(CS_ARCH_ARM, CS_MODE_THUMB))
+        return sorted(set(ends))
+    except Exception as e:
+        print(f"derive_entrypoint_ends({ep_name}) failed: {e}")
+        return []
+
 
 def get_n_ptype(param_type: int, n: int):
     if n >= 0 and n <= 3:
@@ -248,8 +341,23 @@ class TAEMU:
             func_end = f"{func.value}_end"
             func_start = f"{func.value}_start"
             if len(ta_info[func_end]) == 0:
-                print(f"TA_{func.value}_end is empty!")
-                exit(-1)
+                # ghidra leaves *_end empty for tail-call thunk entry points;
+                # recover the stop address statically instead of hard-failing.
+                # TAEMU_NO_DERIVE_ENDS=1 restores the old strict behaviour.
+                derived = (
+                    derive_entrypoint_ends(self.ta_path, func.value, ta_info[func_start])
+                    if "TAEMU_NO_DERIVE_ENDS" not in os.environ
+                    else []
+                )
+                if derived:
+                    print(
+                        f"[ta_mgr] {func.value}_end was empty in .json; derived stop "
+                        f"address(es) {[hex(d) for d in derived]} (tail-call thunk)"
+                    )
+                    ta_info[func_end] = derived
+                else:
+                    print(f"TA_{func.value}_end is empty! (could not derive)")
+                    exit(-1)
             self.ta_funcs[func] = StubbedFunction(
                 name=func,
                 start=ta_info[func_start] + base,

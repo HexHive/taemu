@@ -49,18 +49,37 @@ class HookData:
     emu: 'TAEMU'
     func_name: str
 
+def _is_emu_impl(f):
+    """True only for a real API implementation: a callable actually defined in
+    one of our ``emulate.*`` modules. This rejects names that leaked into an API
+    module's namespace via ``from pwn import *`` (e.g. pwnlib's ``listen`` /
+    ``connect`` / ``remote``) -- otherwise a TA importing a libc symbol that
+    happens to collide with a pwnlib export would get hooked to the pwnlib
+    object and blow up when called. Also rejects sub-modules picked up by
+    getattr."""
+    return (
+        callable(f)
+        and not inspect.ismodule(f)
+        and getattr(f, "__module__", "").startswith("emulate")
+    )
 
-def get_api_impl(func_name, strict=False):
+
+def get_api_impl(func_name, strict=False, implmented_apis=None):
     if func_name == "write":
         func_name = "_write"
     if func_name == "open":
         func_name = "_open"
     if func_name == "close":
         func_name = "_close"
+    if func_name == "read":
+        func_name = "_read"
     if func_name == "__stack_chk_fail":
         func_name = "stack_chk_fail"
+    if implmented_apis is not None:
+        if func_name not in implmented_apis:
+            return gp_api.default_func
     api_func = getattr(gp_api, func_name, None)
-    if api_func is not None:
+    if _is_emu_impl(api_func):
         return api_func
     package = importlib.import_module("emulate.gp")
     for _, modname, ispkg in pkgutil.iter_modules(
@@ -68,32 +87,12 @@ def get_api_impl(func_name, strict=False):
     ):
         if not ispkg:  # only import .py modules, skip subpackages if you want
             api_func = getattr(importlib.import_module(modname), func_name, None)
-            if api_func is not None and not inspect.ismodule(api_func):
+            if _is_emu_impl(api_func):
                 return api_func
-    api_func = getattr(scrypto_api, func_name, None)
-    if api_func is not None:
-        return api_func
-    api_func = getattr(beanpod_api, func_name, None)
-    if api_func is not None:
-        return api_func
-    api_func = getattr(teegris_api, func_name, None)
-    if api_func is not None:
-        return api_func
-    api_func = getattr(mitee_api, func_name, None)
-    if api_func is not None:
-        return api_func
-    api_func = getattr(t6_api, func_name, None)
-    if api_func is not None:
-        return api_func
-    api_func = getattr(tc_api, func_name, None)
-    if api_func is not None:
-        return api_func
-    api_func = getattr(qsee_api, func_name, None)
-    if api_func is not None:
-        return api_func
-    api_func = getattr(optee_api, func_name, None)
-    if api_func is not None:
-        return api_func
+    for mod in (scrypto_api, beanpod_api, teegris_api, mitee_api, t6_api, tc_api, qsee_api, optee_api):
+        api_func = getattr(mod, func_name, None)
+        if _is_emu_impl(api_func):
+            return api_func
     if strict:
         return None
     return gp_api.default_func
