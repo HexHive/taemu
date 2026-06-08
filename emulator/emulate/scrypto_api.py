@@ -626,3 +626,177 @@ def ERR_peek_error(ql, hook_data):
 
 def ERR_print_errors_fp(ql, hook_data):
     _void(ql)
+
+
+# ---------------------------------------------------------------------------
+# X.509 / RSA / EC / ASN.1 verification family (Phase-3 asymmetric build-out).
+# The cert-verification findings (engmod dev-CA accept, knxgud cert-purpose
+# confusion, vltkpr VERIFY_CERT, fbckmr cmd 18 d2i_PUBKEY) sit *behind* these
+# calls. We don't do real signature verification -- modelling the verify verbs
+# as "success" and the d2i_* parsers as length-faithful handle factories lets
+# the dispatcher reach the finding's accept/dispatch logic, which is the part
+# the finding is about. Logged STUB; a verdict must not treat the verify as real.
+# ---------------------------------------------------------------------------
+
+def _d2i_advance(ql, hook_data, kind):
+    # T *d2i_FOO(T **out, const unsigned char **inp, long len): return a handle,
+    # write it through *out, and advance *inp past the consumed DER (length
+    # faithful, so a caller looping over a buffer terminates).
+    p = ql.os.resolve_fcall_params({"out": POINTER, "inp": POINTER, "length": INT})
+    h = _handle(ql, kind)
+    _PKEY_OBJS[h] = kind
+    try:
+        if p["inp"]:
+            cur = ql.mem.read_ptr(p["inp"])
+            ql.mem.write_ptr(p["inp"], cur + (p["length"] & 0xFFFFFFFF))
+        if p["out"]:
+            ql.mem.write_ptr(p["out"], h)
+    except unicorn.unicorn_py3.unicorn.UcError:
+        pass
+    ql.log.info(f"{hook_data.func_name} STUB -> handle {hex(h)} ({kind})")
+    _ret(ql, h)
+
+def d2i_X509(ql, hd):           _d2i_advance(ql, hd, "X509")
+def d2i_RSA_PUBKEY(ql, hd):     _d2i_advance(ql, hd, "RSA")
+def d2i_RSAPublicKey(ql, hd):   _d2i_advance(ql, hd, "RSA")
+def d2i_RSAPrivateKey(ql, hd):  _d2i_advance(ql, hd, "RSA")
+def d2i_AutoPrivateKey(ql, hd): _d2i_advance(ql, hd, "EVP_PKEY")
+def d2i_ECDSA_SIG(ql, hd):      _d2i_advance(ql, hd, "ECDSA_SIG")
+def d2i_ECPrivateKey(ql, hd):   _d2i_advance(ql, hd, "EC_KEY")
+
+def _i2d(ql, hook_data, default_len=0x400):
+    # int i2d_FOO(T *a, unsigned char **out): return DER length; if out!=NULL
+    # write that many bytes and advance *out.
+    p = ql.os.resolve_fcall_params({"a": POINTER, "out": POINTER})
+    n = default_len
+    try:
+        if p["out"]:
+            outp = ql.mem.read_ptr(p["out"])
+            if outp:
+                ql.mem.write(outp, b"\x00" * n)
+                ql.mem.write_ptr(p["out"], outp + n)
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
+    ql.log.info(f"{hook_data.func_name} STUB -> len {n}")
+    _ret(ql, n)
+
+def i2d_X509(ql, hd):           _i2d(ql, hd)
+def i2d_RSAPublicKey(ql, hd):   _i2d(ql, hd)
+def i2d_RSA_PUBKEY(ql, hd):     _i2d(ql, hd)
+def i2d_ECDSA_SIG(ql, hd):      _i2d(ql, hd, 0x48)
+
+# verification verbs -> success (1)
+def X509_verify(ql, hd):             _stub_ok(ql, hd)
+def X509_verify_cert(ql, hd):        _stub_ok(ql, hd)
+def RSA_verify(ql, hd):              _stub_ok(ql, hd)
+def ECDSA_verify(ql, hd):            _stub_ok(ql, hd)
+def EVP_DigestVerifyInit(ql, hd):    _stub_ok(ql, hd)
+def EVP_DigestVerifyUpdate(ql, hd):  _stub_ok(ql, hd)
+def EVP_DigestVerifyFinal(ql, hd):   _stub_ok(ql, hd)
+def EVP_DigestVerify(ql, hd):        _stub_ok(ql, hd)
+def EVP_VerifyFinal(ql, hd):         _stub_ok(ql, hd)
+
+# handle factories
+def X509_get_pubkey(ql, hd):    _stub_handle(ql, hd, "EVP_PKEY")
+def EVP_PKEY_get1_RSA(ql, hd):  _stub_handle(ql, hd, "RSA")
+def RSA_new(ql, hd):            _stub_handle(ql, hd, "RSA")
+def EC_KEY_new(ql, hd):         _stub_handle(ql, hd, "EC_KEY")
+def PEM_read_bio_X509(ql, hd):  _stub_handle(ql, hd, "X509")
+def PEM_read_bio_PUBKEY(ql, hd):_stub_handle(ql, hd, "EVP_PKEY")
+def X509_STORE_new(ql, hd):     _stub_handle(ql, hd, "X509_STORE")
+def X509_STORE_CTX_new(ql, hd): _stub_handle(ql, hd, "X509_STORE_CTX")
+
+def BIO_new_mem_buf(ql, hook_data):
+    # const handle wrapping the caller's buffer; we just hand back a token.
+    _stub_handle(ql, hook_data, "BIO")
+
+# free / setters -> void / ok
+def X509_free(ql, hd):              _stub_void(ql, hd)
+def RSA_free(ql, hd):               _stub_void(ql, hd)
+def BIO_free(ql, hd):               _stub_void(ql, hd)
+def X509_STORE_free(ql, hd):        _stub_void(ql, hd)
+def X509_STORE_CTX_free(ql, hd):    _stub_void(ql, hd)
+def X509_STORE_CTX_init(ql, hd):    _stub_ok(ql, hd)
+def X509_STORE_add_cert(ql, hd):    _stub_ok(ql, hd)
+
+def RSA_size(ql, hook_data):
+    _ret(ql, 256)   # 2048-bit modulus
+
+def _rsa_pub_op(ql, hook_data):
+    # int RSA_public_{decrypt,encrypt}(int flen, const u8 *from, u8 *to,
+    #                                  RSA *rsa, int padding) -> output length
+    p = ql.os.resolve_fcall_params(
+        {"flen": INT, "frm": POINTER, "to": POINTER, "rsa": POINTER, "padding": INT})
+    n = min(max(p["flen"], 0), 512) or 256
+    try:
+        if p["to"]:
+            ql.mem.write(p["to"], b"\x00" * n)
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
+    ql.log.info(f"{hook_data.func_name} STUB -> {n}")
+    _ret(ql, n)
+
+def RSA_public_decrypt(ql, hd):  _rsa_pub_op(ql, hd)
+def RSA_public_encrypt(ql, hd):  _rsa_pub_op(ql, hd)
+def RSA_private_decrypt(ql, hd): _rsa_pub_op(ql, hd)
+def RSA_private_encrypt(ql, hd): _rsa_pub_op(ql, hd)
+
+def ASN1_get_object(ql, hook_data):
+    # int ASN1_get_object(const unsigned char **pp, long *plength, int *ptag,
+    #                     int *pclass, long omax)
+    # Parse one DER TLV header at **pp: set *ptag/*pclass/*plength (content
+    # length) and advance *pp past the identifier+length octets. Returns 0x20
+    # (constructed), 0 (primitive) or 0x80 (error). A real-ish parse so a
+    # hand-rolled DER reader (SEMeSE parseItemsFromGpCert, teessu cert_parcer)
+    # walks the structure and can reach its own length-handling sink.
+    p = ql.os.resolve_fcall_params(
+        {"pp": POINTER, "plength": POINTER, "ptag": POINTER, "pclass": POINTER, "omax": INT})
+    try:
+        cur = ql.mem.read_ptr(p["pp"])
+        omax = p["omax"] & 0xFFFFFFFFFFFFFFFF
+        hdr = bytes(ql.mem.read(cur, max(1, min(omax, 16))))
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
+    if not hdr:
+        _ret(ql, 0x80)
+        return
+    tag0 = hdr[0]
+    cls = (tag0 >> 6) & 0x3
+    constructed = (tag0 >> 5) & 0x1
+    tagnum = tag0 & 0x1F
+    i = 1
+    if tagnum == 0x1F:                       # high-tag-number form
+        tagnum = 0
+        while i < len(hdr) and (hdr[i] & 0x80):
+            tagnum = (tagnum << 7) | (hdr[i] & 0x7F); i += 1
+        if i < len(hdr):
+            tagnum = (tagnum << 7) | (hdr[i] & 0x7F); i += 1
+    if i >= len(hdr):
+        _ret(ql, 0x80)
+        return
+    lb = hdr[i]; i += 1
+    if lb & 0x80:                            # long-form length
+        length = 0
+        for _ in range(lb & 0x7F):
+            if i >= len(hdr):
+                break
+            length = (length << 8) | hdr[i]; i += 1
+    else:
+        length = lb
+    try:
+        ql.mem.write_ptr(p["pp"], cur + i)
+        if p["plength"]:
+            ql.mem.write_ptr(p["plength"], length & 0xFFFFFFFFFFFFFFFF)
+        if p["ptag"]:
+            _wr_u32(ql, p["ptag"], tagnum)
+        if p["pclass"]:
+            _wr_u32(ql, p["pclass"], cls << 6)
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
+    ret = 0x20 if constructed else 0
+    ql.log.info(f"ASN1_get_object tag={tagnum} len={length} cls={cls} -> {ret}")
+    _ret(ql, ret)
