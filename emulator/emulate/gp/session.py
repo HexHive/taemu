@@ -148,6 +148,33 @@ def TEE_InvokeTACommand(ql: Qiling, hook_data):
     if para_returnOrigin != 0:
         ql.mem.write_ptr(para_returnOrigin, TEE_SUCCESS)
 
+    # --- STST ICCC ReadData soft-pass (duldar verify_trusted_boot gate) ---
+    # The STST sibling TA (UUID ...0053545354ab) is not in the corpus.
+    # duldar's verify_trusted_boot asks STST for the SVB measurement (op 9)
+    # and proceeds ONLY if the returned 4-byte value == 0
+    # (RE/samsung_teegris/duldar.md "Trusted-boot prelude": out==0 -> proceed,
+    # RPC fail -> 0x1000A, out!=0 -> 0x1000D). The generic forge path can't
+    # marshal this (off-by-one param-type consts + 8B vs real 16B param
+    # stride), so model the documented "measurement matches" outcome directly:
+    # zero the response memref buffer(s) and return SUCCESS. Scoped to STST so
+    # the existing per-TA payloads are untouched.
+    target_bytes = bytes(session.target_ta) if session.target_ta else b""
+    if b"STST" in target_bytes:
+        for i in range(4):
+            ct = TEE_PARAM_TYPE_GET(para_paramTypes, i)
+            if ct in (4, 5, 6, 7):  # any memref (emu consts 4/5/6 or GP-std 5/6/7)
+                buf = ql.mem.read_ptr(para_params + i * 16)
+                sz = ql.mem.read_ptr(para_params + i * 16 + 8)
+                if buf and 0 < sz <= 0x2000:
+                    try:
+                        ql.mem.write(buf, b"\x00" * min(sz, 0x40))
+                    except Exception:
+                        pass
+        ql.log.info("[duldar] STST ICCC ReadData soft-pass -> out=0 (SVB match)")
+        ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+        ql.arch.regs.arch_pc = ql.arch.regs.lr
+        return
+
     # @TODO: invoke a command for real
     # params should change accordingly in this function,
     # in order to make emulation continue, we might need to manually forge value in params

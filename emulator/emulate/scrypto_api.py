@@ -127,6 +127,19 @@ def EVP_CIPHER_CTX_cleanup(ql: Qiling, hook_data):
     _ret(ql, 1)
 
 
+def EVP_CIPHER_CTX_init(ql: Qiling, hook_data):
+    # In BoringSSL this zero-inits a caller-provided (often stack) ctx. We just
+    # register the pointer as a fresh state slot keyed by its address. void.
+    ctx = ql.os.resolve_fcall_params({"ctx": POINTER})["ctx"]
+    _CIPHER_CTXS[ctx] = {"cipher": None, "key": None, "iv": None,
+                         "ivlen": 12, "tag": None, "obj": None, "mode": None}
+    _void(ql)
+
+
+def EVP_CIPHER_CTX_set_padding(ql: Qiling, hook_data):
+    _ret(ql, 1)
+
+
 def EVP_CIPHER_CTX_ctrl(ql: Qiling, hook_data):
     p = ql.os.resolve_fcall_params(
         {"ctx": POINTER, "type": INT, "arg": INT, "ptr": POINTER})
