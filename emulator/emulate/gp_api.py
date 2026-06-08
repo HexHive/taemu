@@ -464,6 +464,26 @@ def vsnprintf(ql: Qiling, hook_data):
     snprintf(ql, hook_data)
 
 
+def vsprintf(ql: Qiling, hook_data):
+    # vsprintf(s, format, va_list): we don't model va_list arg fetching (the
+    # args live behind the va_list pointer, not in the normal vararg
+    # registers), so write the format string best-effort and never crash the
+    # emulator. Typically a log/debug line, so an unexpanded specifier is
+    # harmless; the alternative (aliasing sprintf) KeyErrors on the va_list.
+    try:
+        p = ql.os.resolve_fcall_params({"s": POINTER, "format": STRING})
+        out = p["format"].encode("latin-1", "replace") + b"\x00"
+        if asan.is_access_valid(ql, hook_data.emu.HEAP, p["s"], len(out), hook_data.func_name, is_write=True):
+            ql.mem.write(p["s"], out)
+        ql.os.fcall.cc.setReturnValue(len(out) - 1)
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
+    except Exception:
+        ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
 def strlen(ql: Qiling, hook_data):
     ptr = ql.os.resolve_fcall_params({"ptr": POINTER})["ptr"]
     hook_data.emu.update_shm(ptr)
@@ -572,6 +592,43 @@ def strcat(ql: Qiling, hook_data):
     hook_data.emu.writeback_shm(dst)
     ql.os.fcall.cc.setReturnValue(dst)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def stpcpy(ql: Qiling, hook_data):
+    # like strcpy but returns a pointer to the copied terminating NUL
+    params = ql.os.resolve_fcall_params({"dst": POINTER, "src": POINTER})
+    dst = params["dst"]
+    src = params["src"]
+    hook_data.emu.update_shm(src)
+    try:
+        s = read_c_str(ql, src)
+        if not asan.is_access_valid(ql, hook_data.emu.HEAP, dst, len(s) + 1, hook_data.func_name, is_write=True):
+            return
+        ql.mem.write(dst, s + b"\x00")
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
+    hook_data.emu.writeback_shm(dst)
+    ql.os.fcall.cc.setReturnValue(dst + len(s))
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def mempcpy(ql: Qiling, hook_data):
+    # memcpy that returns dst+n (a pointer past the last written byte)
+    params = ql.os.resolve_fcall_params({"dest": POINTER, "src": POINTER, "size": POINTER})
+    if not asan.is_access_valid(ql, hook_data.emu.HEAP, params["dest"], params["size"], hook_data.func_name, is_write=True):
+        return
+    hook_data.emu.update_shm(params["src"])
+    try:
+        data = ql.mem.read(params["src"], params["size"])
+        ql.mem.write(params["dest"], bytes(data))
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
+    hook_data.emu.writeback_shm(params["dest"])
+    ql.os.fcall.cc.setReturnValue(params["dest"] + params["size"])
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
 
 def TEE_MemMove(ql: Qiling, hook_data):
     memmove(ql, hook_data)

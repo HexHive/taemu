@@ -9,6 +9,13 @@ from .common import crash, crash_notimpl
 from .gp_api import TEE_LogvPrintf, TEE_LogPrintf, TEE_MemCompare, malloc, free
 from .gp.utils.printf import parse_fmt_str, fixup_format, read_c_str
 
+from .gp.session import TEE_OpenTASession
+
+
+def TEE_OpenSession(ql: Qiling, hook_data):
+    # t6 names the TA-to-TA session open TEE_OpenSession; reuse the modelled
+    # TEE_OpenTASession (returns SUCCESS + a session handle).
+    TEE_OpenTASession(ql, hook_data)
 
 def GetBootSeed(ql: Qiling, hook_data):
     ql.log.info(f"{hook_data.func_name} returning 0")

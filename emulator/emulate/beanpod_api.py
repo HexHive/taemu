@@ -304,6 +304,80 @@ def ut_pf_ts_cp_close(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+# --- ut_pf trusted-storage: the corpus imports both the `_cp_` verbs and their
+# base aliases, plus size/lseek/mkdir/rename/unlink which weren't modelled.
+# Back them with the same flat STROAGE files + fd2file table as the _cp_ set,
+# so a TA that uses trusted storage in OpenSession/Invoke runs instead of dying.
+def ut_pf_ts_cp_size(ql: Qiling, hook_data):
+    fd = ql.os.resolve_fcall_params({"fd": UINT})["fd"]
+    sz = 0
+    f = fd2file.get(fd)
+    if f:
+        try:
+            cur = f.tell(); f.seek(0, 2); sz = f.tell(); f.seek(cur)
+        except Exception:
+            sz = 0
+    ql.os.fcall.cc.setReturnValue(sz)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def ut_pf_ts_cp_lseek(ql: Qiling, hook_data):
+    p = ql.os.resolve_fcall_params({"fd": UINT, "off": INT, "whence": INT})
+    f = fd2file.get(p["fd"])
+    pos = -1
+    if f:
+        try:
+            f.seek(p["off"], p["whence"]); pos = f.tell()
+        except Exception:
+            pos = -1
+    ql.os.fcall.cc.setReturnValue(pos)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def ut_pf_ts_mkdir(ql: Qiling, hook_data):
+    import os
+    name = ql.mem.string(ql.os.resolve_fcall_params({"name": POINTER})["name"])
+    try:
+        os.makedirs(STROAGE + name, exist_ok=True)
+    except Exception:
+        pass
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def ut_pf_ts_rename(ql: Qiling, hook_data):
+    import os
+    p = ql.os.resolve_fcall_params({"old": POINTER, "new": POINTER})
+    try:
+        os.rename(STROAGE + ql.mem.string(p["old"]), STROAGE + ql.mem.string(p["new"]))
+        ret = 0
+    except Exception:
+        ret = -1
+    ql.os.fcall.cc.setReturnValue(ret)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def ut_pf_ts_unlink(ql: Qiling, hook_data):
+    import os
+    name = ql.mem.string(ql.os.resolve_fcall_params({"name": POINTER})["name"])
+    try:
+        os.remove(STROAGE + name); ret = 0
+    except Exception:
+        ret = -1
+    ql.os.fcall.cc.setReturnValue(ret)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+# base-name aliases of the _cp_ trusted-storage verbs
+def ut_pf_ts_open(ql: Qiling, hook_data):  ut_pf_ts_cp_open(ql, hook_data)
+def ut_pf_ts_close(ql: Qiling, hook_data): ut_pf_ts_cp_close(ql, hook_data)
+def ut_pf_ts_read(ql: Qiling, hook_data):  ut_pf_ts_cp_read(ql, hook_data)
+def ut_pf_ts_write(ql: Qiling, hook_data): ut_pf_ts_cp_write(ql, hook_data)
+def ut_pf_ts_exist(ql: Qiling, hook_data): ut_pf_ts_cp_exist(ql, hook_data)
+def ut_pf_ts_size(ql: Qiling, hook_data):  ut_pf_ts_cp_size(ql, hook_data)
+def ut_pf_ts_lseek(ql: Qiling, hook_data): ut_pf_ts_cp_lseek(ql, hook_data)
+
+# correctly-spelled RPMB session open (the bundled name had a typo:
+# TEE_RpbmOpenSession); delegate to the real implementation in custom/rpmb.py.
+def TEE_RpmbOpenSession(ql: Qiling, hook_data):
+    rpmb.TEE_RpmbOpenSession(ql, hook_data)
+
+
 def ut_pf_km_get_hmac_key(ql: Qiling, func_name):
     # will go into subroutine so lr needs to be recorded
     current_lr = ql.arch.regs.lr

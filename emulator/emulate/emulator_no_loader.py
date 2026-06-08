@@ -317,35 +317,33 @@ def hook_ta_custom(
     ta_info = emu.ta_info
     if "inline" in ta_info:
         addr_map = defaultdict(list)
-        for func_name, info in ta_info["inline"].items():
-            addr_map[info["addr"]].append(func_name)
-        # Print functions that share the same addr
-        shared_funcs = False
-        for addr, funcs in addr_map.items():
-            if len(funcs) > 1:
-                print(f"Address {addr} is shared by: {', '.join(funcs)}")
-                shared_funcs = True
-        if shared_funcs:
-            print(f"fix the json, probably due to faulty decompilation")
-            exit(-1)
-        for fname, info in ta_info["inline"].items():
-            addr = info["addr"]
-            hook_type = info["type"]
+        for func_name, info in ta_info['inline'].items():
+            addr_map[info["addr"]].append((func_name, info))
+        # ghidra sometimes maps several API stubs to one address (a shared thunk
+        # or faulty decompilation). Previously this hard-exit()ed the whole TA;
+        # instead install ONE hook per address, preferring a name that resolves
+        # to a real impl (not default_func), and just warn. A hard metadata
+        # quirk shouldn't make an otherwise-loadable TA un-runnable.
+        for addr, entries in addr_map.items():
+            names = [n for n, _ in entries]
+            if len(names) > 1:
+                ql.log.warning(
+                    f"inline addr {hex(addr)} shared by {names}; hooking one (json quirk)"
+                )
+            chosen_name, chosen_info = entries[0]
+            for n, info in entries:
+                if get_api_impl(n, implmented_apis=emu.implemented_apis) is not gp_api.default_func:
+                    chosen_name, chosen_info = n, info
+                    break
+            hook_type = chosen_info['type']
             if hook_type == "gp_api" or hook_type == "tee" or hook_type == "tee_std":
-                # ql.log.info(f"hooking inline api function {fname}, {hex(addr)}")
-                if ta_elf.pie:
-                    ql.hook_address(
-                        get_api_impl(fname),
-                        ta_base + addr,
-                        user_data=HookData(emu, fname),
-                    )
-                else:
-                    ql.hook_address(
-                        get_api_impl(fname),
-                        addr,
-                        user_data=HookData(emu, fname),
-                    )
-
+                target = ta_base + addr if ta_elf.pie else addr
+                ql.log.info(f'hooking inline api function {chosen_name}, {hex(addr)}')
+                ql.hook_address(
+                    get_api_impl(chosen_name, implmented_apis=emu.implemented_apis),
+                    target,
+                    user_data=HookData(emu, chosen_name),
+                )
 
 def teegris_32_setup(ql: Qiling, ta_path, ta_base):
     rels = teegris_32_rel(ta_path)
