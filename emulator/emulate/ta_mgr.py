@@ -133,10 +133,15 @@ def derive_entrypoint_ends(ta_path, ep_name, json_start):
                     break
             if sym is None:
                 return []
-            val, size = sym
+            sym_value, size = sym
+            # 32-bit ARM entry functions carry the Thumb bit in st_value (odd
+            # address); strip it for address math and use it to bias disassembly.
+            val = (sym_value & ~1) if not is64 else sym_value
+            thumb_hint = (not is64) and bool(sym_value & 1)
             # only trust an exact match with the json start (they coincide for
-            # every corpus TA: PIE base 0 -> file offset == vaddr). A mismatch
-            # means the symbol isn't the thing the json points at -- don't guess.
+            # every corpus TA: PIE base 0 -> file offset == vaddr; non-PIE
+            # ET_EXEC -> vaddr with the Thumb bit stripped). A mismatch means the
+            # symbol isn't the thing the json points at -- don't guess.
             if json_start is not None and val != json_start:
                 return []
             # map [val, val+size) to file bytes
@@ -161,7 +166,7 @@ def derive_entrypoint_ends(ta_path, ep_name, json_start):
                 m = ins.mnemonic
                 if m == "ret" or (not is64 and m == "bx" and ins.op_str.strip() == "lr"):
                     found.append(ins.address)
-                elif m in ("b", "br"):  # unconditional only (conditionals carry a suffix)
+                elif m in ("b", "b.w", "br"):  # unconditional only (conditionals carry a cc suffix like b.ne/b.eq); b.w is the Thumb-2 wide encoding
                     tgt = None
                     try:
                         tgt = int(ins.op_str.strip().lstrip("#"), 0)
@@ -175,11 +180,11 @@ def derive_entrypoint_ends(ta_path, ep_name, json_start):
 
         if is64:
             ends = scan(Cs(CS_ARCH_ARM64, CS_MODE_ARM))
+        elif thumb_hint:
+            # Thumb entry: disassemble Thumb first, fall back to ARM
+            ends = scan(Cs(CS_ARCH_ARM, CS_MODE_THUMB)) or scan(Cs(CS_ARCH_ARM, CS_MODE_ARM))
         else:
-            # 32-bit teegris: try ARM, fall back to THUMB
-            ends = scan(Cs(CS_ARCH_ARM, CS_MODE_ARM))
-            if not ends:
-                ends = scan(Cs(CS_ARCH_ARM, CS_MODE_THUMB))
+            ends = scan(Cs(CS_ARCH_ARM, CS_MODE_ARM)) or scan(Cs(CS_ARCH_ARM, CS_MODE_THUMB))
         return sorted(set(ends))
     except Exception as e:
         print(f"derive_entrypoint_ends({ep_name}) failed: {e}")
