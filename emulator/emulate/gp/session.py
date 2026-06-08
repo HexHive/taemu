@@ -11,6 +11,19 @@ from ..custom.session_payload import get_good_response_payload
 
 TEE_TIMEOUT_INFINITE = 0xFFFFFFFF
 
+# Samsung PROCA (Process Authenticator) TA, UUID ...0050524f4341 (ascii .PROCA).
+# Knox TAs (knxgud, KEYMST, ...) open a TA-to-TA session to it in an InvokeCommand
+# *prelude* to authenticate the caller. On a PROCA-stripped / custom-kernel
+# device the open fails with a soft-code and the dispatcher *waives* the check
+# (log-and-continue) -- which is exactly the condition the kg_unlock /
+# missing-caller-binding findings need. The emulator has no PROCA peer, so it IS
+# that device: model the open to the PROCA UUID as returning the documented
+# "no PROCA" soft-code so the dispatcher's fall-through reaches process_cmd.
+# (RE/samsung_teegris/knxgud.md: 1179648=0x120000 "does not support PROCA",
+# 1114137=0x110019 "custom kernel" both proceed.) Set TAEMU_PROCA_HARD=1 to make
+# the open succeed normally instead.
+PROCA_SOFTPASS_CODE = 0x120000
+
 SESSIONS = {}
 SESSION_NUM = 0
 
@@ -46,6 +59,23 @@ def TEE_OpenTASession(ql: Qiling, hook_data):
     ql.log.info(
         f"TEE_OpenTASession: {hex(para_destination)},{para_cancellationRequestTimeout},{para_paramTypes},{hex(para_params)},{hex(para_session)},{hex(para_returnOrigin)}"
     )
+
+    # PROCA-stripped device model: opening a session to the PROCA TA returns the
+    # "does not support PROCA" soft-code, which the Knox dispatchers waive.
+    import os as _os
+    try:
+        dest_uuid = bytes(ql.mem.read(para_destination, 0x10))
+    except Exception:
+        dest_uuid = b""
+    if b"PROCA" in dest_uuid and "TAEMU_PROCA_HARD" not in _os.environ:
+        ql.log.info(f"[proca] TEE_OpenTASession -> soft-pass {hex(PROCA_SOFTPASS_CODE)} (no PROCA peer)")
+        if para_session:
+            ql.mem.write_ptr(para_session, 0xFFFFFFFF)   # TEE_HANDLE_NULL
+        if para_returnOrigin:
+            ql.mem.write_ptr(para_returnOrigin, 2)        # TEE_ORIGIN_TEE
+        ql.os.fcall.cc.setReturnValue(PROCA_SOFTPASS_CODE)
+        ql.arch.regs.arch_pc = ql.arch.regs.lr
+        return
 
     # check TEE_OpenTASession in libuTbta.so, para_cancellationRequestTimeout is not used at all
     if para_cancellationRequestTimeout == TEE_TIMEOUT_INFINITE:

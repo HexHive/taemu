@@ -200,6 +200,15 @@ def _close(ql: Qiling, hook_data):
 # Return an int to use as the ioctl() result; the handler is responsible for
 # writing any out-data into argp.  Absent/None handler => benign success (0).
 IOCTL_HANDLERS = {}
+# NB: the corpus Knox TAs (KEYMST, vltkpr, knxgud) authenticate the caller via
+# the /dev/pa_driver PROCA ioctl, not TEE_OpenTASession. The driver writes a
+# build-specific verdict struct that the TA reads back; the corpus build maps
+# the unmodelled-driver case to its own failure code (knxgud: "PROCA
+# Authentication is failed. : 100006"), and the soft-pass codes / struct offsets
+# differ from the RE writeup's build. Soft-passing it therefore needs a per-TA
+# inline hook on the authenticate function (the pattern vltkpr already uses,
+# vltkpr_authenticate_ca_softpass), not a generic ioctl model -- writing a
+# guessed verdict through the request pointer risks corrupting live TA state.
 
 def _ioctl_dispatch(ql: Qiling, fd, request, argp):
     dev = fds.get(fd, "")
