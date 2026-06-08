@@ -16,6 +16,7 @@ from elftools.elf.elffile import ELFFile
 from qiling.const import QL_ARCH, QL_OS 
 from elftools.elf.relocation import RelocationSection
 from . import gp_api
+from . import scrypto_api
 from . import beanpod_api
 from . import teegris_api
 from . import mitee_api
@@ -69,6 +70,9 @@ def get_api_impl(func_name, strict=False):
             api_func = getattr(importlib.import_module(modname), func_name, None)
             if api_func is not None and not inspect.ismodule(api_func):
                 return api_func
+    api_func = getattr(scrypto_api, func_name, None)
+    if api_func is not None:
+        return api_func
     api_func = getattr(beanpod_api, func_name, None)
     if api_func is not None:
         return api_func

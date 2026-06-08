@@ -33,10 +33,16 @@ class Operation:
         self.operationID = operaitonID
         self.ql = ql
 
+    def reset(self):
+        # default TEE_ResetOperation: an op with no extra running state is a no-op
+        pass
 
 class MD5_Operation(Operation):
     def __init__(self, operationID, ql) -> None:
         super().__init__(operationID, ql)
+        self.h = MD5.new()
+
+    def reset(self):
         self.h = MD5.new()
 
     def digest_update(self, data):
@@ -59,6 +65,9 @@ class MD5_Operation(Operation):
 class Digest_Operation(Operation):
     def __init__(self, operationID, ql) -> None:
         super().__init__(operationID, ql)
+        self.h = SHA256.new()
+
+    def reset(self):
         self.h = SHA256.new()
 
     def digest_update(self, data):
@@ -254,7 +263,9 @@ class TEE_ALG_HMAC_SHA256_Operation(Operation):
         self.mode = mode
         self.initialized = False
         self.active = False
+        self.activated = False
         self.key = None
+        self.hmac = None
 
     def initialize(self, key, ql):
         self.initialized = True
@@ -262,6 +273,17 @@ class TEE_ALG_HMAC_SHA256_Operation(Operation):
 
     def activate(self):
         self.activated = True
+        self.hmac = hmac.new(self.key, digestmod=hashlib.sha256)
+
+    def update(self, data):
+        # accumulate a TEE_MACUpdate chunk into the running HMAC
+        self.hmac.update(bytes(data))
 
     def compute(self, message):
-        return hmac.new(self.key, message, hashlib.sha256).digest()
+        # TEE_MACComputeFinal: fold in the final message, then digest
+        self.hmac.update(bytes(message))
+        return self.hmac.digest()
+
+    def reset(self):
+        self.activated = False
+        self.hmac = None

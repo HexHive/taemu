@@ -130,3 +130,46 @@ def free_core(ql: Qiling, ptr, hook_data: 'HookData', called_from_api_emu):
     if not called_from_api_emu:
         ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
         ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def realloc_core(ql: Qiling, hook_data):
+    func_name = hook_data.func_name
+    params = ql.os.resolve_fcall_params({"ptr": INT, "size": INT})
+    old_ptr = params["ptr"]
+    size = params["size"]
+
+    # Allocate a fresh redzoned block (mirrors malloc_core), copy the old
+    # contents, and LEAK the old block. We deliberately do not free the old
+    # allocation: free_core resolves its own register params and toggles
+    # pc/return, which would corrupt this call frame's bookkeeping. Leaking is
+    # harmless under emulation and keeps the asan redzone map consistent.
+    real_size = asan.memory_alignment_round_up(
+        size + 2 * asan.ASAN_REDZONE_SIZE, 0x1000
+    )
+    out = ql.mem.map_anywhere(real_size, minaddr=HEAP_MEM, perms=3, info="realloc_chunk")
+    ret2user_out = out + asan.ASAN_REDZONE_SIZE
+    ql.log.info(f"{func_name}: realloc {hex(old_ptr)} -> allocated {hex(size)} at {hex(ret2user_out)}")
+    hook_data.emu.HEAP["allocated"][ret2user_out] = size
+    if ret2user_out in hook_data.emu.HEAP["freed"]:
+        del hook_data.emu.HEAP["freed"][ret2user_out]
+
+    asan.asan_hook_redzone_mem_rw(out, asan.ASAN_REDZONE_SIZE, ql)
+    hook_data.emu.HEAP["redzones"][out] = asan.ASAN_REDZONE_SIZE
+    asan.asan_hook_redzone_mem_rw(
+        ret2user_out + size, real_size - asan.ASAN_REDZONE_SIZE - size, ql
+    )
+    hook_data.emu.HEAP["redzones"][ret2user_out + size] = real_size - asan.ASAN_REDZONE_SIZE - size
+
+    if old_ptr != 0 and old_ptr in hook_data.emu.HEAP["allocated"]:
+        old_size = hook_data.emu.HEAP["allocated"][old_ptr]
+        copy_size = min(old_size, size)
+        if copy_size > 0:
+            try:
+                data = ql.mem.read(old_ptr, copy_size)
+                ql.mem.write(ret2user_out, bytes(data))
+            except unicorn.unicorn_py3.unicorn.UcError:
+                crash(ql, func_name)
+                return
+
+    ql.os.fcall.cc.setReturnValue(ret2user_out)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr

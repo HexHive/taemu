@@ -869,3 +869,40 @@ def __assert_fail(ql: Qiling, hook_data):
     p = ql.os.resolve_fcall_params({"lvl": INT, "file": STRING, "line": INT, "func": STRING})
     ql.log.info(f'__assert_fail {p["file"]}:{p["line"]}->{p["func"]}') 
     ql.emu.stop()
+
+
+def strchr(ql: Qiling, hook_data):
+    params = ql.os.resolve_fcall_params({"s": POINTER, "c": INT})
+    s = params["s"]
+    c = params["c"] & 0xFF
+    hook_data.emu.update_shm(s)
+    addr = s
+    try:
+        # cap the scan so a corrupted / unterminated string can't spin forever
+        for _ in range(0x10000):
+            b = ql.mem.read(addr, 1)[0]
+            if b == c:
+                ql.os.fcall.cc.setReturnValue(addr)
+                ql.arch.regs.arch_pc = ql.arch.regs.lr
+                return
+            if b == 0:
+                # strchr(s, '\0') returns a pointer to the terminating NUL
+                ql.os.fcall.cc.setReturnValue(addr if c == 0 else 0)
+                ql.arch.regs.arch_pc = ql.arch.regs.lr
+                return
+            addr += 1
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def _TEE_Panic(ql: Qiling, hook_data):
+    code = ql.os.resolve_fcall_params({"code": INT})["code"]
+    ql.log.critical(f"TEE_Panic(code={hex(code)}) — TA called panic, aborting")
+    ql.emu_stop()
+
+
+def TEE_Panic(ql: Qiling, hook_data):
+    _TEE_Panic(ql, hook_data)

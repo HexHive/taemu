@@ -38,6 +38,52 @@ def TEES_IsREESharedMemory(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+def TEES_DeriveKeyKDF(ql: Qiling, hook_data):
+    # Samsung TEE syscall: derive key material from the HW device-bound root
+    # key into both an out-buffer and a transient object handle.
+    # Signature (RE/samsung_teegris/fbckmr.md fk_custom_so_derive_key @0x130CC):
+    #   TEES_DeriveKeyKDF(salt, salt_len, out_buf, out_len, key_len, obj_handle)
+    # The emulator has no HW root key, so we derive a deterministic,
+    # length-correct surrogate (SHA256 chain over the salt). Correctness is
+    # irrelevant to the downstream GCM overflow — only the *length* and the
+    # object becoming initialized matter so TEE_GetObjectBufferAttribute and
+    # the subsequent EVP_*Init_ex/EVP_DecryptUpdate path proceed.
+    import hashlib
+    from .gp.utils.object import handle2obj
+    from .gp.utils.attribute import ATTRIBUTE_MEM
+    p = ql.os.resolve_fcall_params({"salt": POINTER, "salt_len": INT, "out": POINTER,
+                                    "out_len": INT, "key_len": INT, "obj": POINTER})
+    salt = b""
+    try:
+        if p["salt"] and p["salt_len"]:
+            salt = bytes(ql.mem.read(p["salt"], p["salt_len"]))
+    except unicorn.unicorn_py3.unicorn.UcError:
+        pass
+    key_len = p["key_len"] or p["out_len"] or 32
+    derived = b""
+    i = 0
+    while len(derived) < key_len:
+        derived += hashlib.sha256(b"TEEGRIS-EMU-KDF" + salt + bytes([i & 0xFF])).digest()
+        i += 1
+    derived = derived[:key_len]
+    ql.log.info(f"TEES_DeriveKeyKDF: salt_len={p['salt_len']} key_len={key_len} "
+                f"obj={hex(p['obj'])} -> derived {len(derived)}B (surrogate)")
+    try:
+        if p["out"]:
+            ql.mem.write(p["out"], derived)
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
+    obj_handle = p["obj"]
+    if obj_handle in handle2obj:
+        obj = handle2obj[obj_handle]
+        kb = ql.mem.map_anywhere(0x1000, minaddr=ATTRIBUTE_MEM, perms=3, info="derived_key")
+        ql.mem.write(kb, derived)
+        obj.attrs[0xC0000000] = (kb, key_len)   # TEE_ATTR_SECRET_VALUE
+        obj.key = derived
+        obj.initialized = True
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def TEES_CheckSecureObjectCreator(ql: Qiling, hook_data):
     p = ql.os.resolve_fcall_params({
@@ -56,6 +102,9 @@ def TEES_InitDriver(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+def TEES_FiniDriver(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 fd_counter = 5
 fds = {}

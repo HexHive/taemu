@@ -63,6 +63,17 @@ def TEE_AllocateTransientObject(ql: Qiling, hook_data):
         hook_data.emu.writeback_shm(para_object)
         ql.os.fcall.cc.setReturnValue(0)
         ql.arch.regs.arch_pc = ql.arch.regs.lr
+    elif objectType == ObjectTypes.TEE_TYPE_GENERIC_SECRET.value:
+        new_obj = GenericSecret_Obj(maxObjectSize, ql)
+        handle2obj[new_obj.handle] = new_obj
+        try:
+            ql.mem.write_ptr(para_object, new_obj.handle)
+        except unicorn.unicorn_py3.unicorn.UcError as e:
+            crash(ql, func_name)
+            return
+        ql.log.info(f'\tallocated {ObjectTypes.TEE_TYPE_GENERIC_SECRET.name} with {hex(maxObjectSize)} bytes at {hex(new_obj.handle)}, stored at {hex(para_object)}')
+        ql.os.fcall.cc.setReturnValue(0)
+        ql.arch.regs.arch_pc = ql.arch.regs.lr
     else:
         ql.log.error(
             f"TEE_AllocateTransientObject unknown object type!! {hex(objectType)}"

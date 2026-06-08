@@ -14,6 +14,7 @@ class ObjectTypes(Enum):
     TEE_TYPE_DATA = 0xA00000BF
     TEE_TYPE_AES = 0xA0000010
     TEE_TYPE_HMAC_SHA256 = 0xA0000004
+    TEE_TYPE_GENERIC_SECRET = 0xA0000000
 
 
 handle2obj = {}
@@ -89,6 +90,39 @@ class AES_Obj(Object):
         # if ret != TEE_SUCCESS:
         #     return ret
 
+        self.initialized = True
+        return TEE_SUCCESS
+
+class GenericSecret_Obj(Object):
+    # TEE_TYPE_GENERIC_SECRET — opaque key material used by KDF-derived keys
+    # (e.g. fbckmr's custom_so_derive_key, which PBKDF2-derives a secret, then
+    # reads it back via TEE_GetObjectBufferAttribute to feed EVP_*Init_ex).
+    TEE_ATTR_SECRET_VALUE = 0xC0000000
+
+    def __init__(self, size, ql: Qiling) -> None:
+        super().__init__(size, ql)
+        self.obj_type = ObjectTypes.TEE_TYPE_GENERIC_SECRET
+        self.key = None
+
+    def populate(self, attrs, attrsCount, ql: Qiling) -> int:
+        if attrsCount * 12 > self.maxSize:
+            ql.log.error(f'populate: attributes array too large: {hex(attrsCount * 0xc)} > {self.maxSize}')
+            ql.emu_stop()
+        parsed_attrs = self.parse_params(attrs, attrsCount, ql)
+        for a in parsed_attrs:
+            if type(a) == TEE_Ref_Attribute:
+                self.key = bytes(ql.mem.read(a.buffer, a.length))
+                self.attrs[a.attributeID] = (a.buffer, a.length)
+        self.initialized = True
+        return TEE_SUCCESS
+
+    def generateKey(self, keySize, params, paramCount, ql: Qiling) -> int:
+        n = max(1, keySize // 8)
+        key_buffer = ql.mem.map_anywhere(0x1000, minaddr=ATTRIBUTE_MEM, perms=3, info='TEE_Ref_Attribute')
+        key = os.urandom(n)
+        ql.mem.write(key_buffer, key)
+        self.attrs[self.TEE_ATTR_SECRET_VALUE] = (key_buffer, n)
+        self.key = key
         self.initialized = True
         return TEE_SUCCESS
 

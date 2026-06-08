@@ -591,3 +591,66 @@ def TEE_MACComputeFinal(ql: Qiling, hook_data):
     hook_data.emu.writeback_shm(macLen)
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def TEE_MACUpdate(ql:Qiling, hook_data):
+    global OPERATION_ID, id2opration
+    params = ql.os.resolve_fcall_params({'operation': UINT, 'chunk': POINTER, 'chunkSize': UINT})
+    param_operation = params['operation']
+    param_chunk = params['chunk']
+    param_chunkSize = params['chunkSize']
+
+    ql.log.info(f"TEE_MACUpdate: {hex(param_chunk)} {hex(param_chunkSize)}")
+
+    if param_operation not in id2opration:
+        ql.log.error(f"TEE_MACUpdate: Operation {hex(param_operation)} not in {id2opration}")
+        ql.emu_stop()
+        return
+
+    op = id2opration[param_operation]
+
+    try:
+        if type(op) == TEE_ALG_HMAC_SHA256_Operation:
+            if not op.activated:
+                ql.log.error(f"TEE_MACUpdate: {type(op)} not activated (TEE_MACInit not called)")
+                ql.emu_stop()
+                return
+            op.update(ql.mem.read(param_chunk, param_chunkSize))
+        else:
+            ql.log.error(f"TEE_MACUpdate: unknown op type {type(op)}")
+            if hook_data.emu.crash_on_not_implemented:
+                crash_notimpl(ql, f"TEE_MACUpdate: unknown op type {type(op)}")
+                return
+            ql.emu_stop()
+            return
+    except unicorn.unicorn_py3.unicorn.UcError as e:
+        crash(ql, hook_data.func_name)
+        return
+
+    # TEE_MACUpdate returns void
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def TEE_ResetOperation(ql:Qiling, hook_data):
+    global OPERATION_ID, id2opration
+    params = ql.os.resolve_fcall_params({'operation': UINT})
+    param_operation = params['operation']
+
+    ql.log.info(f"TEE_ResetOperation: {hex(param_operation)}")
+
+    if param_operation not in id2opration:
+        ql.log.error(f"TEE_ResetOperation: Operation {hex(param_operation)} not in {id2opration}")
+        ql.emu_stop()
+        return
+
+    op = id2opration[param_operation]
+    try:
+        op.reset()
+    except unicorn.unicorn_py3.unicorn.UcError as e:
+        crash(ql, hook_data.func_name)
+        return
+
+    # TEE_ResetOperation returns void
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+    
