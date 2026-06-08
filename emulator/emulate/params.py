@@ -3,8 +3,10 @@ from typing import List
 from qiling import Qiling
 
 from . import gp_api
+from . import asan
 from .gp.utils.param import TEE_Param_Memref, TEE_Param_value
 import json
+import os
 import socket
 import hashlib
 from ctypes import *
@@ -30,6 +32,7 @@ class MemRefParam(Param):
         self.is_shared = True 
         self.shm = None
         self.shm_pybuf = None
+        self._rz = None   # (region_base, real_size) when redzoned; else None
 
     def __str__(self):
         return f"MemRefParam(size={self.size}, is_shared={self.is_shared}, shm={self.shm}, shm_pybuf={self.shm_pybuf})"
@@ -141,12 +144,25 @@ def setup_params(ql: Qiling, session: 'Session', cmd, ptypes, params:List[Param]
             buf = param.buf
             size = param.size
             ql.log.debug(f"mem p {size:#0x}")
-            pybuf = ql.mem.map_anywhere(
-                size, minaddr=min_addr, perms=3, info=f"shared_memory_{i}"
-            )
+            emu = getattr(ql, "emu", None)
+            # Redzone the REE param buffer so an OOB read/write past `size` trips
+            # CRASH_PC (asan write-direction coverage) -- but only under
+            # fuzz/replay, where auto-detection is the point. INTERACTIVE mode
+            # mirrors the PoC's real SysV shared memory into guest space across
+            # commands; a separate redzoned region conflicts with that sync, so
+            # we leave interactive params as plain page maps (the human observes
+            # the behaviour anyway).
+            interactive = getattr(getattr(emu, "status", None), "name", "") == "INTERACTIVE"
+            if emu is not None and not interactive and "TAEMU_NO_PARAM_REDZONE" not in os.environ:
+                # data is written inside the helper.
+                pybuf, region, real_size = asan.install_param_redzones(ql, emu, buf, size, min_addr)
+                param._rz = (region, real_size)
+            else:
+                pybuf = ql.mem.map_anywhere(size, minaddr=min_addr, perms=3, info=f"shared_memory_{i}")
+                ql.mem.write(pybuf, buf[:size])
+                param._rz = None
             if param.is_shared:
                 param.shm_pybuf = pybuf
-                ql.mem.write(pybuf, buf[:size])
                 if not ql.emu.init_fuzz:
                     ql.hook_mem_write(
                         shared_write_callback,
@@ -155,10 +171,11 @@ def setup_params(ql: Qiling, session: 'Session', cmd, ptypes, params:List[Param]
                         end=pybuf + size,
                     )
                     ql.hook_mem_read(
-                        shared_read_callback, user_data=param, begin=pybuf, end=pybuf + size
+                        shared_read_callback,
+                        user_data=param,
+                        begin=pybuf,
+                        end=pybuf + size,
                     )
-            else:
-                ql.mem.write(pybuf, buf[:size])
             ql.mem.write_ptr(params_mem_write, pybuf)
             params_mem_write += ql.arch.pointersize
             ql.mem.write_ptr(params_mem_write, size)

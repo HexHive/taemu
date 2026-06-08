@@ -32,6 +32,8 @@ from qiling.extensions import pipe
 from .redis_queue import RedisQueue
 import unicorn
 from pwn import *
+from . import gp_api
+from . import asan
 from .gp.utils.param import TEE_Param_Memref, TEE_Param_value
 import json
 import socket
@@ -673,9 +675,16 @@ class TAEMU:
                 if self.ql.arch.pointersize == 4:
                     params_mem_read += 8
             elif isinstance(param, MemRefParam):
-                pybuf = self.ql.mem.read_ptr(params_mem_read)
-                param.buf = bytes(self.ql.mem.read(pybuf, param.size))
-                self.ql.mem.unmap(pybuf, (param.size + 0xFFF) & ~0xFFF)
+                rz = getattr(param, "_rz", None)
+                if rz is not None:
+                    region, real_size = rz
+                    pybuf = region + asan.ASAN_REDZONE_SIZE
+                    param.buf = bytes(self.ql.mem.read(pybuf, param.size))
+                    asan.remove_param_redzones(self.ql, self, region, param.size, real_size)
+                else:
+                    pybuf = self.ql.mem.read_ptr(params_mem_read)
+                    param.buf = bytes(self.ql.mem.read(pybuf, param.size))
+                    self.ql.mem.unmap(pybuf, (param.size + 0xFFF) & ~0xFFF)
                 params_mem_read += self.ql.arch.pointersize * 2
             elif isinstance(param, NoneParam):
                 params_mem_read += self.ql.arch.pointersize * 2

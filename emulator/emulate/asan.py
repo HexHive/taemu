@@ -128,3 +128,67 @@ class Asan:
         ql.hook_del(wh)
         del self.HOOKS[redzone_after]
 
+def install_param_redzones(ql, emu, data, size, minaddr):
+    """Map a redzoned region for a TEE_Param memref buffer:
+    [redzone_before][ data (size) ][redzone_after ... page end].
+
+    The REE param buffers (params.py) were page-mapped with no redzone, so OOB
+    *writes* to a response buffer (HDCP cmd-0x94) and OOB *reads* of a request
+    buffer (duldar setup-pw, SEMeSE off-by-8) executed silently. Wrapping them
+    like the heap allocator does makes those trip a hardware mem hook ->
+    CRASH_PC; registering in emu.HEAP['redzones'] also lets the software
+    is_access_valid() path (hooked memcpy/strcpy/TEE_MemMove) catch them.
+
+    Returns (user_ptr, region_base, real_size)."""
+    real_size = memory_alignment_round_up(size + 2 * ASAN_REDZONE_SIZE, 0x1000)
+    region = ql.mem.map_anywhere(real_size, minaddr=minaddr, perms=3, info="redzoned_param")
+    user = region + ASAN_REDZONE_SIZE
+    if data:
+        ql.mem.write(user, bytes(data[:size]))
+    after = user + size
+    after_size = real_size - ASAN_REDZONE_SIZE - size
+    asan_hook_redzone_mem_rw(region, ASAN_REDZONE_SIZE, ql)
+    asan_hook_redzone_mem_rw(after, after_size, ql)
+    if emu is not None:
+        emu.HEAP["redzones"][region] = ASAN_REDZONE_SIZE
+        emu.HEAP["redzones"][after] = after_size
+    return user, region, real_size
+
+
+def remove_param_redzones(ql, emu, region, size, real_size):
+    """Tear down a region created by install_param_redzones: drop the hardware
+    hooks and de-register the zones. We deliberately do NOT unmap the region:
+    under AFL the forkserver resets memory every iteration, and an interactive
+    PoC sends only a handful of commands (<=4 memrefs each), so leaving the page
+    mapped costs nothing -- whereas unmapping it lets the next command's
+    map_anywhere reuse the same address while a previous command's
+    (never-removed) shared-memory sync hooks still point there, which faulted
+    multi-command PoCs (UC_ERR_WRITE_UNMAPPED)."""
+    after = region + ASAN_REDZONE_SIZE + size
+    for start in (region, after):
+        hooks = HOOKS.pop(start, None)
+        if hooks:
+            for h in hooks:
+                try:
+                    ql.hook_del(h)
+                except Exception:
+                    pass
+        if emu is not None:
+            emu.HEAP["redzones"].pop(start, None)
+
+
+def asan_hook_free_mem_rw(freed_region, size, ql:Qiling):
+    real_size = memory_alignment_round_up(size + 2*ASAN_REDZONE_SIZE, 0x1000)
+    #ql.hook_mem_unmapped(unmmaped_region_access, begin=freed_region, end=freed_region+real_size-1)
+    redzone_before = freed_region
+    redzone_after = freed_region + ASAN_REDZONE_SIZE + size
+    rh, wh = HOOKS[redzone_before]
+    ql.log.debug(f"ASAN: unhook rw for redzone [{redzone_before:#0x}:{redzone_before+ASAN_REDZONE_SIZE:#0x}]")
+    ql.hook_del(rh)
+    ql.hook_del(wh)
+    del(HOOKS[redzone_before])
+    rh, wh = HOOKS[redzone_after]
+    ql.log.debug(f"ASAN: unhook rw for redzone [{redzone_after:#0x}:{redzone_before+real_size:#0x}]")
+    ql.hook_del(rh)
+    ql.hook_del(wh)
+    del(HOOKS[redzone_after])
