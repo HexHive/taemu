@@ -8,6 +8,7 @@ from .utils.err import *
 from .transient_objects import handle2obj
 from ..common import crash, crash_notimpl
 import unicorn
+import os
 
 
 def TEE_CreatePersistentObject(ql: Qiling, hook_data):
@@ -41,10 +42,10 @@ def TEE_CreatePersistentObject(ql: Qiling, hook_data):
     if para_storageID == TEE_STORAGE_PRIVATE or MITEE_FILE_STORAGE:
 
         if para_objectIDLen > TEE_OBJECT_ID_MAX_LEN:
-            ql.log.error(
-                f"TEE_CreatePersistentObject: objectID too long {hex(para_objectIDLen)}"
-            )
-            ql.emu_stop()
+            ql.log.error(f"TEE_CreatePersistentObject: objectID too long {hex(para_objectIDLen)}")
+            ql.os.fcall.cc.setReturnValue(TEE_ERROR_BAD_PARAMETERS)
+            ql.arch.regs.arch_pc = ql.arch.regs.lr
+            return
         try:
             objectID = bytes(ql.mem.read(para_objectID, para_objectIDLen))
         except unicorn.unicorn_py3.unicorn.UcError as e:
@@ -144,14 +145,18 @@ def TEE_WriteObjectData(ql: Qiling, hook_data):
     ql.log.info(f"{func_name}: object handler {para_object}")
 
     if para_object not in handler2perobj:
-        ql.log.error(f"{func_name}: {para_object} not in {handler2perobj}")
-        ql.emu_stop()
+        ql.log.error(f"{func_name}: {para_object} not a valid object handle")
+        ql.os.fcall.cc.setReturnValue(TEE_ERROR_BAD_PARAMETERS)
+        ql.arch.regs.arch_pc = ql.arch.regs.lr
+        return
 
     obj = handler2perobj[para_object]
     if obj.flag & TEE_DATA_FLAG_ACCESS_WRITE == 0:
-        ql.log.error(f"{func_name}: {para_object} flag {obj.flags} error")
-        ql.emu_stop()
-
+        ql.log.error(f"{func_name}: {para_object} not opened for write (flag {hex(obj.flag)})")
+        ql.os.fcall.cc.setReturnValue(TEE_ERROR_ACCESS_CONFLICT)
+        ql.arch.regs.arch_pc = ql.arch.regs.lr
+        return
+    
     # atomic?
     try:
         data = bytes(ql.mem.read(para_buffer, para_size))
@@ -174,23 +179,26 @@ def TEE_SeekObjectData(ql: Qiling, hook_data):
     whence = params["whence"]
 
     if para_object not in handler2perobj:
-        ql.log.error(f"{func_name}: {para_object} not in {handler2perobj}")
-        ql.emu_stop()
-    
-    hook_data.emu.update_shm(para_object)
-    obj = handler2perobj[para_object]
-    obj.seek(offset, whence)
-
-    if offset == 0 and whence == 0:
-        ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+        ql.log.error(f"{func_name}: {para_object} not a valid object handle")
+        ql.os.fcall.cc.setReturnValue(TEE_ERROR_BAD_PARAMETERS)
         ql.arch.regs.arch_pc = ql.arch.regs.lr
         return
-    else:
-        ql.log.warning(f"TEE_SeekObjectData not properly implemetned")
-        if hook_data.emu.crash_on_not_implemented:
-            crash_notimpl(ql, f"TEE_SeekObjectDat")
-            return
-        ql.emu_stop()
+
+    hook_data.emu.update_shm(para_object)
+    # whence maps 1:1 to Python file.seek (SET=0, CUR=1, END=2). perObject.seek
+    # already does the real seek -- previously only offset==0/whence==0 was
+    # accepted and anything else emu_stop()ed, which broke any TA that reads a
+    # record at a non-zero position.
+    obj = handler2perobj[para_object]
+    try:
+        obj.seek(offset, whence)
+    except Exception as e:
+        ql.log.warning(f"TEE_SeekObjectData: seek({offset},{whence}) failed: {e}")
+        ql.os.fcall.cc.setReturnValue(TEE_ERROR_BAD_PARAMETERS)
+        ql.arch.regs.arch_pc = ql.arch.regs.lr
+        return
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
 def TEE_CloseObject(ql: Qiling, hook_data):
@@ -240,8 +248,10 @@ def TEE_CloseAndDeletePersistentObject(ql: Qiling, hook_data):
     # currently this can only close persistent obj
     ql.log.info(f"{func_name}: object handler {para_object}")
     if para_object not in handler2perobj:
-        ql.log.error(f"{func_name}: {para_object} not in {handler2perobj}")
-        ql.emu_stop()
+        ql.log.error(f"{func_name}: {para_object} not a valid object handle")
+        ql.os.fcall.cc.setReturnValue(TEE_ERROR_BAD_PARAMETERS)
+        ql.arch.regs.arch_pc = ql.arch.regs.lr
+        return
     obj = handler2perobj[para_object]
     obj.file_close_and_delete(ql)
     del handler2perobj[para_object]
@@ -262,7 +272,13 @@ def TEE_ReadObjectData(ql: Qiling, hook_data):
 
     ql.log.info(f"{func_name}: object handler {para_object}, size {para_size:#0x}")
 
+    if para_object not in handler2perobj:
+        ql.log.error(f"{func_name}: {para_object} not a valid object handle")
+        ql.os.fcall.cc.setReturnValue(TEE_ERROR_BAD_PARAMETERS)
+        ql.arch.regs.arch_pc = ql.arch.regs.lr
+        return
     obj = handler2perobj[para_object]
+
     # atomic?
     data = obj.read(para_size, ql)
     try:
@@ -288,8 +304,10 @@ def TEE_GetObjectInfo(ql: Qiling, hook_data):
 
     ql.log.info(f"{func_name}: object handler {para_object}")
     if para_object not in handler2perobj:
-        ql.log.error(f"{func_name}: {para_object} not in {handler2perobj}")
-        ql.emu_stop()
+        ql.log.error(f"{func_name}: {para_object} not a valid object handle")
+        ql.os.fcall.cc.setReturnValue(TEE_ERROR_BAD_PARAMETERS)
+        ql.arch.regs.arch_pc = ql.arch.regs.lr
+        return
     obj = handler2perobj[para_object]
 
     #     typedef struct {
@@ -312,5 +330,77 @@ def TEE_GetObjectInfo(ql: Qiling, hook_data):
         return
 
     hook_data.emu.writeback_shm(para_objectInfo)
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+# --- persistent-object enumerator (TEE_*PersistentObjectEnumerator) ---------
+# Lets a TA list the objects in a storage. Backed by the same flat file store as
+# perObject (FILE_PREFIX/<storageID>/<objectID>). 4 corpus TAs import these.
+_enumerators = {}
+_enum_cnt = 0x40000
+
+def TEE_AllocatePersistentObjectEnumerator(ql: Qiling, hook_data):
+    global _enum_cnt
+    p = ql.os.resolve_fcall_params({"enumerator": POINTER})
+    h = _enum_cnt
+    _enum_cnt += 1
+    _enumerators[h] = {"items": [], "idx": 0}
+    try:
+        ql.mem.write_ptr(p["enumerator"], h)
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def TEE_FreePersistentObjectEnumerator(ql: Qiling, hook_data):
+    p = ql.os.resolve_fcall_params({"enumerator": UINT})
+    _enumerators.pop(p["enumerator"], None)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def TEE_ResetPersistentObjectEnumerator(ql: Qiling, hook_data):
+    p = ql.os.resolve_fcall_params({"enumerator": UINT})
+    e = _enumerators.get(p["enumerator"])
+    if e is not None:
+        e["idx"] = 0
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def TEE_StartPersistentObjectEnumerator(ql: Qiling, hook_data):
+    p = ql.os.resolve_fcall_params({"enumerator": UINT, "storageID": UINT})
+    e = _enumerators.get(p["enumerator"])
+    if e is None:
+        ql.os.fcall.cc.setReturnValue(TEE_ERROR_BAD_PARAMETERS)
+        ql.arch.regs.arch_pc = ql.arch.regs.lr
+        return
+    try:
+        e["items"] = sorted(os.listdir(f"{FILE_PREFIX}{p['storageID']}"))
+    except OSError:
+        e["items"] = []
+    e["idx"] = 0
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS if e["items"] else TEE_ERROR_ITEM_NOT_FOUND)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def TEE_GetNextPersistentObject(ql: Qiling, hook_data):
+    p = ql.os.resolve_fcall_params(
+        {"enumerator": UINT, "objectInfo": POINTER, "objectID": POINTER, "objectIDLen": POINTER}
+    )
+    e = _enumerators.get(p["enumerator"])
+    if e is None or e["idx"] >= len(e["items"]):
+        ql.os.fcall.cc.setReturnValue(TEE_ERROR_ITEM_NOT_FOUND)
+        ql.arch.regs.arch_pc = ql.arch.regs.lr
+        return
+    name = e["items"][e["idx"]]
+    e["idx"] += 1
+    idb = name.encode("latin-1", "replace")
+    try:
+        if p["objectID"]:
+            ql.mem.write(p["objectID"], idb)
+        if p["objectIDLen"]:
+            ql.mem.write_ptr(p["objectIDLen"], len(idb))
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
+    ql.log.info(f"TEE_GetNextPersistentObject -> {name!r}")
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
