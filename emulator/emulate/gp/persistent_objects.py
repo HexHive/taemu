@@ -257,6 +257,10 @@ def TEE_CloseAndDeletePersistentObject(ql: Qiling, hook_data):
     del handler2perobj[para_object]
     del obj
 
+    # success path must report TEE_SUCCESS; otherwise the stale return reg (the
+    # object handle) is read by the TA as a failure (e.g. teessu clear_ssu_data
+    # logged "Failed to delete object" while the file *was* deleted).
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
