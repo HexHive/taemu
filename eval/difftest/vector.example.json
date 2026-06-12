@@ -1,0 +1,11 @@
+{
+  "uuid": "08110000000000000000000000000000",
+  "command_id": 1,
+  "param_types": ["MEMREF_TEMP_INOUT", "VALUE_INOUT", "NONE", "NONE"],
+  "params": [
+    {"type": "memref", "data_hex": "41424344", "size": 256},
+    {"type": "value", "a": 4, "b": 4},
+    {"type": "none"},
+    {"type": "none"}
+  ]
+}

@@ -29,7 +29,7 @@ try:
     from Crypto.Hash import SHA1, SHA256, SHA384, SHA512
     from Crypto.Hash import HMAC as _PHMAC
     from Crypto.Protocol.KDF import PBKDF2
-    from Crypto.Random import get_random_bytes
+    from .determinism import get_random_bytes
     _HAVE_PYCRYPTO = True
 except Exception:                                   # pragma: no cover
     _HAVE_PYCRYPTO = False

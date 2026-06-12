@@ -377,10 +377,8 @@ def TEE_StartPersistentObjectEnumerator(ql: Qiling, hook_data):
         ql.os.fcall.cc.setReturnValue(TEE_ERROR_BAD_PARAMETERS)
         ql.arch.regs.arch_pc = ql.arch.regs.lr
         return
-    try:
-        e["items"] = sorted(os.listdir(f"{FILE_PREFIX}{p['storageID']}"))
-    except OSError:
-        e["items"] = []
+    # store_listdir picks the on-disk or in-memory backend (determinism mode)
+    e["items"] = store_listdir(p['storageID'])
     e["idx"] = 0
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS if e["items"] else TEE_ERROR_ITEM_NOT_FOUND)
     ql.arch.regs.arch_pc = ql.arch.regs.lr

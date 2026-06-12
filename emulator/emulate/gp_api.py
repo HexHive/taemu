@@ -9,7 +9,11 @@ from .gp.utils.printf import *
 from .gp.utils.const import *
 from .common import CRASH_PC, NOTIMPL_PC, crash, crash_notimpl, finalize_fuzzing
 from .fuzz_record import Status
+from . import cmplog
+from . import telemetry
 import unicorn
+
+from .determinism import get_random_bytes, now as _det_now
 
 from .custom import rpmb
 from unicorn import UC_PROT_READ, UC_PROT_WRITE
@@ -49,9 +53,8 @@ def GP_params_setup(
 
 
 def default_func(ql: Qiling, hook_data):
-    ql.log.critical(
-        f"{hook_data.func_name} called, not implemented! lr: {hex(ql.arch.regs.lr)}"
-    )
+    telemetry.record(hook_data.func_name)  # triage signal: this symbol is a stub
+    ql.log.critical(f"{hook_data.func_name} called, not implemented! lr: {hex(ql.arch.regs.lr)}")
     if hook_data.emu.crash_on_not_implemented:
         ql.arch.regs.arch_pc = NOTIMPL_PC
     else:
@@ -176,7 +179,7 @@ def memcmp(ql: Qiling, hook_data):
 def TEE_GetREETime(ql: Qiling, hook_data):
     time_data = ql.os.resolve_fcall_params({"time": POINTER})["time"]
     try:
-        ql.mem.write(time_data, (1764773457).to_bytes(4, "little"))
+        ql.mem.write(time_data, _det_now().to_bytes(4, "little"))
         ql.mem.write(time_data + 4, (0).to_bytes(4, "little"))
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, hook_data.func_name)
@@ -709,6 +712,7 @@ def TEE_MemCompare(ql: Qiling, hook_data):
     except unicorn.unicorn_py3.unicorn.UcError as e:
         crash(ql, hook_data.func_name)
         return
+    cmplog.record(content_1, content_2)  # harvest compare operands for the AFL dict
     ql.log.info(f"{hook_data.func_name} compare {hex(buffer_1)} with {hex(buffer_2)}")
     for i in range(size):
         if content_1[i] > content_2[i]:
@@ -754,6 +758,7 @@ def strcmp(ql: Qiling, hook_data):
         return
     ret = 0
 
+    cmplog.record(content_1, content_2)  # harvest compare operands for the AFL dict
     ql.log.info(f"{hook_data.func_name} compare {hex(str1)} with {hex(str2)}")
     for i in range(0, min(len(content_1), len(content_2))):
         if content_1[i] > content_2[i]:
@@ -802,6 +807,7 @@ def strncmp(ql: Qiling, hook_data):
         return
     ret = 0
 
+    cmplog.record(content_1, content_2)  # harvest compare operands for the AFL dict
     ql.log.info(f"{hook_data.func_name} compare {hex(str1)} with {hex(str2)}")
     for i in range(0, min(len(content_1), len(content_2))):
         if content_1[i] > content_2[i]:
@@ -849,7 +855,7 @@ def TEE_CheckMemoryAccessRights(ql: Qiling, hook_data):
         ql.arch.regs.arch_pc = ql.arch.regs.lr
         return
     if not (flags & TEE_MEMORY_ACCESS_ANY_OWNER):
-        if "shared" in m[3]:
+        if hook_data.emu.is_ree_addr(buffer, size) or "shared" in m[3]:
             ql.os.fcall.cc.setReturnValue(TEE_ERROR_ACCESS_DENIED)
             ql.arch.regs.arch_pc = ql.arch.regs.lr
             return

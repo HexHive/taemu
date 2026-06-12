@@ -141,7 +141,7 @@ def install_param_redzones(ql, emu, data, size, minaddr):
 
     Returns (user_ptr, region_base, real_size)."""
     real_size = memory_alignment_round_up(size + 2 * ASAN_REDZONE_SIZE, 0x1000)
-    region = ql.mem.map_anywhere(real_size, minaddr=minaddr, perms=3, info="redzoned_param")
+    region = ql.mem.map_anywhere(real_size, minaddr=minaddr, perms=3, info="shared_redzoned_param")
     user = region + ASAN_REDZONE_SIZE
     if data:
         ql.mem.write(user, bytes(data[:size]))

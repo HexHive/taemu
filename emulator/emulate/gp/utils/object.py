@@ -5,6 +5,7 @@ from Crypto.PublicKey import RSA  # provided by pycryptodome
 from Crypto.Util.number import size
 from .err import *
 from .attribute import *
+from ...determinism import get_random_bytes
 
 OBJECT_MEM = 0x690000
 
@@ -137,7 +138,7 @@ class GenericSecret_Obj(Object):
     def generateKey(self, keySize, params, paramCount, ql: Qiling) -> int:
         n = max(1, keySize // 8)
         key_buffer = ql.mem.map_anywhere(0x1000, minaddr=ATTRIBUTE_MEM, perms=3, info='TEE_Ref_Attribute')
-        key = os.urandom(n)
+        key = get_random_bytes(n)
         ql.mem.write(key_buffer, key)
         self.attrs[self.TEE_ATTR_SECRET_VALUE] = (key_buffer, n)
         self.key = key

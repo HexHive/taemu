@@ -10,6 +10,47 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ...emulator_no_loader import HookData
 
+import os
+
+# --- weaponization mode ------------------------------------------------------
+# TAEMU_WEAPONIZE lays heap allocations ADJACENTLY with no redzones / guard
+# pages, like a real allocator, so an overflow asan already detected can be
+# developed into an actual overwrite-the-next-object primitive for exploit dev.
+# It is the opposite of the asan detector (which page-isolates every chunk):
+# use it to *weaponize* a known bug, not to find bugs. Param redzones are also
+# suppressed in this mode (see params.py). Cheap wild-free / double-free checks
+# are kept (they need no redzone).
+WEAPONIZE = "TAEMU_WEAPONIZE" in os.environ
+_WEAPON_ALIGN = 16
+_WEAPON_ARENA = 0x400000  # 4 MiB contiguous arena
+
+
+def _weapon_alloc(ql, emu, size):
+    """Bump-allocate `size` bytes contiguously from a per-emu arena (no redzone,
+    no guard page) so adjacent allocations actually neighbour each other."""
+    arena = getattr(emu, "WEAPON_HEAP", None)
+    if arena is None:
+        base = ql.mem.map_anywhere(_WEAPON_ARENA, minaddr=HEAP_MEM, perms=3, info="weapon_heap")
+        arena = {"base": base, "brk": base, "end": base + _WEAPON_ARENA}
+        emu.WEAPON_HEAP = arena
+    n = (size + _WEAPON_ALIGN - 1) & ~(_WEAPON_ALIGN - 1)
+    if n == 0:
+        n = _WEAPON_ALIGN
+    if arena["brk"] + n > arena["end"]:  # arena exhausted: fall back to a fresh map
+        return ql.mem.map_anywhere(max(n, 0x1000), minaddr=HEAP_MEM, perms=3, info="weapon_of")
+    ptr = arena["brk"]
+    arena["brk"] += n
+    return ptr
+
+
+def _weapon_return(ql, hook_data, size, called_from_custom_lib):
+    ptr = _weapon_alloc(ql, hook_data.emu, size)
+    hook_data.emu.HEAP["allocated"][ptr] = size
+    hook_data.emu.HEAP["freed"].pop(ptr, None)
+    ql.log.info(f"{hook_data.func_name}: [weaponize] {hex(size)} @ {hex(ptr)} (adjacent, no redzone)")
+    ql.os.fcall.cc.setReturnValue(ptr)
+    if not called_from_custom_lib:
+        ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def memset_core(ql, hook_data, called_from_api_emu):
     func_name = hook_data.func_name
@@ -39,6 +80,10 @@ def memset_core(ql, hook_data, called_from_api_emu):
 
 def malloc_core(ql: Qiling, size, hook_data: 'HookData', called_from_api_emu):
     func_name = hook_data.func_name
+
+    if WEAPONIZE:
+        _weapon_return(ql, hook_data, size, called_from_custom_lib)
+        return
 
     real_size = asan.memory_alignment_round_up(
         size + 2 * asan.ASAN_REDZONE_SIZE, 0x1000
@@ -71,6 +116,10 @@ def malloc_core(ql: Qiling, size, hook_data: 'HookData', called_from_api_emu):
 
 def calloc_core(ql: Qiling, nmemb, size, hook_data: 'HookData', called_from_api_emu):
     size = nmemb * size 
+
+    if WEAPONIZE:
+        _weapon_return(ql, hook_data, size, False)
+        return
 
     real_size = asan.memory_alignment_round_up(
         size + 2 * asan.ASAN_REDZONE_SIZE, 0x1000
@@ -105,6 +154,26 @@ def free_core(ql: Qiling, ptr, hook_data: 'HookData', called_from_api_emu):
         if not called_from_api_emu:
             ql.arch.regs.arch_pc = ql.arch.regs.lr
         return
+
+    if WEAPONIZE:
+        # adjacency mode: no per-chunk page/redzone to tear down. Keep wild-free
+        # and double-free detection (cheap); mark freed and leave the memory
+        # mapped so UAF reads still resolve to stale contents.
+        if ptr not in hook_data.emu.HEAP["allocated"]:
+            ql.log.critical(f"corrupted free at: {hex(ptr)}")
+            crash(ql, func_name)
+            return
+        if ptr in hook_data.emu.HEAP["freed"]:
+            ql.log.critical(f"double free at: {hex(ptr)}")
+            crash(ql, func_name)
+            return
+        hook_data.emu.HEAP["freed"][ptr] = hook_data.emu.HEAP["allocated"][ptr]
+        del hook_data.emu.HEAP["allocated"][ptr]
+        ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+        if not called_from_custom_lib:
+            ql.arch.regs.arch_pc = ql.arch.regs.lr
+        return
+
     if ptr not in hook_data.emu.HEAP["allocated"]:
         ql.log.critical(f"corrupted free at: {hex(ptr)}, {hook_data.emu.HEAP}")
         crash(ql, func_name)
@@ -137,6 +206,21 @@ def realloc_core(ql: Qiling, hook_data):
     params = ql.os.resolve_fcall_params({"ptr": INT, "size": INT})
     old_ptr = params["ptr"]
     size = params["size"]
+
+    if WEAPONIZE:
+        # adjacency realloc: bump-allocate a fresh block, copy old bytes over,
+        # leak the old (same rationale as below). No redzones.
+        new_ptr = _weapon_alloc(ql, hook_data.emu, size)
+        old_size = hook_data.emu.HEAP["allocated"].get(old_ptr, 0) if old_ptr else 0
+        if old_ptr and old_size:
+            try:
+                ql.mem.write(new_ptr, bytes(ql.mem.read(old_ptr, min(size, old_size))))
+            except unicorn.unicorn_py3.unicorn.UcError:
+                pass
+        hook_data.emu.HEAP["allocated"][new_ptr] = size
+        ql.os.fcall.cc.setReturnValue(new_ptr)
+        ql.arch.regs.arch_pc = ql.arch.regs.lr
+        return
 
     # Allocate a fresh redzoned block (mirrors malloc_core), copy the old
     # contents, and LEAK the old block. We deliberately do not free the old

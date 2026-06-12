@@ -26,7 +26,7 @@ from .ta_info import load_ta_adjacent_info
 from . import qsee_api
 # from qiling import Qiling
 from .qiling_extend import QilingExtend as Qiling
-from qiling.extensions.afl import ql_afl_fuzz
+from qiling.extensions.afl import ql_afl_fuzz, ql_afl_fuzz_custom
 from qiling.extensions.coverage import utils as cov_utils
 from qiling.extensions import pipe
 from .redis_queue import RedisQueue
@@ -34,6 +34,8 @@ import unicorn
 from pwn import *
 from . import gp_api
 from . import asan
+from . import determinism
+from . import telemetry
 from .gp.utils.param import TEE_Param_Memref, TEE_Param_value
 import json
 import socket
@@ -60,6 +62,29 @@ from capstone import Cs, CS_ARCH_ARM64, CS_ARCH_ARM, CS_MODE_ARM, CS_MODE_THUMB
 from elftools.elf.elffile import ELFFile
 from typing import Any, Callable, Optional, List, Dict
 from .fuzz_record import Record, Status
+
+
+def _frame_multi_input(raw, max_ops):
+    """Split a flat AFL input into up to ``max_ops`` length-prefixed records for
+    multi-command stateful fuzzing (TAEMU_MULTI_CMD).
+
+    Wire format: repeated ``[2-byte LE length L][L bytes]``. A record may be
+    short if the input is truncated mid-record (fine -- the harness sees the
+    bytes that exist). Empty input yields a single empty record so at least one
+    InvokeCommand still runs. Each record is handed to the harness's
+    place_input_callback as that command's input."""
+    ops = []
+    i, n = 0, len(raw)
+    while i + 2 <= n and len(ops) < max_ops:
+        L = raw[i] | (raw[i + 1] << 8)
+        i += 2
+        rec = raw[i:i + L]
+        i += L
+        ops.append(rec)
+    if not ops:
+        ops.append(b"")
+    return ops
+
 
 def parse_msg(msg):
     f = int(msg[0])
@@ -283,6 +308,7 @@ class TAEMU:
         self.HEAP = {"allocated": {}, "freed": {}, "redzones": {}}
         self.asan = Asan(self)
         self.exit_non_implemented = None
+        self.REE_REGIONS = []  # [(start,end)] of REE/client shared buffers (params.py)
         self.curr_params = None
         self._qsee_setup_state = None
         self.session_counter = 0
@@ -371,6 +397,13 @@ class TAEMU:
                 end=[x + base for x in ta_info[func_end]],
             )
             print("Parsed function: ", func.value)
+
+    def is_ree_addr(self, addr, size=1):
+        """True if [addr, addr+size) lies in an REE/client shared buffer (vs
+        secure-world memory). Backs the REE/secure boundary in
+        TEE_CheckMemoryAccessRights and the double-fetch mode."""
+        return any(s <= addr and addr + size <= e for s, e in self.REE_REGIONS)
+
 
     def setup(self):
         # fix relocations and other miscellanous setup
@@ -1061,6 +1094,22 @@ class TAEMU:
             if hasattr(module, "init_fuzz"):
                 init_fuzz = getattr(module, "init_fuzz")
 
+        # Multi-command stateful fuzzing (opt-in): one AFL input drives several
+        # InvokeCommands in a single session. 0 = off (classic single-command).
+        MULTI_CMD = int(os.environ.get("TAEMU_MULTI_CMD", "0"))
+        _user_place_input = place_input_callback
+
+        def place_input_callback(ql, inp, idx):
+            # Reset per-iteration deterministic state before each input is placed
+            # (no-op unless TAEMU_DETERMINISM is set).
+            determinism.reset()
+            if MULTI_CMD > 0:
+                # Stash the raw input; multi_fuzz_wrapper frames it into
+                # per-command records and places each via the harness.
+                self._mc_raw = bytes(inp)
+                return True
+            return _user_place_input(ql, inp, idx)
+
         def crash_validation(
             ql: Qiling, result: int, input_bytes: bytes, round: int
         ) -> bool:
@@ -1076,20 +1125,61 @@ class TAEMU:
         def pivot2(ql: Qiling):
             ql.arch.regs.arch_pc = 0x13370
 
+        def multi_fuzz_wrapper(ql):
+            # Run up to MULTI_CMD InvokeCommands in ONE session from a single AFL
+            # input. The CPU context is snapshotted at InvokeCommand entry and
+            # restored before each op (clean GP-style re-entry: fresh SP/regs),
+            # while guest memory -- heap, persistent store, session state --
+            # persists across ops. This reaches inter-command state bugs the
+            # single-shot driver structurally cannot. Returns a unicorn errno
+            # (0 == OK); a non-zero errno or crash sentinel marks an AFL crash.
+            InvokeStart = self.ta_funcs[TA_Function.InvokeCommandEntryPoint].start
+            ops = _frame_multi_input(getattr(self, "_mc_raw", b""), MULTI_CMD)
+            ctx0 = ql.arch.uc.context_save()
+            for i, rec in enumerate(ops):
+                if i > 0:
+                    ql.arch.uc.context_restore(ctx0)
+                if _user_place_input(ql, rec, i) is False:
+                    continue  # harness rejected this op; try the next
+                ql.arch.regs.arch_pc = InvokeStart
+                pc = getattr(ql.arch, "effective_pc", ql.arch.regs.arch_pc)
+                try:
+                    ql.arch.uc.emu_start(pc, 0)
+                except unicorn.UcError as err:
+                    return err.errno
+                if ql.arch.regs.arch_pc in (CRASH_PC, CRASH_PC_2, NOTIMPL_PC):
+                    return 6  # a bug detector tripped -> report crash to AFL
+            return 0
+
         def start_afl(_ql: Qiling):
             if fuzz_replay:
                 return
             if self.init_fuzz:
                 return
-            self.log.info(f"[TAEMU] starting afl")
-            ql_afl_fuzz(
-                _ql,
-                input_file=input_file,
-                place_input_callback=place_input_callback,
-                exits=[0x13370],
-                validate_crash_callback=crash_validation,
-                always_validate=True,
-            )
+            if getattr(self, "_afl_started", False):
+                return  # re-entry from the multi-command wrapper: don't recurse
+            self._afl_started = True
+            if MULTI_CMD > 0:
+                self.log.info(f"[TAEMU] starting afl (multi-command, up to {MULTI_CMD} ops/session)")
+                ql_afl_fuzz_custom(
+                    _ql,
+                    input_file,
+                    place_input_callback,
+                    multi_fuzz_wrapper,
+                    [0x13370],
+                    crash_validation,
+                    True,
+                )
+            else:
+                self.log.info(f"[TAEMU] starting afl")
+                ql_afl_fuzz(
+                    _ql,
+                    input_file=input_file,
+                    place_input_callback=place_input_callback,
+                    exits=[0x13370],
+                    validate_crash_callback=crash_validation,
+                    always_validate=True,
+                )
 
         self.ql.os.fcall.cc.setRawParam(0, session.session_id_mem)
 
@@ -1139,6 +1229,10 @@ class TAEMU:
 
             with cov_utils.collect_coverage(self.ql, "drcov", cov_path):
                 self.ql.run(begin=self.ta_funcs[TA_Function.InvokeCommandEntryPoint].start)
+
+            # sidecar next to the drcov: which unmodeled APIs this replay hit, so
+            # triage can tell whether the finding flowed through a stub.
+            telemetry.dump(cov_path + ".unmodeled")
         else:
             self.ql.run(begin=self.ta_funcs[TA_Function.InvokeCommandEntryPoint].start)
 
