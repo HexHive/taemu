@@ -1,18 +1,28 @@
 {
-    "TA_InvokeCommandEntryPoint_start": 125652,
-    "TA_InvokeCommandEntryPoint_end": [
-        125928
-    ],
-    "TA_CreateEntryPoint_start": 125136,
-    "TA_CreateEntryPoint_end": [
-        125256
-    ],
-    "TA_OpenSessionEntryPoint_start": 125388,
-    "TA_OpenSessionEntryPoint_end": [
-        125512
-    ],
-    "TA_CloseSessionEntryPoint_start": 125520,
-    "TA_CloseSessionEntryPoint_end": [125644],
-    "TA_DestroyEntryPoint_start": 125264,
-    "TA_DestroyEntryPoint_end": [125380]
+ "TA_InvokeCommandEntryPoint_start": 125652,
+ "TA_InvokeCommandEntryPoint_end": [
+  125928
+ ],
+ "TA_CreateEntryPoint_start": 125136,
+ "TA_CreateEntryPoint_end": [
+  125256
+ ],
+ "TA_OpenSessionEntryPoint_start": 125388,
+ "TA_OpenSessionEntryPoint_end": [
+  125512
+ ],
+ "TA_CloseSessionEntryPoint_start": 125520,
+ "TA_CloseSessionEntryPoint_end": [
+  125644
+ ],
+ "TA_DestroyEntryPoint_start": 125264,
+ "TA_DestroyEntryPoint_end": [
+  125380
+ ],
+ "inline": {
+  "knxgud_proca_authenticate_softpass": {
+   "addr": 141132,
+   "type": "tee"
+  }
+ }
 }

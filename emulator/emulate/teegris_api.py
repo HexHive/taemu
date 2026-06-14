@@ -31,6 +31,30 @@ def vltkpr_authenticate_ca_softpass(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+def knxgud_proca_authenticate_softpass(ql: Qiling, hook_data):
+    # knxgud kg_proca_authenticate (S9BYH2 corpus build @0x2274c) authenticates
+    # the NWd caller through the /dev/pa_driver PROCA ioctl. Its result is
+    # checked by the InvokeCommand dispatcher @0x1edac: the dispatcher waives
+    # (log-and-continue, then runs process_cmd) on result==0 (pass), ==0x120000
+    # ("does not support PROCA"), OR ==0x110019 ("custom kernel") -- see the
+    # CMPs at 0x1edc4/0x1edc8/0x1edd8 and RE/samsung_teegris/knxgud.md FINDING #1
+    # (the PROCA soft-pass unlock bypass). The emulator models no PROCA peer, so
+    # the unmodelled ioctl returns a zero verdict that PaTzAuthenticateWithRules
+    # cannot decode -> knxgud's own 100006 ("Authentication is failed") ->
+    # TEE_ERROR_ACCESS_DENIED, never reaching process_cmd. The emulator IS the
+    # PROCA-stripped / custom-kernel condition that triggers the bypass on a real
+    # device, so model the documented custom-kernel waiver directly: return
+    # 0x110019 from the authenticate function -> dispatcher waives -> process_cmd
+    # dispatches the requested command (e.g. cmd 0x10A kg_unlock). This mirrors
+    # the established vltkpr_authenticate_ca_softpass inline hook. Disable with
+    # TAEMU_PROCA_HARD=1 if you want the failing-PROCA behaviour instead.
+    import os as _os
+    if "TAEMU_PROCA_HARD" in _os.environ:
+        return  # let the native authenticate run (fails without a PROCA peer)
+    ql.log.info("[knxgud] kg_proca_authenticate -> 0x110019 (custom-kernel PROCA soft-pass)")
+    ql.os.fcall.cc.setReturnValue(0x110019)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
 def TEES_GetIrsFlagValue(ql: Qiling, hook_data):
     ql.log.info(f"{hook_data.func_name} returning 0")
     ql.os.fcall.cc.setReturnValue(0)
