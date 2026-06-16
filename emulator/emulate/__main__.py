@@ -307,6 +307,32 @@ if __name__ == "__main__":
         ql.hook_code(simple_diassembler, user_data=ql.arch.disassembler)
     if args.trace:
         ql.hook_block(trace_block)
+
+    # Optional pinpoint register/memory probe for manual RE confirmation.
+    # TAEMU_TRACE_ADDR="off[,off...]" installs a block hook that, when a basic
+    # block starts at the TA's (PIE base + off), prints x0..x3 / x19..x27 and a
+    # few pointer derefs. Lets a session see exactly what a handler observed at a
+    # chosen instruction without a full instruction trace. Diagnostic only.
+    _trace_addrs = os.environ.get("TAEMU_TRACE_ADDR", "")
+    if _trace_addrs:
+        _offs = [int(a, 0) for a in _trace_addrs.split(",") if a.strip()]
+        _taf = ta_path.split("/")[-1]
+        def _probe_block(ql, address, size):
+            base = ql.mem.get_lib_base(_taf)
+            off = address - base
+            if off not in _offs:
+                return
+            rs = ("x0","x1","x2","x3","x19","x20","x21","x22","x23","x24","x25","x26","x27")
+            vals = {r: ql.arch.regs.read(r) for r in rs}
+            print(f"[PROBE @0x{off:x}] " + " ".join(f"{r}={v:#x}" for r, v in vals.items()))
+            for r in ("x23","x0","x24","x22"):
+                p = vals[r]
+                try:
+                    print(f"    *{r}(0x{p:x}) = {bytes(ql.mem.read(p, 24)).hex()}")
+                except Exception:
+                    pass
+        ql.hook_block(_probe_block)
+
     if args.sus_in_replay:
         ql.hook_code(unicorn_why)
         
