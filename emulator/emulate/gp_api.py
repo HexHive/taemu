@@ -1,4 +1,6 @@
 from enum import Enum
+import os
+import time as pytime
 from qiling import Qiling
 from qiling.os.const import STRING, INT, BYTE, POINTER
 from .gp.utils.param import TEE_Param_Memref
@@ -331,7 +333,12 @@ def TEE_GetPropertyAsIdentity(ql: Qiling, hook_data):
         name = p["name"]
         value = p["value"]
         if propset == TEE_PROPSET_CURRENT_CLIENT and name == "gpd.client.identity":
-            ql.mem.write(value, TEE_LOGIN_PUBLIC.to_bytes(4, "little"))
+            # Default is TEE_LOGIN_PUBLIC(0). TAEMU_FORCE_LOGIN lets a harness drive a
+            # specific client login method (e.g. 4=TEE_LOGIN_USER for KEYMST's REE path)
+            # so a probe can reach a post-login paramTypes pin instead of stopping at the
+            # TA's login gate. No effect when the env var is unset.
+            _login = int(os.environ.get("TAEMU_FORCE_LOGIN", str(TEE_LOGIN_PUBLIC)), 0)
+            ql.mem.write(value, (_login & 0xffffffff).to_bytes(4, "little"))
             hook_data.emu.writeback_shm(value, 4)
             ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
             ql.arch.regs.arch_pc = ql.arch.regs.lr
