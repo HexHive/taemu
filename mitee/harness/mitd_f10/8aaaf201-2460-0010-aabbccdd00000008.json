@@ -1,0 +1,14 @@
+{
+    "TA_CreateEntryPoint_start": 131096,
+    "TA_CreateEntryPoint_end": [131100],
+    "TA_DestroyEntryPoint_start": 131104,
+    "TA_DestroyEntryPoint_end": [131108],
+    "TA_OpenSessionEntryPoint_start": 131112,
+    "TA_OpenSessionEntryPoint_end": [131244],
+    "TA_CloseSessionEntryPoint_start": 131248,
+    "TA_CloseSessionEntryPoint_end": [131296],
+    "TA_InvokeCommandEntryPoint_start": 131296,
+    "TA_InvokeCommandEntryPoint_end": [132092],
+    "ta_sha256": "7157cd65ac54efdf5fa9b89b9268ca1a4ae7021749096ba4286b8c5ed9ca86c8",
+    "_comment": "klee mitd (8aaaf201..0008) staged like misa (no inline table). EPs from __func__ xrefs: Create 0x20018, Destroy 0x20020, Open 0x20028(RET 0x200ac), Close 0x200b0(tail), Invoke 0x200e0(RET 0x203fc). F10 length-sum overflow target."
+}
