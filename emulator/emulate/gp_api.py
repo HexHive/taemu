@@ -222,11 +222,16 @@ def TEE_LogPrintf(ql: Qiling, hook_data):
         format_param = format_param.replace("%zu", "%u")
         try:
             out_str = format_param % tuple(string_params)
-        except ValueError:
+        except (ValueError, TypeError):
             ql.log.error(f"format string not supported: {format_param}")
             if hook_data.emu.crash_on_not_implemented:
                 crash_notimpl(ql, f"format string not supported: {format_param}")
                 return
+            # don't reference an unset out_str; return SUCCESS so the TA's own
+            # logic (incl. any OOB it is about to do) keeps running.
+            ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+            ql.arch.regs.arch_pc = ql.arch.regs.lr
+            return
         ql.log.info(f"{hook_data.func_name}: {out_str}")
         ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     except unicorn.unicorn_py3.unicorn.UcError:

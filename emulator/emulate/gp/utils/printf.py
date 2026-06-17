@@ -14,11 +14,17 @@ def read_c_str(ql, addr):
 
 
 def fixup_format(format_param):
+    import re as _re
     format_param = format_param.replace("%p", "0x%x")
     format_param = format_param.replace("%llu", "%u")
     format_param = format_param.replace("%zu", "%u")
     format_param = format_param.replace("%zd", "%d")
     format_param = format_param.replace("%#zx", "%#x")
+    # Strip C99 size/length modifiers (z / ll / l / h / hh) that precede a
+    # conversion Python's % accepts (X x d i u o), keeping any flags/width
+    # (e.g. mitee hexdump "%04zX" -> "%04X", "%zd" -> "%d", "%lx" -> "%x").
+    format_param = _re.sub(r"%([0-9.#+ -]*)(?:hh|h|ll|l|z|j|t)([XxdiuoeEfgG])",
+                           r"%\1\2", format_param)
     return format_param
 
 
