@@ -18,8 +18,9 @@ def mitee_read_relocs(ta_path:Path):
     plt_lines = plt_lines[2:]
     out = []
     for l in plt_lines:
+        # offset  info  R_AARCH64_JUMP_SLOT  <symvalue>  <name> + <addend>
         mtch = re.match(
-            r"([0-9a-z]+) +([0-9a-z]+) +R_AARCH64_JUMP_SLOT +0000000000000000 +([a-zA-Z_]+) \+",
+            r"([0-9a-fA-F]+) +([0-9a-fA-F]+) +R_AARCH64_JUMP_SLOT +([0-9a-fA-F]+) +([a-zA-Z_][a-zA-Z0-9_]*) \+",
             l,
         )
         if not mtch:

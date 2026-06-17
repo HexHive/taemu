@@ -244,8 +244,15 @@ class Session:
 
 
 def get_ta_uuid(ta_name):
-    ta_name = ta_name.replace("-", "")
-    return bytes.fromhex(ta_name)
+    # Most staged TAs are named by their hex UUID (e.g. the OnePlus/teegris
+    # corpus). Samsung's QSEE TAs are named by function (tz_hdm, tz_iccc), which
+    # is not hex -- fall back to a UTF-8 encoding of the name so loading never
+    # aborts. taUUID is informational (not used for dispatch).
+    cleaned = ta_name.replace("-", "")
+    try:
+        return bytes.fromhex(cleaned)
+    except ValueError:
+        return ta_name.encode("utf-8", "replace")
 
 
 def require_class_attr(param_name, attr_name):
@@ -331,6 +338,12 @@ class TAEMU:
             self._record_max_items = record_max_items
             self._record: List[Record] = []
 
+        # Optional API-subset restriction: a JSON list of API names that
+        # get_api_impl is allowed to resolve (everything else -> default_func).
+        # Used by the coverage-vs-implemented-API evaluation. None = no limit.
+        self.implemented_apis = None
+        if "TAEMU_IMPLEMENTED_APIS" in os.environ:
+            self.implemented_apis = json.load(open(os.environ["TAEMU_IMPLEMENTED_APIS"]))
         self.crash_on_not_implemented = False
         if "TAEMU_CRASH_NOTIMPL" in os.environ:
             self.ql.log.warning("TAEMU_CRASH_NOTIMPL is set, crashing on not implemented")
@@ -1116,10 +1129,15 @@ class TAEMU:
             print("crash callback: ", result, hex(ql.arch.regs.arch_pc))
             if ql.arch.regs.arch_pc == CRASH_PC or ql.arch.regs.arch_pc == CRASH_PC_2 or ql.arch.regs.arch_pc == NOTIMPL_PC:
                 return True
-            if result == 6:
+            # Any non-zero unicorn errno is a genuine guest fault -> AFL crash.
+            # Previously only result==6 (UC_ERR_READ_UNMAPPED) counted, which
+            # MISSED control-flow hijacks: a smashed return address makes the
+            # `ret` fetch from unmapped memory == UC_ERR_FETCH_UNMAPPED (8), and
+            # bad data writes == UC_ERR_WRITE_UNMAPPED (7). The STZICCC-5 stack
+            # overflow (saved x30 -> attacker value -> ret -> errno 8) was being
+            # silently dropped. UC_ERR_OK is 0; treat everything else as a crash.
+            if result != 0:
                 return True
-            # if ql.arch.regs.arch_pc not in exit_addr:
-            # return True
             return False
 
         def pivot2(ql: Qiling):

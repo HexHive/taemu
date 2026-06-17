@@ -185,30 +185,54 @@ def hook_ta_dl(
             counter += ql.arch.pointersize
 
     if is_qsee:
+        # QSEE GPApp TAs come in two flavours:
+        #  (1) dynamically linked against an external libcmnlib -> JUMP_SLOTs have
+        #      a zero symbol value (true imports); every named slot must be modeled.
+        #  (2) statically link libcmnlib in (Samsung S24 tz_hdm/tz_iccc) -> each
+        #      JUMP_SLOT's symbol value is the function's REAL in-binary vaddr.
+        # Model only the leaf APIs we have Python impls for, and let the TA's own
+        # dispatch (GPAppLib_handleRequest, CApp_*, cmnlib_*) run NATIVELY by
+        # pointing its GOT slot at the baked-in code.
         for qsee_reloc in qsee_read_relocs(ta_path):
             funcname = qsee_reloc.name
             off = qsee_reloc.offset
-            sym = qsee_reloc.symbol_value
+            sym_val = qsee_reloc.symbol_value
+            impl = get_api_impl(funcname, implmented_apis=emu.implemented_apis)
+            if impl is not gp_api.default_func:
+                intercept_addr = ql_resolve_mem + counter
+                counter += ql.arch.pointersize
+                ql.mem.write(
+                    ta_base + off,
+                    intercept_addr.to_bytes(ql.arch.pointersize, "little"),
+                )
+                ql.log.info(
+                    "[qsee] hooking import %s (got %#x) -> py impl", funcname, off
+                )
+                ql.hook_address(impl, intercept_addr, user_data=HookData(emu, funcname))
+            elif sym_val != 0:
+                # statically-linked internal symbol: point the GOT at the real code
+                ql.mem.write(
+                    ta_base + off,
+                    (ta_base + sym_val).to_bytes(ql.arch.pointersize, "little"),
+                )
+                ql.log.info(
+                    "[qsee] internal %s (got %#x) -> native %#x",
+                    funcname, off, ta_base + sym_val,
+                )
+            else:
+                # unmodeled external import: sentinel hook so an accidental call
+                # does not fetch from a null GOT slot
+                intercept_addr = ql_resolve_mem + counter
+                counter += ql.arch.pointersize
+                ql.mem.write(
+                    ta_base + off,
+                    intercept_addr.to_bytes(ql.arch.pointersize, "little"),
+                )
+                ql.log.warning(
+                    "[qsee] unmodeled import %s (got %#x) -> default_func", funcname, off
+                )
+                ql.hook_address(impl, intercept_addr, user_data=HookData(emu, funcname))
 
-            intercept_addr = ql_resolve_mem + counter
-            counter += ql.arch.pointersize
-
-            ql.mem.write(
-                ta_base + off,
-                intercept_addr.to_bytes(ql.arch.pointersize, "little"),
-            )
-            ql.log.info(
-                "[qsee] hooking plt relocation function %s@%#x -> %#x", funcname, off, intercept_addr
-            )
-            func_impl = get_api_impl(funcname)
-            if func_impl is None:
-                ql.log.warning(f"[qsee] function {funcname} not found")
-            ql.hook_address(
-                func_impl,
-                intercept_addr,
-                user_data=HookData(emu, funcname),
-            )
-    
     if is_tc:
         # IGNORE ME!!
         ks = Ks(KS_ARCH_ARM, KS_MODE_ARM)
@@ -362,7 +386,53 @@ def qsee_setup(ql: Qiling, ta_path:Path, ta_base, emu: 'TAEMU'):
         # ql.log.info(f"[mitee] fixing relcation at {hex(off)} for {hex(reloc_off)}")
         ql.mem.write_ptr(ta_base + off, ta_base + reloc_off)
     def handle_retab(ql: Qiling, user_data):
-        ql.arch.regs.arch_pc = ql.arch.regs.lr
+        # PAC (FEAT_PAuth) is not implemented by this Unicorn build, so every
+        # ARMv8.3 pointer-authentication instruction raises exception #1. The
+        # ORIGINAL handler unconditionally did `pc = lr`, which is only correct
+        # for an authenticated RETURN (retab/retaa). bksecapp (unlike tz_hdm/
+        # tz_iccc, which contain NO PAC ops) signs the return address in EVERY
+        # function PROLOGUE with `pacib x30, sp` / `pacibsp`; treating that as a
+        # return made every prologue immediately `ret` to lr (the call site),
+        # so no function body ever ran. We therefore decode the faulting
+        # instruction and:
+        #   * authenticated return  (retab/retaa)        -> pc = lr
+        #   * authenticated branch   (braa/brab Xn)       -> pc = Xn
+        #   * authenticated call     (blraa/blrab Xn)     -> lr = pc+4; pc = Xn
+        #   * sign / authenticate    (pac*/aut*/xpac*)    -> NO-OP, pc += 4
+        # (PAC is a no-op here because we don't model the signing bits; the
+        # pointers stay un-signed throughout, so a later aut*/retab just passes
+        # the raw pointer through, which is exactly what we want for emulation.)
+        pc = ql.arch.regs.arch_pc
+        try:
+            code = ql.mem.read(pc, 4)
+            ins = next(ql.arch.disassembler.disasm(bytes(code), pc), None)
+        except Exception:
+            ins = None
+        if ins is None:
+            # unknown -> fall back to the legacy behaviour (return to lr)
+            ql.arch.regs.arch_pc = ql.arch.regs.lr
+            return
+        m = ins.mnemonic
+        if m in ("retaa", "retab"):
+            ql.arch.regs.arch_pc = ql.arch.regs.lr
+        elif m in ("braa", "brab", "braaz", "brabz"):
+            # branch to authenticated register (first operand)
+            reg = ins.op_str.split(",")[0].strip()
+            try:
+                ql.arch.regs.arch_pc = getattr(ql.arch.regs, reg)
+            except Exception:
+                ql.arch.regs.arch_pc = ql.arch.regs.lr
+        elif m in ("blraa", "blrab", "blraaz", "blrabz"):
+            reg = ins.op_str.split(",")[0].strip()
+            ql.arch.regs.lr = pc + 4
+            try:
+                ql.arch.regs.arch_pc = getattr(ql.arch.regs, reg)
+            except Exception:
+                ql.arch.regs.arch_pc = pc + 4
+        else:
+            # pacia/pacib/paciasp/pacibsp/autia/autib/autiasp/autibsp/xpac... ::
+            # sign/authenticate in place -> no-op, just step over it.
+            ql.arch.regs.arch_pc = pc + 4
     ql.hook_intno(handle_retab, 1)
     has_pac = emu.ta_info.get("has_pac", False)
     if has_pac:
