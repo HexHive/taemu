@@ -411,6 +411,19 @@ reproduce/workspace/*
 poc
 androidroot/*
 
+# --- TA emulator: generated / runtime artifacts (not source) ---
+# run.sh copies the target <uuid>.ta + .json into rootfs/ at launch (root-owned);
+# the canonical, tracked copies live under <tee>/tas/.
+emulator/rootfs/*.ta
+emulator/rootfs/*.json
+# Persistent-object / secure-storage files written by the emulator at runtime.
+emulator/emulate/files/*
+!emulator/emulate/files/.gitkeep
+# AFL++ fuzzer output: queue/crashes/hangs/fuzzer_stats, drcov .cov logs, etc.
+*/harness/*/out/
+# Editor/tooling backups
+*.bak
+
 # End of https://www.toptal.com/developers/gitignore/api/linux,windows,macos,emacs,vim,visualstudiocode,python,c++,c
 
 
