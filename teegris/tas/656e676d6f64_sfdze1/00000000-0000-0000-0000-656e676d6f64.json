@@ -1,0 +1,20 @@
+{
+    "TA_CreateEntryPoint_start": 57564,
+    "TA_CreateEntryPoint_end": [
+        57660
+    ],
+    "TA_DestroyEntryPoint_start": 57668,
+    "TA_DestroyEntryPoint_end": [],
+    "TA_OpenSessionEntryPoint_start": 57764,
+    "TA_OpenSessionEntryPoint_end": [
+        57860
+    ],
+    "TA_CloseSessionEntryPoint_start": 57868,
+    "TA_CloseSessionEntryPoint_end": [],
+    "TA_InvokeCommandEntryPoint_start": 57964,
+    "TA_InvokeCommandEntryPoint_end": [
+        58576
+    ],
+    "ta_sha256": "5d1f70ec1b0eb178a03ead694dbb519f12088a33f47724266ca01f2e1f4b3499",
+    "_comment": "Shipping-build TEEGRIS TA 00000000-0000-0000-0000-656e676d6f64, staged additively by scripts/ida/stage_emulator_ta.py. sha256=5d1f70ec1b0eb178... . _start values are the surviving dynsym FUNC symbols (PIE base 0 => file offset == vaddr); _end values are RET addresses from a capstone scan of each symbol's range, or [] for tail-call thunks (ta_mgr.derive_entrypoint_ends recovers those). The bundled corpus teegris/tas/00000000-0000-0000-0000-656e676d6f64.ta (older S9BYH2 build) is untouched."
+}
