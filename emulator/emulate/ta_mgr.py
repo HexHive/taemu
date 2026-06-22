@@ -1233,7 +1233,39 @@ class TAEMU:
             init_fuzz(self, sid)
             self.init_fuzz = False
 
-        if fuzz_replay:
+        if fuzz_replay and MULTI_CMD > 0:
+            # Multi-command REPLAY (mirror of multi_fuzz_wrapper): deterministically
+            # drive the same length-prefixed record sequence the fuzzer would, so a
+            # stateful crash/seed can be reproduced and triaged. CPU context is
+            # snapshotted at InvokeCommand entry and restored before each op; guest
+            # memory (heap/session/persistent store) persists across ops.
+            input_data = open(input_file, "rb").read()
+            ops = _frame_multi_input(input_data, MULTI_CMD)
+            cov_path = self.get_cov_file_path(os.path.basename(input_file), os.path.dirname(fuzz_harness))
+            InvokeStart = self.ta_funcs[TA_Function.InvokeCommandEntryPoint].start
+            InvokeEnds = list(self.ta_funcs[TA_Function.InvokeCommandEntryPoint].end)
+            with cov_utils.collect_coverage(self.ql, "drcov", cov_path):
+                ctx0 = self.ql.arch.uc.context_save()
+                for i, rec in enumerate(ops):
+                    if i > 0:
+                        self.ql.arch.uc.context_restore(ctx0)
+                    if _user_place_input(self.ql, rec, i) is False:
+                        print(f"[mc-replay] op#{i} rejected by harness; skipping")
+                        continue
+                    self.ql.arch.regs.arch_pc = InvokeStart
+                    pc = getattr(self.ql.arch, "effective_pc", self.ql.arch.regs.arch_pc)
+                    print(f"[mc-replay] === op#{i} (len {len(rec)}) ===")
+                    try:
+                        # stop cleanly at the InvokeCommand epilogue (before the
+                        # TLS-canary return to the poisoned caller LR); run forever
+                        # otherwise so any guest fault surfaces as a UcError crash.
+                        self.ql.arch.uc.emu_start(pc, InvokeEnds[0])
+                    except unicorn.UcError as err:
+                        print(f"[mc-replay] op#{i} CRASH errno={err.errno} pc={self.ql.arch.regs.arch_pc:#x}")
+                        raise
+            telemetry.dump(cov_path + ".unmodeled")
+        elif fuzz_replay:
+
             # use data from `input_file`
             input_data = open(input_file, "rb").read()
             if not place_input_callback(self.ql, input_data, -1):
