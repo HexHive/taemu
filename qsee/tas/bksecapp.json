@@ -1,0 +1,14 @@
+{
+    "_comment": "Samsung S24 Ultra (SM-S928B, S928BXXS6DZE1) Knox bksecapp QTEE TA (subject of report S6, arbitrary QFPROM fuse-read). REACHABILITY CAVEAT: bksecapp runs in the BOOTLOADER/fastboot context, NOT booted Android (RE/triage/bksecapp_lockdown.md) -- 0 HLOS clients, .mbn absent from every Android-mounted partition. Findings are a bootloader/fastboot/recovery or pre-SetBlBootComplete TZ-context threat model. Same staging model as tz_hdm/tz_iccc: statically links libcmnlib so the real TA_*EntryPoint live in libcmnlib (not TA symbols); GP lifecycle stubbed with a 'mov w0,wzr; ret' gadget @vaddr 0x3ba0 (ret 0x3ba4) returning TEE_SUCCESS=0. InvokeCommand points DIRECTLY at the REAL dispatcher bksecapp_tz_app_cmd_handler@0x050C (ABI: x0=cmd_buf, w1=cmd_len, x2=rsp_buf, w3=rsp_len). The dispatcher itself does the malloc(0x1004) of scratch_cmd/scratch_rsp via the (asan-redzoned) qsee_malloc + memcpy's both REE buffers in, then gates on GetBlBootComplete()&&!(sec_state&1) and dispatches cmd_id=*(u32)scratch_cmd. The harness supplies cmd_buf/rsp_buf as guest pages with cmd_len==rsp_len==0x1004 (the required lengths) and crafts cmd_id=50 (BksecappKdf) plus the unclamped out_len at rsp_buf[4..8]. cmd50 @0x2ba0: ctx_len REQ+4..6 clamped <=0xFF7, but out_len=RESP+0..3 RAW -> qsee_kdf(out=RESP+4=scratch_rsp+8, out_len) @0x2dec with NO clamp -> heap OOB write of the 0x1004 scratch_rsp chunk when out_len>0xFFC (the modeled qsee_kdf fills out_len bytes -> asan heap-redzone catch -> PC=0xdeadbeef). GetBlBootComplete returns 0 (the qsee_read_oem_buffer stub zero-fills slot 272, strcmp vs 'boot complete bksecapp' fails) so the gate passes to dispatch. _end 0x0708 (retab) is the dispatcher's benign-path return after the canary check; the harness sets x30=AFL_EXIT(0x13370) so a non-overflowing input returns cleanly.",
+    "inline": {},
+    "TA_CreateEntryPoint_start": 15264,
+    "TA_CreateEntryPoint_end": [15268],
+    "TA_OpenSessionEntryPoint_start": 15264,
+    "TA_OpenSessionEntryPoint_end": [15268],
+    "TA_CloseSessionEntryPoint_start": 15264,
+    "TA_CloseSessionEntryPoint_end": [15268],
+    "TA_DestroyEntryPoint_start": 15264,
+    "TA_DestroyEntryPoint_end": [15268],
+    "TA_InvokeCommandEntryPoint_start": 1292,
+    "TA_InvokeCommandEntryPoint_end": [1800]
+}

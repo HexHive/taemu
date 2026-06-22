@@ -1,0 +1,14 @@
+{
+    "_comment": "Xiaomi/Qualcomm garnet featenabler.mbn (DisplayCore feature-license QTEE TA). Statically references libcmnlib BUT GPAppLib_handleRequest@0xed00 / CApp_openSession@0x13008 are EXTERNAL (vaddr beyond exec LOAD end 0xb3cc -> not real code here). So we stub the GP lifecycle with a 'mov w0,wzr; ret' gadget (vaddr 0x1fd4 / ret 0x1fd8) returning TEE_SUCCESS, and point InvokeCommand directly at the app command handler process_cmd@0x630 (verified ABI: x0=req, w1=req_len, x2=rsp, w3=rsp_len; cmd_id=*(u32*)req). The harness overrides x0..x3 to drive a chosen cmd with a crafted req/rsp buffer. process_cmd rets: main epilogue 0x8bc, cmd1-arm tail 0x2a0. We list both as _end pivots so any benign return lands cleanly.",
+    "inline": {},
+    "TA_CreateEntryPoint_start": 8148,
+    "TA_CreateEntryPoint_end": [8152],
+    "TA_OpenSessionEntryPoint_start": 8148,
+    "TA_OpenSessionEntryPoint_end": [8152],
+    "TA_CloseSessionEntryPoint_start": 8148,
+    "TA_CloseSessionEntryPoint_end": [8152],
+    "TA_DestroyEntryPoint_start": 8148,
+    "TA_DestroyEntryPoint_end": [8152],
+    "TA_InvokeCommandEntryPoint_start": 1584,
+    "TA_InvokeCommandEntryPoint_end": [2236, 672]
+}

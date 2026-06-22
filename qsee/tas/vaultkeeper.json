@@ -1,0 +1,14 @@
+{
+    "_comment": "Samsung S24 Ultra (SM-S928B) VaultKeeper QTEE TA, vaultkeeper.ta (S7). Statically links libcmnlib; TA_*EntryPoint live in libcmnlib. GP lifecycle stubbed with a 'mov w0,wzr; ret' gadget (vaddr 0x20c0 / ret 0x20c4) returning TEE_SUCCESS=0. InvokeCommand points DIRECTLY at the real top-level dispatcher vk_dispatcher@0x318 (ABI: x0=req, w1=req_len, x2=resp, w3=resp_len). Driving the dispatcher exercises the full S7 logic: qsee_is_ns_range(req)/qsee_is_ns_range(resp), the magic req[0]==0xC0DE0003 + cmd_arg in {0xBC01,0xBC03..0xBC06} fast-path -> vk_bl_and_provision_handler@0x14ca8 (unauth AID/FMM/RAMPART/DMC vault read) BEFORE the 44536/44544 length check and BEFORE PROCA. _end 0x48c is vk_dispatcher's only ret (unified exit; canary-checked). The harness overrides x0/x1/x2/w3 and sets x30=AFL_EXIT. NOTE: vk_dispatcher has a stack canary; the magic-read path does not overflow, so it returns cleanly.",
+    "inline": {},
+    "TA_CreateEntryPoint_start": 8384,
+    "TA_CreateEntryPoint_end": [8388],
+    "TA_OpenSessionEntryPoint_start": 8384,
+    "TA_OpenSessionEntryPoint_end": [8388],
+    "TA_CloseSessionEntryPoint_start": 8384,
+    "TA_CloseSessionEntryPoint_end": [8388],
+    "TA_DestroyEntryPoint_start": 8384,
+    "TA_DestroyEntryPoint_end": [8388],
+    "TA_InvokeCommandEntryPoint_start": 792,
+    "TA_InvokeCommandEntryPoint_end": [1164, 78704]
+}

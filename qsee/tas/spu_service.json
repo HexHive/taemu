@@ -1,0 +1,14 @@
+{
+    "_comment": "Xiaomi houji spu_service.mbn (SPU bridge / KeyMaster provisioning QTEE TA). libcmnlib is EXTERNAL here (GPAppLib_handleRequest@0xf748 / CApp_openSession@0x13fc0 are JUMP_SLOTs whose symvals fall in unbacked gaps -> external). We stub the GP lifecycle with a 'mov w0,wzr; ret' gadget (vaddr 0x4410 / ret 0x4414) and point InvokeCommand directly at the app Mink dispatcher process_invoke@0x558 (verified ABI: x0=ctx, w1=method(<=0xf), x2=ObjectArg[] of {ptr,size} 16-byte slots, w3=ObjectCounts/paramTypes). The harness builds the ObjectArg[] in guest memory and overrides x0..x3. _end pivots: the dispatcher epilogue ret(s). 0x558 is PAC (pacib x30,sp / autibsp;ret) so it returns via a real ret -- we list the main epilogue ret. For the Finding-A OOB-NUL repro (method 0) the detector is the WRITE_UNMAPPED fault on the guard page, so _end is set to a never-reached gadget ret (the harness sets x30=AFL_EXIT for benign returns), mirroring tz_iccc.",
+    "inline": {},
+    "TA_CreateEntryPoint_start": 17424,
+    "TA_CreateEntryPoint_end": [17428],
+    "TA_OpenSessionEntryPoint_start": 17424,
+    "TA_OpenSessionEntryPoint_end": [17428],
+    "TA_CloseSessionEntryPoint_start": 17424,
+    "TA_CloseSessionEntryPoint_end": [17428],
+    "TA_DestroyEntryPoint_start": 17424,
+    "TA_DestroyEntryPoint_end": [17428],
+    "TA_InvokeCommandEntryPoint_start": 1368,
+    "TA_InvokeCommandEntryPoint_end": [17428]
+}

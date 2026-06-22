@@ -1,0 +1,14 @@
+{
+    "_comment": "Samsung S24 Ultra (SM-S928B) VaultKeeper QTEE TA, vaultkeeper.ta — NEW-BUG harness for vk_everyman_write_unsheltered@0x12c1c (WRITE_UNSHELTERED, cmd_no 0xC000C07). Same staging model as vaultkeeper.json: GP lifecycle stubbed with the 'mov w0,wzr; ret' gadget (vaddr 0x20c0 / ret 0x20c4). InvokeCommand points DIRECTLY at the write handler @0x12c1c. The handler ABI (from the framework's indirect vtable dispatch) is (x0=ctx/sess, x1=request_struct, x2=resp/aux); the harness sets x1=request struct (the field req[+4]>=0x16 size gate, the copy length at req[+0x28], and the source at req+8). BUG: 0x12fc8 ldr w2,[x19,#0x28] = length (only a >=0x21 floor at 0x12f20, NO upper clamp); 0x12fd0 dst=fp-0x30 (40-byte buffer below the canary at fp-8); 0x12fd4 bl memcpy(dst,req+8,len). len>0x28 overruns the buffer and corrupts the stack canary at fp-8 -> epilogue 0x12e44 b.ne 0x13188 -> bl __stack_chk_fail(0x151b8) -> qsee_err_fatal -> crash. _end 0x12e60 is the single ret (reached only on benign len; a crashing len trips the canary->err_fatal BEFORE the ret, so a pivot at the ret is harmless). Harness sets x30=AFL_EXIT for benign returns.",
+    "inline": {},
+    "TA_CreateEntryPoint_start": 8384,
+    "TA_CreateEntryPoint_end": [8388],
+    "TA_OpenSessionEntryPoint_start": 8384,
+    "TA_OpenSessionEntryPoint_end": [8388],
+    "TA_CloseSessionEntryPoint_start": 8384,
+    "TA_CloseSessionEntryPoint_end": [8388],
+    "TA_DestroyEntryPoint_start": 8384,
+    "TA_DestroyEntryPoint_end": [8388],
+    "TA_InvokeCommandEntryPoint_start": 76828,
+    "TA_InvokeCommandEntryPoint_end": [77408, 78704]
+}

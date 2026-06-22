@@ -1,0 +1,22 @@
+{
+    "_comment": "qcom.tz.uefisecapp (SM-S928B, sha256 a9f8d78c...), report S10. Statically links libcmnlib (real TA_*EntryPoint not present); GP lifecycle stubbed with a 'mov w0,wzr; ret' gadget @vaddr 0x4834 returning TEE_SUCCESS. InvokeCommand is pointed at the REAL validate_pkcs7_and_get_public_key@0x13f28 so the real qsee_malloc(0x2800) (asan-redzoned heap chunk = QUEFI-7 dest) + the real memset of the 4-slot global g_cert_chain_records@0x23d88 (QUEFI-1 dest) + the real collector secpkcs7_get_cert_chain_from_sig_index@0xe61c all execute. The PKCS#7 parse leaves and the collector's 3 internal callees are inline-stubbed (qsee_api.u_*) to synthesise an attacker-shaped self-signed cert chain WITHOUT driving a full DER parser. QUEFI-7: the collector's per-cert uefi_memcpy(chainbuf, der, der_len) at 0xe7a8/0xe864 has NO clamp vs 0x2800; a single cert with der_len>0x2800 overruns the qsee_malloc(0x2800) chunk -> asan after-redzone native-write hook -> CRASH_PC=0xdeadbeef. QUEFI-1: uefi_memcpy(records+0x7d8*count, struct, 0x7d8) with ++count and NO count<4 bound; >4 chaining certs write past slot 3 -> but the dest is a GLOBAL (not redzoned) and the OOB lands on the mapped count word (self-cap, S10 §5) so it is OBSERVED via count-desync, not a fault. _end 0x1438c is validate's retab (benign return). Detection for QUEFI-7 is the redzone hook (arch_pc=CRASH_PC), so the real ret may execute.",
+    "inline": {
+        "u_pkcs7_secboot_hash":      { "addr": 57864, "type": "tee" },
+        "u_secpkcs7_new_ctx":        { "addr": 59752, "type": "tee" },
+        "u_secpkcs7_parse_buffer":   { "addr": 59888, "type": "tee" },
+        "u_secpkcs7_verify_si":      { "addr": 62248, "type": "tee" },
+        "u_get_si_dn":               { "addr": 58348, "type": "tee" },
+        "u_get_cert_by_index_DER":   { "addr": 59568, "type": "tee" },
+        "u_get_parsed_cert":         { "addr": 58712, "type": "tee" }
+    },
+    "TA_CreateEntryPoint_start": 18484,
+    "TA_CreateEntryPoint_end": [18488],
+    "TA_OpenSessionEntryPoint_start": 18484,
+    "TA_OpenSessionEntryPoint_end": [18488],
+    "TA_CloseSessionEntryPoint_start": 18484,
+    "TA_CloseSessionEntryPoint_end": [18488],
+    "TA_DestroyEntryPoint_start": 18484,
+    "TA_DestroyEntryPoint_end": [18488],
+    "TA_InvokeCommandEntryPoint_start": 81704,
+    "TA_InvokeCommandEntryPoint_end": [82004]
+}

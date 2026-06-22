@@ -1,0 +1,14 @@
+{
+    "_comment": "qcom.tz.uefisecapp (SM-S928B). QUEFI-NEW-1 harness: drives the GP InvokeCommand handler @0x528 (the session vtable callback set by CUEFISecApp_open@0x4d4) directly. cmd1 -> SetVariable handler @0x6c4 which CopyMem's attacker NAME (StrSize-sized @0x754) and DATA (param0.buf[0x14]-sized @0x77c) into the 128KB scratch = qsee_malloc(0x20000) (asan-redzoned) with NO clamp -> heap OOB write. _end 0x9a4 (39332) = the handler's retab. The handler reads the scratch ptr from *(0x1e160), which is set ONLY by CUEFISecApp_open@0x4d4 (qsee_malloc(0x20000)). So TA_OpenSession is pointed at the REAL CUEFISecApp_open@0x4d4 (1236) / retab @0x520 (1312) -- this does the real allocation and stores *(0x1e160), so InvokeCommand then finds a valid (redzoned) scratch. Create/Close/Destroy stubbed with 'mov w0,wzr; ret' @0x4834. No PKCS#7 inline stubs on this path.",
+    "inline": {},
+    "TA_CreateEntryPoint_start": 18484,
+    "TA_CreateEntryPoint_end": [18488],
+    "TA_OpenSessionEntryPoint_start": 18484,
+    "TA_OpenSessionEntryPoint_end": [18488],
+    "TA_CloseSessionEntryPoint_start": 18484,
+    "TA_CloseSessionEntryPoint_end": [18488],
+    "TA_DestroyEntryPoint_start": 18484,
+    "TA_DestroyEntryPoint_end": [18488],
+    "TA_InvokeCommandEntryPoint_start": 1320,
+    "TA_InvokeCommandEntryPoint_end": [2468]
+}
