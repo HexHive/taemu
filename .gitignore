@@ -421,6 +421,8 @@ emulator/emulate/files/*
 !emulator/emulate/files/.gitkeep
 # AFL++ fuzzer output: queue/crashes/hangs/fuzzer_stats, drcov .cov logs, etc.
 */harness/*/out/
+# Loose raw crash dumps the fuzzer drops in a harness dir (kept seeds live in in/).
+afl_crash*
 # Editor/tooling backups
 *.bak
 
