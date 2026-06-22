@@ -1,0 +1,185 @@
+{
+    "inline": {
+        "TEE_FreeTransientObject": {
+            "addr": 147208,
+            "type": "gp_api"
+        },
+        "TEE_SEReaderGetProperties": {
+            "addr": 179032,
+            "type": "tee"
+        },
+        "TEE_SESecureChannelClose": {
+            "addr": 184384,
+            "type": "tee"
+        },
+        "TEE_SESessionOpenBasicChannel": {
+            "addr": 181376,
+            "type": "tee"
+        },
+        "TEE_SEChannelGetNumber_ext": {
+            "addr": 185456,
+            "type": "tee"
+        },
+        "TEE_Malloc": {
+            "addr": 146112,
+            "type": "gp_api"
+        },
+        "TEE_SEServiceClose": {
+            "addr": 177888,
+            "type": "tee"
+        },
+        "TEE_SEReaderGetName": {
+            "addr": 179424,
+            "type": "tee"
+        },
+        "TEE_SEReaderOpenSession": {
+            "addr": 180024,
+            "type": "tee"
+        },
+        "TEE_SEChannelGetSelectResponse": {
+            "addr": 182824,
+            "type": "tee"
+        },
+        "TEE_GetObjectBufferAttribute": {
+            "addr": 146600,
+            "type": "gp_api"
+        },
+        "TEE_SESessionGetATR": {
+            "addr": 180448,
+            "type": "tee"
+        },
+        "TEE_CloseTASession": {
+            "addr": 145280,
+            "type": "gp_api"
+        },
+        "TEE_InvokeTACommand": {
+            "addr": 145480,
+            "type": "gp_api"
+        },
+        "TEE_SESecureChannelOpen": {
+            "addr": 183424,
+            "type": "tee"
+        },
+        "TEE_ReadObjectData": {
+            "addr": 148816,
+            "type": "gp_api"
+        },
+        "TEE_SESessionIfsReq_ext": {
+            "addr": 186920,
+            "type": "tee"
+        },
+        "TEE_CloseAndDeletePersistentObject": {
+            "addr": 148608,
+            "type": "gp_api"
+        },
+        "TEE_SESessionHardReset_ext": {
+            "addr": 186392,
+            "type": "tee"
+        },
+        "TEE_SESessionOpenLogicalChannel": {
+            "addr": 181912,
+            "type": "tee"
+        },
+        "TEE_CreatePersistentObject": {
+            "addr": 148256,
+            "type": "gp_api"
+        },
+        "TEE_SEChannelClose": {
+            "addr": 182448,
+            "type": "tee"
+        },
+        "TEE_SESessionInterfaceReset_ext": {
+            "addr": 185864,
+            "type": "tee"
+        },
+        "TEE_GenerateKey": {
+            "addr": 147648,
+            "type": "gp_api"
+        },
+        "TEE_SESessionClose": {
+            "addr": 181000,
+            "type": "tee"
+        },
+        "TEE_AllocateTransientObject": {
+            "addr": 147000,
+            "type": "gp_api"
+        },
+        "TEE_OpenPersistentObject": {
+            "addr": 147928,
+            "type": "gp_api"
+        },
+        "TEE_WriteObjectData": {
+            "addr": 149056,
+            "type": "gp_api"
+        },
+        "TEE_SESecureChannelGetSecurityLevel": {
+            "addr": 184000,
+            "type": "tee"
+        },
+        "TEE_SEChannelTransmit_ext": {
+            "addr": 184760,
+            "type": "tee"
+        },
+        "TEE_CloseObject": {
+            "addr": 146920,
+            "type": "gp_api"
+        },
+        "TEE_InitValueAttribute": {
+            "addr": 147480,
+            "type": "gp_api"
+        },
+        "TEE_GetSystemTime": {
+            "addr": 146032,
+            "type": "gp_api"
+        },
+        "TEE_GetObjectInfo": {
+            "addr": 146480,
+            "type": "gp_api"
+        },
+        "TEE_SEServiceOpen": {
+            "addr": 177376,
+            "type": "tee"
+        },
+        "TEE_SEServiceGetReaders": {
+            "addr": 178264,
+            "type": "tee"
+        },
+        "TEE_OpenTASession": {
+            "addr": 144968,
+            "type": "gp_api"
+        },
+        "tee_get_enc_rot": {
+            "addr": 191016,
+            "type": "tee"
+        },
+        "tee_se_open_spi_clk": {
+            "addr": 191352,
+            "type": "tee"
+        },
+        "tee_se_close_spi_clk": {
+            "addr": 191696,
+            "type": "tee"
+        }
+    },
+    "TA_DestroyEntryPoint_start": 139904,
+    "TA_DestroyEntryPoint_end": [
+        140020
+    ],
+    "TA_OpenSessionEntryPoint_start": 157032,
+    "TA_OpenSessionEntryPoint_end": [
+        157036
+    ],
+    "TA_CreateEntryPoint_start": 139752,
+    "TA_CreateEntryPoint_end": [
+        139900
+    ],
+    "TA_CloseSessionEntryPoint_start": 140320,
+    "TA_CloseSessionEntryPoint_end": [
+        140572
+    ],
+    "TA_InvokeCommandEntryPoint_start": 140600,
+    "TA_InvokeCommandEntryPoint_end": [
+        140864
+    ],
+    "_comment": "F7 2e8fade5 staged. Open redirected to mov-w0-wzr/ret @0x26568 to bypass paramTypes==1 gate (OpenSession driver passes no params -> real Open returns 0xFFFF0006 and fuzz_run aborts before Invoke). Session ctx stays zeroed; Transceive early APDU parse + GC probe don't need it. Original Open @0x222f8."
+}
