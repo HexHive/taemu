@@ -106,8 +106,8 @@ def validate(args):
         if reply == "y":
             for i in range(args.num_containers):
                 subprocess.run(
-                    f"docker run -d --name emu_{i} --network host -it -v .:/srv -w /srv/emulator -v /dev/shm:/dev/shm --ipc=host --shm-size=100g ta_emu bash &>/dev/null",
-                    shell=True,
+                    taemu_env.emulator_container_cmd(f"emu_{i}"),
+                    shell=True, capture_output=True,
                 )
         else:
             print("[-] Exiting...")

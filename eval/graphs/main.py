@@ -16,12 +16,15 @@ import matplotlib.pyplot as plt
 from typing import Optional
 import sys
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+import taemu_env
+
 logger.add("graphs.log", rotation="100 MB", retention="10 days")
 
 
 def main(
     fuzz_mode: FuzzMode = FuzzMode.ALL,
-    path: str = "/root/TA_GP_emulator",
+    path: str = None,
     tees: list[str] = None,
     tas: list[str] = None,
     regen_coverage: bool = False,
@@ -30,7 +33,9 @@ def main(
     save_plots: bool = True,
     grouping_field_name: Optional[str] = None,
     show_rate: bool = False,
+    max_timestamps: int = 86400,
 ):
+    path = path or taemu_env.repo_root()
     all_tas: set[str] = list_tas(path)
     tees = tees or ["mitee", "teegris", "beanpod", "t6", "qsee"]
     if tees == ["kinibi"]:
@@ -59,6 +64,8 @@ def main(
             _i = future_to_idx[fut]
             ## TODO: add a TRY-EXCEPT block here
             raw_covs, raw_fuzzing_infos = fut.result()
+            if raw_covs is None:
+                continue
             for raw_fuzzing_info in raw_fuzzing_infos:
                 fuzzing_info_list.append(
                     FuzzingInfo(raw_fuzzing_info, raw_covs, None, {})
@@ -76,14 +83,14 @@ def main(
         num_containers = 30
         ### spawn docker pools
         with DockerPool(
-            image_name="ta_emu",
+            image_name=taemu_env.image(),
             num_containers=num_containers,
             param_str=f"--network host -v {path}:/srv -w /srv/emulator -v /dev/shm:/dev/shm --ipc=host --shm-size=5g ",
         ):
             time.sleep(1)
             gen_coverage_files(
                 [each.raw_fuzzing_info for each in fuzzing_info_list],
-                image_name="ta_emu",
+                image_name=taemu_env.image(),
                 num_containers=num_containers,
                 path=path,
                 # pre_clean=True,
@@ -104,7 +111,7 @@ def main(
         logger.info(f"[+] Generating org graph")
         org_graph = org_control_flow_graph(
             fuzzing_info_list,
-            max_timestamps=86400,
+            max_timestamps=max_timestamps,
             grouping_field_name=grouping_field_name,
             show_rate=show_rate,
             path=path,
@@ -164,10 +171,13 @@ if __name__ == "__main__":
     parser.add_argument("--tees", nargs="+", default=None, help="Filter by TEEs")
     parser.add_argument("--tas", nargs="+", default=None, help="Filter by TAs")
     parser.add_argument("--regen_coverage", action="store_true", default=False)
-    parser.add_argument("--path", type=str, default="/root/TA_GP_emulator")
+    parser.add_argument("--path", type=str, default=taemu_env.repo_root())
     parser.add_argument("--ss_cov_rdir", type=str, default=None, required=True)
     parser.add_argument("--org_group_field", type=str, default=None, choices=["tee", None])
     parser.add_argument("--show_rate", action="store_true", default=False)
+    parser.add_argument("--max_timestamps", type=int, default=86400,
+                        help="length of the x-axis of the exploration graph in seconds "
+                             "(the paper's campaign ran for 86400 s per repetition)")
     
     args = parser.parse_args()
 
@@ -187,6 +197,7 @@ if __name__ == "__main__":
         bk_suspicious_inputs_cov_rdir=args.ss_cov_rdir,
         grouping_field_name=args.org_group_field,
         show_rate=args.show_rate,
+        max_timestamps=args.max_timestamps,
         show_plots=False,
         save_plots=True,
     )

@@ -1,5 +1,5 @@
 from functools import cache
-from common import get_fuzzing_basic_info, RawFuzzingInfo
+from common import SUDO, get_fuzzing_basic_info, RawFuzzingInfo
 from common import FuzzMode
 from bb import build_tee_cfg, cfg_ta, trim_cfg, root, get_apis, reachable_nodes
 import os
@@ -70,12 +70,19 @@ def gen_coverage_files(
             if os.path.exists(each.cov_dir):
                 shutil.rmtree(each.cov_dir)
 
-    replay_tasks = [
-        (fuzzing_info.harness_path, os.path.join(fuzzing_info.queue_dir, file))
-        for fuzzing_info in raw_fuzzing_infos
-        for file in os.listdir(fuzzing_info.queue_dir)
-        if ".state" not in file
-    ]
+    # A harness without a queue has never been fuzzed (e.g. a PoC-only harness,
+    # or a campaign that was not run for this TA); skip it instead of aborting
+    # the whole coverage collection.
+    replay_tasks = []
+    for fuzzing_info in raw_fuzzing_infos:
+        if not os.path.isdir(fuzzing_info.queue_dir):
+            logger.warning(f"[-] no queue for {fuzzing_info.harness_path}, skipping")
+            continue
+        replay_tasks += [
+            (fuzzing_info.harness_path, os.path.join(fuzzing_info.queue_dir, file))
+            for file in os.listdir(fuzzing_info.queue_dir)
+            if ".state" not in file
+        ]
 
     @retry(
         retry=retry_if_exception_type(RuntimeError),
@@ -95,7 +102,7 @@ def gen_coverage_files(
                 f"[+] Docker command: docker exec {container_name} ./df_fuzz.sh {harness_path} {org_seed_path} {df_reg_hash} {seed_path}"
             )
             result = subprocess.run(
-                f"sudo docker exec {container_name} ./df_fuzz.sh {harness_path} {org_seed_path} {df_reg_hash} {seed_path}",
+                f"{SUDO}docker exec {container_name} ./df_fuzz.sh {harness_path} {org_seed_path} {df_reg_hash} {seed_path}",
                 shell=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
@@ -105,7 +112,7 @@ def gen_coverage_files(
                 f"[+] Docker command: docker exec {container_name} ./fuzz.sh {harness_path} {seed_path}"
             )
             result = subprocess.run(
-                f"sudo docker exec {container_name} ./fuzz.sh {harness_path} {seed_path}",
+                f"{SUDO}docker exec {container_name} ./fuzz.sh {harness_path} {seed_path}",
                 shell=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
@@ -204,7 +211,14 @@ def collect_cov_denominator(
     assert (
         len(org_fuzzing_info) == 1
     ), f"Expected 1 fuzzing info for {ta} during vanilla fuzzing, got {len(org_fuzzing_info)}"
-    partial_cov = _analyze_cfg_ta(org_fuzzing_info[0])
+    try:
+        partial_cov = _analyze_cfg_ta(org_fuzzing_info[0])
+    except FileNotFoundError as e:
+        # No CFG for this TA (ghidra/analyze-bbs.sh has not been run for it, or
+        # the TA is a copy without its bbs/ directory next to it). Skip it
+        # instead of losing the whole figure.
+        logger.warning(f"[-] no CFG for {org_fuzzing_info[0].ta_rpath}: {e}; skipping")
+        return None, []
     all_fuzzing_info.extend(org_fuzzing_info)
 
     if fuzz_mode == FuzzMode.DF or fuzz_mode == FuzzMode.ALL:

@@ -2,9 +2,13 @@ import os
 from tqdm import tqdm
 from dataclasses import dataclass
 import subprocess
+import sys
 import re
 from enum import Enum
 from loguru import logger
+# Running as root (inside the AE controller container) there is no sudo.
+SUDO = "" if os.geteuid() == 0 else "sudo "
+
 from cachetools import TTLCache, cached
 from typing import Iterable, Dict
 import json
@@ -17,6 +21,9 @@ only_foo_under_queue_cache = TTLCache(maxsize=100, ttl=60 * 60)
 
 @cached(only_foo_under_queue_cache)
 def only_foo_under_queue(queue_dir: str):
+    if not os.path.isdir(queue_dir):
+        # never fuzzed (e.g. a PoC-only harness): nothing to replay
+        return True
     return all("foo" in file for file in os.listdir(queue_dir))
 
 
@@ -245,7 +252,7 @@ class DockerPool:
         self.param_str = param_str
 
         ps = subprocess.run(
-            f"sudo docker ps -q --filter ancestor={self.image_name}",
+            f"{SUDO}docker ps -q --filter ancestor={self.image_name}",
             shell=True,
             capture_output=True,
         )
@@ -254,16 +261,22 @@ class DockerPool:
             logger.info(
                 f"[-] Do you want to remove the {self.image_name}-related containers and continue? (y/N)"
             )
-            reply = input().lower()
+            # Non-interactive callers (the AE driver, CI) cannot answer the
+            # prompt; stale containers of our own image are always safe to drop.
+            if sys.stdin.isatty():
+                reply = input().lower()
+            else:
+                reply = "y"
+                logger.info("[-] stdin is not a terminal, removing them")
             if reply == "y":
                 subprocess.run(
-                    f"sudo docker ps | grep {self.image_name} | awk '{{print $1}}' | xargs sudo docker rm -f",
+                    f"{SUDO}docker ps | grep {self.image_name} | awk '{{print $1}}' | xargs {SUDO}docker rm -f",
                     shell=True,
                     capture_output=True,
                 )
 
     def _inspect_state(self, name: str) -> dict:
-        out = subprocess.check_output(["sudo", "docker", "inspect", name], text=True)
+        out = subprocess.check_output((["sudo"] if SUDO else []) + ["docker", "inspect", name], text=True)
         return json.loads(out)[0]["State"]
 
     def wait_all_healthy(
@@ -301,12 +314,16 @@ class DockerPool:
         for i in range(self.num_containers):
             container_name = f"{self.image_name}_{i}"
             subprocess.run(
-                f"sudo docker run -it -e TERM=xterm-256color -d --name {container_name} {self.param_str} --ulimit core=-1 {self.image_name} bash &>/dev/null",
+                # `&>` is bash syntax; subprocess uses /bin/sh (dash), where it backgrounds
+                # the command instead of redirecting - the pool then inspected containers
+                # that did not exist yet.
+                f"{SUDO}docker run -it -e TERM=xterm-256color -d --name {container_name} "
+                f"{self.param_str} --ulimit core=-1 {self.image_name} bash >/dev/null 2>&1",
                 shell=True,
             )
             container_names.append(container_name)
 
-        while self.image_name not in subprocess.check_output(["sudo", "docker", "ps"]).decode():
+        while self.image_name not in subprocess.check_output((["sudo"] if SUDO else []) + ["docker", "ps"]).decode():
             time.sleep(3)
 
         logger.info(f"[+] All {self.num_containers} containers are created")
@@ -315,6 +332,6 @@ class DockerPool:
     def __exit__(self, exc_type, exc_value, traceback):
         for i in range(self.num_containers):
             subprocess.run(
-                f"sudo docker rm -f {self.image_name}_{i}",
+                f"{SUDO}docker rm -f {self.image_name}_{i}",
                 shell=True,
             )

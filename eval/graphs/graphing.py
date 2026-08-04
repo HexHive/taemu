@@ -316,14 +316,22 @@ def org_control_flow_graph(
         if show_rate:
             ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.0f}%"))
 
-        ax.set_xlim(0, 24)
-
-        # Set x-axis ticks at 4 hour intervals: 0, 4, 8, 12, 16, 20, 24
-        tick_positions = list(range(0, 25, 4))
+        # The axis follows the campaign length instead of a fixed 24 h: a
+        # shorter run (e.g. an artifact evaluation) would otherwise be squeezed
+        # into the left edge of a 24 h axis.
+        hours = max(max_timestamps / 3600.0, max(x_values) if x_values else 0.0)
+        hours = hours or 1.0
+        ax.set_xlim(0, hours)
+        tick_positions = [hours * i / 6.0 for i in range(7)]
         ax.set_xticks(tick_positions)
-        ax.set_xticklabels(
-            [str(t) for t in tick_positions], rotation=45, ha="right", fontsize=8
-        )
+        # Below two hours the axis is labelled in minutes; "0.166667 hours" is
+        # not a useful tick label.
+        if hours <= 2:
+            labels = [f"{t * 60:.0f}" for t in tick_positions]
+            ax.set_xlabel("Duration (minutes)", fontsize=10, fontweight="bold")
+        else:
+            labels = [f"{t:.1f}" for t in tick_positions]
+        ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=8)
 
     # Hide unused subplots
     for idx in range(num_plots, len(axes)):

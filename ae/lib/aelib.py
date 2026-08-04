@@ -306,11 +306,16 @@ def stage_harness(src_harness, dst, seeds=(), crashes=()):
     """
     os.makedirs(dst, exist_ok=True)
     shutil.copy(os.path.join(src_harness, "harness.py"), dst)
-    ta = ta_of(src_harness)
+    # The TA is linked, not copied: tools that look for data next to the binary
+    # (e.g. the CFG in <tee>/tas/bbs/ used by eval/graphs) resolve the symlink
+    # and would not find it inside a staged harness.
+    ta = os.path.realpath(ta_of(src_harness))
     base = ta[: -len(".ta")]
-    shutil.copy(ta, os.path.join(dst, os.path.basename(ta)))
-    if os.path.exists(base + ".json"):
-        shutil.copy(base + ".json", os.path.join(dst, os.path.basename(base) + ".json"))
+    for f in (ta, base + ".json"):
+        if os.path.exists(f):
+            link = os.path.join(dst, os.path.basename(f))
+            if not os.path.exists(link):
+                os.symlink(os.path.relpath(f, dst), link)
     for extra in ("init_fuzz.py",):
         p = os.path.join(src_harness, extra)
         if os.path.exists(p):

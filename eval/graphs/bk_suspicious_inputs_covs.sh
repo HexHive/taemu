@@ -6,7 +6,11 @@ if [ "$#" -ne 2 ]; then
   exit 1
 fi
 
-command -v pv && echo "pv is installed" || apt-get install -y pv
+# pv only draws a progress bar; do not fail if it is unavailable
+if ! command -v pv >/dev/null 2>&1; then
+  apt-get install -y pv >/dev/null 2>&1 || true
+fi
+if command -v pv >/dev/null 2>&1; then PV="pv -l -s"; else PV=""; fi
 
 
 BACK_DIR=$(realpath $2)
@@ -27,7 +31,8 @@ find $ROOT_DIR -path "*harness/*/out/cov/run:id:*.cov" > "$LIST_FILE"
 TOTAL="$(grep -cve '^[[:space:]]*$' "$LIST_FILE" || true)"
 
 echo "[2] Backing up suspicious_inputs_covs files"
-pv -l -s "$TOTAL" "$LIST_FILE" | while IFS= read -r src; do
+if [ -n "$PV" ]; then FEED="pv -l -s $TOTAL $LIST_FILE"; else FEED="cat $LIST_FILE"; fi
+$FEED | while IFS= read -r src; do
 
   [ -z "$src" ] && continue
 
