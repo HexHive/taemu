@@ -37,7 +37,7 @@ summary of that campaign.
 | C3 | Fetch-Anchored Fuzzing turns overlapped fetches into crashes (Sec. III-B) | `e2_faf` | ~45 min |
 | C4 | Distillation keeps only crashes that require the shared-memory race (Sec. III-C) | `e3_distillation` | ~10 min |
 | C1 | Table I: TAs, overlapped fetches, snapshots, crashes, distilled crashes | `e4_table1` | ~1 min |
-| C5 | **Table II: six 0-day TOCTTOU vulnerabilities in five TAs** | `e5_vulns` | ~15 min |
+| C5 | **Table II: six 0-day TOCTTOU vulnerabilities in five TAs**, reproduced by racing the TA with the PoC of each vulnerability | `e5_vulns` | ~15 min |
 | C6 | Table IV: TAs written in Rust are affected as well (Sec. VI) | `e6_rust` | ~10 min |
 | C7 | Table V: only ~11 % of fuzzing iterations execute a double fetch (Sec. VIII-c) | `e7_reshaping` | ~1 min |
 | C8 | Figures 4 and 5: coverage of Exploration and of Fetch-Anchored Fuzzing | `e8_figures` | ~2 min |
@@ -163,10 +163,38 @@ is the set of TAs that have a harness, which already matches the paper (9/3/3/10
 
 ### `e5_vulns` — Table II *(main experiment)*
 
-For each of the six vulnerabilities, restores the snapshot, injects the crashing
-value, records the observed memory-safety violation and runs Distillation. The
-"reproduced on device" column is quoted from the paper (Section V) because it
-needs the rooted phones of Table III.
+Runs the **proof-of-concept client of each vulnerability against the emulator**.
+Built with `-DEMULATE` the PoC does not talk to a TEE driver but to the
+emulator, which serves the GlobalPlatform client protocol on TCP port 1337 and
+backs every `memref` with real System V shared memory
+(`emulator/emulate/ta_mgr.py:start_interactive`, started by `emulator/run.sh`).
+The PoC opens a session, spawns the thread that keeps modifying the shared
+buffer and invokes the vulnerable command — it races the TA exactly as it does
+on a phone (Listing 2). When it wins the race the TA corrupts memory and the
+emulator reports the violation; that is what the experiment checks.
+
+Winning the race is probabilistic, so each PoC is retried up to `--attempts`
+times (default `AE_POC_ATTEMPTS=10`), with a fresh emulator per attempt so that
+no state from a previous run can be mistaken for a crash.
+
+```sh
+./ae.sh e5_vulns                        # PoCs against the emulator
+./ae.sh e5_vulns --attempts 40          # narrow race windows need more tries
+./ae.sh e5_vulns --replay               # instead replay the crashing input that
+                                        # Fetch-Anchored Fuzzing found (needs the
+                                        # campaign data, see §9)
+```
+
+The "reproduced on device" column is quoted from the paper (Section V) because
+it needs the rooted phones of Table III.
+
+Current state: five of the six vulnerabilities reproduce this way (SoterApp,
+Mlipay, VSIMApp oob write, VSIMApp double free, FbSkmR), typically within a
+handful of attempts. The **ifaa-key** PoC does not win the race inside the
+emulator even with 40 attempts; that vulnerability is reproduced with
+`./ae.sh e5_vulns --replay --only beanpod_0801_oob_read`, where Distillation
+also confirms that it needs the shared-memory race. It is the same entry the
+paper could not reproduce on a device, because no test phone ships the TA.
 
 ### `e6_rust` — Table IV
 

@@ -65,6 +65,28 @@ image) are now honoured everywhere; both keep their old defaults.
 * `eval/deduplicate.py`: with `TAEMU_KEEP_REDIS=1` it no longer tears down the
   shared redis container when it exits (the AE driver owns it).
 
+## The emulator's client-serving mode (used by the PoCs)
+
+`emulator/run.sh` puts the emulator into interactive mode, where it serves the
+GlobalPlatform client protocol on TCP 1337 so that a PoC built with `-DEMULATE`
+can drive the TA. That path had rotted:
+
+* `start_interactive()` called `breakpoint()` unconditionally, so the emulator
+  stopped in pdb instead of serving anything (now behind `TAEMU_DEBUG=1`).
+* After the TA returned, the output sync of `InvokeCommand()` advanced the read
+  pointer by 8 bytes for a value parameter, while `setup_params()` writes 16 on
+  64 bit (a `TEE_Param` is a union of `{a,b}` and `{buffer,size}`) - the
+  condition was inverted. Every parameter after a value parameter was therefore
+  read from the middle of the union, and any PoC with `VALUE + MEMREF` killed
+  the emulator with `UC_ERR_READ_UNMAPPED` right after the invocation.
+* The same loop unmapped whatever pointer the TA had left in
+  `params[i].memref.buffer`; it now unmaps the mapping it created itself.
+* When a client disconnected, the emulator shut down. It now waits for the next
+  one, so a PoC can be retried without restarting the TA.
+
+With those fixed, `ae/ae.sh e5_vulns` reproduces the Table II vulnerabilities by
+racing the TA with the shipped PoCs - no campaign data involved.
+
 ## Data that was missing from the artifact
 
 * `mitee/harness/377e_double_fetch_stackov/harness.py` — reconstructed from the

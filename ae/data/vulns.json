@@ -1,25 +1,24 @@
 {
   "_comment": [
-    "The six TOCTTOU vulnerabilities of Table II, each pinned to the artifact data",
-    "that reproduces it:",
+    "The six TOCTTOU vulnerabilities of Table II.",
     "",
-    "  harness    the fuzzing harness of the affected TA",
-    "  seed       the Exploration seed that reached the overlapped fetch",
-    "             (<harness>/in/suspicious_inputs_replay/<seed>, plus its .meta)",
-    "  reg_hash   register-state hash identifying the second fetch -> the snapshot",
-    "  snapshot   <seed>_<reg_hash>, the directory of the Fetch-Anchored Fuzzing run",
-    "  crash      the crashing shared-memory value found by Fetch-Anchored Fuzzing",
-    "  on_device  whether the paper reproduced it on a phone (Table II, Section V)",
+    "  poc   proof-of-concept client; built with -DEMULATE it talks to the emulator",
+    "        over TCP (emulator/run.sh serves the TEEC_* protocol on port 1337) and",
+    "        races a second thread against the TA on real shared memory, exactly as",
+    "        the on-device PoC does against a phone.",
+    "  ta    the TA the PoC opens a session to.",
     "",
-    "E5 restores the snapshot, injects 'crash' at the second fetch (must crash) and",
-    "then runs Distillation (must NOT crash without the race)."
+    "The remaining fields pin the crash that Fetch-Anchored Fuzzing found for this",
+    "vulnerability. They are only used by 'e5_vulns --replay', which needs the",
+    "campaign data (not part of the git repository):",
+    "  seed/reg_hash/snapshot/crash - the Exploration seed, the second fetch and",
+    "  the crashing shared-memory value."
   ],
   "vulnerabilities": [
     {
       "id": "mitee_377e_stack_overflow",
       "tee": "MiTEE",
       "uuid": "377ee4e8-af0e-474f-a9d636a9268fe85c",
-      "ta": "SoterApp",
       "vuln": "stack overflow",
       "on_device": true,
       "harness": "mitee/harness/377e_double_fetch_stackov",
@@ -27,13 +26,15 @@
       "reg_hash": "205374383998289612021010690897642464208",
       "snapshot": "run:id:d3b07384d113edec49eaa6238ad5ff00_205374383998289612021010690897642464208",
       "crash": "mitee/harness/377e_double_fetch_stackov/df_fuzz/run:id:d3b07384d113edec49eaa6238ad5ff00_205374383998289612021010690897642464208/out/default/crashes/id:000000,sig:06,src:000001,time:34632,execs:1605,op:havoc,rep:56",
-      "note": "Listing 3: strlen on the shared buffer, then strcpy of a longer string"
+      "note": "Listing 3: strlen on the shared buffer, then strcpy of a longer string",
+      "poc": "mitee/pocs/377e_double_fetch_stackov",
+      "ta_name": "SoterApp",
+      "ta_path": "mitee/tas/377ee4e8-af0e-474f-a9d636a9268fe85c.ta"
     },
     {
       "id": "mitee_88ce_oob_read",
       "tee": "MiTEE",
       "uuid": "88ce8e6b-8646-4092-bb78faf5b55ff4df",
-      "ta": "Mlipay",
       "vuln": "oob read",
       "on_device": true,
       "harness": "mitee/harness/88ce_fuzz",
@@ -41,13 +42,15 @@
       "reg_hash": "266958053740865797041837747455367766952",
       "snapshot": "run:id:9e688c58a5487b8eaf69c9e1005ad0bf_266958053740865797041837747455367766952",
       "crash": "mitee/harness/88ce_fuzz/df_fuzz/run:id:9e688c58a5487b8eaf69c9e1005ad0bf_266958053740865797041837747455367766952/out/default/crashes/id:000000,sig:06,src:000001,time:316,execs:35,op:havoc,rep:4",
-      "note": ""
+      "note": "",
+      "poc": "mitee/pocs/88ce_df_oobr",
+      "ta_name": "Mlipay",
+      "ta_path": "mitee/tas/88ce8e6b-8646-4092-bb78faf5b55ff4df.ta"
     },
     {
       "id": "qsee_3d08_oob_write",
       "tee": "MiTEE,QSEE",
       "uuid": "3d08821c-33a6-11e6-a1fa089e01c83aa2",
-      "ta": "VSIMApp",
       "vuln": "oob write",
       "on_device": true,
       "harness": "qsee/harness/3d08_fuzz",
@@ -55,13 +58,15 @@
       "reg_hash": "125044481400852505527730511674166152180",
       "snapshot": "run:id:6cd79aec390a704695051627b696a3ad_125044481400852505527730511674166152180",
       "crash": "qsee/harness/3d08_fuzz/df_fuzz/run:id:6cd79aec390a704695051627b696a3ad_125044481400852505527730511674166152180/out/default/crashes/id:000000,sig:06,src:000001,time:243,execs:31,op:quick,pos:0",
-      "note": "on device only reproducible on MiTEE, no QSEE test device ships this TA"
+      "note": "on device only reproducible on MiTEE, no QSEE test device ships this TA",
+      "poc": "mitee/pocs/3d08_df_memsetoob",
+      "ta_name": "VSIMApp",
+      "ta_path": "mitee/tas/3d08821c-33a6-11e6-a1fa089e01c83aa2.ta"
     },
     {
       "id": "qsee_3d08_double_free",
       "tee": "MiTEE,QSEE",
       "uuid": "3d08821c-33a6-11e6-a1fa089e01c83aa2",
-      "ta": "VSIMApp",
       "vuln": "double free",
       "on_device": true,
       "harness": "qsee/harness/3d08_fuzz",
@@ -69,13 +74,15 @@
       "reg_hash": "159073836618441928768006548873897641616",
       "snapshot": "run:id:6cd79aec390a704695051627b696a3ad_159073836618441928768006548873897641616",
       "crash": "qsee/harness/3d08_fuzz/df_fuzz/run:id:6cd79aec390a704695051627b696a3ad_159073836618441928768006548873897641616/out/default/crashes/id:000000,sig:06,src:000001,time:256,execs:31,op:quick,pos:0",
-      "note": "on device only reproducible on MiTEE, no QSEE test device ships this TA"
+      "note": "on device only reproducible on MiTEE, no QSEE test device ships this TA",
+      "poc": "mitee/pocs/3d08_doublefree",
+      "ta_name": "VSIMApp",
+      "ta_path": "mitee/tas/3d08821c-33a6-11e6-a1fa089e01c83aa2.ta"
     },
     {
       "id": "beanpod_0801_oob_read",
       "tee": "Kinibi,Beanpod",
       "uuid": "08010203000000000000000000000000",
-      "ta": "ifaa-key",
       "vuln": "oob read",
       "on_device": false,
       "harness": "beanpod/harness/0801_fuzz",
@@ -83,13 +90,16 @@
       "reg_hash": "136434892458543670419172517310157985751",
       "snapshot": "run:id:1376d84cebfb4ee656fc9380ae7088d4_136434892458543670419172517310157985751",
       "crash": "beanpod/harness/0801_fuzz/df_fuzz/run:id:1376d84cebfb4ee656fc9380ae7088d4_136434892458543670419172517310157985751/out/default/crashes/id:000000,sig:06,src:000001,time:372,execs:43,op:havoc,rep:6",
-      "note": "none of our test devices ships this TA, so it was not reproduced on device"
+      "note": "none of our test devices ships this TA, so it was not reproduced on device",
+      "poc": "beanpod/pocs/0801_df_oob",
+      "ta_name": "ifaa-key",
+      "ta_path": "beanpod/tas/08010203000000000000000000000000.ta",
+      "poc_note": "The PoC does not win the race against this TA inside the emulator (40 attempts, see ae/results/e5_vulns/logs). The vulnerability itself reproduces with --replay, and Distillation confirms it needs the race. This is the only Table II entry the paper could not reproduce on a device either, because no test phone ships the TA."
     },
     {
       "id": "teegris_4662_oob_read",
       "tee": "TEEGris",
       "uuid": "00000000-0000-0000-0000-4662436b6d52",
-      "ta": "FbSkmR",
       "vuln": "oob read",
       "on_device": true,
       "harness": "teegris/harness/4662436b6d52_fuzz",
@@ -97,7 +107,10 @@
       "reg_hash": "129502780604978459741496788911848503247",
       "snapshot": "run:id:7dea362b3fac8e00956a4952a3d4f474_129502780604978459741496788911848503247",
       "crash": "teegris/harness/4662436b6d52_fuzz/df_fuzz/run:id:7dea362b3fac8e00956a4952a3d4f474_129502780604978459741496788911848503247/out/default/crashes/id:000000,sig:06,src:000001,time:95532,execs:132,op:havoc,rep:3",
-      "note": "Listing 4: length is checked on the first fetch and used on the second"
+      "note": "Listing 4: length is checked on the first fetch and used on the second",
+      "poc": "teegris/pocs/4662_FbCkmR_df",
+      "ta_name": "FbSkmR",
+      "ta_path": "teegris/tas/00000000-0000-0000-0000-4662436b6d52.ta"
     }
   ]
 }

@@ -564,10 +564,20 @@ class TAEMU:
                 params_mem_read += 4
                 param.b = int.from_bytes(self.ql.mem.read(params_mem_read, 4), "little")
                 params_mem_read += 4
-                if self.ql.arch.pointersize == 4:
+                # A TEE_Param is a union: {a,b} (2 x u32) or {buffer,size}
+                # (2 x pointer). On 64 bit that makes it 16 bytes, so a value
+                # parameter is followed by 8 bytes of padding - exactly what
+                # setup_params() writes. Advancing by 8 here (the condition used
+                # to be inverted) desynchronised every parameter after a value
+                # parameter, so a PoC with VALUE + MEMREF read its memref
+                # pointer from the middle of the union and the emulator died
+                # with UC_ERR_READ_UNMAPPED after the TA returned.
+                if self.ql.arch.pointersize != 4:
                     params_mem_read += 8
             elif isinstance(param, MemRefParam):
-                pybuf = self.ql.mem.read_ptr(params_mem_read)
+                # For shared buffers keep the mapping created by setup_params:
+                # the TA may legitimately overwrite params[i].memref.buffer.
+                pybuf = getattr(param, "shm_pybuf", None) or self.ql.mem.read_ptr(params_mem_read)
                 param.buf = bytes(self.ql.mem.read(pybuf, param.size))
                 self.ql.mem.unmap(pybuf, (param.size + 0xFFF) & ~0xFFF)
                 params_mem_read += self.ql.arch.pointersize * 2
@@ -647,7 +657,10 @@ class TAEMU:
         shmdt = libc.shmdt
         shmdt.restype = c_int
         shmdt.argtypes = (c_void_p,)
-        breakpoint()
+        # Interactive mode serves a normal-world client over TCP (see below), so
+        # it must not stop in the debugger unless that is explicitly asked for.
+        if os.environ.get("TAEMU_DEBUG"):
+            breakpoint()
         ret = self.CreateEntryPoint()
         if ret != TEE_SUCCESS:
             self.ql.log.warning(f"CreateEntryPoint ret != TEE_SUCCESS {hex(ret)}")
@@ -666,7 +679,17 @@ class TAEMU:
             data = client_socket.recv(1024)
             self.ql.log.debug(f"Recv {data}")
             if len(data) == 0:
-                return
+                # The client is gone. Triggering a TOCTTOU vulnerability takes
+                # several attempts (the racing thread has to hit the window
+                # between the two fetches), so keep the TA alive and serve the
+                # next run of the PoC instead of shutting down. The emulator
+                # still dies when the TA itself crashes - which is the signal
+                # the PoC is looking for.
+                self.ql.log.debug("CA disconnected, waiting for the next client")
+                client_socket.close()
+                (client_socket, address) = sock.accept()
+                self.ql.log.debug(f"CA connected from {address}")
+                continue
             (f, l, d) = parse_msg(data)
 
             if (
