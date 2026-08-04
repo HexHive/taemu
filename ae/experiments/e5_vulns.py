@@ -199,7 +199,7 @@ def replay_crash(entry):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", nargs="*", help="only these vulnerability ids")
-    ap.add_argument("--attempts", type=int, default=int(ae.cfg("AE_POC_ATTEMPTS", "10")),
+    ap.add_argument("--attempts", type=int, default=int(ae.cfg("AE_POC_ATTEMPTS", "15")),
                     help="how often the PoC is run before giving up on the race")
     ap.add_argument("--replay", action="store_true",
                     help="replay the crashing input of the campaign instead of "
@@ -228,8 +228,8 @@ def main():
         row = [r["tee"], r["uuid"], r["ta_name"], r["vuln"], "yes" if r["reproduced"] else "NO",
                ",".join(r.get("indicators", [])) or "-",
                {True: "yes", False: "no", None: "n/a"}[r.get("on_device")]]
-        if args.replay:
-            row.insert(5, "yes" if r.get("distilled") else "no")
+        row.insert(5, ("yes" if r.get("distilled") else "no") if args.replay
+                      else r.get("attempts", 0))
         rows.append(row)
 
     headers = ["TEE", "TA UUID", "TA Name", "DF Vulnerability",

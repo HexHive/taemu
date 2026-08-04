@@ -188,26 +188,12 @@ no state from a previous run can be mistaken for a crash.
 The "reproduced on device" column is quoted from the paper (Section V) because
 it needs the rooted phones of Table III.
 
-Current state: five of the six vulnerabilities reproduce this way (SoterApp,
-Mlipay, VSIMApp oob write, VSIMApp double free, FbSkmR), typically within a
-handful of attempts — for those five the field the PoC races is the one the
-campaign recorded as double-fetched (for FbSkmR, for instance, both are offset
-0x4 of the shared buffer).
-
-The **ifaa-key** PoC is the exception, and not because of race timing: it
-modifies offset ~0xffc of the shared buffer, while every double fetch recorded
-for that TA lies in its first 32 bytes (0x17, 0x1b, 0x1f). It never writes the
-byte that is double-fetched, so no number of attempts can trigger the bug —
-most likely the PoC targets the Kinibi build of the TA (Table II lists it as
-`Kinibi,Beanpod`) while the emulated binary is the Beanpod one. Reproduce that
-entry with
-
-```sh
-./ae.sh e5_vulns --replay --only beanpod_0801_oob_read
-```
-
-which injects the crashing value at the recorded second fetch and confirms via
-Distillation that it needs the shared-memory race.
+All six reproduce this way, in each case by racing the very field that
+Exploration recorded as double-fetched — for FbSkmR and ifaa-key, for instance,
+the offset the PoC writes is exactly the offset of the recorded second fetch.
+How many runs a PoC needs varies between runs of the experiment (1-13 in ours),
+which is why the default budget is `AE_POC_ATTEMPTS=15`; the table reports the
+number of runs each vulnerability took.
 
 ### `e6_rust` — Table IV
 

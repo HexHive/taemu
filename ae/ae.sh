@@ -99,6 +99,7 @@ run_in_controller() {
         -e "AE_FAF_TIME=$AE_FAF_TIME" \
         -e "AE_FAF_MAX_SNAPSHOTS=$AE_FAF_MAX_SNAPSHOTS" \
         -e "AE_SUBSET=$AE_SUBSET" \
+        -e "AE_POC_ATTEMPTS=${AE_POC_ATTEMPTS:-15}" \
         -e "PYTHONPATH=$REPO_DIR/ae/lib:$REPO_DIR/eval" \
         -e "TAEMU_KEEP_REDIS=1" \
         -e "AE_HOST_UID=$(id -u)" -e "AE_HOST_GID=$(id -g)" \

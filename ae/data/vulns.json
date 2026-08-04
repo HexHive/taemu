@@ -94,7 +94,7 @@
       "poc": "beanpod/pocs/0801_df_oob",
       "ta_name": "ifaa-key",
       "ta_path": "beanpod/tas/08010203000000000000000000000000.ta",
-      "poc_note": "The shipped PoC does not reproduce this vulnerability in the emulator, and not because of race timing: it modifies cs->buffer[0x1000/4-2], i.e. roughly offset 0xffc of the shared buffer, while every double fetch Exploration recorded for this TA is in its first 32 bytes (offsets 0x17, 0x1b and 0x1f - the crash pinned here is a 1-byte second fetch at 0x1b, which Fetch-Anchored Fuzzing crashes with 0xc0). The PoC therefore never writes the byte that is double-fetched. Most likely it targets the Kinibi build of the TA (Table II lists it as Kinibi,Beanpod) or a different command than the harness uses; the emulated binary is the Beanpod one. Until that is resolved, reproduce this entry with 'e5_vulns --replay', which also gets the Distillation verdict that the crash needs the shared-memory race."
+      "poc_note": "The emulator path of this PoC used to modify cs->buffer[0x1000/4-2] of the *output* buffer (offset ~0xffc), while the double fetch is the TLV length at 0x1a-0x1b of the *input* buffer: the TA validates that length and re-reads it before use (the reads at PC 0xe368/0xe36c). The PoC now builds the header of the Exploration seed that reaches that parser and races the high byte of the length between 0x00 (validated 0x0004) and 0xc0 (0xc004), which makes the TA read past the end of the buffer. The device path of the PoC is unchanged."
     },
     {
       "id": "teegris_4662_oob_read",
