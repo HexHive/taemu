@@ -1,0 +1,27 @@
+{
+  "buildFiles": [
+    "/home/philipp/ta_emu/TA_GP_emulator/mitee/pocs/377e_stackov/attack_app/app/src/main/cpp/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/home/philipp/Android/Sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/home/philipp/ta_emu/TA_GP_emulator/mitee/pocs/377e_stackov/attack_app/app/.cxx/RelWithDebInfo/4816711h/x86_64",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/home/philipp/Android/Sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/home/philipp/ta_emu/TA_GP_emulator/mitee/pocs/377e_stackov/attack_app/app/.cxx/RelWithDebInfo/4816711h/x86_64",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "ohgreat::@6890427a1f51a3e7e1df": {
+      "artifactName": "ohgreat",
+      "abi": "x86_64",
+      "output": "/home/philipp/ta_emu/TA_GP_emulator/mitee/pocs/377e_stackov/attack_app/app/build/intermediates/cxx/RelWithDebInfo/4816711h/obj/x86_64/libohgreat.so",
+      "runtimeFiles": []
+    }
+  }
+}

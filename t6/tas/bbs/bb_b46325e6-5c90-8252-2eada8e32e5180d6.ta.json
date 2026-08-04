@@ -1,0 +1,700 @@
+{
+    "0x2002b0": {
+        "function": "0x2002b0",
+        "nodes": []
+    },
+    "0x2002d0": {
+        "function": "0x2002d0",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "002002d0",
+                "end": "002002e1",
+                "calls": [
+                    {
+                        "func": "00211938",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_4",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "002002e2",
+                "end": "002002eb",
+                "calls": [
+                    {
+                        "func": "00209cc4",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_5",
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "002002ec",
+                "end": "002002f3",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_6",
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "002002f4",
+                "end": "00200303",
+                "calls": [
+                    {
+                        "func": "002119e8",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_4",
+                "start": "00200304",
+                "end": "0020030f",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_5",
+                "start": "00200310",
+                "end": "00200333",
+                "calls": [
+                    {
+                        "func": "debug_log",
+                        "api": true,
+                        "api_type": "tee_std"
+                    },
+                    {
+                        "func": "002119e8",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_6",
+                "start": "00200334",
+                "end": "00200399",
+                "calls": [
+                    {
+                        "func": "00217470",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_12",
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_7",
+                "start": "0020039a",
+                "end": "002003a5",
+                "calls": [
+                    {
+                        "func": "00217470",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_11",
+                    "BB_8"
+                ]
+            },
+            {
+                "name": "BB_8",
+                "start": "002003a6",
+                "end": "002003b1",
+                "calls": [
+                    {
+                        "func": "00217470",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_10",
+                    "BB_9"
+                ]
+            },
+            {
+                "name": "BB_9",
+                "start": "002003b2",
+                "end": "002003bb",
+                "calls": [
+                    {
+                        "func": "002174d0",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_10"
+                ]
+            },
+            {
+                "name": "BB_10",
+                "start": "002003bc",
+                "end": "002003c5",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_11",
+                "start": "002003c6",
+                "end": "002003d1",
+                "calls": [
+                    {
+                        "func": "002174d0",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_8"
+                ]
+            },
+            {
+                "name": "BB_12",
+                "start": "002003d2",
+                "end": "002003dd",
+                "calls": [
+                    {
+                        "func": "002174d0",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_7"
+                ]
+            }
+        ]
+    },
+    "0x2003f0": {
+        "function": "0x2003f0",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "002003f0",
+                "end": "002003f3",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "00209cc4": {
+        "function": "00209cc4",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "00209cc4",
+                "end": "00209cc5",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_6",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "00209cc6",
+                "end": "00209cdd",
+                "calls": [
+                    {
+                        "func": "TEE_GetPropertyAsIdentity",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_4",
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "00209cde",
+                "end": "00209cef",
+                "calls": [
+                    {
+                        "func": "TEE_GetPropertyAsU32",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_5",
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "00209cf0",
+                "end": "00209cf7",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_4",
+                "start": "00209cf8",
+                "end": "00209d11",
+                "calls": [
+                    {
+                        "func": "debug_log",
+                        "api": true,
+                        "api_type": "tee_std"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_5",
+                "start": "00209d12",
+                "end": "00209d15",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_6",
+                "start": "00209d16",
+                "end": "00209d1d",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "00211938": {
+        "function": "00211938",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "00211938",
+                "end": "0021193b",
+                "calls": [
+                    {
+                        "func": "TEE_Malloc",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "00217470": {
+        "function": "00217470",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "00217470",
+                "end": "00217475",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_5",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "00217476",
+                "end": "0021747d",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_6",
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "0021747e",
+                "end": "00217481",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "00217482",
+                "end": "00217491",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_5",
+                    "BB_4"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "00217492",
+                "end": "0021749b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_3",
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_5",
+                "start": "0021749c",
+                "end": "0021749d",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_13",
+                    "BB_6"
+                ]
+            },
+            {
+                "name": "BB_6",
+                "start": "0021749e",
+                "end": "002174ab",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_9",
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_7",
+                "start": "002174ac",
+                "end": "002174ad",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_12"
+                ]
+            },
+            {
+                "name": "BB_8",
+                "start": "002174ae",
+                "end": "002174b9",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_12",
+                    "BB_9"
+                ]
+            },
+            {
+                "name": "BB_9",
+                "start": "002174ba",
+                "end": "002174bd",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_8",
+                    "BB_10"
+                ]
+            },
+            {
+                "name": "BB_10",
+                "start": "002174be",
+                "end": "002174bf",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_11"
+                ]
+            },
+            {
+                "name": "BB_11",
+                "start": "002174c0",
+                "end": "002174c3",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_12",
+                "start": "002174c4",
+                "end": "002174c9",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_13",
+                "start": "002174ca",
+                "end": "002174cd",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_11"
+                ]
+            }
+        ]
+    },
+    "002119e8": {
+        "function": "002119e8",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "002119e8",
+                "end": "002119eb",
+                "calls": [
+                    {
+                        "func": "00215844",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "002174d0": {
+        "function": "002174d0",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "002174d0",
+                "end": "002174d5",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_12",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "002174d6",
+                "end": "002174dd",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_14",
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "002174de",
+                "end": "002174e7",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "002174e8",
+                "end": "00217515",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_3",
+                    "BB_4"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "00217516",
+                "end": "0021752f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_15",
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_5",
+                "start": "00217530",
+                "end": "00217535",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_6"
+                ]
+            },
+            {
+                "name": "BB_6",
+                "start": "00217536",
+                "end": "00217543",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_6",
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_7",
+                "start": "00217544",
+                "end": "00217555",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_8"
+                ]
+            },
+            {
+                "name": "BB_8",
+                "start": "00217556",
+                "end": "00217557",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_13",
+                    "BB_9"
+                ]
+            },
+            {
+                "name": "BB_9",
+                "start": "00217558",
+                "end": "0021755b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_10"
+                ]
+            },
+            {
+                "name": "BB_10",
+                "start": "0021755c",
+                "end": "00217567",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_10",
+                    "BB_11"
+                ]
+            },
+            {
+                "name": "BB_11",
+                "start": "00217568",
+                "end": "00217569",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_12",
+                "start": "0021756a",
+                "end": "0021756d",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_8"
+                ]
+            },
+            {
+                "name": "BB_13",
+                "start": "0021756e",
+                "end": "0021756f",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_14",
+                "start": "00217570",
+                "end": "00217573",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_9"
+                ]
+            },
+            {
+                "name": "BB_15",
+                "start": "00217574",
+                "end": "00217577",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_8"
+                ]
+            }
+        ]
+    },
+    "00215844": {
+        "function": "00215844",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "00215844",
+                "end": "00215847",
+                "calls": [
+                    {
+                        "func": "00215ac4",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "00215ac4": {
+        "function": "00215ac4",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "00215ac4",
+                "end": "00215ac7",
+                "calls": [
+                    {
+                        "func": "TEE_Free",
+                        "api": true,
+                        "api_type": "gp_api"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    }
+}

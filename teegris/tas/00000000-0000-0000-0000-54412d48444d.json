@@ -1,0 +1,24 @@
+{
+	"inline": {
+		"hdm_ICCC_check": {
+			"addr": 60280,
+			"type": "tee"
+		}
+	},
+    "TA_InvokeCommandEntryPoint_start": 71428,
+    "TA_InvokeCommandEntryPoint_end": [
+        72076
+    ],
+    "TA_CreateEntryPoint_start": 70944,
+    "TA_CreateEntryPoint_end": [
+        71060
+    ],
+    "TA_OpenSessionEntryPoint_start": 71184,
+    "TA_OpenSessionEntryPoint_end": [
+        71296
+    ],
+    "TA_CloseSessionEntryPoint_start": 71304,
+    "TA_CloseSessionEntryPoint_end": [71420],
+    "TA_DestroyEntryPoint_start": 71068,
+    "TA_DestroyEntryPoint_end": [71176]
+}

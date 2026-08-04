@@ -1,0 +1,10 @@
+pwntools==4.15.0
+pycryptodome
+colorama
+hexdump
+redis
+concurrent-log-handler
+gmssl
+aiofiles
+loguru
+cachetools

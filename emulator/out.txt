@@ -1,0 +1,77 @@
+Using TA: /srv/optee/harness/59db_fuzz/59db8536-e5e6-11eb-8e9b-a316ce7a6568.ta
+Using harness: /srv/optee/harness/59db_fuzz/harness.py
+Using fuzz input dir: /srv/optee/harness/59db_fuzz/in
+Using fuzz output dir: /srv/optee/harness/59db_fuzz/out
+Replaying seed ../optee/harness/59db_fuzz/in/suspicious_inputs/run:id:0b0a771c9b75f95a2dfb3cfbe0167aed ...
+[*] '/srv/emulator/rootfs/59db8536-e5e6-11eb-8e9b-a316ce7a6568.ta'
+    Arch:       aarch64-64-little
+    RELRO:      No RELRO
+    Stack:      Canary found
+    NX:         NX enabled
+    PIE:        PIE enabled
+    Stripped:   No
+[+] Error creating Redis queue: Error 111 connecting to localhost:6379. Connection refused.; Disable recording feature... [+]
+[+] Starting all the processes... [+]
+[+] Recorder is disabled and stopped automatically... [+]
+[+] Loaded TA rootfs/59db8536-e5e6-11eb-8e9b-a316ce7a6568.ta for TEE optee with Qiling 105/201
+  relocation at 0x204f8, type=1027, addend=111208
+  relocation at 0x20508, type=1027, addend=111856
+  relocation at 0x20518, type=1027, addend=111870
+  relocation at 0x20528, type=1027, addend=111890
+  relocation at 0x20538, type=1027, addend=111911
+  relocation at 0x20548, type=1027, addend=111926
+  relocation at 0x20558, type=1027, addend=111948
+  relocation at 0x20568, type=1027, addend=111984
+  relocation at 0x20578, type=1027, addend=111985
+  relocation at 0x20588, type=1027, addend=112014
+  relocation at 0x20598, type=1027, addend=112020
+  relocation at 0x205a8, type=1027, addend=112017
+  relocation at 0x205b0, type=1027, addend=112042
+  relocation at 0x205c0, type=1027, addend=112018
+  relocation at 0x205c8, type=1027, addend=112062
+  relocation at 0x205d8, type=1027, addend=112019
+  relocation at 0x205e0, type=1027, addend=112087
+  relocation at 0x205f0, type=1027, addend=111212
+  relocation at 0x205f8, type=1027, addend=112119
+  relocation at 0x20608, type=1027, addend=111216
+  relocation at 0x20610, type=1027, addend=112136
+  relocation at 0x20620, type=1027, addend=112151
+  relocation at 0x20628, type=1027, addend=112157
+  relocation at 0x20638, type=1027, addend=112176
+  relocation at 0x20640, type=1027, addend=1084
+  relocation at 0x20658, type=1027, addend=1100
+  relocation at 0x20660, type=1027, addend=112217
+  relocation at 0x20678, type=1027, addend=112491
+  relocation at 0x20688, type=1027, addend=112509
+  relocation at 0x20698, type=1027, addend=112103
+  relocation at 0x206a8, type=1027, addend=112509
+  relocation at 0x206b8, type=1027, addend=112543
+  relocation at 0x206c8, type=1027, addend=112569
+  relocation at 0x206d8, type=1027, addend=112587
+  relocation at 0x206e8, type=1027, addend=112885
+  relocation at 0x20700, type=1027, addend=112965
+  relocation at 0x20710, type=1027, addend=112983
+  relocation at 0x20720, type=1027, addend=113002
+  relocation at 0x20730, type=1027, addend=112885
+  relocation at 0x20748, type=1027, addend=7108
+  relocation at 0x20760, type=1027, addend=7112
+  relocation at 0x20768, type=1027, addend=6692
+  relocation at 0x20770, type=1027, addend=7072
+  relocation at 0x20778, type=1027, addend=113023
+  relocation at 0x20788, type=1027, addend=113049
+  relocation at 0x207a8, type=1027, addend=133024
+  relocation at 0x207b8, type=1027, addend=133040
+  relocation at 0x207c0, type=1027, addend=113421
+  relocation at 0x207d0, type=1027, addend=111344
+  relocation at 0x207d8, type=1027, addend=113449
+  relocation at 0x207e8, type=1027, addend=111340
+  relocation at 0x207f0, type=1027, addend=113473
+  relocation at 0x20800, type=1027, addend=111336
+  relocation at 0x20808, type=1027, addend=113501
+  relocation at 0x20818, type=1027, addend=111332
+  relocation at 0x20838, type=1027, addend=133160
+  relocation at 0x20840, type=1027, addend=133160
+  relocation at 0x20870, type=1027, addend=133216
+  relocation at 0x20878, type=1027, addend=133216
+  relocation at 0x208e8, type=1027, addend=39564
+[+] children pids 235135, 235136

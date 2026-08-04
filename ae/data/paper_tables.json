@@ -1,0 +1,64 @@
+{
+  "_comment": "Reference values as printed in the paper. The experiments compare their measurements against these numbers; deviations are reported, never silently hidden.",
+  "table1": {
+    "_columns": ["tas", "tas_no_local_copy", "tas_with_overlapped_fetches", "overlapped_fetches", "overlapped_fetches_merged", "crashes", "crashes_distilled"],
+    "TEEGris":  [33, 9,  7, 33,      33,     32,  32],
+    "QSEE":     [4,  3,  2, 866145,  1670,   6,   6],
+    "Kinibi":   [6,  3,  2, 5301,    3256,   123, 7],
+    "MiTEE":    [12, 10, 8, 41918,   10469,  44,  8],
+    "Beanpod":  [11, 5,  4, 1852,    1804,   125, 9],
+    "all":      [66, 30, 23, 913249, 17232,  330, 62]
+  },
+  "table2": [
+    {"tee": "MiTEE",          "uuid": "377ee4e8-af0e-474f-a9d636a9268fe85c",   "ta": "SoterApp", "vuln": "stack overflow", "on_device": true,  "note": ""},
+    {"tee": "TEEGris",        "uuid": "00000000-0000-0000-0000-4662436b6d52", "ta": "FbSkmR",   "vuln": "oob read",       "on_device": true,  "note": ""},
+    {"tee": "MiTEE,QSEE",     "uuid": "3d08821c-33a6-11e6-a1fa089e01c83aa2",  "ta": "VSIMApp",  "vuln": "oob write",      "on_device": true,  "note": "only on MiTEE, no QSEE test device supporting this TA"},
+    {"tee": "MiTEE,QSEE",     "uuid": "3d08821c-33a6-11e6-a1fa089e01c83aa2",  "ta": "VSIMApp",  "vuln": "double free",    "on_device": true,  "note": "only on MiTEE, no QSEE test device supporting this TA"},
+    {"tee": "MiTEE",          "uuid": "88ce8e6b-8646-4092-bb78faf5b55ff4df",  "ta": "Mlipay",   "vuln": "oob read",       "on_device": true,  "note": ""},
+    {"tee": "Kinibi,Beanpod", "uuid": "08010203000000000000000000000000",     "ta": "ifaa-key", "vuln": "oob read",       "on_device": false, "note": "none of the testing devices supports the TA"}
+  ],
+  "table3": [
+    {"tee": "TEEGris", "phone": "Samsung A56 5G",         "zero_copy_shm": true},
+    {"tee": "TEEGris", "phone": "Samsung A16",            "zero_copy_shm": true},
+    {"tee": "TEEGris", "phone": "Samsung S22",            "zero_copy_shm": true},
+    {"tee": "TEEGris", "phone": "Samsung S10",            "zero_copy_shm": true},
+    {"tee": "QSEE",    "phone": "OnePlus 12R",            "zero_copy_shm": true},
+    {"tee": "QSEE",    "phone": "OnePlus Nord 5",         "zero_copy_shm": true},
+    {"tee": "Kinibi",  "phone": "Transsion Pova Pro 5",   "zero_copy_shm": true},
+    {"tee": "Kinibi",  "phone": "Transsion Infinix Note 12", "zero_copy_shm": true},
+    {"tee": "MiTEE",   "phone": "Xiaomi 15T",             "zero_copy_shm": true},
+    {"tee": "MiTEE",   "phone": "Xiaomi Redmi Note 13 5G", "zero_copy_shm": true},
+    {"tee": "Beanpod", "phone": "Xiaomi Redmi Note 11s 5G", "zero_copy_shm": false},
+    {"tee": "Beanpod", "phone": "Xiaomi Redmi 9A",        "zero_copy_shm": false}
+  ],
+  "table4": [
+    {"ta": "message_passing_interface-rs",     "harness": "optee/harness/133a_fuzz", "shm_operation": "serde_json::from_slice",          "double_fetches": 490},
+    {"ta": "eth_wallet",                       "harness": "optee/harness/be2d_fuzz", "shm_operation": "bincode::deserialize",            "double_fetches": 0},
+    {"ta": "mnist-rs",                         "harness": "optee/harness/ff09_fuzz", "shm_operation": "bytemuck::cast_slice",            "double_fetches": 0},
+    {"ta": "udp/tcp_client-rs",                "harness": "optee/harness/1755_fuzz", "shm_operation": "core::str::from_utf8",            "double_fetches": 351},
+    {"ta": "Bitcoin-Wallet-for-Trusted-OS-OPTEE", "harness": "optee/harness/59db_fuzz", "shm_operation": "custom deserialisation and signing", "double_fetches": 1}
+  ],
+  "table5": {
+    "_columns": ["execs", "execs_df", "execs_df_percent"],
+    "SEMeSE":   [24364,    22260,   91],
+    "Mirisikm": [75843,    53027,   69],
+    "SoterApp": [1788240,  1041636, 58],
+    "eID":      [19345,    5215,    27],
+    "GF_TA":    [14741203, 2757134, 18],
+    "FbCkmR":   [568237,   127009,  15],
+    "Mlipay":   [490558,   75528,   15],
+    "ifaa-key": [32143889, 2480790, 7],
+    "fido":     [11938,    866,     7],
+    "paytrigger": [812135, 41193,   5],
+    "VSIMApp":  [3863250,  117860,  3],
+    "HDCP":     [52102,    891,     1],
+    "OTrPAPP":  [6718937,  39572,   0.5]
+  },
+  "campaign": {
+    "explore_seconds_per_ta": 86400,
+    "explore_repetitions": 5,
+    "faf_seconds_per_snapshot": 900,
+    "faf_total_hours": 4330,
+    "exploration_bb_coverage_range_percent": [15, 30]
+  }
+}

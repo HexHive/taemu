@@ -1,0 +1,36 @@
+{
+    "inline": {
+        "get_device_info": {
+            "addr": 38232,
+            "type": "tee"
+        },
+        "paytrigger_aes_cbc": {
+            "addr": 38368,
+            "type": "tee"
+        },
+        "paytrigger_hmac": {
+            "addr": 39968,
+            "type": "tee"
+        }
+    },
+    "TA_InvokeCommandEntryPoint_start": 36900,
+    "TA_InvokeCommandEntryPoint_end": [
+		37384
+    ],
+    "TA_CreateEntryPoint_start": 36844,
+    "TA_CreateEntryPoint_end": [
+		36868 
+    ],
+    "TA_OpenSessionEntryPoint_start": 36872,
+    "TA_OpenSessionEntryPoint_end": [
+		36896 
+    ],
+    "TA_CloseSessionEntryPoint_start": 37884,
+    "TA_CloseSessionEntryPoint_end": [
+		37896 
+    ],
+    "TA_DestroyEntryPoint_start": 37900,
+    "TA_DestroyEntryPoint_end": [
+		37912 
+    ]
+}

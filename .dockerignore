@@ -1,0 +1,7 @@
+# The Docker build context only needs the emulator patch/requirements and the
+# unicornafl shim; everything else (TA corpora, campaign data, PoCs) is
+# bind-mounted at run time via `-v .:/srv`.
+*
+!emulator/qiling.diff
+!emulator/requirements.txt
+!unicornafl.py

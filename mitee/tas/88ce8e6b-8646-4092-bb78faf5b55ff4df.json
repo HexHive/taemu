@@ -1,0 +1,160 @@
+{
+    "inline": {
+        "TEE_FreeTransientObject": {
+            "addr": 199168,
+            "type": "gp_api"
+        },
+        "TEE_ResetTransientObject": {
+            "addr": 199440,
+            "type": "gp_api"
+        },
+        "TEE_PopulateTransientObject": {
+            "addr": 199712,
+            "type": "gp_api"
+        },
+        "TEE_Malloc": {
+            "addr": 197856,
+            "type": "gp_api"
+        },
+        "TEE_GetObjectBufferAttribute": {
+            "addr": 198560,
+            "type": "gp_api"
+        },
+        "TEE_DigestDoFinal": {
+            "addr": 206144,
+            "type": "gp_api"
+        },
+        "TEE_CipherInit": {
+            "addr": 206496,
+            "type": "gp_api"
+        },
+        "TEE_AsymmetricDecrypt": {
+            "addr": 207992,
+            "type": "gp_api"
+        },
+        "TEE_ResetOperation": {
+            "addr": 205328,
+            "type": "gp_api"
+        },
+        "TEE_CloseTASession": {
+            "addr": 197048,
+            "type": "gp_api"
+        },
+        "TEE_InvokeTACommand": {
+            "addr": 197248,
+            "type": "gp_api"
+        },
+        "TEE_SetOperationKey": {
+            "addr": 205584,
+            "type": "gp_api"
+        },
+        "TEE_ReadObjectData": {
+            "addr": 202176,
+            "type": "gp_api"
+        },
+        "TEE_DigestUpdate": {
+            "addr": 205944,
+            "type": "gp_api"
+        },
+        "TEE_GenerateRandom": {
+            "addr": 209296,
+            "type": "gp_api"
+        },
+        "TEE_CloseAndDeletePersistentObject": {
+            "addr": 201968,
+            "type": "gp_api"
+        },
+        "TEE_CopyObjectAttributes": {
+            "addr": 200576,
+            "type": "gp_api"
+        },
+        "TEE_CreatePersistentObject": {
+            "addr": 201616,
+            "type": "gp_api"
+        },
+        "TEE_GetObjectInfo": {
+            "addr": 198320,
+            "type": "gp_api"
+        },
+        "TEE_GenerateKey": {
+            "addr": 201008,
+            "type": "gp_api"
+        },
+        "TEE_AllocateTransientObject": {
+            "addr": 198960,
+            "type": "gp_api"
+        },
+        "TEE_OpenPersistentObject": {
+            "addr": 201288,
+            "type": "gp_api"
+        },
+        "TEE_WriteObjectData": {
+            "addr": 202416,
+            "type": "gp_api"
+        },
+        "TEE_InitRefAttribute": {
+            "addr": 200232,
+            "type": "gp_api"
+        },
+        "TEE_GetPropertyAsUUID": {
+            "addr": 210608,
+            "type": "gp_api"
+        },
+        "TEE_CloseObject": {
+            "addr": 198880,
+            "type": "gp_api"
+        },
+        "TEE_FreeOperation": {
+            "addr": 205176,
+            "type": "gp_api"
+        },
+        "TEE_InitValueAttribute": {
+            "addr": 200408,
+            "type": "gp_api"
+        },
+        "TEE_AllocateOperation": {
+            "addr": 202592,
+            "type": "gp_api"
+        },
+        "TEE_GetSystemTime": {
+            "addr": 197776,
+            "type": "gp_api"
+        },
+        "TEE_AsymmetricSignDigest": {
+            "addr": 208656,
+            "type": "gp_api"
+        },
+        "TEE_CipherDoFinal": {
+            "addr": 206824,
+            "type": "gp_api"
+        },
+        "TEE_OpenTASession": {
+            "addr": 196736,
+            "type": "gp_api"
+        },
+        "tee_get_cpuid": {
+            "addr": 249880,
+            "type": "tee"
+        }
+    },
+    "TA_DestroyEntryPoint_start": 150136,
+    "TA_DestroyEntryPoint_end": [
+        150240
+    ],
+    "TA_OpenSessionEntryPoint_start": 149904,
+    "TA_OpenSessionEntryPoint_end": [
+        150016
+    ],
+    "TA_CreateEntryPoint_start": 149688,
+    "TA_CreateEntryPoint_end": [
+        149900
+    ],
+    "TA_CloseSessionEntryPoint_start": 150024,
+    "TA_CloseSessionEntryPoint_end": [
+        150128
+    ],
+    "TA_InvokeCommandEntryPoint_start": 150248,
+    "TA_InvokeCommandEntryPoint_end": [
+        150540
+    ]
+}

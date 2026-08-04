@@ -1,0 +1,159 @@
+#!/usr/bin/env python3
+"""E7 - Table V: how often a fuzzing iteration actually triggers a double fetch
+(Section VIII-c).
+
+Reshaping-based fuzzers (Morphuzz, EnclaveFuzz) inject data on every read of
+attacker-controlled memory and therefore have to re-execute the target until
+the double fetch happens again. ScHMuzz instead restores a snapshot taken right
+before the second fetch. Table V quantifies the difference: across all
+harnesses, only 11% of the Exploration iterations execute a code path that
+contains a double fetch.
+
+The numbers come from the campaign state:
+  # Execs      execs_done of the Exploration AFL runs (out/*/fuzzer_stats)
+  # Execs DF   executions that produced a shared-memory access trace which
+               the recorder flagged, summed from the recorder's own bookkeeping
+               (<harness>/record_meta/*hash2count.json)
+
+This is what eval/reshaping_cmp.py --print-numbers computes; this experiment
+drives it and renders the table.
+
+Output: ae/results/e7_reshaping/{table5.txt,csv,tex}
+"""
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(os.path.dirname(HERE), "lib"))
+
+import aelib as ae
+import tables
+
+
+def execs_of(afl_dir):
+    stats = os.path.join(afl_dir, "fuzzer_stats")
+    if not os.path.exists(stats):
+        return 0
+    for line in open(stats):
+        if line.startswith("execs_done"):
+            return int(line.split(":")[-1])
+    return 0
+
+
+def harness_numbers(harness):
+    """(executions, executions that hit a double fetch, has recorder data).
+
+    '# Execs DF' can only be computed for a harness whose recorder bookkeeping
+    (record_meta/*hash2count.json) is present. Mixing harnesses that have it
+    with harnesses that do not would put their executions into the denominator
+    and drive the ratio to zero, so the caller drops the latter.
+    """
+    execs = 0
+    out = os.path.join(harness, "out")
+    if os.path.isdir(out):
+        for sub in os.listdir(out):
+            execs += execs_of(os.path.join(out, sub))
+    df_execs = 0
+    meta = os.path.join(harness, "record_meta")
+    if os.path.isdir(meta):
+        for f in os.listdir(meta):
+            if f.endswith("hash2count.json"):
+                try:
+                    for _, v in json.load(open(os.path.join(meta, f))).items():
+                        df_execs += v
+                except Exception:
+                    pass
+    return execs, df_execs, os.path.isdir(meta)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--harnesses", nargs="*", default=None,
+                    help="default: every harness of the artifact")
+    args = ap.parse_args()
+
+    res_dir = os.path.join(ae.RESULTS_DIR, "e7_reshaping")
+    os.makedirs(res_dir, exist_ok=True)
+
+    # The original script prints the same numbers; keep its output for reference.
+    log = os.path.join(res_dir, "reshaping_cmp.log")
+    try:
+        p = subprocess.run(
+            [sys.executable, os.path.join(ae.REPO_DIR, "eval", "reshaping_cmp.py"),
+             "--path", ae.REPO_DIR, "--print-numbers"],
+            cwd=os.path.join(ae.REPO_DIR, "eval"), stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT, timeout=1800,
+            env=dict(os.environ, TAEMU_ROOT=ae.REPO_DIR))
+        open(log, "wb").write(p.stdout or b"")
+    except Exception as e:
+        ae.warn(f"eval/reshaping_cmp.py failed: {e}")
+
+    harnesses = ([os.path.join(ae.REPO_DIR, h) for h in args.harnesses]
+                 if args.harnesses else ae.all_harnesses())
+
+    rows, detail = [], {}
+    t_execs = t_df = 0
+    skipped = []
+    for h in harnesses:
+        execs, df_execs, has_meta = harness_numbers(h)
+        if execs == 0 and df_execs == 0:
+            continue
+        if not has_meta:
+            skipped.append(os.path.relpath(h, ae.REPO_DIR))
+            continue
+        name = os.path.relpath(h, ae.REPO_DIR)
+        pct = (100.0 * df_execs / execs) if execs else 0.0
+        detail[name] = {"execs": execs, "execs_df": df_execs, "percent": round(pct, 1)}
+        rows.append([name, f"{execs:,}", f"{df_execs:,}", f"{pct:.1f}%"])
+        t_execs += execs
+        t_df += df_execs
+    rows.sort(key=lambda r: float(r[3][:-1]), reverse=True)
+    rows.append(None)
+    total_pct = (100.0 * t_df / t_execs) if t_execs else 0.0
+    rows.append(["all", f"{t_execs:,}", f"{t_df:,}", f"{total_pct:.1f}%"])
+
+    tables.write(res_dir, "table5",
+                 ["TA (harness)", "# Execs", "# Execs DF", "Execs DF %"], rows,
+                 title="Table V: executions that trigger an overlapped fetch",
+                 notes=[
+                     "Paper: across all harnesses only 11% of the fuzzing iterations execute a code "
+                     "path containing a double fetch, so a reshaping-based fuzzer would spend the "
+                     "majority of its budget on executions that cannot trigger the bug.",
+                     "Only harnesses whose recorder bookkeeping (<harness>/record_meta/) is present "
+                     "can be counted; the others would contribute executions but no double fetches "
+                     "and are listed below the table instead of being folded into the ratio.",
+                 ],
+                 caption="Overall executions and executions triggering overlapped fetches.",
+                 label="tab:reshaping")
+
+    checks = {
+        "execution counts available": t_execs > 0,
+        "double-fetch executions are a minority": 0 < total_pct < 100,
+    }
+    for k, v in checks.items():
+        ae.verdict(v, k)
+    with_df = sum(1 for v in detail.values() if v["execs_df"])
+    if skipped:
+        ae.warn(f"{len(skipped)} harnesses have fuzzing statistics but no recorder bookkeeping "
+                f"(<harness>/record_meta/*hash2count.json) and are not part of the table:")
+        for h in skipped[:8]:
+            ae.warn(f"  {h}")
+        if len(skipped) > 8:
+            ae.warn(f"  ... and {len(skipped) - 8} more")
+        ae.warn("  run E1 (Exploration) to produce it for the TAs you are evaluating.")
+
+    ae.write_report("e7_reshaping", {"per_harness": detail, "execs": t_execs,
+                                     "execs_df": t_df, "percent": round(total_pct, 1),
+                                     "paper_percent": 11,
+                                     "harnesses_with_data": len(detail),
+                                     "harnesses_skipped": skipped,
+                                     "checks": checks})
+    ae.exit_with(checks)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,41 @@
+# ---------------------------------------------------------------- AE output
+ae/results/
+# working harnesses created by the artifact-evaluation experiments
+*/harness/ae_e*_*
+
+# ------------------------------------------------------------ campaign state
+# Results of a fuzzing campaign: recorded shared-memory accesses, AFL state,
+# snapshots and crashes. Regenerate with ae/ae.sh e1_exploration .. e3_distillation.
+*/harness/*/in/
+*/harness/*/out/
+*/harness/*/df_fuzz/
+*/harness/*/record_meta/
+*/harness/*/logs/
+*/harness_dev/*/in/
+*/harness_dev/*/out/
+*/harness_dev/*/df_fuzz/
+*/harness_dev/*/record_meta/
+
+# emulator run-time droppings (fuzz.sh copies the TA under test into rootfs/)
+emulator/rootfs/*.ta
+emulator/rootfs/*.json
+emulator/rootfs/id:*
+emulator/tmp/
+emulator/ql-emulator.log*
+annotate_fetches_error.txt
+
+# generated evaluation data and figures
+eval/bbs_out/
+eval/fuzz_graphs/
+eval/campaign_out/
+eval/graphs/multi_graph_out/
+eval/graphs/multi_graph_data/
+eval/graphs/*.log
+
+# build output (the measured benchmark results in benchmark/results are kept)
+optee_shm_patch/benchmark/out/
+swarm/target/
+
+# python
+**/__pycache__/
+*.pyc
