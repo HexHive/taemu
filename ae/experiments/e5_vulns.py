@@ -15,8 +15,8 @@ port 1337 and backs every memref with real System V shared memory
 i.e. it wins the race against the TA exactly as it does on a device. When the
 double fetch is hit, the TA corrupts memory and the emulator reports the
 violation (Unicorn exception or the built-in ASAN), which is what this
-experiment checks. Winning the race takes a few attempts, so the PoC is run
-repeatedly until the TA dies or --attempts is exhausted.
+experiment checks. Winning the race is probabilistic, so the PoC is run
+over and over until the TA crashes (--attempts N puts a cap on that).
 
   ./ae.sh e5_vulns                 # run the PoCs against the emulator
   ./ae.sh e5_vulns --replay        # instead replay the crashing input that
@@ -104,12 +104,12 @@ def run_one(entry, attempts, replay):
                     detail=f"no proof-of-concept sources in {poc_rel}")
 
     name = f"ae_poc_{entry['id']}"[:60]
-    ae.log(f"[{entry['id']}] racing {os.path.basename(ta_rel)} with {poc_rel} "
-           f"(up to {attempts} attempts)")
+    budget = f"up to {attempts} attempts" if attempts else "until it crashes"
+    ae.log(f"[{entry['id']}] racing {os.path.basename(ta_rel)} with {poc_rel} ({budget})")
 
     poc_out, emu_log, indicators, used = [], "", [], 0
-    for i in range(attempts):
-        used = i + 1
+    while True:
+        used += 1
         # A fresh emulator per attempt: the PoC finalizes its context at the end
         # of main(), which destroys the TA, and reusing a torn-down TA would let
         # state from a previous run leak into the next one - a crash then would
@@ -138,6 +138,10 @@ def run_one(entry, attempts, replay):
         indicators = ae.classify_crash(emu_log)
         if indicators:
             break
+        if attempts and used >= attempts:
+            break
+        if used % 10 == 0:
+            ae.log(f"[{entry['id']}] still racing ({used} runs)")
 
     open(os.path.join(logdir, entry["id"] + "_emulator.log"), "w").write(emu_log)
     open(os.path.join(logdir, entry["id"] + "_poc.log"), "w").write("\n".join(poc_out))
@@ -147,7 +151,7 @@ def run_one(entry, attempts, replay):
     return dict(entry, status="ok", reproduced=bool(indicators), distilled=None,
                 indicators=indicators, asan=asan[:3], attempts=used,
                 detail="" if indicators else
-                       f"no memory-safety violation in {used} attempts")
+                       f"no memory-safety violation in {used} runs")
 
 
 def replay_crash(entry):
@@ -199,8 +203,9 @@ def replay_crash(entry):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", nargs="*", help="only these vulnerability ids")
-    ap.add_argument("--attempts", type=int, default=int(ae.cfg("AE_POC_ATTEMPTS", "15")),
-                    help="how often the PoC is run before giving up on the race")
+    ap.add_argument("--attempts", type=int, default=0,
+                    help="stop after this many runs of the PoC (default: 0 = keep "
+                         "running it until the TA crashes)")
     ap.add_argument("--replay", action="store_true",
                     help="replay the crashing input of the campaign instead of "
                          "racing the TA with the PoC")
@@ -268,8 +273,7 @@ def main():
         if not r["reproduced"]:
             ae.fail(f"  {r['id']}: {r.get('detail') or 'no crash observed'}")
             if not args.replay and r.get("status") == "ok":
-                ae.warn(f"    the race window of this TA may need more tries: "
-                        f"./ae.sh e5_vulns --only {r['id']} --attempts 40")
+                ae.warn(f"    re-run just this one with: ./ae.sh e5_vulns --only {r['id']}")
 
     ae.write_report("e5_vulns", {"mode": "replay" if args.replay else "poc",
                                  "results": results, "reproduced": reproduced,

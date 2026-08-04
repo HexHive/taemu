@@ -173,13 +173,14 @@ buffer and invokes the vulnerable command — it races the TA exactly as it does
 on a phone (Listing 2). When it wins the race the TA corrupts memory and the
 emulator reports the violation; that is what the experiment checks.
 
-Winning the race is probabilistic, so each PoC is retried up to `--attempts`
-times (default `AE_POC_ATTEMPTS=10`), with a fresh emulator per attempt so that
-no state from a previous run can be mistaken for a crash.
+Winning the race is probabilistic, so each PoC is run over and over until the TA
+crashes, with a fresh emulator per run so that no state from a previous one can
+be mistaken for a crash. `--attempts N` caps that if you want the experiment to
+end even when a PoC never hits.
 
 ```sh
-./ae.sh e5_vulns                        # PoCs against the emulator
-./ae.sh e5_vulns --attempts 40          # narrow race windows need more tries
+./ae.sh e5_vulns                        # PoCs against the emulator, until they crash
+./ae.sh e5_vulns --attempts 20          # give up after 20 runs of a PoC
 ./ae.sh e5_vulns --replay               # instead replay the crashing input that
                                         # Fetch-Anchored Fuzzing found (needs the
                                         # campaign data, see §9)
@@ -191,9 +192,8 @@ it needs the rooted phones of Table III.
 All six reproduce this way, in each case by racing the very field that
 Exploration recorded as double-fetched — for FbSkmR and ifaa-key, for instance,
 the offset the PoC writes is exactly the offset of the recorded second fetch.
-How many runs a PoC needs varies between runs of the experiment (1-13 in ours),
-which is why the default budget is `AE_POC_ATTEMPTS=15`; the table reports the
-number of runs each vulnerability took.
+How many runs a PoC needs varies from one execution of the experiment to the
+next (1-13 in ours); the table reports the number it took this time.
 
 ### `e6_rust` — Table IV
 
