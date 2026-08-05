@@ -35,10 +35,29 @@ def image():
 
 
 def jobs():
+    """How many emulators to run in parallel.
+
+    An emulator saturates one core and needs ~85 MB, so the machine is sized by
+    both CPU and available memory (the smaller wins). ae/config.env computes the
+    same value for the shell side; this is the fallback when an experiment is
+    started directly.
+    """
     n = cfg("AE_JOBS", None)
     if n:
         return max(1, int(n))
-    return max(1, (os.cpu_count() or 2) - 2)
+    by_cpu = max(1, (os.cpu_count() or 2) - 2)
+    by_mem = by_cpu
+    try:
+        with open("/proc/meminfo") as f:
+            for line in f:
+                if line.startswith("MemAvailable:"):
+                    avail_mb = int(line.split()[1]) // 1024
+                    by_mem = (avail_mb - int(cfg("AE_RESERVE_MB", "2048"))) \
+                        // int(cfg("AE_MEM_PER_JOB_MB", "512"))
+                    break
+    except OSError:
+        pass
+    return max(1, min(by_cpu, max(1, by_mem), int(cfg("AE_MAX_JOBS", "64"))))
 
 
 # ------------------------------------------------------------------- printing

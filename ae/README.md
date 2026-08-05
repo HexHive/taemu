@@ -47,7 +47,11 @@ summary of that campaign.
 ## 3. Requirements
 
 * Linux, x86-64, docker (with permission to use `/var/run/docker.sock`)
-* ≥ 8 cores, ≥ 16 GB RAM recommended (the default scale assumes 12 cores)
+* ≥ 8 cores, ≥ 16 GB RAM recommended; the harness sizes itself to the machine —
+  one emulator saturates a core and needs ~85 MB, so `AE_JOBS` is
+  `min(cores − 2, (available RAM − 2 GB) / 512 MB)`, capped at `AE_MAX_JOBS=64`.
+  `./ae.sh list` prints the value and how it was derived; set `AE_JOBS` to
+  override
 * ~15 GB free disk space for the images, plus the ~3.5 GB of the repository
 * Network access for the initial image build only
 
@@ -258,7 +262,9 @@ itself needs a built OP-TEE QEMU-v8 tree, which is not part of the artifact;
 
 | variable | default | paper |
 |---|---|---|
-| `AE_JOBS` | cores − 2 | 56 |
+| `AE_JOBS` | auto: min(cores − 2, free RAM ÷ 512 MB) | 56 |
+| `AE_MEM_PER_JOB_MB` | 512 (an emulator measures ~85 MB) | — |
+| `AE_RESERVE_MB` | 2048 left for host, docker, controller | — |
 | `AE_EXPLORE_TIME` | 300 s per TA | 86,400 s |
 | `AE_EXPLORE_REPS` | 1 | 5 |
 | `AE_FAF_TIME` | 900 s per snapshot | 900 s |

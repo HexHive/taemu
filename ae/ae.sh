@@ -54,7 +54,7 @@ EOF
     cat <<EOF
 
 Scaling (see ae/config.env):
-  AE_JOBS=$AE_JOBS                 parallel emulator containers
+  AE_JOBS=$AE_JOBS                 parallel emulator containers (${AE_JOBS_REASON:-})
   AE_EXPLORE_TIME=$AE_EXPLORE_TIME     seconds of Exploration per TA (paper: 86400 x 5)
   AE_FAF_TIME=$AE_FAF_TIME            seconds of Fetch-Anchored Fuzzing per snapshot (paper: 900)
   AE_SCALE=paper           use the paper's budgets instead (weeks of CPU time)
