@@ -84,22 +84,25 @@ async def validate_df_crashes(group_dir, one_group_inputs, num_replay_containers
     results = []
     one_group_inputs = [item for item in one_group_inputs]
     
-    reuse_ratio = 1 # number of replays who reuse the same container [for stability]
-    batch_size = num_replay_containers * reuse_ratio 
-    for i in tqdm.tqdm(range(0, len(one_group_inputs), batch_size), desc=f"[^] Validating {ta_dir}:"):
-        if i != 0:
-            await asyncio.sleep(5)
-        batch = one_group_inputs[i:min(i + batch_size, len(one_group_inputs))]
-        print(batch)
-        print(f"[+] {time.strftime('%Y-%m-%d %H:%M:%S')} Replaying {i} -> {min(i + len(batch), len(one_group_inputs))} inputs under {group_dir}\n")
-        for df_fuzz_crash in batch:
-            df_seed = df_seed_from_crash(ta_dir, df_fuzz_crash)
-            reg_hash = reg_hash_from_crash(ta_dir, df_fuzz_crash)
-            if df_seed is None or reg_hash is None:
-                print("WHYYYYYYYYYYY", ta_dir, df_fuzz_crash)
-            print(f'docker exec emu ./df_validate.sh {taemu_env.to_emulator_rel(ta_dir)} {taemu_env.to_emulator_rel(df_seed)} {reg_hash} {taemu_env.to_emulator_rel(df_fuzz_crash)}')
-        tasks = [async_validate(ta_dir, arg, df_seed_from_crash(ta_dir, arg), reg_hash_from_crash(ta_dir, arg), (i + j) % num_replay_containers) for j, arg in enumerate(batch)]
-        results.extend(await asyncio.gather(*tasks, return_exceptions=True))
+    # Same as in deduplicate.py: keep every container busy instead of running
+    # barriered batches with a fixed sleep in between.
+    free = asyncio.Queue()
+    for cid in range(num_replay_containers):
+        free.put_nowait(cid)
+
+    async def validate_one(crash):
+        cid = await free.get()
+        try:
+            return await async_validate(ta_dir, crash, df_seed_from_crash(ta_dir, crash),
+                                        reg_hash_from_crash(ta_dir, crash), cid)
+        finally:
+            free.put_nowait(cid)
+
+    print(f"[+] validating {len(one_group_inputs)} crashes on "
+          f"{num_replay_containers} containers under {group_dir}")
+    results = await asyncio.gather(
+        *(validate_one(c) for c in one_group_inputs), return_exceptions=True
+    )
 
 async def async_read_records(path, conservative=True):
     try:

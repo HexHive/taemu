@@ -134,22 +134,26 @@ async def coverage_based_deduplicate(
     results = []
     one_group_inputs = [item for item in one_group_inputs if not item.endswith(".meta")]
 
-    reuse_ratio = 1  # number of replays who reuse the same container [for stability]
-    batch_size = num_replay_containers * reuse_ratio
-    for i in tqdm.tqdm(
-        range(0, len(one_group_inputs), batch_size), desc=f"[^] Replaying {group_dir}:"
-    ):
-        if i != 0:
-            await asyncio.sleep(5)
-        batch = one_group_inputs[i : min(i + batch_size, len(one_group_inputs))]
-        print(
-            f"[+] {time.strftime('%Y-%m-%d %H:%M:%S')} Replaying {i} -> {min(i + len(batch), len(one_group_inputs))} inputs under {group_dir}\n"
-        )
-        tasks = [
-            async_replay(group_dir, input_path, (i + j) % num_replay_containers)
-            for j, input_path in enumerate(batch)
-        ]
-        results.extend(await asyncio.gather(*tasks, return_exceptions=True))
+    # Every worker container is kept busy: a container is handed to the next
+    # input as soon as it is free. This used to run in barriered batches with a
+    # fixed 5 s sleep between them, so with N containers and M inputs it spent
+    # M/N * 5 s doing nothing and idled whenever one replay in a batch was slow.
+    free = asyncio.Queue()
+    for cid in range(num_replay_containers):
+        free.put_nowait(cid)
+
+    async def replay_one(input_path):
+        cid = await free.get()
+        try:
+            return await async_replay(group_dir, input_path, cid)
+        finally:
+            free.put_nowait(cid)
+
+    print(f"[+] replaying {len(one_group_inputs)} inputs on "
+          f"{num_replay_containers} containers under {group_dir}")
+    results = await asyncio.gather(
+        *(replay_one(p) for p in one_group_inputs), return_exceptions=True
+    )
 
     if True in results:
         calc_bbs_and_do_deduplication(
