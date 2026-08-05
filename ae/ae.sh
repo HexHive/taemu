@@ -144,6 +144,8 @@ main() {
                     e2_faf)          args="--from exploration" ;;
                     e3_distillation) args="--from faf" ;;
                     e4_table1)       args="--source ae" ;;
+                    e8_figures)      args="--fuzz-mode ALL --regen-cov \
+                                           --max-timestamps $AE_EXPLORE_TIME --show-rate" ;;
                     *)               args="" ;;
                 esac
                 ae_banner "${e#*:}"
