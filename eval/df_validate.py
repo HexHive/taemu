@@ -61,7 +61,7 @@ def reg_hash_from_crash(ta_dir, df_fuzz_crash):
 
 async def async_validate(ta_dir, df_fuzz_crash, df_seed, reg_hash, container_id):
     proc = await asyncio.create_subprocess_shell(
-        f'docker exec emu_{container_id} ./df_validate.sh {taemu_env.to_emulator_rel(ta_dir)} {taemu_env.to_emulator_rel(df_seed)} {reg_hash} {taemu_env.to_emulator_rel(df_fuzz_crash)}',
+        f'docker exec {taemu_env.emu_name(container_id)} ./df_validate.sh {taemu_env.to_emulator_rel(ta_dir)} {taemu_env.to_emulator_rel(df_seed)} {reg_hash} {taemu_env.to_emulator_rel(df_fuzz_crash)}',
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
@@ -128,8 +128,8 @@ def group_pair(df_crashes_paths):
 def shut_down(num_replay_containers):
     print("[+] Stopping emulator container")
     for i in range(num_replay_containers):
-        subprocess.run(f"docker stop emu_{i}", shell=True)
-        subprocess.run(f"docker rm emu_{i}", shell=True)
+        subprocess.run(f"docker stop {taemu_env.emu_name(i)}", shell=True)
+        subprocess.run(f"docker rm {taemu_env.emu_name(i)}", shell=True)
     print("[+] Emulator containers stopped")
     
     exit(0)
@@ -153,11 +153,11 @@ def validate(args):
         if reply == "y":
             for i in range(args.num_replay_containers):
                 r = subprocess.run(
-                    taemu_env.emulator_container_cmd(f"emu_{i}"),
+                    taemu_env.emulator_container_cmd(taemu_env.emu_name(i)),
                     shell=True, capture_output=True,
                 )
                 if r.returncode != 0:
-                    print(f"[-] could not start emu_{i}: "
+                    print(f"[-] could not start {taemu_env.emu_name(i)}: "
                           f"{r.stderr.decode(errors='replace').strip()}")
         else:
             print("[-] Exiting...")

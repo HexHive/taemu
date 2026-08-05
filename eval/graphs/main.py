@@ -80,7 +80,8 @@ def main(
     ## generate coverage files based on queue
     if regen_coverage:
         logger.info(f"[+] Generating coverage files for each TA")
-        num_containers = 30
+        # Scale with the machine (ae/config.env sizes AE_JOBS by cores and RAM)
+        num_containers = int(os.environ.get("AE_JOBS") or 30)
         ### spawn docker pools
         with DockerPool(
             image_name=taemu_env.image(),

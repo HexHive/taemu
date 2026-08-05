@@ -41,6 +41,20 @@ def to_emulator_rel(path):
     return os.path.join("..", rel)
 
 
+def emu_prefix():
+    """Prefix of the worker container names.
+
+    The workers used to be called emu_0..emu_N globally, so two deduplication
+    runs could not proceed at the same time. TAEMU_EMU_PREFIX gives each run its
+    own namespace.
+    """
+    return os.environ.get("TAEMU_EMU_PREFIX", "emu_")
+
+
+def emu_name(i):
+    return f"{emu_prefix()}{i}"
+
+
 def docker_available():
     try:
         return subprocess.run(
@@ -89,7 +103,7 @@ def emulator_containers_running():
     names (ta_emu_ae, ta_emu_ae_ctl) contain it as well, so the check has to
     look at container names only.
     """
-    return any(n.startswith("emu_") for n in running_containers())
+    return any(n.startswith(emu_prefix()) for n in running_containers())
 
 
 def redis_container_running():

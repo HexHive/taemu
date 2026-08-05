@@ -83,34 +83,49 @@ def deduplicate(paths):
     # thousands of recordings would dominate the AE runtime. AE_DEDUP_LIMIT
     # bounds how many recordings per TA are considered (0 = all, as in the paper).
     limit = int(ae.cfg("AE_DEDUP_LIMIT", "150"))
-    for p in paths:
-        ae.log(f"deduplicating {os.path.basename(p)} ...")
+    logs = os.path.join(ae.RESULTS_DIR, "e1_exploration", "logs")
+    os.makedirs(logs, exist_ok=True)
+
+    # Harnesses are deduplicated concurrently, each with its own set of worker
+    # containers (TAEMU_EMU_PREFIX) and its share of the pool. Without the
+    # prefix all runs would fight over the same emu_N container names, which is
+    # why this used to be one harness at a time.
+    total = ae.jobs()
+    lanes = max(1, min(len(paths), total))
+    per_lane = max(1, total // lanes)
+    ae.log(f"dedup: {len(paths)} harnesses, {lanes} lanes x {per_lane} containers")
+
+    def dedup_one(job):
+        idx, p = job
         cmd = [sys.executable, os.path.join(ae.REPO_DIR, "eval", "deduplicate.py"),
                "--path", p, "--mode", "coverage", "--enable-del",
-               "--num-replay-containers", str(ae.jobs())]
+               "--num-replay-containers", str(per_lane)]
         if limit:
             cmd += ["--per-harness-limit", str(limit)]
         proc = subprocess.run(
             cmd,
             cwd=os.path.join(ae.REPO_DIR, "eval"), input=b"y\ny\n",
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            env=dict(os.environ, TAEMU_ROOT=ae.REPO_DIR))
-        logs = os.path.join(ae.RESULTS_DIR, "e1_exploration", "logs")
-        os.makedirs(logs, exist_ok=True)
+            env=dict(os.environ, TAEMU_ROOT=ae.REPO_DIR,
+                     TAEMU_EMU_PREFIX=f"emu{idx % lanes}_"))
         with open(os.path.join(logs, f"dedup_{os.path.basename(p)}.log"), "wb") as f:
             f.write(proc.stdout or b"")
+
+    ae.parallel(dedup_one, list(enumerate(paths)), workers=lanes)
 
 
 def annotate(paths):
     """eval/annotate_fetches.py: mark every read that revisits an already
     accessed shared-memory range as a second (overlapped) fetch."""
-    for p in paths:
+    def annotate_one(p):
         subprocess.run(
             [sys.executable, os.path.join(ae.REPO_DIR, "eval", "annotate_fetches.py"),
              "--path", p, "--dirs", "both"],
             cwd=os.path.join(ae.REPO_DIR, "eval"),
             stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,
             env=dict(os.environ, TAEMU_ROOT=ae.REPO_DIR))
+
+    ae.parallel(annotate_one, paths)
 
 
 def count(work):

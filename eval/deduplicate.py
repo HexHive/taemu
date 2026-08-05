@@ -107,7 +107,7 @@ def calc_bbs_and_do_deduplication(ta_dir, coverage_path, enable_del=False):
 
 async def async_replay(ta_dir, input_path, container_id):
     proc = await asyncio.create_subprocess_shell(
-        f'docker exec emu_{container_id} ./replay_sus.sh {taemu_env.to_emulator_rel(ta_dir)} {taemu_env.to_emulator_rel(input_path)}',
+        f'docker exec {taemu_env.emu_name(container_id)} ./replay_sus.sh {taemu_env.to_emulator_rel(ta_dir)} {taemu_env.to_emulator_rel(input_path)}',
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
@@ -227,8 +227,8 @@ def shut_down(num_replay_containers, mode):
     if mode == "coverage":
         print("[+] Stopping emulator container")
         for i in range(num_replay_containers):
-            subprocess.run(f"docker stop emu_{i}", shell=True)
-            subprocess.run(f"docker rm emu_{i}", shell=True)
+            subprocess.run(f"docker stop {taemu_env.emu_name(i)}", shell=True)
+            subprocess.run(f"docker rm {taemu_env.emu_name(i)}", shell=True)
         print("[+] Emulator containers stopped")
 
         if os.environ.get("TAEMU_KEEP_REDIS"):
@@ -286,11 +286,11 @@ def validate(args):
             if reply == "y":
                 for i in range(args.num_replay_containers):
                     r = subprocess.run(
-                        taemu_env.emulator_container_cmd(f"emu_{i}"),
+                        taemu_env.emulator_container_cmd(taemu_env.emu_name(i)),
                         shell=True, capture_output=True,
                     )
                     if r.returncode != 0:
-                        print(f"[-] could not start emu_{i}: "
+                        print(f"[-] could not start {taemu_env.emu_name(i)}: "
                               f"{r.stderr.decode(errors='replace').strip()}")
             else:
                 print("[-] Exiting...")
