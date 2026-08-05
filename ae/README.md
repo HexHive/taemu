@@ -104,9 +104,17 @@ Working copies are created as `<tee>/harness/ae_e2_<name>` — the campaign data
 shipped with the artifact is never modified.
 
 ```sh
-./ae.sh e1_exploration                       # $AE_SUBSET, AE_EXPLORE_TIME each
-AE_EXPLORE_TIME=1800 ./ae.sh e1_exploration  # longer budget
+./ae.sh e1_exploration                          # $AE_SUBSET, AE_EXPLORE_TIME each
+AE_EXPLORE_TIME=1800 ./ae.sh e1_exploration     # longer budget
+./ae.sh e1_exploration --harnesses all          # every TA the paper harnessed
+./ae.sh e1_exploration --harnesses mitee/harness/88ce_fuzz qsee/harness/3d08_fuzz
 ```
+
+`all` (also `AE_SUBSET=all`, and accepted by `e2_faf`/`e3_distillation`) selects
+**27 harnesses covering the 30 TAs of Table I** — the three Kinibi TAs are fuzzed
+through their Beanpod harnesses and count for both TEEs. E1 prints the resulting
+TA count and an estimate of the wall clock before it starts, e.g. 27 harnesses at
+one hour each with `AE_JOBS=10` is ~3 h of fuzzing plus deduplication.
 
 ### `e2_faf` — Stage 2
 
@@ -256,7 +264,7 @@ itself needs a built OP-TEE QEMU-v8 tree, which is not part of the artifact;
 | `AE_FAF_TIME` | 900 s per snapshot | 900 s |
 | `AE_FAF_MAX_SNAPSHOTS` | 6 per TA | all |
 | `AE_DEDUP_LIMIT` | 150 recordings per TA | all (0 = no limit) |
-| `AE_SUBSET` | the five TAs behind Table II | all 30 harnesses |
+| `AE_SUBSET` | the five TAs behind Table II | `all` (30 TAs) |
 
 `AE_SCALE=paper ./ae.sh all` restores the paper's budgets (weeks of CPU time).
 

@@ -145,7 +145,8 @@ def count(work):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--harnesses", nargs="*", default=None,
-                    help="harness directories, default: $AE_SUBSET")
+                    help="harness directories, or 'all' for every TA of the campaign "
+                         "(default: $AE_SUBSET)")
     ap.add_argument("--time", type=int, default=int(ae.cfg("AE_EXPLORE_TIME", "300")))
     ap.add_argument("--reps", type=int, default=int(ae.cfg("AE_EXPLORE_REPS", "1")))
     ap.add_argument("--keep", action="store_true", help="continue a previous run")
@@ -155,17 +156,23 @@ def main():
                     help="only re-render the table from the existing working harnesses")
     args = ap.parse_args()
 
-    harnesses = args.harnesses or ae.cfg("AE_SUBSET", "").split()
-    harnesses = [os.path.join(ae.REPO_DIR, h) for h in harnesses if h.strip()]
-    harnesses = [h for h in harnesses if os.path.exists(os.path.join(h, "harness.py"))]
+    harnesses = ae.resolve_harnesses(args.harnesses)
     if not harnesses:
-        ae.fail("no harnesses selected (set AE_SUBSET or pass --harnesses)")
+        ae.fail("no harnesses selected (set AE_SUBSET, or pass --harnesses / "
+                "--harnesses all)")
         sys.exit(1)
 
     res_dir = os.path.join(ae.RESULTS_DIR, "e1_exploration")
     os.makedirs(res_dir, exist_ok=True)
-    ae.log(f"{len(harnesses)} TAs, {args.time}s x {args.reps} repetitions, "
-           f"{ae.jobs()} parallel emulators")
+    kinibi = sum(1 for h in harnesses
+                 if os.path.basename(h) in ("0801_fuzz", "abcd_fuzz", "df1e_fuzz"))
+    tas = len(harnesses) + kinibi   # a Kinibi TA counts for Kinibi and Beanpod
+    ae.log(f"{len(harnesses)} harnesses = {tas} TAs of Table I "
+           f"({kinibi} Kinibi TAs are fuzzed through their Beanpod harness), "
+           f"{args.time}s x {args.reps} repetitions, {ae.jobs()} parallel emulators")
+    ae.log(f"estimated wall clock: "
+           f"{args.time * args.reps * ((len(harnesses) + ae.jobs() - 1) // ae.jobs()) / 3600:.1f} h "
+           f"of fuzzing plus deduplication")
 
     works = ([os.path.join(os.path.dirname(h), PREFIX + os.path.basename(h))
               for h in harnesses] if args.report_only

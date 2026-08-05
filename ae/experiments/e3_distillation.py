@@ -41,8 +41,7 @@ def sources(source, selected):
             ae.fail("no E2 working harnesses found - run ./ae.sh e2_faf first")
             sys.exit(1)
         return found
-    hs = selected or ae.cfg("AE_SUBSET", "").split()
-    return [os.path.join(ae.REPO_DIR, h) for h in hs]
+    return ae.resolve_harnesses(selected)
 
 
 def stage(src, crashes):

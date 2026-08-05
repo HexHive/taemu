@@ -287,6 +287,57 @@ def all_harnesses(root=REPO_DIR):
     return out
 
 
+# The five TEEs of Table I. Kinibi TAs are emulated with the Beanpod runtime and
+# their harnesses live under beanpod/harness, so they are covered by "beanpod".
+# optee/ holds the Rust TAs of Table IV, which E6 runs separately.
+CAMPAIGN_TEES = ["teegris", "qsee", "mitee", "beanpod"]
+
+
+def campaign_harnesses(root=REPO_DIR):
+    """One harness per TA of the paper's campaign - the 30 TAs that operate on
+    shared memory (Table I, '# TAs w/o Local Copy').
+
+    Several harnesses can target the same TA (mitee/harness/377e_fuzz and
+    mitee/harness/377e_double_fetch_stackov); only one of them is returned, so
+    a TA is not fuzzed twice. Harnesses that carry a double-fetch name are
+    preferred, since those are the ones the paper's campaign used.
+    """
+    by_ta = {}
+    for h in all_harnesses(root):
+        rel = os.path.relpath(h, root)
+        tee = rel.split(os.sep)[0]
+        if tee not in CAMPAIGN_TEES or os.path.basename(h).startswith("ae_"):
+            continue
+        ta = os.path.basename(os.path.realpath(ta_of(h)))
+        prev = by_ta.get((tee, ta))
+        if prev is None or ("double_fetch" in h and "double_fetch" not in prev):
+            by_ta[(tee, ta)] = h
+    return sorted(by_ta.values())
+
+
+def resolve_harnesses(selected=None):
+    """Turn --harnesses / $AE_SUBSET into a list of harness directories.
+
+    "all" selects every harnessed TA of the campaign (the paper's 30).
+    """
+    if not selected:
+        selected = ae_subset()
+    if len(selected) == 1 and selected[0] == "all":
+        return campaign_harnesses()
+    out = []
+    for h in selected:
+        p = h if os.path.isabs(h) else os.path.join(REPO_DIR, h)
+        if os.path.exists(os.path.join(p, "harness.py")):
+            out.append(p)
+        else:
+            warn(f"{h}: no harness.py, skipped")
+    return out
+
+
+def ae_subset():
+    return [x for x in cfg("AE_SUBSET", "").split() if x.strip()]
+
+
 def ta_of(harness_dir):
     for f in sorted(os.listdir(harness_dir)):
         if f.endswith(".ta") and os.path.exists(os.path.join(harness_dir, f)):

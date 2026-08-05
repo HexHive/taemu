@@ -40,8 +40,7 @@ def source_harnesses(source, selected):
             ae.fail("no E1 working harnesses found - run ./ae.sh e1_exploration first")
             sys.exit(1)
         return found
-    hs = selected or ae.cfg("AE_SUBSET", "").split()
-    return [os.path.join(ae.REPO_DIR, h) for h in hs]
+    return ae.resolve_harnesses(selected)
 
 
 def stage(src, snaps):
