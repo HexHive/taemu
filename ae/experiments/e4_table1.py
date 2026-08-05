@@ -171,14 +171,14 @@ def main():
         # Re-derive the is_second_fetch flags of every recording before
         # counting. Deterministic and idempotent, but it rewrites the .meta
         # files of the shipped campaign, so it is opt-in.
-        ae.log("annotating overlapped fetches (eval/annotate_fetches.py --dirs both) ...")
+        ae.log("annotating overlapped fetches")
         subprocess.run(
             [sys.executable, os.path.join(ae.REPO_DIR, "eval", "annotate_fetches.py"),
              "--path", ae.REPO_DIR, "--dirs", "both"],
             cwd=os.path.join(ae.REPO_DIR, "eval"),
             env=dict(os.environ, TAEMU_ROOT=ae.REPO_DIR))
 
-    ae.log(f"collecting the statistics of the '{source}' campaign (statistics.sh) ...")
+
     p = subprocess.run(
         ["bash", os.path.join(ae.REPO_DIR, "statistics.sh"), "--detail",
          "--include", source, "--json", json_path],
@@ -217,36 +217,11 @@ def main():
     p_row = paper["all"]
     rows.append(["all"] + [tables.cmp_cell(m[c], p_row[i]) for i, c in enumerate(COLUMNS)])
 
-    tables.write(
-        res_dir, f"table1_{source}", HEADERS, rows,
-        title=("Table I: results of the study, measured over the "
-               + ("artifact-evaluation campaign (E1-E3)" if source == "ae"
-                  else "campaign data shipped with the artifact")),
-        notes=(
-            ["'paper: X' is the number of the paper's full campaign: 5 x 24 h of Exploration per TA and",
-             "  15 min of Fetch-Anchored Fuzzing for each of 17,232 snapshots. An AE run uses a fraction of",
-             "  that budget on a subset of the TAs (ae/config.env), so smaller numbers are expected here.",
-             "'# Overl. Fetches merged' counts the snapshots that Fetch-Anchored Fuzzing actually ran on,",
-             "  i.e. at most AE_FAF_MAX_SNAPSHOTS per TA. How many snapshots Exploration *found* is in the",
-             "  table of E1 (ae/results/e1_exploration/exploration.txt); in the paper every snapshot was fuzzed.",
-             ("'# TAs' is the GlobalPlatform TA dataset from ae/data/dataset.json." if dataset_used else
-              "'# TAs' is the whole TA corpus of the TEE - the GlobalPlatform subset of Table I was not "
-              "recorded; fill ae/data/dataset.json (ae/tools/make_dataset_skeleton.py generates it)."),
-             "Per TA the maximum over its ae_e1_/ae_e2_/ae_e3_ stage directories is taken: each stage",
-             "  stages a copy of what it consumes, so summing them would count seeds and crashes twice."]
-            if source == "ae" else
-            ["'paper: X' marks a column where the shipped campaign state differs from the run reported in",
-             "  the paper. These are counts of files on disk, not a re-run, so a shorter AE budget cannot",
-             "  change them - only what is stored in <tee>/harness/ can.",
-             ("'# TAs' is the GlobalPlatform TA dataset from ae/data/dataset.json." if dataset_used else
-              "'# TAs' is the whole TA corpus of the TEE - the GlobalPlatform subset of Table I was not "
-              "recorded; fill ae/data/dataset.json (ae/tools/make_dataset_skeleton.py generates it)."),
-             "Exploration deduplication (eval/deduplicate.py --enable-del) removes redundant seeds and their",
-             "  .meta records after a campaign, so the raw '# Overl. Fetches' of the paper's run cannot be",
-             "  recovered from a pruned tree. Run E1-E3 and then './ae.sh e4_table1 --source ae' for a",
-             "  self-consistent table of your own campaign."]),
-        caption="Overview of the results of our large-scale study of shared memory usage and vulnerabilities in TAs.",
-        label="tab:overview")
+    tables.write(res_dir, f"table1_{source}", HEADERS, rows,
+                 title=f"Table I [{source}]",
+                 caption="Overview of the results of our large-scale study of shared memory "
+                         "usage and vulnerabilities in TAs.",
+                 label="tab:overview")
 
     deltas = {}
     for tee in ["teegris", "qsee", "kinibi", "mitee", "beanpod"]:
@@ -268,46 +243,33 @@ def main():
         # merging contiguous second fetches cannot create fetches.
         checks["snapshots <= recorded overlapped fetches"] = consistent
     elif not consistent:
-        # For the shipped campaign it is a property of the data, not of the
-        # tooling: recordings were deleted after the campaign (see below).
-        ae.warn("the shipped campaign has more snapshots than recorded overlapped fetches; "
-                "this is a gap in the data that ships with the artifact, not a failure of "
-                "this experiment - see the list of harnesses below")
+        ae.warn("snapshots > recorded overlapped fetches (pruned campaign data)")
     for k, v in checks.items():
         ae.verdict(v, k)
     if deltas and source != "ae":
-        ae.warn("the shipped campaign state deviates from the paper for some columns:")
         for tee, d in deltas.items():
             for col, (mv, pv) in d.items():
-                ae.warn(f"  {tee:8s} {col:32s} measured={mv:<10} paper={pv}")
+                ae.warn(f"{tee:8s} {col:32s} {mv} != {pv} (paper)")
 
     orphans = orphaned_snapshots(source)
-    if orphans:
-        total = sum(v["snapshots"] for v in orphans.values())
-        ae.warn(f"{total} snapshot directories in {len(orphans)} harnesses have no recordings "
-                f"left, which is why '# Overl. Fetches merged' can exceed '# Overl. Fetches':")
-        for k, v in sorted(orphans.items(), key=lambda kv: -kv[1]["snapshots"]):
-            ae.warn(f"  {k:45s} {v['snapshots']:6d} snapshots, 0 .meta recordings")
-        ae.warn("  eval/deduplicate.py --enable-del deletes redundant recordings after a "
-                "campaign but keeps df_fuzz/; both columns only line up on a campaign whose "
-                "recordings are still complete (e.g. one you ran yourself: --source ae).")
+    for k, v in sorted(orphans.items(), key=lambda kv: -kv[1]["snapshots"]):
+        ae.warn(f"{k}: {v['snapshots']} snapshots, 0 recordings")
 
     xcheck = harnessed_vs_dataset()
     for tee, d in sorted(xcheck.items()):
         for t in d["in_dataset_not_harnessed"]:
-            ae.warn(f"{tee}: {t} operates on shared memory but has no harness")
+            ae.warn(f"{tee}: {t} shm=yes but no harness")
         for t in d["harnessed_not_in_dataset"]:
-            ae.warn(f"{tee}: {t} has a harness but is not marked as shared-memory in the dataset")
+            ae.warn(f"{tee}: {t} harnessed but shm=no")
     if xcheck and not any(v["in_dataset_not_harnessed"] or v["harnessed_not_in_dataset"]
                           for v in xcheck.values()):
-        ae.ok("the harnesses in the repository match the shared-memory TAs of the dataset")
+        ae.ok("harnesses match the shm TAs of the dataset")
 
     for tee, d in ds.items():
         if d["missing_from_artifact"]:
-            ae.warn(f"{tee}: {len(d['missing_from_artifact'])} TAs of the dataset "
-                    f"definition are missing from the artifact")
+            ae.warn(f"{tee}: {len(d['missing_from_artifact'])} dataset TAs missing")
         elif d["listed_gp_tas"]:
-            ae.ok(f"{tee}: all {d['listed_gp_tas']} dataset TAs are present")
+            ae.ok(f"{tee}: {d['listed_gp_tas']}/{d['listed_gp_tas']} dataset TAs present")
 
     ae.write_report("e4_table1", {"source": source, "measured": measured, "paper": paper,
                                   "deltas": deltas, "checks": checks,

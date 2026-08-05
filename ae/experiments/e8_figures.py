@@ -39,7 +39,6 @@ GRAPHS = os.path.join(ae.REPO_DIR, "eval", "graphs")
 
 
 def run(cmd, log, timeout=None):
-    ae.log("$ " + " ".join(str(c) for c in cmd))
     p = subprocess.run(cmd, cwd=GRAPHS, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                        timeout=timeout,
                        env=dict(os.environ, TAEMU_ROOT=ae.REPO_DIR,
@@ -58,7 +57,7 @@ def backup_suspicious_covs(res_dir):
         os.path.join(res_dir, "bk_suspicious_inputs_covs.log"), timeout=3600)
     d = os.path.join(back, "suspicious_inputs_covs")
     n = len(glob.glob(os.path.join(d, "**", "*.cov"), recursive=True))
-    ae.log(f"collected {n} coverage files of deduplicated Exploration inputs")
+    ae.log(f"seed coverage files: {n}")
     return d, n
 
 
@@ -102,7 +101,7 @@ def regen_seed_cov(harnesses):
     jobs = sorted(jobs)
     if not jobs:
         return 0
-    ae.log(f"replaying {len(jobs)} snapshot seeds to collect their coverage")
+    ae.log(f"replaying {len(jobs)} snapshot seeds")
 
     def replay(job):
         h, seed = job
@@ -166,12 +165,11 @@ def main():
         # Restrict to the harnesses of this evaluation, so the figure describes
         # the campaign that was just run and not a mixture with the shipped one.
         tas = ["ae_e"]
-        ae.log("restricting to the harnesses of this evaluation (--tas ae_e)")
     if tas:
         cmd += ["--tas"] + tas
 
-    ae.log(f"running the artifact's plotting pipeline (eval/graphs/main.py, "
-           f"mode {args.fuzz_mode}{', regenerating coverage' if args.regen_cov else ''})")
+    ae.log(f"eval/graphs/main.py mode={mode}"
+           f"{' regen_coverage' if args.regen_cov else ''}")
     rc, out = run(cmd, os.path.join(res_dir, "graphs.log"), timeout=6 * 3600)
     if rc != 0:
         ae.fail("eval/graphs/main.py failed:")
@@ -185,8 +183,13 @@ def main():
         checks["figure 5 generated"] = "figure5.png" in produced
     for k, v in checks.items():
         ae.verdict(v, k)
-    if produced:
-        ae.log("produced: " + ", ".join(sorted(produced)))
+    for f in ("figure4.png", "figure5.png"):
+        p = os.path.join(res_dir, f)
+        if f in produced:
+            print(f"  {os.path.relpath(p, ae.REPO_DIR)}")
+    if "per_tee" in produced:
+        print(f"  {os.path.relpath(os.path.join(res_dir, 'per_tee'), ae.REPO_DIR)}/ "
+              f"({produced['per_tee']} files)")
 
     ae.write_report("e8_figures", {"fuzz_mode": args.fuzz_mode,
                                    "suspicious_cov_files": n,

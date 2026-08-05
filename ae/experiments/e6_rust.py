@@ -78,13 +78,7 @@ def main():
     tables.write(res_dir, "table4",
                  ["TA", "SHM Operation", "# Detected Double Fetches", "# snapshots"],
                  rows,
-                 title=f"Table IV: Rust TAs that operate on shared memory "
-                       f"({args.time}s of Exploration per TA)",
-                 notes=["The paper's counts come from a full-length campaign; a short AE budget "
-                        "finds fewer fetches, but the TAs *with* double fetches should still be "
-                        "the ones the paper reports.",
-                        "The paper fuzzed only tcp_client of the udp/tcp pair, as both have an "
-                        "identical operation on shared memory."],
+                 title="Table IV",
                  caption="The Rust TAs that operate on shared memory.",
                  label="tab:rust")
 

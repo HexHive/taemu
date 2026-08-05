@@ -36,9 +36,6 @@ def render_txt(headers, rows, title=None, notes=()):
             out.append(sep)
             continue
         out.append(" | ".join(str(c).ljust(widths[i]) for i, c in enumerate(r)))
-    if notes:
-        out.append("")
-        out += [f"note: {n}" for n in notes]
     return "\n".join(out) + "\n"
 
 

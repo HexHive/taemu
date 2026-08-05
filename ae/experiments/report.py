@@ -57,8 +57,8 @@ def main():
         elif name == "e3_distillation":
             highlight = f"{data.get('distilled')} shared-memory-only crashes"
         elif name == "e5_vulns":
-            highlight = (f"{data.get('reproduced')}/{len(data.get('results', []))} reproduced, "
-                         f"{data.get('distilled')} need the race")
+            highlight = (f"{data.get('reproduced')}/{len(data.get('results', []))} reproduced "
+                         f"[{data.get('mode', 'poc')}]")
         elif name == "e6_rust":
             tas = data.get("tas", {})
             highlight = f"{sum(1 for v in tas.values() if v['overlapped_fetches'])} of {len(tas)} Rust TAs"
@@ -66,6 +66,9 @@ def main():
             highlight = (f"{data.get('percent')}% of executions (paper: 11%), "
                          f"over {data.get('harnesses_with_data', '?')} harnesses with "
                          f"recorder data")
+        elif name == "e8_figures":
+            highlight = ", ".join(sorted(k for k in (data.get("produced") or {})
+                                         if k.endswith(".png")))
         elif name == "e9_mitigation":
             highlight = "patch + benchmark"
         rows.append([name, CLAIMS[name], status, highlight])

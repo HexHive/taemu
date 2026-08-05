@@ -167,12 +167,8 @@ def main():
     kinibi = sum(1 for h in harnesses
                  if os.path.basename(h) in ("0801_fuzz", "abcd_fuzz", "df1e_fuzz"))
     tas = len(harnesses) + kinibi   # a Kinibi TA counts for Kinibi and Beanpod
-    ae.log(f"{len(harnesses)} harnesses = {tas} TAs of Table I "
-           f"({kinibi} Kinibi TAs are fuzzed through their Beanpod harness), "
-           f"{args.time}s x {args.reps} repetitions, {ae.jobs()} parallel emulators")
-    ae.log(f"estimated wall clock: "
-           f"{args.time * args.reps * ((len(harnesses) + ae.jobs() - 1) // ae.jobs()) / 3600:.1f} h "
-           f"of fuzzing plus deduplication")
+    ae.log(f"harnesses={len(harnesses)} tas={tas} time={args.time}s reps={args.reps} "
+           f"jobs={ae.jobs()} eta={args.time * args.reps * ((len(harnesses) + ae.jobs() - 1) // ae.jobs()) / 3600:.1f}h")
 
     works = ([os.path.join(os.path.dirname(h), PREFIX + os.path.basename(h))
               for h in harnesses] if args.report_only
@@ -204,11 +200,7 @@ def main():
     tables.write(res_dir, "exploration",
                  ["TA (harness)", "# recorded inputs", "# Overl. Fetches",
                   "# Overl. Fetches merged", "overlapped fetches?"], rows,
-                 title=f"E1 - Exploration ({args.time}s x {args.reps} per TA)",
-                 notes=[
-                     "'# Overl. Fetches merged' are the snapshots that Fetch-Anchored Fuzzing (E2) restores.",
-                     "The paper fuzzed each TA 5 x 24 h; with a short budget fewer fetches are reached.",
-                 ],
+                 title="E1 exploration",
                  caption="Exploration results (artifact evaluation run).",
                  label="tab:ae-exploration")
 

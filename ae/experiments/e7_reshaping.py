@@ -118,15 +118,7 @@ def main():
 
     tables.write(res_dir, "table5",
                  ["TA (harness)", "# Execs", "# Execs DF", "Execs DF %"], rows,
-                 title="Table V: executions that trigger an overlapped fetch",
-                 notes=[
-                     "Paper: across all harnesses only 11% of the fuzzing iterations execute a code "
-                     "path containing a double fetch, so a reshaping-based fuzzer would spend the "
-                     "majority of its budget on executions that cannot trigger the bug.",
-                     "Only harnesses whose recorder bookkeeping (<harness>/record_meta/) is present "
-                     "can be counted; the others would contribute executions but no double fetches "
-                     "and are listed below the table instead of being folded into the ratio.",
-                 ],
+                 title="Table V",
                  caption="Overall executions and executions triggering overlapped fetches.",
                  label="tab:reshaping")
 
@@ -138,13 +130,7 @@ def main():
         ae.verdict(v, k)
     with_df = sum(1 for v in detail.values() if v["execs_df"])
     if skipped:
-        ae.warn(f"{len(skipped)} harnesses have fuzzing statistics but no recorder bookkeeping "
-                f"(<harness>/record_meta/*hash2count.json) and are not part of the table:")
-        for h in skipped[:8]:
-            ae.warn(f"  {h}")
-        if len(skipped) > 8:
-            ae.warn(f"  ... and {len(skipped) - 8} more")
-        ae.warn("  run E1 (Exploration) to produce it for the TAs you are evaluating.")
+        ae.warn(f"{len(skipped)} harnesses without record_meta/, excluded")
 
     ae.write_report("e7_reshaping", {"per_harness": detail, "execs": t_execs,
                                      "execs_df": t_df, "percent": round(total_pct, 1),

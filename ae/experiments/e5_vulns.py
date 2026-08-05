@@ -105,7 +105,7 @@ def run_one(entry, attempts, replay):
 
     name = f"ae_poc_{entry['id']}"[:60]
     budget = f"up to {attempts} attempts" if attempts else "until it crashes"
-    ae.log(f"[{entry['id']}] racing {os.path.basename(ta_rel)} with {poc_rel} ({budget})")
+    ae.log(f"[{entry['id']}] {poc_rel} vs {os.path.basename(ta_rel)} ({budget})")
 
     poc_out, emu_log, indicators, used = [], "", [], 0
     while True:
@@ -242,23 +242,8 @@ def main():
                "Crash observed", "Reproduced on device"]
     headers.insert(5, "Needs shared memory" if args.replay else "PoC runs")
 
-    notes = ["'Reproduced on device' is taken from the paper (Section V); it needs the "
-             "rooted phones of Table III."]
-    if args.replay:
-        notes.insert(0, "The crashing shared-memory value found by Fetch-Anchored Fuzzing is "
-                        "injected at the second fetch; 'Needs shared memory' is the "
-                        "Distillation verdict.")
-    else:
-        notes.insert(0, "The proof-of-concept client races the TA on real shared memory while "
-                        "it runs in the emulator, exactly as it does on a phone; a crash means "
-                        "the TOCTTOU window was hit.")
-        notes.insert(1, "Each PoC is run up to --attempts times because winning the race is "
-                        "probabilistic.")
-
     tables.write(res_dir, "table2", headers, rows,
-                 title=f"Table II: vulnerabilities in commercial TAs found with ScHMuzz "
-                       f"({how})",
-                 notes=notes,
+                 title=f"Table II [{how}]",
                  caption="The vulnerabilities in commercial TAs found with ScHMuzz.",
                  label="tab:vulns")
 
@@ -272,8 +257,7 @@ def main():
     for r in results:
         if not r["reproduced"]:
             ae.fail(f"  {r['id']}: {r.get('detail') or 'no crash observed'}")
-            if not args.replay and r.get("status") == "ok":
-                ae.warn(f"    re-run just this one with: ./ae.sh e5_vulns --only {r['id']}")
+
 
     ae.write_report("e5_vulns", {"mode": "replay" if args.replay else "poc",
                                  "results": results, "reproduced": reproduced,

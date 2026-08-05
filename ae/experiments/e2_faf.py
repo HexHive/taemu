@@ -137,8 +137,8 @@ def main():
         ae.fail("no snapshots to fuzz")
         sys.exit(1)
 
-    ae.log(f"fuzzing {len(jobs)} snapshots for {args.time}s each "
-           f"({ae.jobs()} in parallel, ~{len(jobs) * args.time / max(ae.jobs(), 1) / 60:.0f} min)")
+    ae.log(f"snapshots={len(jobs)} time={args.time}s jobs={ae.jobs()} "
+           f"eta={len(jobs) * args.time / max(ae.jobs(), 1) / 60:.0f}min")
     results = ae.parallel(fuzz_snapshot, jobs)
 
     total_crashes = 0
@@ -158,9 +158,7 @@ def main():
     tables.write(res_dir, "faf",
                  ["TA (harness)", "# snapshots", "# fuzzed", "# crashing snapshots", "# Crashes"],
                  rows,
-                 title=f"E2 - Fetch-Anchored Fuzzing ({args.time}s per snapshot)",
-                 notes=["Crashes are the input of Distillation (E3), which decides which of them "
-                        "require the shared-memory double fetch."],
+                 title="E2 fetch-anchored fuzzing",
                  caption="Fetch-Anchored Fuzzing results (artifact evaluation run).",
                  label="tab:ae-faf")
 
@@ -172,13 +170,8 @@ def main():
     checks = {"snapshots restored and fuzzed": reproduced > 0}
     for k, v in checks.items():
         ae.verdict(v, k)
-    ae.log(f"{reproduced}/{len(jobs)} snapshots reached their double fetch again")
-    if total_crashes:
-        ae.ok(f"{total_crashes} crashes found - hand them to E3 (./ae.sh e3_distillation --from faf)")
-    else:
-        ae.warn("no crashes in this budget; the known crashing inputs of the paper are "
-                "replayed by E5 (./ae.sh e5_vulns). Increase --time / --max-snapshots "
-                "to search for new ones (paper: 900 s per snapshot).")
+    ae.log(f"double fetch reached: {reproduced}/{len(jobs)} snapshots")
+    ae.log(f"crashes: {total_crashes}")
 
     ae.write_report("e2_faf", {"budget_seconds": args.time, "source": args.source,
                                "per_ta": per_ta, "snapshots": results,

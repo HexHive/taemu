@@ -36,9 +36,13 @@ PREFIX = "ae_e3_"
 
 def sources(source, selected):
     if source == "faf":
-        found = sorted(glob.glob(os.path.join(ae.REPO_DIR, "*", "harness", "ae_e2_*")))
+        # Fetch-Anchored Fuzzing runs in the harness that Exploration produced
+        # (ae_e1_*) and only copies the shipped campaign into ae_e2_*, so take
+        # any working harness that has snapshots.
+        found = [h for h in sorted(glob.glob(os.path.join(ae.REPO_DIR, "*", "harness", "ae_e*_*")))
+                 if os.path.isdir(os.path.join(h, "df_fuzz"))]
         if not found:
-            ae.fail("no E2 working harnesses found - run ./ae.sh e2_faf first")
+            ae.fail("no fuzzed snapshots found - run ./ae.sh e2_faf first")
             sys.exit(1)
         return found
     return ae.resolve_harnesses(selected)
@@ -102,8 +106,7 @@ def main():
         crashes = [c for c in ae.harness_crashes(src) if c["replayable"]]
         skipped = len(ae.harness_crashes(src)) - len(crashes)
         if skipped:
-            ae.warn(f"{os.path.relpath(src, ae.REPO_DIR)}: {skipped} crashes cannot be "
-                    f"replayed (their Exploration seed is not part of the artifact)")
+            ae.warn(f"{os.path.relpath(src, ae.REPO_DIR)}: {skipped} crashes without seed, skipped")
         if not crashes:
             continue
         chosen = crashes if args.max_crashes == 0 else crashes[: args.max_crashes]
@@ -120,7 +123,7 @@ def main():
         ae.fail("no replayable crashes found")
         sys.exit(1)
 
-    ae.log(f"distilling {len(jobs)} crashes ({ae.jobs()} in parallel)")
+    ae.log(f"crashes={len(jobs)} jobs={ae.jobs()}")
     results = [r for r in ae.parallel(distill, jobs) if r]
 
     rows = []
@@ -140,10 +143,7 @@ def main():
                  ["TA (harness)", "# Crashes", "# checked",
                   "# Crashes Distilled (shared memory only)", "# discarded"],
                  rows,
-                 title="E3 - Distillation",
-                 notes=["A distilled crash is one that does NOT reproduce when the same value is "
-                        "present from the start, i.e. it requires the attacker to win the race.",
-                        "Paper (Table I): 330 crashes -> 62 distilled."],
+                 title="E3 distillation",
                  caption="Distillation results (artifact evaluation run).",
                  label="tab:ae-distillation")
 

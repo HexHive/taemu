@@ -73,8 +73,7 @@ def main():
     if rows:
         core = next((r for r in rows if r[0] == "optee_os.patch"), None)
         if core:
-            ae.log(f"optee_os.patch: {core[2]} added / {core[3]} removed lines "
-                   f"in {core[1]} files (paper: ~140 lines of code)")
+            ae.log(f"optee_os.patch: {core[1]} files +{core[2]}/-{core[3]} lines")
 
     # ------------------------------------------------------- patch applies?
     if args.optee_dir and os.path.isdir(args.optee_dir):
@@ -89,9 +88,7 @@ def main():
         if p.returncode:
             ae.warn(out.strip()[:500])
     else:
-        ae.warn("$OPTEE_DIR is not set: the OP-TEE source tree is not part of the "
-                "artifact, so the patch is only reported, not applied "
-                "(git clone https://github.com/OP-TEE/optee_os && OPTEE_DIR=... ./ae.sh e9_mitigation)")
+        ae.warn("$OPTEE_DIR not set: patch not applied")
 
     # -------------------------------------------------- benchmark re-analysis
     csv_path = os.path.join(ae.REPO_DIR, BENCH, "results", "results_v2.csv")
@@ -108,20 +105,13 @@ def main():
         checks["benchmark re-analysed"] = ae.verdict(
             p.returncode == 0 and os.path.exists(
                 os.path.join(res_dir, "shm_mitigation_overhead.png")),
-            "overhead table and plot regenerated from the measured results")
+            f"benchmark re-analysed -> {os.path.join(res_dir, 'shm_mitigation_overhead.png')}")
     else:
         checks["benchmark results present"] = ae.verdict(False, f"missing {csv_path}")
 
     tables.write(res_dir, "mitigation",
                  ["patch", "# files", "+ lines", "- lines"], rows,
-                 title="Section VII: size of the OP-TEE opt-in shared memory mitigation",
-                 notes=[
-                     "The mitigation lives in libutee (the TA-side runtime); the OP-TEE core image is unchanged.",
-                     "Full benchmark (needs a built OP-TEE QEMU-v8 tree, not part of this artifact):",
-                     "  cd optee_shm_patch/benchmark && ./build.sh && \\",
-                     "    OPTEE_DIR=<optee tree> BENCH_OUT=./out python3 harness/driver.py && \\",
-                     "    BENCH_OUT=./out python3 harness/analyze.py",
-                 ],
+                 title="E9 mitigation patch",
                  caption="Size of the mitigation patch.",
                  label="tab:mitigation")
 
