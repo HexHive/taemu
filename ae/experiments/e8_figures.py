@@ -80,6 +80,39 @@ def collect_outputs(res_dir):
     return produced
 
 
+def regen_seed_cov(harnesses):
+    """Replay the Exploration seed of every fuzzed snapshot.
+
+    Figure 5 splits the blocks of a snapshot against the coverage of the seed
+    that produced it, so that seed needs a drcov file. Seeds recorded after the
+    deduplication pass (replaying inputs feeds the recorder again) have none,
+    which made every snapshot derived from such a seed fail.
+    """
+    jobs = set()
+    for h in harnesses:
+        df_dir = os.path.join(h, "df_fuzz")
+        if not os.path.isdir(df_dir):
+            continue
+        for snap in os.listdir(df_dir):
+            seed = "_".join(snap.split("_")[:-1])
+            seed_path = os.path.join(h, "in", "suspicious_inputs_replay", seed)
+            cov = os.path.join(h, "out", "cov", seed + ".cov")
+            if os.path.exists(seed_path) and not os.path.exists(cov):
+                jobs.add((h, seed_path))
+    jobs = sorted(jobs)
+    if not jobs:
+        return 0
+    ae.log(f"replaying {len(jobs)} snapshot seeds to collect their coverage")
+
+    def replay(job):
+        h, seed = job
+        ae.docker_run(f"./fuzz.sh '{ae.rel_to_emulator(h)}' '{ae.rel_to_emulator(seed)}'",
+                      timeout=600, env={"TAEMU_NO_RECORD": "1"})
+
+    ae.parallel(replay, jobs)
+    return len(jobs)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--fuzz-mode", choices=["ORG", "DF", "ALL"], default="ORG",
@@ -103,6 +136,9 @@ def main():
     res_dir = os.path.join(ae.RESULTS_DIR, "e8_figures")
     os.makedirs(res_dir, exist_ok=True)
 
+    if args.regen_cov or args.fuzz_mode in ("DF", "ALL"):
+        regen_seed_cov(sorted(glob.glob(os.path.join(ae.REPO_DIR, "*", "harness", "ae_e*_*"))))
+
     ss_dir, n = backup_suspicious_covs(res_dir)
     if n == 0:
         ae.fail("no coverage of deduplicated Exploration inputs found - run "
@@ -110,9 +146,12 @@ def main():
         ae.write_report("e8_figures", {"checks": {"figures generated": False}})
         sys.exit(1)
 
+    # Figure 5 is built on top of the Exploration coverage (the ORG pass is what
+    # fills accumulated_cov_bbs), so DF is always run as ALL.
+    mode = "ALL" if args.fuzz_mode == "DF" else args.fuzz_mode
     cmd = [sys.executable, os.path.join(GRAPHS, "main.py"),
            "--path", ae.REPO_DIR, "--ss_cov_rdir", ss_dir,
-           "--fuzz_mode", args.fuzz_mode,
+           "--fuzz_mode", mode,
            "--max_timestamps", str(args.max_timestamps)]
     if args.regen_cov:
         cmd.append("--regen_coverage")
@@ -123,11 +162,11 @@ def main():
     if args.group_by == "tee":
         cmd += ["--org_group_field", "tee"]
     tas = args.tas
-    if tas is None and glob.glob(os.path.join(ae.REPO_DIR, "*", "harness", "ae_e1_*")):
+    if tas is None and glob.glob(os.path.join(ae.REPO_DIR, "*", "harness", "ae_e*_*")):
         # Restrict to the harnesses of this evaluation, so the figure describes
         # the campaign that was just run and not a mixture with the shipped one.
-        tas = ["ae_e1_"]
-        ae.log("restricting to the harnesses of this evaluation (--tas ae_e1_)")
+        tas = ["ae_e"]
+        ae.log("restricting to the harnesses of this evaluation (--tas ae_e)")
     if tas:
         cmd += ["--tas"] + tas
 

@@ -45,7 +45,17 @@ def source_harnesses(source, selected):
 
 
 def stage(src, snaps):
-    """Copy harness + the selected snapshots' seeds into ae_e2_<name>."""
+    """Where to run Fetch-Anchored Fuzzing for this harness.
+
+    Snapshots that came from our own Exploration run (ae_e1_*) are fuzzed *in
+    place*: the plotting pipeline links Exploration and Fetch-Anchored Fuzzing
+    by harness directory (eval/graphs/collect_cov.py:linking), so out/ and
+    df_fuzz/ of one campaign have to live in the same harness. Only the
+    campaign data shipped with the artifact is copied, so it stays untouched.
+    """
+    if os.path.basename(src).startswith("ae_e1_"):
+        return src
+
     tee_harness = os.path.dirname(src)
     name = os.path.basename(src)
     if name.startswith("ae_e1_"):

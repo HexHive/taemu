@@ -293,7 +293,7 @@ if __name__ == "__main__":
         ql.hook_code(unicorn_why)
         
     
-    if args.fuzz or args.fuzz_replay:
+    if (args.fuzz or args.fuzz_replay) and not os.environ.get("TAEMU_NO_RECORD"):
         # Create Redis queue
         try:
             record_q: RedisQueue = create_redis_queue(
@@ -309,9 +309,12 @@ if __name__ == "__main__":
             )
             record_q = None
     else:
+        # TAEMU_NO_RECORD=1 replays an input without feeding the recorder. Used
+        # when a seed is replayed only to collect its coverage: recording would
+        # add new suspicious inputs and grow the campaign that is being measured.
         record_q = None
-        
-        
+
+
     def launch_taemu(curr_record_q):
         print(
             f"[+] Loaded TA {ta_name} for TEE {TEE} with Qiling {ql.arch.type}/{ql.os.type}"

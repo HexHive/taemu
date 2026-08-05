@@ -13,6 +13,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Optional, Callable
 import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import taemu_env
 
 def naming_change(names: list[str] | str) -> list[str] | str:
     names_map = {
@@ -397,7 +401,11 @@ def gather_suspicious_inputs_covs(df_bar_key: str, df_group_finfo: GroupedFuzzin
     # align with x axis, so should be id or harness_path
     suspicious_inputs_bbs = list()
     harness_path = df_group_finfo.raw_fuzzing_info.harness_path
-    harness_name = harness_path[harness_path.rfind("TA_GP_emulator/")+len("TA_GP_emulator/"):]
+    # The backup mirrors the repository tree, so the lookup key is the harness
+    # path relative to the repository root. Slicing at "TA_GP_emulator/" broke
+    # silently for any other checkout: rfind returns -1 and the slice starts at
+    # index 14 of the absolute path.
+    harness_name = os.path.relpath(harness_path, taemu_env.repo_root())
     suspicious_inputs_covs = f'{bk_suspicious_inputs_cov_rdir}/{harness_name}/out/cov' 
     if bar_field_name == "id":
         file = df_bar_key.split("_")[-2] + ".cov"
@@ -584,8 +592,11 @@ def df_control_flow_graph(
                     part_two_segments.append(part_two_segment_cnt)   
                     part_three_segments.append(part_three_segment_cnt)
                     coverage_denominators.append(coverage_denominator)
-                except:
-                    print(f'something went wrong in DF snapshot processing')
+                except Exception as e:
+                    # Do not swallow the reason: the most common one is that the
+                    # ORG pass has not run (it fills accumulated_cov_bbs), i.e.
+                    # the figure needs --fuzz_mode ALL rather than DF.
+                    logger.warning(f"DF snapshot processing failed: {e!r}")
                 
                 # Store data
                 bar_labels.append(

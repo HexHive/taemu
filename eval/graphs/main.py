@@ -85,7 +85,10 @@ def main(
         with DockerPool(
             image_name=taemu_env.image(),
             num_containers=num_containers,
-            param_str=f"--network host -v {path}:/srv -w /srv/emulator -v /dev/shm:/dev/shm --ipc=host --shm-size=5g ",
+            # TAEMU_NO_RECORD: replaying seeds for coverage must not record new
+            # suspicious inputs, otherwise collecting the data changes it.
+            param_str=f"--network host -v {path}:/srv -w /srv/emulator -v /dev/shm:/dev/shm "
+                      f"--ipc=host --shm-size=5g -e TAEMU_NO_RECORD=1 ",
         ):
             time.sleep(1)
             gen_coverage_files(
