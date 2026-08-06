@@ -1,0 +1,279 @@
+\begin{thebibliography}{10}
+
+\bibitem{ms2008}
+{MS08-061: The case of the kernel mode double-fetch}.
+\newblock
+  \url{https://www.microsoft.com/en-us/msrc/blog/2008/10/ms08-061-the-case-of-the-kernel-mode-double-fetch},
+  2008.
+
+\bibitem{gpintapi}
+{GlobalPlatform TEE Internal Core API Specification, Version 1.3.1}.
+\newblock Technical report, GlobalPlatform, 2021.
+\newblock
+  \url{https://globalplatform.org/wp-content/uploads/2021/03/GPD_TEE_Internal_Core_API_Specification_v1.3.1_PublicRelease_CC.pdf}.
+
+\bibitem{fiasccco}
+{Not To Be Trusted - A Fiasco in Android TEEs}.
+\newblock
+  \url{https://media.ccc.de/v/39c3-not-to-be-trusted-a-fiasco-in-android-tees#t=1528},
+  2025.
+
+\bibitem{qiling}
+{Qiling: A True Instrumentable Binary Emulation Framework}.
+\newblock \url{https://github.com/qilingframework/qiling}, 2025.
+
+\bibitem{rustbinder}
+{rust\_binder: add Rust Binder driver}.
+\newblock
+  \url{https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=eafedbc7c050c44744fbdf80bdf3315e860b7513},
+  2025.
+
+\bibitem{unicorn}
+{Unicorn: Multi-platform CPU Emulator Framework}.
+\newblock \url{https://github.com/unicorn-engine/unicorn}, 2025.
+
+\bibitem{teaclave}
+{Apache TeaClave TrustZone SDK}.
+\newblock \url{https://github.com/apache/teaclave-trustzone-sdk}, 2026.
+
+\bibitem{rustfromraw}
+{Rust Docs: Function from\_raw\_parts\_mut }.
+\newblock \url{https://doc.rust-lang.org/std/slice/fn.from_raw_parts_mut.html},
+  2026.
+
+\bibitem{AdamskiGuilbonPeterlin2019SamsungTrustZone}
+Alexandre Adamski, Joffrey Guilbon, and Maxime Peterlin.
+\newblock A deep dive into samsung’s trustzone (part 2).
+\newblock Quarkslab Blog, 2019.
+\newblock Available at:
+  \url{https://blog.quarkslab.com/a-deep-dive-into-samsungs-trustzone-part-2.html}.
+
+\bibitem{beniaini2017trustissues}
+Gal Beniamini.
+\newblock Trust issues: Exploiting trustzone tees.
+\newblock Blog post, Google Project Zero, 2017.
+\newblock Available at:
+  \url{https://googleprojectzero.blogspot.com/2017/07/trust-issues-exploiting-trustzone-tees.html}.
+
+\bibitem{berard2018kinibi}
+David Berard.
+\newblock Kinibi tee: Trusted application exploitation.
+\newblock Blog post, Synacktiv, 2018.
+\newblock Available at:
+  \url{https://www.synacktiv.com/en/publications/kinibi-tee-trusted-application-exploitation.html}.
+
+\bibitem{midas}
+Atri Bhattacharyya, Uros Tesic, and Mathias Payer.
+\newblock Midas: Systematic kernel {TOCTTOU} protection.
+\newblock In {\em 31st USENIX Security Symposium (USENIX Security 22)}, pages
+  107--124, Boston, MA, August 2022. USENIX Association.
+
+\bibitem{morphuzz}
+Alexander Bulekov, Bandan Das, Stefan Hajnoczi, and Manuel Egele.
+\newblock Morphuzz: Bending (input) space to fuzz virtual devices.
+\newblock In {\em 31st USENIX Security Symposium (USENIX Security 22)}, pages
+  1221--1238, Boston, MA, August 2022. USENIX Association.
+
+\bibitem{busch2020finding}
+Marcel Busch and Kalle Dirsch.
+\newblock Finding 1-day vulnerabilities in trusted applications using selective
+  symbolic execution.
+\newblock In {\em Proceedings of the 27th Annual Network and Distributed System
+  Security Symposium (NDSS), San Diego, CA, USA}, pages 23--26, 2020.
+
+\bibitem{teezz}
+Marcel Busch, Aravind Machiry, Chad Spensky, Giovanni Vigna, Christopher
+  Kruegel, and Mathias Payer.
+\newblock Teezz: Fuzzing trusted applications on cots android devices.
+\newblock In {\em 2023 IEEE Symposium on Security and Privacy (SP)}, pages
+  1204--1219, 2023.
+
+\bibitem{globalconfusion}
+Marcel Busch, Philipp Mao, and Mathias Payer.
+\newblock {GlobalConfusion}: {TrustZone} trusted application 0-days by design.
+\newblock In {\em 33rd USENIX Security Symposium (USENIX Security 24)}, pages
+  5537--5554, Philadelphia, PA, August 2024. USENIX Association.
+
+\bibitem{rollback}
+Marcel Busch, Philipp Mao, and Mathias Payer.
+\newblock Spill the {TeA}: An empirical study of trusted application rollback
+  prevention on android smartphones.
+\newblock In {\em 33rd USENIX Security Symposium (USENIX Security 24)}, pages
+  5071--5088, Philadelphia, PA, August 2024. USENIX Association.
+
+\bibitem{cerdeira}
+David Cerdeira, Nuno Santos, Pedro Fonseca, and Sandro Pinto.
+\newblock Sok: Understanding the prevailing security vulnerabilities in
+  trustzone-assisted tee systems.
+\newblock In {\em 2020 IEEE Symposium on Security and Privacy (SP)}, pages
+  1416--1432, 2020.
+
+\bibitem{chen2024enclavefuzz}
+Liheng Chen, Zheming Li, Zheyu Ma, Yuan Li, Baojian Chen, and Chao Zhang.
+\newblock Enclavefuzz: Finding vulnerabilities in sgx applications.
+\newblock In {\em Network and Distributed System Security (NDSS) Symposium},
+  2024.
+
+\bibitem{AdamTC}
+Adam Crenshaw.
+\newblock On the nose bypassing huaweis fingerprint authentication by
+  exploiting the trustzone.
+\newblock Derbycon, 2018.
+\newblock Available at: \url{https://www.youtube.com/watch?v=QFFhdqP7Dxg/}.
+
+\bibitem{safefetch}
+Victor Duta, Mitchel~Josephus Aloserij, and Cristiano Giuffrida.
+\newblock {SafeFetch}: Practical {Double-Fetch} protection with {Kernel-Fetch}
+  caching.
+\newblock In {\em 33rd USENIX Security Symposium (USENIX Security 24)}, pages
+  1207--1224, Philadelphia, PA, August 2024. USENIX Association.
+
+\bibitem{partemu}
+Lee Harrison, Hayawardh Vijayakumar, Rohan Padhye, Koushik Sen, and Michael
+  Grace.
+\newblock {PARTEMU}: Enabling dynamic analysis of {Real-World} {TrustZone}
+  software using emulation.
+\newblock In {\em 29th USENIX Security Symposium (USENIX Security 20)}, pages
+  789--806. USENIX Association, August 2020.
+
+\bibitem{bitcoinrust}
+{joaopeixoto13}.
+\newblock {Bitcoin-Wallet-for-Trusted-OS-OPTEE}.
+\newblock
+  \url{https://github.com/joaopeixoto13/Bitcoin-Wallet-for-Trusted-OS-OPTEE/tree/main},
+  2023.
+
+\bibitem{bochspwn}
+Mateusz Jurczyk and Gynvael Coldwind.
+\newblock Identifying and exploiting windows kernel race conditions via memory
+  access patterns.
+\newblock In {\em Bochspwn: Exploiting Kernel Race Conditions Found via Memory
+  Access Patterns}, page~69, 2013.
+
+\bibitem{Komaromy2021UnboxYourPhone}
+Daniel Komaromy.
+\newblock Unbox your phone -- exploring and breaking samsung's trustzone
+  sandboxes.
+\newblock Ecoparty, 2021.
+\newblock Available at: \url{https://www.youtube.com/watch?v=L2Mo8WcmmZo}.
+
+\bibitem{Li2024DiveIntoAndroidTA}
+Zhongquan Li.
+\newblock Dive into android ta bug hunting and fuzzing.
+\newblock Zhongquan Li’s Blog, 2024.
+\newblock Available at:
+  \url{https://imlzq.com/android/fuzzing/unicorn/tee/2024/05/29/Dive-Into-Android-TA-BugHunting-And-Fuzzing.html}.
+
+\bibitem{syncemu}
+Christian Lindenmeier, Matti Schulze, Jonas Röckl, and Marcel Busch.
+\newblock Syncemu: Enabling dynamic analysis of stateful trusted applications.
+\newblock In {\em 2024 IEEE European Symposium on Security and Privacy
+  Workshops (EuroS\&PW)}, pages 177--185, 2024.
+
+\bibitem{dftinker}
+Yingqi Luo, Pengfei Wang, Xu~Zhou, and Kai Lu.
+\newblock Dftinker: Detecting and fixing double-fetch bugs in an automated way.
+\newblock In {\em International Conference on Wireless Algorithms, Systems, and
+  Applications}, pages 780--785. Springer, 2018.
+
+\bibitem{basesafe}
+Dominik Maier, Lukas Seidel, and Shinjo Park.
+\newblock Basesafe: baseband sanitized fuzzing through emulation.
+\newblock In {\em Proceedings of the 13th ACM Conference on Security and
+  Privacy in Wireless and Mobile Networks}, WiSec '20, page 122–132, New
+  York, NY, USA, 2020. Association for Computing Machinery.
+
+\bibitem{Makkaveev2019TrustZoneFuzzing}
+Slava Makkaveev.
+\newblock The road to qualcomm trustzone apps fuzzing.
+\newblock Check Point Research Blog, 2019.
+\newblock Available at:
+  \url{https://research.checkpoint.com/2019/the-road-to-qualcomm-trustzone-apps-fuzzing/}.
+
+\bibitem{taemu}
+Philipp Mao, Li~Shi, Marcel Busch, and Mathias Payer.
+\newblock T\"amu: Emulating trusted applications at the (globalplatform)-api
+  layer.
+\newblock In {\em 2026 IEEE Symposium on Security and Privacy (SP)}. IEEE,
+  2026.
+
+\bibitem{sanfelix}
+Eloi Sanfelix.
+\newblock {TEE Exploitation by Example: Exploiting Trusted Applications in
+  Samsung's TEE}.
+\newblock In {\em INFILTRATE 2019}, 2019.
+\newblock Conference talk.
+
+\bibitem{decaf}
+Michael Schwarz, Daniel Gruss, Moritz Lipp, Cl{\'e}mentine Maurice, Thomas
+  Schuster, Anders Fogh, and Stefan Mangard.
+\newblock Automated detection, exploitation, and elimination of double-fetch
+  bugs using modern cpu features.
+\newblock In {\em Proceedings of the 2018 on Asia Conference on Computer and
+  Communications Security}, pages 587--600, 2018.
+
+\bibitem{trustdies}
+Alon Shakevsky, Eyal Ronen, and Avishai Wool.
+\newblock Trust dies in darkness: Shedding light on samsung{\textquoteright}s
+  {TrustZone} keymaster design.
+\newblock In {\em 31st USENIX Security Symposium (USENIX Security 22)}, pages
+  251--268, Boston, MA, August 2022. USENIX Association.
+
+\bibitem{crowbar}
+Haoqi Shan, Moyao Huang, Yujia Liu, Sravani Nissankararao, Yier Jin, Shuo Wang,
+  and Dean Sullivan.
+\newblock Crowbar: Natively fuzzing trusted applications using arm coresight.
+\newblock {\em Journal of Hardware and Systems Security}, 7(2):44--54, 2023.
+
+\bibitem{lightemu}
+Haoqi Shan, Sravani Nissankararao, Yujia Liu, Moyao Huang, Shuo Wang, Yier Jin,
+  and Dean Sullivan.
+\newblock Lightemu: Hardware assisted fuzzing of trusted applications.
+\newblock In {\em 2024 IEEE International Symposium on Hardware Oriented
+  Security and Trust (HOST)}, pages 01--11, 2024.
+
+\bibitem{dta}
+Juhyun Song, Eunji Jo, and Jaehyu Kim.
+\newblock Dta: Run trustzone tas outside the secure world for security testing.
+\newblock {\em IEEE Access}, 12:16715--16727, 2024.
+
+\bibitem{rustandroid}
+Jeff~Vander Stoep.
+\newblock {Rust in Android: move fast and fix things}.
+\newblock
+  \url{https://security.googleblog.com/2025/11/rust-in-android-move-fast-fix-things.html},
+  2025.
+
+\bibitem{horta}
+Darius Suciu, Stephen McLaughlin, Laurent Simon, and Radu Sion.
+\newblock Horizontal privilege escalation in trusted applications.
+\newblock In {\em 29th USENIX Security Symposium (USENIX Security 20)}. USENIX
+  Association, August 2020.
+
+\bibitem{rustee}
+Shengye Wan, Mingshen Sun, Kun Sun, Ning Zhang, and Xu~He.
+\newblock Rustee: Developing memory-safe arm trustzone applications.
+\newblock In {\em Proceedings of the 36th Annual Computer Security Applications
+  Conference}, ACSAC '20, page 442–453, New York, NY, USA, 2020. Association
+  for Computing Machinery.
+
+\bibitem{wang2017double}
+Pengfei Wang, Jens Krinke, Kai Lu, Gen Li, and Steve Dodier-Lazaro.
+\newblock {How Double-Fetch situations turn into Double-Fetch vulnerabilities:
+  A study of double fetches in the linux kernel}.
+\newblock In {\em 26th USENIX Security Symposium (USENIX Security 17)}, pages
+  1--16, 2017.
+
+\bibitem{warpattack}
+Jianhao Xu, Luca~Di Bartolomeo, Flavio Toffalini, Bing Mao, and Mathias Payer.
+\newblock Warpattack: Bypassing cfi through compiler-introduced double-fetches.
+\newblock In {\em 2023 IEEE Symposium on Security and Privacy (SP)}, pages
+  1271--1288, 2023.
+
+\bibitem{deadline}
+Meng Xu, Chenxiong Qian, Kangjie Lu, Michael Backes, and Taesoo Kim.
+\newblock Precise and scalable detection of double-fetch bugs in os kernels.
+\newblock In {\em 2018 IEEE Symposium on Security and Privacy (SP)}, pages
+  661--678, 2018.
+
+\end{thebibliography}

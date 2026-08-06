@@ -46,21 +46,42 @@ summary of that campaign.
 
 ## 3. Requirements
 
-* Linux, x86-64, docker (with permission to use `/var/run/docker.sock`)
-* ≥ 8 cores, ≥ 16 GB RAM recommended; the harness sizes itself to the machine —
-  one emulator saturates a core and needs ~85 MB, so `AE_JOBS` is
-  `min(cores − 2, (available RAM − 2 GB) / 512 MB)`, capped at `AE_MAX_JOBS=64`.
-  `./ae.sh list` prints the value and how it was derived; set `AE_JOBS` to
-  override
-* ~15 GB free disk space for the images, plus the ~3.5 GB of the repository
-* Network access for the initial image build only
+On the host, only docker and bash:
 
-Nothing is installed on the host: `ae.sh` builds two images and runs everything
-in containers.
+| requirement | why |
+|---|---|
+| Linux, x86-64 | the emulator images are amd64 |
+| Docker Engine >= 23 with BuildKit | the Dockerfiles use `RUN --mount=type=cache` and `COPY --link` |
+| `docker compose` v2 plugin | starts the redis container the recorder streams to |
+| membership in the `docker` group | the controller is given `/var/run/docker.sock` to start emulator containers |
+| bash, coreutils (`nproc`, `awk`, `/proc/meminfo`) | `ae.sh` and the pool sizing |
+| network access during `./ae.sh setup` | pulls `ubuntu:jammy`, `aflplusplus/aflplusplus:v4.32c`, PyPI, rustup, `download.docker.com` |
+| ~15 GB disk | 3.8 GB images, ~4 GB TA corpus and campaign data, ~300 MB produced |
+| >= 8 cores, >= 16 GB RAM | one emulator per core, ~85 MB each (see 7.) |
 
-* `ta_emu_ae` — the emulator (Qiling + Unicorn + AFL++), one container per TA
-* `ta_emu_ae_ctl` — the controller (docker client, `eval/`, plotting stack),
-  which starts the emulator containers as siblings through the docker socket
+No Python, matplotlib, Rust or Ghidra on the host - everything runs in the two
+images that `./ae.sh setup` builds:
+
+* `ta_emu_ae` (from `../Dockerfile`): Ubuntu 22.04, Python 3.10.12, Qiling
+  pinned at `56dd77b` plus `emulator/qiling.diff`, Unicorn, AFL++ 4.32c with the
+  unicornafl bindings, pwntools 4.15.0 and the rest of
+  `emulator/requirements.txt`, Rust (for `swarm/`)
+* `ta_emu_ae_ctl` (from `ae/Dockerfile`): the same plus the docker client and
+  compose plugin, matplotlib 3.10.8, numpy, networkx, tqdm, aiofiles, cachetools,
+  loguru, tenacity, pandas, jq, bc, pv
+* `redis:7-alpine`, started by `docker-compose.redis.yml`
+
+Optional, for parts that are not self-contained:
+
+* `$OPTEE_DIR` pointing at an `optee_os` checkout - lets E9 verify that the
+  mitigation patch applies (without it the patch is only measured)
+* a built OP-TEE QEMU-v8 tree - to re-run the mitigation benchmark itself
+  (`optee_shm_patch/benchmark/README.md`); E9 otherwise re-analyses the shipped
+  measurements
+* Android NDK and a rooted phone from Table III - to run the PoCs on a device
+  (Section V); the artifact runs them against the emulator instead
+* Ghidra (`ghidra/`) - only needed to regenerate the per-TA CFGs used by
+  Figure 4; they ship in `<tee>/tas/bbs/`
 
 ## 4. Getting started (~20 min)
 

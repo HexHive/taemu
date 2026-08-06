@@ -15,12 +15,6 @@ all: ${PAPER}.pdf
 ${PAPER}.pdf: ${PAPER}.tex bibliography.bib ${TARGET_TEXS}
 	rubber --unsafe --synctex --pdf ${PAPER}.tex
 
-diff:
-		git show 27cb04bd33be02967c6f25c01401fc7486d6e5cf:paper.tex > old.tex
-		latexdiff -t CFont old.tex paper.tex  > diff.tex
-		rubber --unsafe --synctex --pdf diff.tex
-
-
 docker:  ## Build the PDF in Docker to avoid outdated/missing packages
 	@$(DOCKER) run --rm -it -v $$(pwd):/mnt --platform=linux danteev/texlive:latest \
 		bash -c "cd /mnt; latexmk -pdf -latexoption=-shell-escape $(PAPER).tex; chown -R $$(id -u):$$(id -g) ."

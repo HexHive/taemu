@@ -1,0 +1,56 @@
+This is BibTeX, Version 0.99d (TeX Live 2023/Debian)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: paper.aux
+The style file: plain.bst
+Database file #1: bibliography.bib
+Warning--to sort, need author or key in teaclave
+Warning--to sort, need author or key in fiasccco
+Warning--to sort, need author or key in qiling
+Warning--to sort, need author or key in unicorn
+Warning--to sort, need author or key in gpintapi
+Warning--to sort, need author or key in rustbinder
+Warning--to sort, need author or key in rustfromraw
+Warning--to sort, need author or key in ms2008
+Warning--empty author in gpintapi
+You've used 43 entries,
+            2118 wiz_defined-function locations,
+            713 strings with 12433 characters,
+and the built_in function-call counts, 16021 in all, are:
+= -- 1603
+> -- 699
+< -- 20
++ -- 283
+- -- 238
+* -- 961
+:= -- 2383
+add.period$ -- 142
+call.type$ -- 43
+change.case$ -- 249
+chr.to.int$ -- 0
+cite$ -- 52
+duplicate$ -- 680
+empty$ -- 1341
+format.name$ -- 238
+if$ -- 3622
+int.to.chr$ -- 0
+int.to.str$ -- 43
+missing$ -- 26
+newline$ -- 219
+num.names$ -- 70
+pop$ -- 378
+preamble$ -- 1
+purify$ -- 205
+quote$ -- 0
+skip$ -- 563
+stack$ -- 0
+substring$ -- 856
+swap$ -- 260
+text.length$ -- 20
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 172
+warning$ -- 9
+while$ -- 121
+width$ -- 45
+write$ -- 479
+(There were 9 warnings)
