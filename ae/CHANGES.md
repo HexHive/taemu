@@ -251,3 +251,23 @@ whole row while the same run credited the fetches and crashes to Beanpod alone.
 the paper's 3.
 
 The match now strips the `ae_e<n>_` prefix.
+
+## Section VII is no longer an experiment
+
+`e5_mitigation` is gone. The mitigation is a patch plus a benchmark, not
+something a reviewer re-derives from the artifact: without a built OP-TEE
+QEMU-v8 tree (~31 GB, hours of compiling) the experiment only re-printed
+measurements that are already checked into `optee_shm_patch/benchmark/results/`,
+and with one it duplicated what `build.sh` and `harness/driver.py` do directly.
+
+Everything that substantiates Section VII stays where it belongs, in
+`optee_shm_patch/`: the patch, the two double-fetch probe commands and the
+racing client, the latency sweeps, the measured results and the plot, and the
+build/run scripts that reproduce them in about 30 s given an OP-TEE tree.
+`ae/README.md` §6 says so, next to the on-device results that are likewise
+documented rather than run. `./ae.sh` still mounts `$OPTEE_DIR` into the
+controller when it is set, so the benchmark can be built and run from
+`./ae.sh shell` without leaving docker.
+
+The remaining experiments are `e1_automatic_df_detection`, `e2_vulns`,
+`e3_rust`, `e4_reshaping`.

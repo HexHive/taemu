@@ -23,7 +23,6 @@ CLAIMS = {
     "e2_vulns":        "Table II: the six TOCTTOU vulnerabilities reproduce in the emulator",
     "e3_rust":         "Table IV: Rust TAs are affected by shared memory double fetches",
     "e4_reshaping":    "Table V: only a small fraction of executions triggers a double fetch",
-    "e5_mitigation":   "Section VII: opt-in mitigation for OP-TEE closes the double fetch",
 }
 
 # The pipeline's stages report separately, below its result directory.
@@ -90,14 +89,6 @@ def main():
             highlight = (f"{data.get('percent')}% of executions (paper: 11%), "
                          f"over {data.get('harnesses_with_data', '?')} harnesses with "
                          f"recorder data")
-        elif name == "e5_mitigation":
-            df = data.get("double_fetch", {})
-            if df:
-                highlight = ", ".join(
-                    f"{k}: {v['differ']}/{v['total']} raced fetches differ"
-                    for k, v in df.items())
-            else:
-                highlight = "patch + benchmark"
         rows.append([name, CLAIMS[name], status, highlight])
 
     txt = tables.write(ae.RESULTS_DIR, "summary",

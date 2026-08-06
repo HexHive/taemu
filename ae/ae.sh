@@ -29,7 +29,6 @@ EXPERIMENTS=(
   "e2_vulns:Table II - reproduce the six TOCTTOU vulnerabilities"
   "e3_rust:Table IV - double fetches in Rust TAs"
   "e4_reshaping:Table V - executions that trigger a double fetch"
-  "e5_mitigation:Section VII - OP-TEE opt-in mitigation, and that it holds"
 )
 
 usage() {
@@ -85,7 +84,8 @@ run_in_controller() {
     local tty=()
     [ -t 0 ] && [ -t 1 ] && tty=(-it)
     # An OP-TEE tree, if the reviewer has one, is mounted at its own path so
-    # that e5_mitigation can build the patched libutee and boot QEMU.
+    # that the Section VII benchmark (optee_shm_patch/benchmark) can be built
+    # and run from `./ae.sh shell` without leaving the container.
     local optee=()
     [ -n "${OPTEE_DIR:-}" ] && [ -d "$OPTEE_DIR" ] && \
         optee=(-v "$OPTEE_DIR:$OPTEE_DIR" -e "OPTEE_DIR=$OPTEE_DIR")

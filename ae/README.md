@@ -40,7 +40,7 @@ RAM, `AE_JOBS=6`); they shrink on a bigger machine, see §7.
 | C5 | **Table II: six 0-day TOCTTOU vulnerabilities in five TAs**, reproduced by racing the TA with the PoC of each vulnerability | `e2_vulns` | ~15 min |
 | C6 | Table IV: TAs written in Rust are affected as well (Sec. VI) | `e3_rust` | ~40 min |
 | C7 | Table V: only ~11 % of fuzzing iterations execute a double fetch (Sec. VIII-c) | `e4_reshaping` | ~1 min |
-| C9 | Section VII: a 140-LoC opt-in mitigation for OP-TEE that closes the double fetch and is cheap when opted in | `e5_mitigation` | ~1 min |
+| C9 | Section VII: a 140-LoC opt-in mitigation for OP-TEE that closes the double fetch and is cheap when opted in | **not an experiment**, see §6 | — |
 | — | Table III: zero-copy shared memory on COTS phones (Section V) | **not reproducible without the phones**, see §6 | — |
 
 `./ae.sh all` runs all of it, in this order, in about 8 h. `AE_SCALE=quick`
@@ -77,11 +77,10 @@ images that `./ae.sh setup` builds:
 Optional, for parts that are not self-contained:
 
 * `$OPTEE_DIR` pointing at a **built** OP-TEE QEMU-v8 tree (~31 GB, hours to
-  build - see `optee_shm_patch/benchmark/README.md`) - lets E5 build the patched
-  and the unpatched libutee and *measure*, in QEMU, that the mitigation stops
-  double fetches, in about 30 s. Without it E5 re-analyses the measurement
-  shipped with the artifact and says so. The same tree is what re-running the
-  latency benchmark needs.
+  build) - needed to rebuild or re-measure the Section VII mitigation
+  (`optee_shm_patch/benchmark/README.md`). No experiment needs it; `./ae.sh`
+  mounts it into the controller if it is set, so the benchmark can be built and
+  run from `./ae.sh shell`.
 * Android NDK and a rooted phone from Table III - to run the PoCs on a device
   (Section V); the artifact runs them against the emulator instead
 * Ghidra (`ghidra/`) - only needed to regenerate the per-TA CFGs used by
@@ -272,55 +271,6 @@ harnesses and prints the observed crash type and the Distillation verdict. It is
 how `ae/data/vulns.json` (the crash pinned to each Table II vulnerability) was
 put together, and it is the tool to use after a fresh campaign.
 
-### `e5_mitigation` — Section VII
-
-Reports the size of `optee_shm_patch/optee_os.patch` (paper: 140 LoC), applies
-it to an OP-TEE tree if `$OPTEE_DIR` points at one, checks that the mitigation
-actually stops double fetches, and regenerates the performance tables and the
-overhead plot from the benchmark measurements
-(`optee_shm_patch/benchmark/harness/analyze.py`).
-
-**Does the mitigation hold?** The benchmark TA has two probe commands that read
-the same word of a `memref` twice per iteration, with a compute gap in between
-— the shape of every double fetch in the paper — and count how often the two
-reads disagree (`optee_shm_patch/benchmark/bench_ta/bench_ta.c`). One is opted
-into shared memory with `TEE_RegisterShm()`, the other is not. The client
-(`bench_host/df_main.c`) spawns a thread that flips that word between two
-values as fast as it can while the command runs, and reports the count:
-
-| config | libutee | double fetches | raced | expected |
-|---|---|---:|---:|---|
-| `baseline` | unpatched | 100,000 | ~40 % | possible |
-| `mitig_shared` | patched, opted in | 100,000 | ~30 % | possible |
-| `mitig_copied` | patched, **not** opted in | 100,000 | **0** | impossible |
-
-So the opt-in preserves the zero-copy semantics a TA asks for (and with it the
-double fetch), while the default path makes the two reads always agree: the
-normal world is writing to a buffer the TA no longer reads.
-
-**With `$OPTEE_DIR` set to a built OP-TEE QEMU-v8 tree this is measured, not
-recited** — and it takes about 30 seconds. The experiment copies
-`$OPTEE_DIR/optee_os`, applies `optee_os.patch` to the copy, builds a patched
-and an unpatched TA dev-kit from it, builds the benchmark TAs and the two
-client binaries, boots OP-TEE under QEMU and runs the probe
-(`optee_shm_patch/benchmark/build.sh` + `harness/driver.py --df-only`, both
-inside the controller container, which is why the image carries `libfdt1`,
-`libslirp0`, `libusb-1.0-0` and `pexpect`). The mitigation is entirely in
-libutee and the core image is unchanged, so **one** OP-TEE tree is enough — the
-9-second dev-kit build is the only thing that differs between the two
-configurations.
-
-Without such a tree the experiment re-analyses the measurement shipped with the
-artifact (`optee_shm_patch/benchmark/results/df_test.csv`, console log next to
-it) and says so. `--run-qemu` forces the measurement and fails loudly if the
-tree is unusable; `--no-run-qemu` forces the re-analysis.
-
-What the artifact cannot do for you is *build* the OP-TEE tree: a QEMU-v8 tree
-is ~31 GB and hours of compiling (buildroot, kernel, TF-A, QEMU, toolchains),
-which does not fit the evaluation budget. `optee_shm_patch/benchmark/README.md`
-documents that build, and re-running the latency benchmark (as opposed to the
-probe) needs it too.
-
 ## 6. What cannot be reproduced by a reviewer
 
 * **Table III / Section V (on-device)** — reproducing the TOCTTOU
@@ -331,6 +281,16 @@ probe) needs it too.
 * **The full campaign** — the paper's numbers come from 5 × 24 h of Exploration
   per TA and 15 min of Fetch-Anchored Fuzzing for each of 17,232 snapshots
   (4,330 CPU-hours). `AE_SCALE=paper` runs those budgets.
+* **Section VII (the mitigation)** — not an experiment of this evaluation. The
+  patch is `optee_shm_patch/optee_os.patch` (140 lines) and everything that
+  substantiates the section lives beside it in `optee_shm_patch/benchmark/`:
+  the two probe commands that show the mitigation stops double fetches
+  (0 of 100,000 raced double fetches without the opt-in, ~40 % with it), the
+  latency sweeps, the measured results and the plot, and a `build.sh` +
+  `harness/driver.py` that rebuild and re-measure all of it from a built OP-TEE
+  QEMU-v8 tree in about 30 s. That tree is ~31 GB and hours of compiling, which
+  is why this is documented rather than run. See
+  `optee_shm_patch/benchmark/README.md`.
 
 ## 7. Scaling
 
@@ -377,7 +337,6 @@ nohup ./ae.sh all > ae_full_run.log 2>&1 &
 | `e2_vulns` | six PoCs raced against the emulator | ~15 min |
 | `e3_rust` | 5 Rust TAs x 30 min | ~40 min |
 | `e4_reshaping` | Table V from the campaign state | seconds |
-| `e5_mitigation` | patch + benchmark re-analysis (+30 s if `$OPTEE_DIR` is set: build both libutee variants, boot QEMU, run the probe) | seconds |
 | **total** | | **~9 h** |
 
 Needs ~15 GB of disk: 3.8 GB of docker images, ~4 GB of TA corpus and campaign
