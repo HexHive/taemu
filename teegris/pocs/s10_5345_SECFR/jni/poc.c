@@ -110,6 +110,18 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
     void* shm = (void*)wow2->ptr;
     printf("shm ptr %p\n", shm);
  
+    /* Is shm an alias of the client buffer, or a separate (shadow) buffer? */
+    ((volatile unsigned char *)buf)[0x1000] = 0x11;
+    ((volatile unsigned char *)shm)[0x1000] = 0x22;
+    printf("ALIAS-TEST buf=%p shm=%p  buf[0x1000]=0x%02x shm[0x1000]=0x%02x -> %s\n",
+           (void *)buf, shm,
+           ((volatile unsigned char *)buf)[0x1000],
+           ((volatile unsigned char *)shm)[0x1000],
+           ((volatile unsigned char *)buf)[0x1000] == 0x22 ? "SAME MEMORY"
+                                                           : "different buffers");
+    ((volatile unsigned char *)buf)[0x1000] = 0;
+    ((volatile unsigned char *)shm)[0x1000] = 0;
+
     op.params[0].memref.parent = &in_mem;  // the keyblock buffer
     //op.params[0].tmpref.buffer = (void*)malloc(0x1000);  // the keyblock buffer
     //op.params[0].tmpref.size =  0x1000; 
