@@ -19,6 +19,36 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 import taemu_env
 
+KINIBI_HARNESSES = {"0801_fuzz", "abcd_fuzz", "df1e_fuzz"}
+
+
+def _with_kinibi(fuzzing_info_list):
+    """Add the Kinibi view of the TAs that are emulated with Beanpod.
+
+    The Kinibi TAs have no runtime of their own here: they are fuzzed through
+    beanpod/harness/{0801,abcd,df1e}_fuzz. Table I counts them for Kinibi *and*
+    Beanpod, so the per-TEE graph gets a Kinibi panel built from the same
+    coverage instead of dropping the TEE entirely (it used to appear only when
+    the pipeline was called with --tees kinibi).
+    """
+    import copy as _copy
+    import dataclasses as _dc
+
+    extra = []
+    for fi in fuzzing_info_list:
+        raw = fi.raw_fuzzing_info
+        name = os.path.basename(raw.harness_path or "")
+        for prefix in ("ae_e1_", "ae_e2_", "ae_e3_"):
+            if name.startswith(prefix):
+                name = name[len(prefix):]
+        if raw.tee == "beanpod" and name in KINIBI_HARNESSES:
+            twin = _copy.copy(fi)
+            twin.raw_fuzzing_info = _dc.replace(
+                raw, tee="kinibi", id=raw.id.replace("beanpod_", "kinibi_", 1))
+            extra.append(twin)
+    return list(fuzzing_info_list) + extra
+
+
 logger.add("graphs.log", rotation="100 MB", retention="10 days")
 
 
@@ -113,8 +143,10 @@ def main(
     ## generate graphs for each ta
     if fuzz_mode == FuzzMode.ORG or fuzz_mode == FuzzMode.ALL:
         logger.info(f"[+] Generating org graph")
+        org_input = (_with_kinibi(fuzzing_info_list)
+                     if grouping_field_name == "tee" else fuzzing_info_list)
         org_graph = org_control_flow_graph(
-            fuzzing_info_list,
+            org_input,
             max_timestamps=max_timestamps,
             grouping_field_name=grouping_field_name,
             show_rate=show_rate,
