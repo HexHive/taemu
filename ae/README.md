@@ -294,15 +294,19 @@ put together, and it is the tool to use after a fresh campaign.
 
   | device | TEE | PoC | verdict |
   |---|---|---|---|
-  | TECNO Mobile LH8n | Kinibi | `df1e_test` | DOUBLE-FETCH — `cmd : 0x1009` then `paytrigger_ta_get_hmackey_c`, 4 of 25 runs |
-  | Samsung SM-G973F (S10) | TEEGris | `s10_5345_SECFR` | DOUBLE-FETCH — TA wrote into the buffer at poll 48,957 of 90,304 |
+  | TECNO Mobile LH8n | Kinibi | `df1e_test` | DOUBLE-FETCH — `cmd : 0x1001` then `paytrigger_check_key_ta_pub` |
+  | Samsung SM-G973F (S10) | TEEGris | `s10_5345_SECFR` | DOUBLE-FETCH — TA wrote into the buffer at poll 26,509 of 70,697 |
   | Samsung SM-G973F (S10) | TEEGris | `4662_FbCkmR_df` | no TA |
-  | OnePlus CPH2621 | QSEE | `a985_test` | no TA |
+  | OnePlus CPH2609 | QSEE | `a985_test` | DOUBLE-FETCH — TA returned −24 |
 
-  which is claim C5 for Kinibi and TEEGris. Winning the race is probabilistic,
+  which is claim C5 for Kinibi, QSEE and TEEGris. Winning the race is probabilistic,
   so each PoC runs up to `AE_ONDEVICE_RUNS` times (default 25). The Table II
   vulnerabilities need the phone to ship the vulnerable TA, which none of these
   three does. Listing 2 of the paper shows the racing app.
+
+  Note that this depends on the exact handset, not just the TEE: a OnePlus
+  CPH2621 running the same QSEE does not ship the `A985D3EB…` TA and reports
+  `no TA`, while the CPH2609 above does.
 * **The full campaign** — the paper's numbers come from 5 × 24 h of Exploration
   per TA and 15 min of Fetch-Anchored Fuzzing for each of 17,232 snapshots
   (4,330 CPU-hours). `AE_SCALE=paper` runs those budgets.

@@ -114,7 +114,7 @@ run_poc() {
         out=$(adb -s "$serial" shell "su -c 'cd /data/local/tmp && chmod 755 poc && timeout 30 ./poc $pocargs 2>&1'" 2>&1 | tr -d '\r')
         klog=$(adb -s "$serial" shell "su -c 'dmesg'" 2>/dev/null | tr -d '\r' | sed 's/.*|//')
         printf '=== run %s\n%s\n--- kernel log\n%s\n' "$i" "$out" \
-               "$(printf '%s' "$klog" | grep -E 'cmd : 0x|hmackey|check_key' || true)" >>"$logf"
+               "$(printf '%s' "$klog" | grep -E 'InvokeCommandEntryPoint|cmd : 0x|hmackey|check_key' || true)" >>"$logf"
         case "$out" in
             *"OpenSession failed"*)  nota=1 ;;
             *Segmentation*|*"signal 11"*|*Abort*|*"TEE panic"*|*"tzdev: "*) crashed=1 ;;
@@ -123,9 +123,13 @@ run_poc() {
         # registered buffer is the observation Table III is about.
         case "$out" in *"TEEC_Result:"*) reached=1 ;; esac
         # kinibi: first fetch logged, then the branch the second fetch took.
-        local first branch
-        first=$(printf '%s' "$klog" | grep -oE "cmd : 0x1[0-9a-f]+" | tail -1)
-        branch=$(printf '%s' "$klog" | grep -oE "paytrigger_(ta_get_hmackey|check_key)[a-z_]*" | tail -1)
+        # Only look at the last invocation in the log: dmesg -c is not
+        # guaranteed to have cleared anything, and a pair carried over from an
+        # earlier run would be a false positive.
+        local inv first branch
+        inv=$(printf '%s' "$klog" | awk '/TA_InvokeCommandEntryPoint/ {buf = ""} {buf = buf $0 "\n"} END {printf "%s", buf}')
+        first=$(printf '%s' "$inv" | grep -oE "cmd : 0x1[0-9a-f]+" | tail -1)
+        branch=$(printf '%s' "$inv" | grep -oE "paytrigger_(ta_get_hmackey|check_key)[a-z_]*" | tail -1)
         if [ -n "$first" ] && [ -n "$branch" ]; then
             case "$first:$branch" in
                 *0x1001:*check_key*|*0x1009:*get_hmackey*)
