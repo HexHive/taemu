@@ -308,7 +308,7 @@ def all_harnesses(root=REPO_DIR):
 
 # The five TEEs of Table I. Kinibi TAs are emulated with the Beanpod runtime and
 # their harnesses live under beanpod/harness, so they are covered by "beanpod".
-# optee/ holds the Rust TAs of Table IV, which E6 runs separately.
+# optee/ holds the Rust TAs of Table IV, which E7 runs separately.
 CAMPAIGN_TEES = ["teegris", "qsee", "mitee", "beanpod"]
 
 

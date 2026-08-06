@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 """Boot OP-TEE under QEMU and drive the SHM-mitigation benchmark.
 
-Two sweeps:
+Two latency sweeps:
   * size sweep     : work=0, buffer size varied
   * workload sweep : buffer size fixed, per-call TA workload varied
 
 RESULT line from the host binary (all integers):
   RESULT,which,cmd,size,iters,work,total_ns,mean_ns,min_ns,median_ns
+
+Plus a functional double-fetch probe (--df / --df-only): a second normal-world
+thread races the memref while the TA reads the same word twice per iteration.
+
+DFRESULT line from optee_shm_dftest (all integers):
+  DFRESULT,which,cmd,size,iters,rounds,differ,total_iters,flips
 """
 import os
 import re
@@ -25,6 +31,7 @@ BENCH_OUT = os.environ.get(
 RUN = f"{BENCH_OUT}/run"
 SHARE = f"{BENCH_OUT}/share"
 RESULTS_CSV = os.environ.get("RESULTS_CSV", f"{BENCH_OUT}/results_v2.csv")
+DF_CSV = os.environ.get("DF_CSV", f"{BENCH_OUT}/df_test.csv")
 QEMU = f"{OPTEE_DIR}/qemu/build/qemu-system-aarch64"
 
 QEMU_ARGS = [
@@ -50,6 +57,14 @@ QEMU_ARGS = [
 
 # (which, cmd, label)
 CONFIGS = [(0, 0, "baseline"), (1, 1, "mitig_shared"), (1, 0, "mitig_copied")]
+
+# Double-fetch probe: same three configurations, DF command IDs (2 = not opted
+# in, 3 = opted in). The baseline TA has no mitigation code, so its two
+# commands behave identically; we probe the opted-in one for symmetry.
+DF_CONFIGS = [(0, 3, "baseline"), (1, 3, "mitig_shared"), (1, 2, "mitig_copied")]
+DF_SIZE = 4096
+DF_ITERS = 20000      # probe iterations per invocation
+DF_ROUNDS = 5         # invocations summed per configuration
 SIZES = [64, 256, 1024, 4096, 16384, 65536]            # size sweep (work=0)
 WORK_SIZE = 4096                                        # workload sweep buffer
 WORKLOADS = [0, 20000, 100000, 500000, 2000000, 8000000]
@@ -58,7 +73,32 @@ WORK_ITERS = 400      # workload sweep: slower calls, fewer samples
 WARMUP = 300
 WORK_WARMUP = 40
 
-RESULT_RE = re.compile(r"RESULT," + ",".join([r"[0-9]+"] * 9))
+RESULT_RE = re.compile(r"(?<!DF)RESULT," + ",".join([r"[0-9]+"] * 9))
+DFRESULT_RE = re.compile(r"DFRESULT," + ",".join([r"[0-9]+"] * 8))
+
+
+def run_df_probe(child, smoke=False):
+    """Race the memref from a second thread; count disagreeing double fetches."""
+    iters = 2000 if smoke else DF_ITERS
+    rounds = 1 if smoke else DF_ROUNDS
+    out = []
+    print("\n=== DOUBLE-FETCH PROBE ===")
+    for which, cmd, label in DF_CONFIGS:
+        child.sendline(f"/root/optee_shm_dftest {which} {cmd} {DF_SIZE} "
+                       f"{iters} {rounds}")
+        child.expect_exact("# ", timeout=600)
+        m = DFRESULT_RE.search(child.before)
+        if not m:
+            print(f"\n!!! df probe error: {label}")
+            continue
+        out.append((label, m.group(0).strip()))
+    with open(DF_CSV, "w") as f:
+        f.write("label,tag,which,cmd,size,iters,rounds,differ,total_iters,flips\n")
+        for label, line in out:
+            print(f"{label},{line}")
+            f.write(f"{label},{line}\n")
+    print(f"Saved: {DF_CSV}")
+    return out
 
 
 def main():
@@ -67,8 +107,12 @@ def main():
     except Exception:
         pass
     smoke = "--smoke" in sys.argv
+    df_only = "--df-only" in sys.argv
+    want_df = df_only or "--df" in sys.argv
     # points: (sweep, size, work, iters, warmup)
-    if smoke:
+    if df_only:
+        points = []
+    elif smoke:
         points = [("size", 4096, 0, 50, 20)]
         points += [("work", WORK_SIZE, w, 50, 20) for w in (0, 500000)]
     else:
@@ -92,10 +136,14 @@ def main():
     child.expect_exact("# ")
 
     child.sendline("cp /mnt/h/*.ta /lib/optee_armtz/ && "
-                   "cp /mnt/h/optee_shm_bench /root/ && "
-                   "chmod +x /root/optee_shm_bench && echo CPDONE")
+                   "cp /mnt/h/optee_shm_bench /mnt/h/optee_shm_dftest /root/ && "
+                   "chmod +x /root/optee_shm_bench /root/optee_shm_dftest && "
+                   "echo CPDONE")
     child.expect_exact("CPDONE")
     child.expect_exact("# ")
+
+    if want_df:
+        run_df_probe(child, smoke=smoke)
 
     results = []
     for sweep, size, work, iters, warmup in points:
@@ -109,13 +157,9 @@ def main():
                 continue
             results.append((sweep, label, m.group(0).strip()))
 
-    print("\n\n===== COLLECTED RESULTS =====")
-    with open(RESULTS_CSV, "w") as f:
-        f.write("sweep,label,tag,which,cmd,size,iters,work,"
-                "total_ns,mean_ns,min_ns,median_ns\n")
-        for sweep, label, line in results:
-            print(f"{sweep},{label},{line}")
-            f.write(f"{sweep},{label},{line}\n")
+    if results:
+        print("\n\n===== COLLECTED RESULTS =====")
+        write_results(results)
 
     child.sendline("poweroff -f")
     try:
@@ -123,6 +167,15 @@ def main():
     except pexpect.TIMEOUT:
         child.terminate(force=True)
     print("\n=== DONE ===")
+
+
+def write_results(results):
+    with open(RESULTS_CSV, "w") as f:
+        f.write("sweep,label,tag,which,cmd,size,iters,work,"
+                "total_ns,mean_ns,min_ns,median_ns\n")
+        for sweep, label, line in results:
+            print(f"{sweep},{label},{line}")
+            f.write(f"{sweep},{label},{line}\n")
 
 
 if __name__ == "__main__":

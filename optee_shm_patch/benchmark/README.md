@@ -1,9 +1,11 @@
-# OP-TEE shared-memory mitigation — performance benchmark
+# OP-TEE shared-memory mitigation — double-fetch probe and performance benchmark
 
-Measures the invocation-latency overhead of the shared-memory mitigation in
-`optee_os.patch`, comparing a build **without** the mitigation against a build
-**with** it, using benchmark TAs that **opt into** shared memory and ones that
-**do not**.
+Two questions about the shared-memory mitigation in `optee_os.patch`:
+
+1. **Does it work?** Can the normal world still change a `memref` under the
+   TA's feet once the parameter is not opted in? (§ *Double-fetch probe*)
+2. **What does it cost?** Invocation latency with the mitigation vs without,
+   for TAs that **opt into** shared memory and ones that **do not**.
 
 ## What the mitigation does
 
@@ -29,6 +31,38 @@ For every `MEMREF` parameter, on each `TA_OpenSessionEntryPoint` /
   This closes the double-fetch / TOCTOU window (the normal world can no longer
   race-mutate the buffer while the TA reads it), at the cost of an allocation,
   two copies and an unmap per parameter per call.
+
+## Double-fetch probe (does the mitigation hold?)
+
+`bench_ta.c` has two probe commands (`TA_BENCH_CMD_DF_SHARED` = 3,
+`TA_BENCH_CMD_DF_COPIED` = 2) that read the **same word** of `params[0]` twice
+per iteration with a 256-iteration compute gap in between — the shape of every
+double fetch in the paper: read a header field, validate it, read it again and
+use it — and count how often the two reads disagree. Command 3 is registered
+with `TEE_RegisterShm()`, command 2 is not.
+
+`bench_host/df_main.c` allocates the shared buffer, spawns a thread that flips
+its first word between `0xaaaaaaaa` and `0x55555555` as fast as it can, and
+invokes the probe. QEMU runs with `-smp 2`, so the flipper really does run on a
+second core while the TA executes.
+
+```
+label,        which,cmd,size,iters,rounds,differ,total_iters,flips
+baseline,     0,3,4096,20000,5,  37369,100000,1558592168
+mitig_shared, 1,3,4096,20000,5,  38994,100000,  34273888
+mitig_copied, 1,2,4096,20000,5,      0,100000,  38090450
+```
+
+| Config | double fetches | raced successfully |
+|---|---:|---:|
+| `baseline` (unpatched)            | 100,000 | 37,369 (37.4 %) |
+| `mitig_shared` (opted in)         | 100,000 | 38,994 (39.0 %) |
+| `mitig_copied` (**not** opted in) | 100,000 | **0** |
+
+The opt-in keeps the zero-copy semantics the TA asked for, double fetch
+included; the default path makes the two reads always agree, because the TA is
+reading a private copy that the normal world cannot reach. Raw output:
+`results/df_test.csv`, serial log `results/df_test_console.log`.
 
 ## The three configurations measured
 
@@ -70,11 +104,15 @@ Both TA commands take:
 Reproduce (from this `benchmark/` dir):
 
 ```sh
-./build.sh                                    # builds dev-kits, TAs, host, run/ + share/
+./build.sh                                    # builds dev-kits, TAs, hosts, run/ + share/
 OPTEE_DIR=../../../optee BENCH_OUT=./out \
-    python3 harness/driver.py                 # boot QEMU + run both sweeps (--smoke for a quick check)
+    python3 harness/driver.py --df            # boot QEMU + double-fetch probe + both sweeps
+OPTEE_DIR=../../../optee BENCH_OUT=./out \
+    python3 harness/driver.py --df-only       # just the double-fetch probe (~1 min)
 BENCH_OUT=./out python3 harness/analyze.py    # tables + plot
 ```
+
+(`--smoke` shortens every sweep for a quick check.)
 
 `OPTEE_DIR` = the built OP-TEE tree (`df/optee`); `BENCH_OUT` = build.sh's output
 dir. Both default to those paths, so on this machine plain
@@ -113,6 +151,9 @@ collapses as soon as the TA does real work:
 
 ## Conclusion
 
+* **The mitigation closes the double fetch.** With the parameter not opted in,
+  0 of 100,000 raced double fetches saw two different values, against ~38 % for
+  both the unpatched baseline and the opted-in command.
 * **Opting in is effectively free.** The `TEE_IsShared` lookup is in the noise
   (within ±5%, i.e. indistinguishable from baseline) at every buffer size and
   workload.
@@ -140,8 +181,11 @@ other**, not as absolute hardware latencies.
 build.sh                       reproducible build (dev-kits, TAs, host)
 bench_ta/                      benchmark TA (memref + configurable workload)
 bench_host/main.c              timing host program (arg: size, iters, work)
-harness/driver.py              QEMU boot + size & workload sweeps (pexpect)
+bench_host/df_main.c           double-fetch probe host (races the memref)
+harness/driver.py              QEMU boot + double-fetch probe + sweeps (pexpect)
 harness/analyze.py             tables + 3-panel plot generator
+results/df_test.csv            double-fetch probe result
+results/df_test_console.log    serial capture of the probe run
 results/results_v2.csv         raw medians/means/mins (size + workload sweeps)
 results/results.csv            first run, size sweep only (superseded)
 results/shm_mitigation_overhead.png

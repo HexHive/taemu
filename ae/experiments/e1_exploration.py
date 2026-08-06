@@ -5,7 +5,7 @@ Fuzzes TAs with the emulator (emulator/fuzz.sh) while tracing accesses to the
 shared memref buffers, deduplicates the recorded traces (eval/deduplicate.py),
 annotates the overlapped fetches (eval/annotate_fetches.py) and reports, per
 TA, how many overlapped fetches were found and how many snapshots they merge
-into. Those snapshots are the input of Fetch-Anchored Fuzzing (E3).
+into. Those snapshots are the input of Fetch-Anchored Fuzzing (E2).
 
 Claim under test: "ScHMuzz detected overlapped fetches in 23 TAs (75% of the
 fuzzed TAs)" - at AE scale, on the TA subset of ae/config.env, we expect

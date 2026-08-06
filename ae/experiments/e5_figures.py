@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""E8 - Figures 4 and 5.
+"""E5 - Figures 4 and 5.
 
 Both figures are produced by the artifact's own plotting pipeline,
 eval/graphs/main.py; this experiment only drives it and collects its output.
@@ -19,7 +19,7 @@ eval/graphs/main.py needs the coverage of the deduplicated Exploration inputs in
 a separate directory; eval/graphs/bk_suspicious_inputs_covs.sh collects it, and
 this experiment runs that first.
 
-Output: ae/results/e8_figures/{figure4,figure5}.png plus the pipeline's own
+Output: ae/results/e5_figures/{figure4,figure5}.png plus the pipeline's own
         per-TEE plots.
 """
 
@@ -132,7 +132,7 @@ def main():
                     help="plot the coverage rate instead of the basic block count")
     args = ap.parse_args()
 
-    res_dir = os.path.join(ae.RESULTS_DIR, "e8_figures")
+    res_dir = os.path.join(ae.RESULTS_DIR, "e5_figures")
     os.makedirs(res_dir, exist_ok=True)
 
     if args.regen_cov or args.fuzz_mode in ("DF", "ALL"):
@@ -142,7 +142,7 @@ def main():
     if n == 0:
         ae.fail("no coverage of deduplicated Exploration inputs found - run "
                 "./ae.sh e1_exploration first")
-        ae.write_report("e8_figures", {"checks": {"figures generated": False}})
+        ae.write_report("e5_figures", {"checks": {"figures generated": False}})
         sys.exit(1)
 
     # Figure 5 is built on top of the Exploration coverage (the ORG pass is what
@@ -191,7 +191,7 @@ def main():
         print(f"  {os.path.relpath(os.path.join(res_dir, 'per_tee'), ae.REPO_DIR)}/ "
               f"({produced['per_tee']} files)")
 
-    ae.write_report("e8_figures", {"fuzz_mode": args.fuzz_mode,
+    ae.write_report("e5_figures", {"fuzz_mode": args.fuzz_mode,
                                    "suspicious_cov_files": n,
                                    "produced": produced, "checks": checks})
     ae.exit_with(checks)

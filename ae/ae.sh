@@ -29,11 +29,11 @@ EXPERIMENTS=(
   "e2_faf:Stage 2 - Fetch-Anchored Fuzzing on the snapshots of Stage 1"
   "e3_distillation:Stage 3 - Distillation: keep only shared-memory crashes"
   "e4_table1:Table I - summary of a campaign (run E1-E3 first, then --source ae)"
-  "e5_vulns:Table II - reproduce the six TOCTTOU vulnerabilities"
-  "e6_rust:Table IV - double fetches in Rust TAs"
-  "e7_reshaping:Table V - executions that trigger a double fetch"
-  "e8_figures:Figures 4 and 5 - coverage of Exploration and of FAF"
-  "e9_mitigation:Section VII - OP-TEE opt-in shared memory mitigation"
+  "e5_figures:Figures 4 and 5 - coverage of Exploration and of FAF"
+  "e6_vulns:Table II - reproduce the six TOCTTOU vulnerabilities"
+  "e7_rust:Table IV - double fetches in Rust TAs"
+  "e8_reshaping:Table V - executions that trigger a double fetch"
+  "e9_mitigation:Section VII - OP-TEE opt-in mitigation, and that it holds"
 )
 
 usage() {
@@ -144,7 +144,7 @@ main() {
                     e2_faf)          args="--from exploration" ;;
                     e3_distillation) args="--from faf" ;;
                     e4_table1)       args="--source ae" ;;
-                    e8_figures)      args="--fuzz-mode ALL --regen-cov \
+                    e5_figures)      args="--fuzz-mode ALL --regen-cov \
                                            --max-timestamps $AE_EXPLORE_TIME --show-rate" ;;
                     *)               args="" ;;
                 esac

@@ -23,10 +23,11 @@
 set -euo pipefail
 
 # --- paths (edit to taste) --------------------------------------------------
-DF=/home/philipp/taemu/df
-PATCH_DIR=/home/philipp/taemu/df/TA_GP_emulator/optee_shm_patch
-BASE_TREE=$DF/optee              # clean OP-TEE tree (baseline)
-MITIG_TREE=$DF/optee_patch       # OP-TEE tree that receives optee_os.patch
+HERE_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+PATCH_DIR=${PATCH_DIR:-$(cd "$HERE_DIR/.." && pwd)}
+DF=${DF:-/home/philipp/taemu/df}
+BASE_TREE=${BASE_TREE:-$DF/optee}         # clean OP-TEE tree (baseline)
+MITIG_TREE=${MITIG_TREE:-$DF/optee_patch} # OP-TEE tree that receives optee_os.patch
 OUT=${OUT:-$PATCH_DIR/benchmark/out}   # writable build output (not root-owned)
 
 TC64=$BASE_TREE/toolchains/aarch64/bin/aarch64-linux-gnu-
@@ -70,10 +71,14 @@ make -C "$HERE/bench_ta" O="$OUT/ta_mitig" CROSS_COMPILE="$TC64" \
     BENCH_CFLAGS=-DMITIG \
     BINARY=22222222-2222-2222-2222-222222222222
 
-echo "==> [4] benchmark host binary"
+echo "==> [4] benchmark host binaries"
 "$TC64"gcc --sysroot="$SYSROOT" -O2 -Wall \
     -o "$OUT/share/optee_shm_bench" "$HERE/bench_host/main.c" \
     -I"$SYSROOT/usr/include" -L"$SYSROOT/usr/lib" -lteec
+# Functional double-fetch probe (races the memref from a second thread).
+"$TC64"gcc --sysroot="$SYSROOT" -O2 -Wall \
+    -o "$OUT/share/optee_shm_dftest" "$HERE/bench_host/df_main.c" \
+    -I"$SYSROOT/usr/include" -L"$SYSROOT/usr/lib" -lteec -lpthread
 
 cp "$OUT/ta_base"/*.ta "$OUT/ta_mitig"/*.ta "$OUT/share/"
 

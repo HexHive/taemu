@@ -11,10 +11,14 @@ TEE_Result TA_CreateEntryPoint(void)
 	 * Opt command TA_BENCH_CMD_SHARED, parameter 0, into shared memory.
 	 * TA_BENCH_CMD_COPIED is intentionally left unregistered so the
 	 * mitigation takes the copy-in/copy-out path for it.
+	 *
+	 * Same split for the two double-fetch probe commands: DF_SHARED opts
+	 * in (and can therefore still be raced), DF_COPIED does not.
 	 */
 	bool shared[4] = { true, false, false, false };
 
 	TEE_RegisterShm(TA_BENCH_CMD_SHARED, shared, false);
+	TEE_RegisterShm(TA_BENCH_CMD_DF_SHARED, shared, false);
 #endif
 	return TEE_SUCCESS;
 }
@@ -76,6 +80,54 @@ static TEE_Result bench_cmd(uint32_t pt, TEE_Param params[4])
 	return TEE_SUCCESS;
 }
 
+/*
+ * Double-fetch probe.
+ *
+ * params[0] : MEMREF_INOUT - the shared/copied buffer, raced by the client
+ * params[1] : VALUE_INOUT  - in  .a = probe iterations
+ *                            out .a = iterations whose two reads disagreed
+ *                            out .b = iterations executed
+ *
+ * Each iteration reads the same word twice with a short compute gap in
+ * between - the shape of every double fetch in the paper: read a header
+ * field, validate it, read it again and use it. If the client can mutate the
+ * buffer between the two reads, they disagree.
+ */
+static TEE_Result df_probe(uint32_t pt, TEE_Param params[4])
+{
+	uint32_t exp = TEE_PARAM_TYPES(TEE_PARAM_TYPE_MEMREF_INOUT,
+				       TEE_PARAM_TYPE_VALUE_INOUT,
+				       TEE_PARAM_TYPE_NONE,
+				       TEE_PARAM_TYPE_NONE);
+	volatile uint32_t *word;
+	uint32_t iters, i, j, differ = 0, first, second;
+	uint64_t acc = 0;
+
+	if (pt != exp)
+		return TEE_ERROR_BAD_PARAMETERS;
+	if (!params[0].memref.buffer ||
+	    params[0].memref.size < sizeof(uint32_t))
+		return TEE_ERROR_BAD_PARAMETERS;
+
+	word = (volatile uint32_t *)params[0].memref.buffer;
+	iters = params[1].value.a;
+
+	for (i = 0; i < iters; i++) {
+		first = *word;
+		for (j = 0; j < TA_BENCH_DF_GAP; j++)
+			acc += (j ^ first) * 2654435761u + 1;
+		second = *word;
+		if (first != second)
+			differ++;
+	}
+	bench_sink = acc;
+
+	params[1].value.a = differ;
+	params[1].value.b = iters;
+
+	return TEE_SUCCESS;
+}
+
 TEE_Result TA_InvokeCommandEntryPoint(void *sess __unused, uint32_t cmd,
 				      uint32_t pt, TEE_Param params[4])
 {
@@ -83,6 +135,9 @@ TEE_Result TA_InvokeCommandEntryPoint(void *sess __unused, uint32_t cmd,
 	case TA_BENCH_CMD_COPIED:
 	case TA_BENCH_CMD_SHARED:
 		return bench_cmd(pt, params);
+	case TA_BENCH_CMD_DF_COPIED:
+	case TA_BENCH_CMD_DF_SHARED:
+		return df_probe(pt, params);
 	default:
 		return TEE_ERROR_BAD_PARAMETERS;
 	}

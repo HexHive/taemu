@@ -21,11 +21,11 @@ CLAIMS = {
     "e2_faf":          "Stage 2 fuzzes the second fetch of a snapshot and finds crashes",
     "e3_distillation": "Stage 3 keeps only crashes that need the shared-memory race",
     "e4_table1":       "Table I: dataset, overlapped fetches, crashes, distilled crashes",
-    "e5_vulns":        "Table II: the six TOCTTOU vulnerabilities reproduce in the emulator",
-    "e6_rust":         "Table IV: Rust TAs are affected by shared memory double fetches",
-    "e7_reshaping":    "Table V: only a small fraction of executions triggers a double fetch",
-    "e8_figures":      "Figures 4 and 5: coverage of Exploration and of Fetch-Anchored Fuzzing",
-    "e9_mitigation":   "Section VII: opt-in shared memory mitigation for OP-TEE",
+    "e5_figures":      "Figures 4 and 5: coverage of Exploration and of Fetch-Anchored Fuzzing",
+    "e6_vulns":        "Table II: the six TOCTTOU vulnerabilities reproduce in the emulator",
+    "e7_rust":         "Table IV: Rust TAs are affected by shared memory double fetches",
+    "e8_reshaping":    "Table V: only a small fraction of executions triggers a double fetch",
+    "e9_mitigation":   "Section VII: opt-in mitigation for OP-TEE closes the double fetch",
 }
 
 
@@ -56,21 +56,27 @@ def main():
             highlight = f"{data.get('total_crashes')} crashes"
         elif name == "e3_distillation":
             highlight = f"{data.get('distilled')} shared-memory-only crashes"
-        elif name == "e5_vulns":
+        elif name == "e6_vulns":
             highlight = (f"{data.get('reproduced')}/{len(data.get('results', []))} reproduced "
                          f"[{data.get('mode', 'poc')}]")
-        elif name == "e6_rust":
+        elif name == "e7_rust":
             tas = data.get("tas", {})
             highlight = f"{sum(1 for v in tas.values() if v['overlapped_fetches'])} of {len(tas)} Rust TAs"
-        elif name == "e7_reshaping":
+        elif name == "e8_reshaping":
             highlight = (f"{data.get('percent')}% of executions (paper: 11%), "
                          f"over {data.get('harnesses_with_data', '?')} harnesses with "
                          f"recorder data")
-        elif name == "e8_figures":
+        elif name == "e5_figures":
             highlight = ", ".join(sorted(k for k in (data.get("produced") or {})
                                          if k.endswith(".png")))
         elif name == "e9_mitigation":
-            highlight = "patch + benchmark"
+            df = data.get("double_fetch", {})
+            if df:
+                highlight = ", ".join(
+                    f"{k}: {v['differ']}/{v['total']} raced fetches differ"
+                    for k, v in df.items())
+            else:
+                highlight = "patch + benchmark"
         rows.append([name, CLAIMS[name], status, highlight])
 
     txt = tables.write(ae.RESULTS_DIR, "summary",

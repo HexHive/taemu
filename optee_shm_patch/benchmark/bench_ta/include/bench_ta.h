@@ -31,4 +31,19 @@
 #define TA_BENCH_CMD_COPIED	0
 #define TA_BENCH_CMD_SHARED	1
 
+/*
+ * Double-fetch probe commands. They read the same word of params[0] twice per
+ * iteration, with a short compute gap in between, and report how often the two
+ * reads disagreed while the normal world races the buffer. Same opt-in split
+ * as above:
+ *   - CMD_DF_COPIED is NOT registered -> libutee copies -> reads are stable
+ *   - CMD_DF_SHARED IS registered     -> live shared buffer -> reads can differ
+ * Under the baseline TA both are live shared buffers.
+ */
+#define TA_BENCH_CMD_DF_COPIED	2
+#define TA_BENCH_CMD_DF_SHARED	3
+
+/* Compute iterations between the two fetches of one probe iteration. */
+#define TA_BENCH_DF_GAP		256
+
 #endif /* BENCH_TA_H */
