@@ -280,19 +280,29 @@ put together, and it is the tool to use after a fresh campaign.
   ANDROID_NDK=... ae/ae_ondevice.sh R58N349AKNY                 # one of them
   ```
 
-  What a reviewer sees depends entirely on which TAs their phones ship. On the
-  three devices this was developed against:
+  How a double fetch is *observed* differs per TEE, because it depends on what
+  the TA makes visible — Appendix A of the paper works this out per TEE and the
+  script implements exactly those signals:
+
+  | TEE | PoC | signal |
+  |---|---|---|
+  | Kinibi | `beanpod/pocs/df1e_test` | the TA logs its first fetch (`cmd : 0x…`) and then the branch it took on the second one, and its log goes to the kernel log (Listing 7). `cmd : 0x1009` followed by `paytrigger_ta_get_hmackey_c` is only possible if the value changed in between |
+  | QSEE | `qsee/pocs/a985_test` | the TA returns −5 when both fetches agree and −24 (`0xffffffe8`) only when they disagree (Listing 6) |
+  | TEEGris | `teegris/pocs/s10_5345_SECFR` | a third thread watches the registered buffer; a change while `TEEC_InvokeCommand` is still blocked means the TA writes into normal-world memory. The paper establishes TEEGris from an on-device *crash* of a Table II TA instead — which needs a phone that ships that TA |
+
+  On the three devices this was developed against:
 
   | device | TEE | PoC | verdict |
   |---|---|---|---|
-  | TECNO Mobile LH8n | Kinibi | `beanpod/pocs/df1e_test` | ZERO-COPY (poll 94,734 of 195,983) |
-  | Samsung SM-G973F (S10) | TEEGris | `teegris/pocs/s10_5345_SECFR` | ZERO-COPY (poll 32,539 of 68,949) |
-  | Samsung SM-G973F (S10) | TEEGris | `teegris/pocs/4662_FbCkmR_df` | no TA |
-  | OnePlus CPH2621 | QSEE | `qsee/pocs/a985_test` | no TA |
+  | TECNO Mobile LH8n | Kinibi | `df1e_test` | DOUBLE-FETCH — `cmd : 0x1009` then `paytrigger_ta_get_hmackey_c`, 4 of 25 runs |
+  | Samsung SM-G973F (S10) | TEEGris | `s10_5345_SECFR` | DOUBLE-FETCH — TA wrote into the buffer at poll 48,957 of 90,304 |
+  | Samsung SM-G973F (S10) | TEEGris | `4662_FbCkmR_df` | no TA |
+  | OnePlus CPH2621 | QSEE | `a985_test` | no TA |
 
-  which is claim C5 for TEEGris and Kinibi. The Table II vulnerabilities need
-  the phone to ship the vulnerable TA, which none of these three does.
-  Listing 2 of the paper shows the racing app.
+  which is claim C5 for Kinibi and TEEGris. Winning the race is probabilistic,
+  so each PoC runs up to `AE_ONDEVICE_RUNS` times (default 25). The Table II
+  vulnerabilities need the phone to ship the vulnerable TA, which none of these
+  three does. Listing 2 of the paper shows the racing app.
 * **The full campaign** — the paper's numbers come from 5 × 24 h of Exploration
   per TA and 15 min of Fetch-Anchored Fuzzing for each of 17,232 snapshots
   (4,330 CPU-hours). `AE_SCALE=paper` runs those budgets.

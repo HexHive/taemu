@@ -5,7 +5,6 @@
 #include <string.h>
 #include "tee_client_api.h"
 #include "repro.h"
-#include "zerocopy.h"
 #include <dlfcn.h>
 
 TEEC_Result (*TEEC_OpenSession_impl)(TEEC_Context*,
@@ -64,11 +63,11 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
         return;
     } 
 
-    /* Watch the output buffer: the racing thread only writes param0, so a
-     * change here during the call was written by the TA. */
-    zc_start(mem_area2, 0, 64);
+    /* The TA logs the value of its first fetch and then the branch it takes
+     * on the second one (Listing 7). On this device those logs land in the
+     * kernel log, so the double fetch is read out of dmesg - see
+     * ae/ae_ondevice.sh. */
     TEEC_Result res = TEEC_InvokeCommand_impl(session, 0x1, &op, &err_origin);
-    zc_stop();
 	printf("TEEC_Result: %x origin: err_origin: %x\n", res, err_origin);
 }
 

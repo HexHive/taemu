@@ -14,10 +14,24 @@
 #        reached        the TA processed a memref that a second thread kept
 #                       rewriting for the whole call, but nothing observable
 #                       came back
-#        ZERO-COPY      the TA wrote into the registered buffer *while*
-#                       TEEC_InvokeCommand was still blocked, i.e. it operates
-#                       on normal-world memory directly - Table III, claim C5
+#        DOUBLE-FETCH   the TA demonstrably read the same field twice and got
+#                       two different values - Table III, claim C5
 #        CRASHED        the TA died - the double fetch was exploited
+#
+# How a double fetch is observed differs per TEE, because it depends on what
+# the TA makes visible (Appendix A of the paper):
+#
+#   kinibi  df1e   the TA logs its first fetch and then the branch it took on
+#                  the second one, and its logs go to the kernel log. A pair
+#                  like "cmd : 0x1009" followed by ..._get_hmackey_... is only
+#                  possible if the value changed in between.
+#   qsee    a985   the TA returns -5 when both fetches agree and -24
+#                  (0xffffffe8) only if they disagree.
+#   teegris s10    the registered buffer is watched from a third thread; a
+#                  change while TEEC_InvokeCommand is still blocked means the
+#                  TA writes into normal-world memory. (The paper establishes
+#                  TEEGris from an on-device crash of a Table II TA instead;
+#                  that TA is not on every Samsung phone.)
 #
 # Usage:
 #   ANDROID_NDK=~/opt/android-ndk-r26d ./ae_ondevice.sh            # all devices
@@ -36,7 +50,7 @@ log() { echo "${C_BLU}[ae]${C_RST} $*"; }
 ok()  { echo "${C_GRN}[ok]${C_RST} $*"; }
 err() { echo "${C_RED}[--]${C_RST} $*"; }
 
-RUNS="${AE_ONDEVICE_RUNS:-5}"
+RUNS="${AE_ONDEVICE_RUNS:-25}"
 
 # ---------------------------------------------------------------- proof of concepts
 # poc dir | TEE | TA UUID | extra argv for ./poc
@@ -93,10 +107,14 @@ run_poc() {
         echo "build failed|see $(basename "$logf")"; return
     fi
 
-    local out="" crashed=0 reached=0 nota=0 zerocopy=0 zcline="" i
+    local out="" klog="" crashed=0 reached=0 nota=0 df=0 dfline="" i
     for i in $(seq 1 "$RUNS"); do
+        # Clear the kernel log first: the Kinibi TA writes its own trace there.
+        adb -s "$serial" shell "su -c 'dmesg -c'" >/dev/null 2>&1
         out=$(adb -s "$serial" shell "su -c 'cd /data/local/tmp && chmod 755 poc && timeout 30 ./poc $pocargs 2>&1'" 2>&1 | tr -d '\r')
-        printf '=== run %s\n%s\n' "$i" "$out" >>"$logf"
+        klog=$(adb -s "$serial" shell "su -c 'dmesg'" 2>/dev/null | tr -d '\r' | sed 's/.*|//')
+        printf '=== run %s\n%s\n--- kernel log\n%s\n' "$i" "$out" \
+               "$(printf '%s' "$klog" | grep -E 'cmd : 0x|hmackey|check_key' || true)" >>"$logf"
         case "$out" in
             *"OpenSession failed"*)  nota=1 ;;
             *Segmentation*|*"signal 11"*|*Abort*|*"TEE panic"*|*"tzdev: "*) crashed=1 ;;
@@ -104,23 +122,37 @@ run_poc() {
         # A TA that answers an invocation while the racing thread rewrites the
         # registered buffer is the observation Table III is about.
         case "$out" in *"TEEC_Result:"*) reached=1 ;; esac
+        # kinibi: first fetch logged, then the branch the second fetch took.
+        local first branch
+        first=$(printf '%s' "$klog" | grep -oE "cmd : 0x1[0-9a-f]+" | tail -1)
+        branch=$(printf '%s' "$klog" | grep -oE "paytrigger_(ta_get_hmackey|check_key)[a-z_]*" | tail -1)
+        if [ -n "$first" ] && [ -n "$branch" ]; then
+            case "$first:$branch" in
+                *0x1001:*check_key*|*0x1009:*get_hmackey*)
+                    df=1; dfline="$first then $branch" ;;
+            esac
+        fi
+        # qsee: -24 is only reachable when the two fetches disagree.
+        case "$out" in
+            *"TEEC_Result: ffffffe8"*) df=1; dfline="TA returned -24" ;;
+        esac
+        # teegris: the TA wrote into the registered buffer mid-invoke.
         case "$out" in
             *"ZEROCOPY: yes"*)
-                zerocopy=1
-                zcline=$(printf '%s' "$out" | grep -o "poll [0-9]* of [0-9]*" | tail -1)
+                df=1
+                dfline="TA wrote into the buffer mid-invoke, $(printf '%s' "$out" | grep -o 'poll [0-9]* of [0-9]*' | tail -1)"
                 ;;
         esac
-        # The watcher thread is not always scheduled before a short invoke
-        # returns, so keep trying until it is; a crash ends it immediately.
-        { [ "$crashed" = 1 ] || [ "$zerocopy" = 1 ]; } && break
+        # Winning the race is probabilistic, so keep going until it lands.
+        { [ "$crashed" = 1 ] || [ "$df" = 1 ]; } && break
     done
 
     local last; last=$(printf '%s' "$out" | grep -E "TEEC_Result|OpenSession failed" | tail -1)
-    if   [ "$crashed" = 1 ];  then echo "CRASHED|$last"
-    elif [ "$zerocopy" = 1 ]; then echo "ZERO-COPY|TA wrote into the buffer mid-invoke ($zcline)"
-    elif [ "$reached" = 1 ];  then echo "reached|$last"
-    elif [ "$nota" = 1 ];     then echo "no TA|TEEC_OpenSession failed"
-    else                           echo "no result|see $(basename "$logf")"; fi
+    if   [ "$crashed" = 1 ]; then echo "CRASHED|$last"
+    elif [ "$df" = 1 ];      then echo "DOUBLE-FETCH|$dfline (run $i of $RUNS)"
+    elif [ "$reached" = 1 ]; then echo "reached|$last"
+    elif [ "$nota" = 1 ];    then echo "no TA|TEEC_OpenSession failed"
+    else                          echo "no result|see $(basename "$logf")"; fi
 }
 
 # ----------------------------------------------------------------------------- main
@@ -167,7 +199,7 @@ main() {
             ran=$((ran + 1))
             IFS='|' read -r verdict detail < <(run_poc "$serial" "$poc" "$pargs")
             case "$verdict" in
-                CRASHED|ZERO-COPY) ok "$(basename "$poc"): $verdict - $detail" ;;
+                CRASHED|DOUBLE-FETCH) ok "$(basename "$poc"): $verdict - $detail" ;;
                 reached) ok "$(basename "$poc"): $verdict - $detail" ;;
                 *)       err "$(basename "$poc"): $verdict - $detail" ;;
             esac

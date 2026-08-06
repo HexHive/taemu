@@ -8,7 +8,6 @@
 #include <string.h>
 #include "tee_client_api.h"
 #include "repro.h"
-#include "zerocopy.h"
 #include <dlfcn.h>
 
 TEEC_Result (*TEEC_OpenSession_impl)(TEEC_Context*,
@@ -140,11 +139,10 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
     }
 #endif
     
-    /* Watch a window the racing thread does not touch (it writes at [0]). */
-    zc_start(op.params[0].memref.parent ? ((TEEC_SharedMemory *)op.params[0].memref.parent)->buffer
-                                        : op.params[0].tmpref.buffer, 0x100, 64);
+    /* The TA returns -5 when both fetches agree and -24 (0xffffffe8) only if
+     * shm[0] changed between them (Listing 6), so the return value is the
+     * double-fetch signal - see ae/ae_ondevice.sh. */
     res = TEEC_InvokeCommand_impl(session, 4, &op, &err_origin);
-    zc_stop();
     printf("TEEC_Result: %x origin: err_origin: %x\n", res, err_origin);
 }
 
