@@ -187,7 +187,7 @@ def main():
 
     works = ([os.path.join(os.path.dirname(h), PREFIX + os.path.basename(h))
               for h in harnesses] if args.report_only
-             else [stage(h, args.keep) for h in harnesses])
+             else [stage(h, args.keep or args.skip_fuzzing) for h in harnesses])
 
     if not args.skip_fuzzing and not args.report_only:
         jobs = [(w, args.time, rep) for rep in range(args.reps) for w in works]

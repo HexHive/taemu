@@ -78,7 +78,10 @@ def write(result_dir, name, headers, rows, title=None, notes=(), caption="", lab
 
 
 def cmp_cell(measured, paper):
-    """'measured (paper: X)' - or just the value when they agree."""
-    if measured == paper:
-        return str(measured)
+    """'measured (paper: X)'.
+
+    The paper's value is printed even when it matches, so that every cell can be
+    checked against the paper without having to know that a bare number means
+    "same as the paper".
+    """
     return f"{measured} (paper: {paper})"

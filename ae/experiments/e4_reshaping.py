@@ -24,6 +24,7 @@ Output: ae/results/e4_reshaping/{table5.txt,csv,tex}
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -70,6 +71,35 @@ def harness_numbers(harness):
     return execs, df_execs, os.path.isdir(meta)
 
 
+# The paper's Table V is keyed by TA name; this evaluation's rows are keyed by
+# harness. ae/data/vulns.json pins the TA name of six harnesses, which is the
+# only mapping the artifact actually establishes - the rest of the paper's TAs
+# cannot be tied to a harness from anything in this repository, so their rows
+# say "n/a" rather than guessing.
+NAME_ALIASES = {"FbSkmR": "FbCkmR"}
+
+
+def paper_rows_by_harness():
+    """<tee>/<uuid prefix> -> (execs, execs_df, percent) from the paper."""
+    paper5 = tables.paper_tables()["table5"]
+    out = {}
+    for v in json.load(open(os.path.join(
+            os.path.dirname(HERE), "data", "vulns.json")))["vulnerabilities"]:
+        name = NAME_ALIASES.get(v["ta_name"], v["ta_name"])
+        if name not in paper5:
+            continue
+        tee, _, harness = v["harness"].split("/")
+        out[f"{tee}/{harness.split('_')[0]}"] = paper5[name]
+    return out
+
+
+def paper_key(rel_harness):
+    """Key of a harness path, ignoring the ae_e<n>_ prefix of a working copy."""
+    tee, _, harness = rel_harness.split("/")
+    harness = re.sub(r"^ae_e[0-9]+_", "", harness)
+    return f"{tee}/{harness.split('_')[0]}"
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--harnesses", nargs="*", default=None,
@@ -95,6 +125,11 @@ def main():
     harnesses = ([os.path.join(ae.REPO_DIR, h) for h in args.harnesses]
                  if args.harnesses else ae.all_harnesses())
 
+    by_harness = paper_rows_by_harness()
+    paper5 = tables.paper_tables()["table5"]
+    p_execs = sum(v[0] for k, v in paper5.items() if k != "_columns")
+    p_df = sum(v[1] for k, v in paper5.items() if k != "_columns")
+
     rows, detail = [], {}
     t_execs = t_df = 0
     skipped = []
@@ -108,13 +143,21 @@ def main():
         name = os.path.relpath(h, ae.REPO_DIR)
         pct = (100.0 * df_execs / execs) if execs else 0.0
         detail[name] = {"execs": execs, "execs_df": df_execs, "percent": round(pct, 1)}
-        rows.append([name, f"{execs:,}", f"{df_execs:,}", f"{pct:.1f}%"])
+        p = by_harness.get(paper_key(name))
+        detail[name]["paper"] = p
+        rows.append([name,
+                     tables.cmp_cell(f"{execs:,}", f"{p[0]:,}" if p else "n/a"),
+                     tables.cmp_cell(f"{df_execs:,}", f"{p[1]:,}" if p else "n/a"),
+                     tables.cmp_cell(f"{pct:.1f}%", f"{p[2]}%" if p else "n/a")])
         t_execs += execs
         t_df += df_execs
-    rows.sort(key=lambda r: float(r[3][:-1]), reverse=True)
+    rows.sort(key=lambda r: float(r[3].split("%")[0]), reverse=True)
     rows.append(None)
     total_pct = (100.0 * t_df / t_execs) if t_execs else 0.0
-    rows.append(["all", f"{t_execs:,}", f"{t_df:,}", f"{total_pct:.1f}%"])
+    rows.append(["all",
+                 tables.cmp_cell(f"{t_execs:,}", f"{p_execs:,}"),
+                 tables.cmp_cell(f"{t_df:,}", f"{p_df:,}"),
+                 tables.cmp_cell(f"{total_pct:.1f}%", f"{100.0 * p_df / p_execs:.1f}%")])
 
     tables.write(res_dir, "table5",
                  ["TA (harness)", "# Execs", "# Execs DF", "Execs DF %"], rows,

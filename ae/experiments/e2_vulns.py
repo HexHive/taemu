@@ -239,7 +239,7 @@ def main():
 
     headers = ["TEE", "TA UUID", "TA Name", "DF Vulnerability",
                f"Reproduced ({'replay' if args.replay else 'PoC'})",
-               "Crash observed", "Reproduced on device"]
+               "Crash observed", "Reproduced on device (paper)"]
     headers.insert(5, "Needs shared memory" if args.replay else "PoC runs")
 
     tables.write(res_dir, "table2", headers, rows,

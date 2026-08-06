@@ -57,7 +57,8 @@ def main():
         ae.fail("no Rust TA harness is usable in this artifact")
         sys.exit(1)
 
-    works = [stage1.stage(h, args.keep) for _, h in entries]
+    # --skip-fuzzing re-reports on an existing run, so it must not re-stage.
+    works = [stage1.stage(h, args.keep or args.skip_fuzzing) for _, h in entries]
     if not args.skip_fuzzing:
         ae.log(f"exploring {len(works)} Rust TAs for {args.time}s each")
         ae.parallel(stage1.explore, [(w, args.time, 0) for w in works])
@@ -76,7 +77,8 @@ def main():
                      tables.cmp_cell(fetches, row["double_fetches"]), snaps])
 
     tables.write(res_dir, "table4",
-                 ["TA", "SHM Operation", "# Detected Double Fetches", "# snapshots"],
+                 ["TA", "SHM Operation", "# Detected Double Fetches",
+                  "# Snapshots (not in the paper)"],
                  rows,
                  title="Table IV",
                  caption="The Rust TAs that operate on shared memory.",

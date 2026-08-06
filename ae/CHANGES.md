@@ -277,3 +277,26 @@ are still present.
 
 The remaining experiments are `e1_automatic_df_detection`, `e2_vulns`,
 `e3_rust`, `e4_reshaping`.
+
+## Every cell carries the paper's number
+
+`tables.cmp_cell()` printed a bare value when the measurement matched the paper,
+so a reader had to know that "9" means "9, same as the paper" while
+"3 (paper: 7)" means it differs - and a matching column looked like a column
+with no reference at all. It always prints `measured (paper: X)` now, which
+covers Table I and Table IV.
+
+Table V had no paper column at all. The paper keys it by TA name and this
+evaluation keys it by harness; `ae/data/vulns.json` pins the TA name of six
+harnesses, which is the only mapping the artifact actually establishes, so those
+rows now carry the paper's execution counts and percentage and the rest say
+`n/a` rather than guessing. The `all` row compares against the paper's totals
+(61,310,041 executions, 6,762,981 of them reaching a double fetch, 11.0 %).
+
+Table IV's `# snapshots` and Table II's `Reproduced on device` have no
+measured/paper pair - the first is not in the paper, the second is quoted from
+it - and their headers now say so.
+
+Also fixed: `--skip-fuzzing` re-staged the working harnesses before reporting on
+them, so "re-report on the run I already did" wiped the run and printed zeros.
+It now implies `--keep`.
