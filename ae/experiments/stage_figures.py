@@ -62,14 +62,14 @@ def backup_suspicious_covs(res_dir):
 
 
 def collect_outputs(res_dir):
-    """Copy what eval/graphs/main.py produced into the result directory."""
+    """Name what eval/graphs/main.py produced the way the paper does."""
     produced = {}
     for src, dst in (("org_control_flow_graph.png", "figure4.png"),
                      ("df_control_flow_graph.png", "figure5.png")):
-        p = os.path.join(GRAPHS, src)
+        p = os.path.join(res_dir, src)
         if os.path.exists(p):
-            shutil.copy(p, os.path.join(res_dir, dst))
-            produced[dst] = os.path.getsize(p)
+            os.replace(p, os.path.join(res_dir, dst))
+            produced[dst] = os.path.getsize(os.path.join(res_dir, dst))
     out = os.path.join(GRAPHS, "multi_graph_out")
     if os.path.isdir(out) and os.listdir(out):
         dst = os.path.join(res_dir, "per_tee")
@@ -150,6 +150,9 @@ def main():
     mode = "ALL" if args.fuzz_mode == "DF" else args.fuzz_mode
     cmd = [sys.executable, os.path.join(GRAPHS, "main.py"),
            "--path", ae.REPO_DIR, "--ss_cov_rdir", ss_dir,
+           # The figures and their raw data go next to the rest of this stage's
+           # output; eval/graphs/ holds the paper's own and stays untouched.
+           "--out_dir", res_dir,
            "--fuzz_mode", mode,
            "--max_timestamps", str(args.max_timestamps)]
     if args.regen_cov:

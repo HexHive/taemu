@@ -64,8 +64,13 @@ def main(
     grouping_field_name: Optional[str] = None,
     show_rate: bool = False,
     max_timestamps: int = 86400,
+    out_dir: str = None,
 ):
     path = path or taemu_env.repo_root()
+    # Where the figures and their raw data go. Defaults to this directory, so a
+    # standalone run behaves as before; the artifact evaluation points it at
+    # ae/results/... so that a run does not overwrite the paper's own figures.
+    out_dir = out_dir or os.path.join(path, "eval/graphs")
     all_tas: set[str] = list_tas(path)
     tees = tees or ["mitee", "teegris", "beanpod", "t6", "qsee"]
     if tees == ["kinibi"]:
@@ -151,14 +156,13 @@ def main(
             grouping_field_name=grouping_field_name,
             show_rate=show_rate,
             path=path,
+            out_dir=out_dir,
         )
         if org_graph:
             logger.info(f"[+] Finished generating org graph")
             if save_plots:
                 # Save the figure
-                output_path = os.path.join(
-                    path, "eval/graphs/org_control_flow_graph.png"
-                )
+                output_path = os.path.join(out_dir, "org_control_flow_graph.png")
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
                 org_graph.savefig(output_path, dpi=300, bbox_inches="tight")
                 logger.info(f"[+] Saved org graph to {output_path}")
@@ -173,14 +177,13 @@ def main(
             show_rate=show_rate,
             bk_suspicious_inputs_cov_rdir=bk_suspicious_inputs_cov_rdir,
             path=path,
+            out_dir=out_dir,
         )
         if df_graph:
             logger.info(f"[+] Finished generating df graph")
             if save_plots:
                 # Save the figure
-                output_path = os.path.join(
-                    path, "eval/graphs/df_control_flow_graph.png"
-                )
+                output_path = os.path.join(out_dir, "df_control_flow_graph.png")
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
                 df_graph.savefig(output_path, dpi=300, bbox_inches="tight")
                 logger.info(f"[+] Saved df graph to {output_path}")
@@ -211,6 +214,9 @@ if __name__ == "__main__":
     parser.add_argument("--ss_cov_rdir", type=str, default=None, required=True)
     parser.add_argument("--org_group_field", type=str, default=None, choices=["tee", None])
     parser.add_argument("--show_rate", action="store_true", default=False)
+    parser.add_argument("--out_dir", type=str, default=None,
+                        help="where to write the figures and their raw data "
+                             "(default: eval/graphs, i.e. in place)")
     parser.add_argument("--max_timestamps", type=int, default=86400,
                         help="length of the x-axis of the exploration graph in seconds "
                              "(the paper's campaign ran for 86400 s per repetition)")
@@ -234,6 +240,7 @@ if __name__ == "__main__":
         grouping_field_name=args.org_group_field,
         show_rate=args.show_rate,
         max_timestamps=args.max_timestamps,
+        out_dir=args.out_dir,
         show_plots=False,
         save_plots=True,
     )

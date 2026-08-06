@@ -1,5 +1,7 @@
 # ---------------------------------------------------------------- AE output
 ae/results/
+ae/ae_full_run.log
+nohup.out
 # working harnesses created by the artifact-evaluation experiments
 */harness/ae_e*_*
 
@@ -23,6 +25,9 @@ emulator/rootfs/id:*
 emulator/tmp/
 emulator/ql-emulator.log*
 annotate_fetches_error.txt
+# secure-storage objects a TA creates while it runs (the object ID is derived
+# from data the fuzzer controls, so the file name is junk)
+emulator/emulate/files/*/*-,
 
 # generated evaluation data and figures
 eval/bbs_out/
@@ -31,6 +36,12 @@ eval/campaign_out/
 eval/graphs/multi_graph_out/
 eval/graphs/multi_graph_data/
 eval/graphs/*.log
+# list of coverage files, built by eval/graphs/bk_suspicious_inputs_covs.sh
+.suspicious_inputs_cov_files.txt
+# eval/graphs/{rawinfo,df_rawinfo,*_control_flow_graph.png} are the paper's own
+# figures and their raw data, and are tracked. The artifact evaluation writes
+# its own to ae/results/ (eval/graphs/main.py --out_dir), so a run leaves them
+# alone.
 
 # build output (the measured benchmark results in benchmark/results are kept)
 optee_shm_patch/benchmark/out/

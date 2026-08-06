@@ -161,8 +161,8 @@ def _group_fuzzing_info_list(
     return new_fuzzing_imap_by_field
 
 
-def org_dump_info(y_values, x_values, name, path):
-    info_path = os.path.join(path, "eval/graphs/rawinfo/")
+def org_dump_info(y_values, x_values, name, path, out_dir=None):
+    info_path = os.path.join(out_dir or os.path.join(path, "eval/graphs"), "rawinfo")
     if not os.path.exists(info_path):
         os.makedirs(info_path)
     open(os.path.join(info_path, f'org_{name}.json'), 'w+').write(
@@ -179,6 +179,7 @@ def org_control_flow_graph(
     grouping_field_name: Optional[str] = None,
     show_rate: bool = False,
     path: str = None,
+    out_dir: str = None,
 ):
     fuzzing_info_list = [
         each
@@ -284,7 +285,8 @@ def org_control_flow_graph(
             if not show_rate
             else [count / fuzzing_info.raw_covs.max_nodes * 100 for count in counts]
         )
-        org_dump_info(y_values, x_values, naming_change(fuzzing_info.raw_fuzzing_info.id), path)
+        org_dump_info(y_values, x_values, naming_change(fuzzing_info.raw_fuzzing_info.id),
+                      path, out_dir=out_dir)
         ax.plot(
             x_values,
             y_values,
@@ -445,9 +447,10 @@ def longest_overlapped_bbs_trace(suspicious_inputs_bbs: list[BB], df_fuzzing_dir
             break
     return longest_overlapped_bbs
 
-def df_dump_info(basics, part_one, part_two, part_three, df_snapshot, name, path):
+def df_dump_info(basics, part_one, part_two, part_three, df_snapshot, name, path,
+                 out_dir=None):
     #TODO: also dump list of BBs of sus input and basics BBs <- merge this data across same harness runs
-    info_path = os.path.join(path, "eval/graphs/df_rawinfo/")
+    info_path = os.path.join(out_dir or os.path.join(path, "eval/graphs"), "df_rawinfo")
     if not os.path.exists(info_path):
         os.makedirs(info_path)
     open(os.path.join(info_path, f'df_{name}.json'), 'w+').write(
@@ -466,6 +469,7 @@ def df_control_flow_graph(
     bk_suspicious_inputs_cov_rdir: str,
     show_rate: bool = False,
     path = None,
+    out_dir: str = None,
 ):
     bar_field_name = "id"
     grouping_field_name = "harness_path"
@@ -632,7 +636,8 @@ def df_control_flow_graph(
         )
 
         df_dump_info(basic_segments, part_one_segments, part_two_segments, part_three_segments, df_snapshot, 
-                    f'{vanilla_fuzzing_info.raw_fuzzing_info.tee}_{naming_change(vanilla_id)}', path)
+                    f'{vanilla_fuzzing_info.raw_fuzzing_info.tee}_{naming_change(vanilla_id)}', path,
+                    out_dir=out_dir)
 
         x = np.arange(len(basic_segments))
         if show_rate:

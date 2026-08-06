@@ -181,3 +181,23 @@ where it sits next to the numbers it qualifies instead of scrolling past.
 
 Failures are unaffected: failed checks are still `[--]` on stdout, and
 `./ae.sh all` still reports an experiment that exited non-zero.
+
+## Run artifacts
+
+A run used to dirty files that are tracked, so `git status` after an evaluation
+was a mixture of the reviewer's own edits and output:
+
+* `eval/graphs/main.py` wrote its figures to
+  `eval/graphs/{org,df}_control_flow_graph.png` and their raw data to
+  `eval/graphs/{rawinfo,df_rawinfo}/` — the paper's own figures and data, which
+  a run therefore overwrote. It takes `--out_dir` now (default: unchanged, so a
+  standalone run still writes in place) and the figures stage points it at
+  `ae/results/e1_automatic_df_detection/5_figures/`.
+* `.suspicious_inputs_cov_files.txt` (a list of absolute paths built by
+  `eval/graphs/bk_suspicious_inputs_covs.sh`) and
+  `emulator/emulate/files/*/*-,` (a secure-storage object a TA writes while it
+  runs, named after a fuzzer-controlled object ID) were tracked. Both are now
+  untracked and ignored.
+
+With `ae/results/`, `*/harness/ae_e*_*` and the campaign state that was already
+ignored, a full evaluation now leaves the working tree clean.
