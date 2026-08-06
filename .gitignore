@@ -50,7 +50,6 @@ eval/graphs/*.log
 
 # build output (the measured benchmark results in benchmark/results are kept)
 optee_shm_patch/benchmark/out/
-swarm/target/
 
 # python
 **/__pycache__/

@@ -191,8 +191,7 @@ def snapshots_from_meta(meta_path):
     A snapshot is identified by (seed, reg_hash): the Exploration seed that
     reached the overlapped fetch, and the hash of the register state at the
     second fetch. Contiguous second fetches issued from the same instruction
-    are merged into one snapshot, mirroring
-    swarm::job_generation::get_context_via_meta.
+    are merged into one snapshot.
     """
     try:
         data = json.load(open(meta_path))

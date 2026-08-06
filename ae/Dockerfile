@@ -1,9 +1,9 @@
 # Artifact-evaluation controller image.
 #
 # The emulator image (ta_emu_ae, built from ../Dockerfile) runs a single TA.
-# This image runs *everything else* of the artifact evaluation: the campaign
-# orchestrator (swarm), the evaluation scripts in eval/, the table generators
-# and the plotting code. It talks to the docker daemon of the host through the
+# This image runs *everything else* of the artifact evaluation: the experiment
+# drivers, the evaluation scripts in eval/, the table generators and the
+# plotting code. It talks to the docker daemon of the host through the
 # forwarded socket and starts emulator containers as siblings, which is why it
 # only needs the docker *client*.
 #

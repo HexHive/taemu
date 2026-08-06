@@ -54,14 +54,6 @@ ENV PYTHONPATH=$PATH:/opt/afl
 RUN wget -q https://raw.githubusercontent.com/bata24/gef/dev/install-uv.sh -O- | sh \
     || echo "[!] gef install failed - continuing, debugging tools are optional"
 
-################################################################################
-# Build swarm
-################################################################################
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH=$PATH:/root/.cargo/bin
-# COPY swarm/ /opt/swarm/
-# RUN cd /opt/swarm/ && cargo build --release
-
 WORKDIR /opt/src
 
 # clone and make drcov-merge

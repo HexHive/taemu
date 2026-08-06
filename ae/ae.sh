@@ -28,7 +28,6 @@ EXPERIMENTS=(
   "e1_automatic_df_detection:Section III - the pipeline: Exploration, Fetch-Anchored Fuzzing, Distillation, then Table I and Figures 4 and 5"
   "e2_vulns:Table II - reproduce the six TOCTTOU vulnerabilities"
   "e3_rust:Table IV - double fetches in Rust TAs"
-  "e4_reshaping:Table V - executions that trigger a double fetch"
 )
 
 usage() {
@@ -105,8 +104,6 @@ run_in_controller() {
         -e "AE_HOST_UID=$(id -u)" -e "AE_HOST_GID=$(id -g)" \
         "$CTL_IMAGE" bash -c "touch /.ae_controller; $*; rc=\$?; \
             chown -R \$AE_HOST_UID:\$AE_HOST_GID '$AE_DIR' 2>/dev/null; \
-            [ -d '$REPO_DIR/swarm/target' ] && \
-                chown -R \$AE_HOST_UID:\$AE_HOST_GID '$REPO_DIR/swarm/target' 2>/dev/null; \
             for d in '$REPO_DIR'/*/harness/ae_*; do \
                 [ -e \"\$d\" ] && chown -R \$AE_HOST_UID:\$AE_HOST_GID \"\$d\" 2>/dev/null; \
             done; exit \$rc"
@@ -117,9 +114,6 @@ cmd_setup() {
     command -v docker >/dev/null || die "docker is required"
     build_images
     ae_require_redis
-    log "building the campaign orchestrator (swarm) ..."
-    run_in_controller "cd '$REPO_DIR/swarm' && cargo build --release 2>&1 | tail -3" \
-        || err "swarm build failed - e2/e3 fall back to the built-in scheduler"
     ae_banner "Self-test: emulate a TA and replay one Exploration seed"
     run_in_controller "python3 '$AE_DIR/experiments/e0_selftest.py'"
 }
@@ -155,7 +149,7 @@ main() {
         clean)
             log "removing the working harnesses of the pipeline and ae/results ..."
             run_in_controller "rm -rf '$AE_DIR/results' '$REPO_DIR'/*/harness/ae_e*_*"
-            docker ps -a --format '{{.Names}}' | grep -E '^(emu_|swarm_emu_)' \
+            docker ps -a --format '{{.Names}}' | grep -E '^emu_' \
                 | xargs -r docker rm -f >/dev/null 2>&1
             ok "cleaned"
             ;;

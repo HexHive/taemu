@@ -15,7 +15,6 @@ The artifact consists of
 | component | what it is |
 |---|---|
 | `emulator/` | **ScHMuzz**, built on TÄMU/Qiling/Unicorn + AFL++: emulates GlobalPlatform TAs, records shared-memory accesses (Exploration), fuzzes the value of a second fetch from a restored snapshot (Fetch-Anchored Fuzzing) and validates crashes (Distillation) |
-| `swarm/` | the campaign orchestrator that runs one emulator container per fuzzing job |
 | `eval/` | deduplication, annotation, statistics and plotting of a campaign |
 | `<tee>/tas/` | the TA corpus per TEE (TEEGris, QSEE, Kinibi, MiTEE, Beanpod, plus OP-TEE Rust TAs and T6/TrustedCore) |
 | `<tee>/harness/` | one fuzzing harness per TA that operates on shared memory, **plus the campaign data of the paper** (recorded fetches, snapshots, crashes) |
@@ -67,7 +66,7 @@ images that `./ae.sh setup` builds:
 * `ta_emu_ae` (from `../Dockerfile`): Ubuntu 22.04, Python 3.10.12, Qiling
   pinned at `56dd77b` plus `emulator/qiling.diff`, Unicorn, AFL++ 4.32c with the
   unicornafl bindings, pwntools 4.15.0 and the rest of
-  `emulator/requirements.txt`, Rust (for `swarm/`)
+  `emulator/requirements.txt`
 * `ta_emu_ae_ctl` (from `ae/Dockerfile`): the same plus the docker client and
   compose plugin, matplotlib 3.10.8, numpy, networkx, tqdm, aiofiles, cachetools,
   loguru, tenacity, pandas, jq, bc, pv

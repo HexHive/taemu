@@ -22,7 +22,6 @@ CLAIMS = {
                        "crashes and keeps the ones that need the race - Table I, Figures 4 and 5",
     "e2_vulns":        "Table II: the six TOCTTOU vulnerabilities reproduce in the emulator",
     "e3_rust":         "Table IV: Rust TAs are affected by shared memory double fetches",
-    "e4_reshaping":    "Table V: only a small fraction of executions triggers a double fetch",
 }
 
 # The pipeline's stages report separately, below its result directory.
@@ -85,10 +84,6 @@ def main():
         elif name == "e3_rust":
             tas = data.get("tas", {})
             highlight = f"{sum(1 for v in tas.values() if v['overlapped_fetches'])} of {len(tas)} Rust TAs"
-        elif name == "e4_reshaping":
-            highlight = (f"{data.get('percent')}% of executions (paper: 11%), "
-                         f"over {data.get('harnesses_with_data', '?')} harnesses with "
-                         f"recorder data")
         rows.append([name, CLAIMS[name], status, highlight])
 
     txt = tables.write(ae.RESULTS_DIR, "summary",

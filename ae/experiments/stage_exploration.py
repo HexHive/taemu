@@ -38,8 +38,8 @@ def stage(harness, keep):
     Running in-place would overwrite the campaign data shipped with the
     artifact, so Exploration always starts from an empty working harness. The
     directory has to live next to the original one because the deduplication
-    and orchestration scripts (and swarm) discover work by the
-    <tee>/harness/<name> layout.
+    and orchestration scripts discover work by the <tee>/harness/<name>
+    layout.
     """
     tee_harness = os.path.dirname(harness)
     work = os.path.join(tee_harness, PREFIX + os.path.basename(harness))
