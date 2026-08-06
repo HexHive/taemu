@@ -53,11 +53,16 @@ EOF
     done
     cat <<EOF
 
-Scaling (see ae/config.env):
-  AE_JOBS=$AE_JOBS                 parallel emulator containers (${AE_JOBS_REASON:-})
-  AE_EXPLORE_TIME=$AE_EXPLORE_TIME     seconds of Exploration per TA (paper: 86400 x 5)
-  AE_FAF_TIME=$AE_FAF_TIME            seconds of Fetch-Anchored Fuzzing per snapshot (paper: 900)
-  AE_SCALE=paper           use the paper's budgets instead (weeks of CPU time)
+Scaling (see ae/config.env) - the defaults size themselves to this machine:
+  AE_JOBS=$AE_JOBS parallel emulator containers (${AE_JOBS_REASON:-})
+  AE_SUBSET=$([ "$AE_SUBSET" = all ] && printf 'all - 27 harnesses, the 30 TAs of Table I' \
+              || printf '%s harness(es)' "$(printf '%s' "$AE_SUBSET" | wc -w)")
+  AE_EXPLORE_TIME=$AE_EXPLORE_TIME s of Exploration per TA, x$AE_EXPLORE_REPS (paper: 86400 x 5)
+  AE_FAF_TIME=$AE_FAF_TIME s of Fetch-Anchored Fuzzing per snapshot (paper: 900)
+  AE_FAF_MAX_SNAPSHOTS=$AE_FAF_MAX_SNAPSHOTS snapshots fuzzed per TA (paper: all)
+
+  AE_SCALE=quick           five TAs, short budgets (~1 h in total)
+  AE_SCALE=paper           the paper's budgets (weeks of CPU time)
 EOF
 }
 
@@ -98,6 +103,7 @@ run_in_controller() {
         -e "AE_EXPLORE_REPS=$AE_EXPLORE_REPS" \
         -e "AE_FAF_TIME=$AE_FAF_TIME" \
         -e "AE_FAF_MAX_SNAPSHOTS=$AE_FAF_MAX_SNAPSHOTS" \
+        -e "AE_DEDUP_LIMIT=$AE_DEDUP_LIMIT" \
         -e "AE_SUBSET=$AE_SUBSET" \
         -e "PYTHONPATH=$REPO_DIR/ae/lib:$REPO_DIR/eval" \
         -e "TAEMU_KEEP_REDIS=1" \

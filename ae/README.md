@@ -3,7 +3,7 @@
 *Oversharing: Exposing Double Fetch Vulnerabilities in Trusted Applications*
 
 This directory contains the artifact evaluation harness for the paper. Every
-experiment runs inside docker, is scaled down to fit an evaluation session, and
+experiment runs inside docker, sizes itself to the machine it runs on, and
 writes the corresponding table or figure of the paper to `ae/results/`.
 
 ---
@@ -31,18 +31,25 @@ order: Exploration produces the snapshots that Fetch-Anchored Fuzzing needs,
 which produces the crashes that Distillation filters, and Table I is the
 summary of that campaign.
 
-| # | Paper claim | Experiment | Runtime (default) |
+Runtimes are for the default budgets on a commodity desktop (8 cores, 16 GB
+RAM, `AE_JOBS=6`); they shrink on a bigger machine, see §7.
+
+| # | Paper claim | Experiment | Runtime |
 |---|---|---|---|
-| C2 | Exploration finds overlapped fetches from shared memory in binary-only TAs (Sec. III-A) | `e1_exploration` | ~10 min |
-| C3 | Fetch-Anchored Fuzzing turns overlapped fetches into crashes (Sec. III-B) | `e2_faf` | ~45 min |
+| C2 | Exploration finds overlapped fetches from shared memory in binary-only TAs (Sec. III-A) | `e1_exploration` | ~3 h |
+| C3 | Fetch-Anchored Fuzzing turns overlapped fetches into crashes (Sec. III-B) | `e2_faf` | ~4.5 h |
 | C4 | Distillation keeps only crashes that require the shared-memory race (Sec. III-C) | `e3_distillation` | ~10 min |
 | C1 | Table I: TAs, overlapped fetches, snapshots, crashes, distilled crashes | `e4_table1` | ~1 min |
-| C8 | Figures 4 and 5: coverage of Exploration and of Fetch-Anchored Fuzzing | `e5_figures` | ~2 min |
+| C8 | Figures 4 and 5: coverage of Exploration and of Fetch-Anchored Fuzzing | `e5_figures` | ~30 min |
 | C5 | **Table II: six 0-day TOCTTOU vulnerabilities in five TAs**, reproduced by racing the TA with the PoC of each vulnerability | `e6_vulns` | ~15 min |
-| C6 | Table IV: TAs written in Rust are affected as well (Sec. VI) | `e7_rust` | ~10 min |
+| C6 | Table IV: TAs written in Rust are affected as well (Sec. VI) | `e7_rust` | ~40 min |
 | C7 | Table V: only ~11 % of fuzzing iterations execute a double fetch (Sec. VIII-c) | `e8_reshaping` | ~1 min |
 | C9 | Section VII: a 140-LoC opt-in mitigation for OP-TEE that closes the double fetch and is cheap when opted in | `e9_mitigation` | ~1 min |
 | — | Table III: zero-copy shared memory on COTS phones (Section V) | **not reproducible without the phones**, see §6 | — |
+
+`./ae.sh all` runs all of it, in this order, in about 8 h. `AE_SCALE=quick`
+cuts it to roughly an hour on five TAs when you only want to see the machinery
+work.
 
 ## 3. Requirements
 
@@ -96,11 +103,17 @@ injects the crashing value and lets Distillation confirm that the crash needs
 the race. It must end with `all checks passed`.
 
 ```sh
-./ae.sh list           # all experiments
-./ae.sh e6_vulns       # the central "reproduced" experiment (Table II)
-./ae.sh all            # everything, scaled down, in order
-./ae.sh report         # summary of everything that was run
+./ae.sh list                 # all experiments, and the budgets picked for this machine
+./ae.sh e6_vulns             # the central "reproduced" experiment (Table II), ~15 min
+./ae.sh all                  # everything, in order, all 30 TAs, ~8 h
+AE_SCALE=quick ./ae.sh all   # the same on five TAs with short budgets, ~1 h
+./ae.sh report               # summary of everything that was run
 ```
+
+The defaults in `ae/config.env` need no tuning: `AE_JOBS` is derived from the
+machine's cores and free memory at every invocation, and the time budgets are
+sized so that the full run covers all 30 TAs of Table I within a day on a
+commodity desktop (§7).
 
 The pipeline of Section III, run explicitly:
 
@@ -129,17 +142,18 @@ Working copies are created as `<tee>/harness/ae_e2_<name>` — the campaign data
 shipped with the artifact is never modified.
 
 ```sh
-./ae.sh e1_exploration                          # $AE_SUBSET, AE_EXPLORE_TIME each
-AE_EXPLORE_TIME=1800 ./ae.sh e1_exploration     # longer budget
-./ae.sh e1_exploration --harnesses all          # every TA the paper harnessed
+./ae.sh e1_exploration                          # all 30 TAs, 30 min each
+AE_EXPLORE_TIME=3600 ./ae.sh e1_exploration     # longer budget
+AE_SCALE=quick ./ae.sh e1_exploration           # five TAs, 5 min each
 ./ae.sh e1_exploration --harnesses mitee/harness/88ce_fuzz qsee/harness/3d08_fuzz
 ```
 
-`all` (also `AE_SUBSET=all`, and accepted by `e2_faf`/`e3_distillation`) selects
+`all` — the default, also accepted as `--harnesses all` by
+`e2_faf`/`e3_distillation` — selects
 **27 harnesses covering the 30 TAs of Table I** — the three Kinibi TAs are fuzzed
 through their Beanpod harnesses and count for both TEEs. E1 prints the resulting
 TA count and an estimate of the wall clock before it starts, e.g. 27 harnesses at
-one hour each with `AE_JOBS=10` is ~3 h of fuzzing plus deduplication.
+30 min each with `AE_JOBS=6` is ~3 h of fuzzing plus deduplication.
 
 ### `e2_faf` — Stage 2
 
@@ -303,34 +317,35 @@ documents the build.
 
 ## 7. Scaling
 
-`ae/config.env` (all values can be overridden in the environment):
+Nothing here has to be set: the defaults size themselves to the machine at
+every invocation and already cover all 30 TAs of Table I within a day on a
+commodity desktop. `./ae.sh list` prints what they resolved to.
 
-| variable | default | paper |
-|---|---|---|
-| `AE_JOBS` | auto: min(cores − 2, free RAM ÷ 512 MB) | 56 |
-| `AE_MEM_PER_JOB_MB` | 512 (an emulator measures ~85 MB) | — |
-| `AE_RESERVE_MB` | 2048 left for host, docker, controller | — |
-| `AE_EXPLORE_TIME` | 300 s per TA | 86,400 s |
-| `AE_EXPLORE_REPS` | 1 | 5 |
-| `AE_FAF_TIME` | 900 s per snapshot | 900 s |
-| `AE_FAF_MAX_SNAPSHOTS` | 6 per TA | all |
-| `AE_DEDUP_LIMIT` | 150 recordings per TA | all (0 = no limit) |
-| `AE_SUBSET` | the five TAs behind Table II | `all` (30 TAs) |
+| variable | default | `AE_SCALE=quick` | paper |
+|---|---|---|---|
+| `AE_JOBS` | auto: min(cores − 2, free RAM ÷ 512 MB) | auto | 56 |
+| `AE_MEM_PER_JOB_MB` | 512 (an emulator measures ~85 MB) | — | — |
+| `AE_RESERVE_MB` | 2048 left for host, docker, controller | — | — |
+| `AE_SUBSET` | `all` — 27 harnesses, the 30 TAs of Table I | the 5 TAs behind Table II | `all` |
+| `AE_EXPLORE_TIME` | 1800 s per TA | 300 s | 86,400 s |
+| `AE_EXPLORE_REPS` | 1 | 1 | 5 |
+| `AE_FAF_TIME` | 900 s per snapshot | 900 s | 900 s |
+| `AE_FAF_MAX_SNAPSHOTS` | 4 per TA | 6 | all |
+| `AE_DEDUP_LIMIT` | 0 = every recording | 150 per TA | 0 |
 
-`AE_SCALE=paper ./ae.sh all` restores the paper's budgets (weeks of CPU time).
+Anything set in the environment wins over the `AE_SCALE` preset, so
+`AE_SCALE=quick AE_SUBSET=all ./ae.sh e1_exploration` does what it says.
 
-### Recommended settings for artifact evaluation
+### What `./ae.sh all` costs
 
-On a commodity desktop (8 cores, 16 GB RAM) the harness picks `AE_JOBS=6`
-(`min(8-2, (16 GB - 2 GB)/512 MB)`). The following covers **all 30 TAs of
-Table I** and finishes in well under a day:
+`AE_JOBS` is the only thing that decides wall clock: the pipeline runs the
+harnesses in waves of `AE_JOBS` emulator containers, one core each. A commodity
+desktop (8 cores, 16 GB RAM) gets `AE_JOBS=6` — `min(8-2, (16 GB - 2 GB)/512
+MB)` — which is what the estimates below assume. Twelve cores get 10, and E1/E2
+finish in roughly half the time.
 
 ```sh
 cd ae && ./ae.sh setup
-AE_SUBSET=all \
-AE_EXPLORE_TIME=1800 AE_EXPLORE_REPS=1 \
-AE_FAF_TIME=900 AE_FAF_MAX_SNAPSHOTS=4 \
-AE_DEDUP_LIMIT=0 \
 nohup ./ae.sh all > ae_full_run.log 2>&1 &
 ```
 
@@ -340,10 +355,10 @@ nohup ./ae.sh all > ae_full_run.log 2>&1 &
 | `e2_faf` | 27 x 4 snapshots x 15 min, 18 waves | ~4.5 h |
 | `e3_distillation` | every crash found above | minutes |
 | `e4_table1` | Table I of that campaign | seconds |
+| `e5_figures` | CFGs + coverage replays (~1 s each) | ~30 min |
 | `e6_vulns` | six PoCs raced against the emulator | ~15 min |
 | `e7_rust` | 5 Rust TAs x 30 min | ~40 min |
-| `e8_reshaping`, `e9_mitigation` | Table V, patch + benchmark | seconds |
-| `e5_figures` | CFGs + coverage replays (~1 s each) | ~30 min |
+| `e8_reshaping`, `e9_mitigation` | Table V, patch + benchmark + double-fetch probe | seconds |
 | **total** | | **~9 h** |
 
 Needs ~15 GB of disk: 3.8 GB of docker images, ~4 GB of TA corpus and campaign
@@ -352,8 +367,8 @@ data, and ~300 MB produced by the run itself.
 Two smaller options:
 
 ```sh
-./ae.sh setup && ./ae.sh e6_vulns          # kick the tires, ~25 min, Table II
-./ae.sh all                                # default 5-TA subset, ~2 h
+./ae.sh setup && ./ae.sh e6_vulns      # kick the tires, ~25 min, Table II
+AE_SCALE=quick ./ae.sh all             # five TAs, short budgets, ~1 h
 ```
 
 ### What the scaled-down run does and does not show
@@ -371,7 +386,7 @@ Preserved in full:
 * **Section VII**: the size of the mitigation and its measured overhead.
 
 Reduced: the paper explores each TA for 5 x 24 h and fuzzes each of its 17,232
-snapshots for 15 min (4,330 CPU-hours). The run above spends 30 min per TA and
+snapshots for 15 min (4,330 CPU-hours). The default run spends 30 min per TA and
 fuzzes 4 snapshots per TA, so the absolute counts in Table I (overlapped
 fetches, snapshots, crashes) are correspondingly smaller; the columns are
 reported next to the paper's numbers. Raising `AE_EXPLORE_TIME`,

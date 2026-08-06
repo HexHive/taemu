@@ -139,3 +139,24 @@ describe the campaign that E1-E3 produce, which put three unrelated experiments
 between the campaign and its plots. They are now `e5_figures`, directly after
 Table I, and the rest shifted up: `e5_vulns` -> `e6_vulns`, `e6_rust` ->
 `e7_rust`, `e7_reshaping` -> `e8_reshaping`. Claim IDs (C1-C9) are unchanged.
+
+## Defaults
+
+The scaled-down budgets were documented in the README but not the defaults, so
+plain `./ae.sh all` ran five TAs for 5 minutes each and everything the artifact
+appendix recommended had to be typed out by hand. The recommended settings are
+now what you get with nothing set:
+
+    AE_SUBSET=all (27 harnesses, the 30 TAs of Table I)
+    AE_EXPLORE_TIME=1800   AE_EXPLORE_REPS=1
+    AE_FAF_TIME=900        AE_FAF_MAX_SNAPSHOTS=4
+    AE_DEDUP_LIMIT=0       AE_JOBS=auto
+
+`AE_JOBS` already derived itself from the machine's cores and free memory at
+every invocation; `./ae.sh list` now prints the whole resolved configuration,
+so a reviewer can see what their machine picked before starting a run.
+
+`AE_SCALE=quick` is the old default (five TAs, 5 min each, ~1 h in total) for
+smoke-testing, and `AE_SCALE=paper` is unchanged. Both presets now yield to
+anything set explicitly in the environment, so `AE_SCALE=quick AE_SUBSET=all`
+does what it says instead of silently ignoring the subset.
