@@ -297,14 +297,17 @@ put together, and it is the tool to use after a fresh campaign.
   | QSEE | `qsee/pocs/a985_test` | the TA returns −5 when both fetches agree and −24 (`0xffffffe8`) only when they disagree (Listing 6) |
   | TEEGris | `teegris/pocs/s10_5345_SECFR` | a third thread watches the registered buffer; a change while `TEEC_InvokeCommand` is still blocked means the TA writes into normal-world memory. The paper establishes TEEGris from an on-device *crash* of a Table II TA instead — which needs a phone that ships that TA |
 
-  On the three devices this was developed against:
+  It prints Table III - one line per phone - and the per-PoC detail goes to
+  `ondevice.csv` and the logs beside it. On the three devices this was
+  developed against:
 
-  | device | TEE | PoC | verdict |
-  |---|---|---|---|
-  | TECNO Mobile LH8n | Kinibi | `df1e_test` | DOUBLE-FETCH — `cmd : 0x1001` then `paytrigger_check_key_ta_pub` |
-  | Samsung SM-G973F (S10) | TEEGris | `s10_5345_SECFR` | DOUBLE-FETCH — TA wrote into the buffer at poll 26,509 of 70,697 |
-  | Samsung SM-G973F (S10) | TEEGris | `4662_FbCkmR_df` | no TA |
-  | OnePlus CPH2609 | QSEE | `a985_test` | DOUBLE-FETCH — TA returned −24 |
+  ```
+  TEE       MODEL                    ZERO-COPY SHM
+  -----------------------------------------------------
+  Kinibi    TECNO Mobile LH8n        yes
+  TEEGris   samsung SM-G973F         yes
+  QSEE      OnePlus CPH2609          yes
+  ```
 
   which is claim C5 for Kinibi, QSEE and TEEGris. Winning the race is probabilistic,
   so each PoC runs up to `AE_ONDEVICE_RUNS` times (default 25). The Table II

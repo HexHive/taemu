@@ -95,8 +95,21 @@ device_tee() {
 }
 
 device_model() {
-    adb -s "$1" shell 'getprop ro.product.manufacturer; getprop ro.product.model' \
-        2>/dev/null | tr -d '\r' | paste -sd' ' -
+    # "TECNO MOBILE" + "TECNO Mobile LH8n" is one name, not two.
+    local mk md
+    mk=$(adb -s "$1" shell getprop ro.product.manufacturer 2>/dev/null | tr -d '\r')
+    md=$(adb -s "$1" shell getprop ro.product.model 2>/dev/null | tr -d '\r')
+    case "$(printf '%s' "$md" | tr 'A-Z' 'a-z')" in
+        "$(printf '%s' "$mk" | tr 'A-Z' 'a-z')"*) printf '%s' "$md" ;;
+        *)                                        printf '%s %s' "$mk" "$md" ;;
+    esac
+}
+
+tee_label() {
+    case "$1" in
+        teegris) echo TEEGris ;; qsee) echo QSEE ;; kinibi) echo Kinibi ;;
+        mitee)   echo MiTEE   ;; beanpod) echo Beanpod ;; *) echo "$1" ;;
+    esac
 }
 
 device_rooted() {
@@ -237,17 +250,31 @@ main() {
     done
 
     # ------------------------------------------------------------------ the table
+    # Table III: one line per device, whether its TEE hands TAs zero-copy
+    # shared memory. A device is "yes" as soon as any of its PoCs shows the TA
+    # reading or writing memory the racing thread was changing.
     {
-        echo "On-device reproduction (Section V)"
-        echo "=================================="
+        echo "Zero-copy shared memory (Table III)"
+        echo "==================================="
         echo
-        printf "%-16s %-22s %-8s %-26s %-9s %s\n" \
-               DEVICE MODEL TEE POC VERDICT DETAIL
-        printf "%s\n" "----------------------------------------------------------------------------------------------------"
-        local r
+        printf "%-9s %-24s %s\n" TEE MODEL "ZERO-COPY SHM"
+        printf "%s\n" "-----------------------------------------------------"
+        local seen="" r s2 m t v
         for r in "${rows[@]}"; do
-            IFS='|' read -r s m t p _ v d <<<"$r"
-            printf "%-16s %-22s %-8s %-26s %-9s %s\n" "$s" "$m" "$t" "$p" "$v" "$d"
+            IFS='|' read -r s2 m t _ _ v _ <<<"$r"
+            case " $seen " in *" $s2 "*) continue ;; esac
+            seen="$seen $s2"
+            local verdict="no TA"
+            local x s3 v3
+            for x in "${rows[@]}"; do
+                IFS='|' read -r s3 _ _ _ _ v3 _ <<<"$x"
+                [ "$s3" = "$s2" ] || continue
+                case "$v3" in
+                    DOUBLE-FETCH|CRASHED) verdict="yes"; break ;;
+                    reached) verdict="not observed" ;;
+                esac
+            done
+            printf "%-9s %-24s %s\n" "$(tee_label "$t")" "$m" "$verdict"
         done
     } | tee "$RES_DIR/ondevice.txt"
 
