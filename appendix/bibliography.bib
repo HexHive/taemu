@@ -1,0 +1,498 @@
+@inproceedings{basesafe,
+author = {Maier, Dominik and Seidel, Lukas and Park, Shinjo},
+title = {BaseSAFE: baseband sanitized fuzzing through emulation},
+year = {2020},
+isbn = {9781450380065},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3395351.3399360},
+doi = {10.1145/3395351.3399360},
+abstract = {Rogue base stations are an effective attack vector. Cellular basebands represent a critical part of the smartphone's security: they parse large amounts of data even before authentication. They can, therefore, grant an attacker a very stealthy way to gather information about calls placed and even to escalate to the main operating system, over-the-air. In this paper, we discuss a novel cellular fuzzing framework that aims to help security researchers find critical bugs in cellular basebands and similar embedded systems. BaseSAFE allows partial rehosting of cellular basebands for fast instrumented fuzzing off-device, even for closed-source firmware blobs. BaseSAFE's sanitizing drop-in allocator, enables spotting heap-based buffer-overflows quickly. Using our proof-of-concept harness, we fuzzed various parsers of the Nucleus RTOS-based MediaTek cellular baseband that are accessible from rogue base stations. The emulator instrumentation is highly optimized, reaching hundreds of executions per second on each core for our complex test case, around 15k test-cases per second in total. Furthermore, we discuss attack vectors for baseband modems. To the best of our knowledge, this is the first use of emulation-based fuzzing for security testing of commercial cellular basebands. Most of the tooling and approaches of BaseSAFE are also applicable for other low-level kernels and firmware. Using BaseSAFE, we were able to find memory corruptions including heap out-of-bounds writes using our proof-of-concept fuzzing harness in the MediaTek cellular baseband. BaseSAFE, the harness, and a large collection of LTE signaling message test cases will be released open-source upon publication of this paper.},
+booktitle = {Proceedings of the 13th ACM Conference on Security and Privacy in Wireless and Mobile Networks},
+pages = {122–132},
+numpages = {11},
+keywords = {cellular, fuzzing, rehosting, security},
+location = {Linz, Austria},
+series = {WiSec '20}
+}
+
+@inproceedings{taemu,
+  title={T\"AMU: Emulating Trusted Applications at the (GlobalPlatform)-API Layer},
+  author={Mao, Philipp and Shi, Li and Busch, Marcel and Payer, Mathias},
+  booktitle={2026 IEEE Symposium on Security and Privacy (SP)},
+  year={2026},
+  organization={IEEE}
+}
+
+@INPROCEEDINGS{cerdeira,
+  author={Cerdeira, David and Santos, Nuno and Fonseca, Pedro and Pinto, Sandro},
+  booktitle={2020 IEEE Symposium on Security and Privacy (SP)}, 
+  title={SoK: Understanding the Prevailing Security Vulnerabilities in TrustZone-assisted TEE Systems}, 
+  year={2020},
+  volume={},
+  number={},
+  pages={1416-1432},
+  keywords={Kernel;Security;Linux;Hardware;Androids;Humanoid robots;Computer bugs;TEE;TrustZone;Security Vulnerabilities;Arm},
+  doi={10.1109/SP40000.2020.00061}
+}
+
+@inproceedings{sanfelix,
+author = {Eloi Sanfelix},
+title = {{TEE Exploitation by Example: Exploiting Trusted Applications in Samsung's TEE}},
+booktitle = {INFILTRATE 2019},
+year = {2019},
+note = {Conference talk},
+url = {https://vimeo.com/335947683\#t=1104s}
+}
+
+@inproceedings {morphuzz,
+author = {Alexander Bulekov and Bandan Das and Stefan Hajnoczi and Manuel Egele},
+title = {Morphuzz: Bending (Input) Space to Fuzz Virtual Devices},
+booktitle = {31st USENIX Security Symposium (USENIX Security 22)},
+year = {2022},
+isbn = {978-1-939133-31-1},
+address = {Boston, MA},
+pages = {1221--1238},
+url = {https://www.usenix.org/conference/usenixsecurity22/presentation/bulekov},
+publisher = {USENIX Association},
+month = aug
+}
+
+@inproceedings{rustee,
+author = {Wan, Shengye and Sun, Mingshen and Sun, Kun and Zhang, Ning and He, Xu},
+title = {RusTEE: Developing Memory-Safe ARM TrustZone Applications},
+year = {2020},
+isbn = {9781450388580},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3427228.3427262},
+doi = {10.1145/3427228.3427262},
+abstract = {In the past decade, Trusted Execution Environment (TEE) provided by ARM TrustZone is becoming one of the primary techniques for enhancing the security of mobile devices. The isolation enforced by TrustZone can protect the trusted applications running in the TEE against malicious software in the untrusted rich execution environment (REE). However, TrustZone cannot completely prevent vulnerabilities in trusted applications residing in the TEE, which can then be used to attack other trusted applications or even the trusted OS. Previously, a number of memory corruption vulnerabilities have been reported on different TAs, which are written in memory-unsafe languages like C. Recently, various memory-safe programming languages have emerged to mitigate the prevalent memory corruption bugs. In this paper, we propose RusTEE, a trusted application mechanism that leverages Rust, a newly emerged memory-safe language, to enhance the security of TAs. Though the high-level idea is quite straight-forwarding, we resolve several challenges on adopting Rust in mobile TEEs. Specifically, since Rust currently does not support any TrustZone-assisted TEE systems, we extend the existing Rust compiler for providing such support. Also, we apply comprehensive security mechanisms to resolve two security issues of trusted applications, namely, securely invoking high-privileged system services and securely communicating with untrusted REE. We implement a prototype of RusTEE as the trusted applications’ SDK, which supports both emulator and real hardware devices. The experiment shows that RusTEE can compile applications with close-to-C performance on the evaluated platforms.},
+booktitle = {Proceedings of the 36th Annual Computer Security Applications Conference},
+pages = {442–453},
+numpages = {12},
+keywords = {Memory-safety, Rust, TrustZone, Trusted Applications},
+location = {Austin, USA},
+series = {ACSAC '20}
+}
+
+@misc{rustandroid,
+    title = {{Rust in Android: move fast and fix things}},
+    author = {Jeff Vander Stoep},
+    howpublished = {\url{https://security.googleblog.com/2025/11/rust-in-android-move-fast-fix-things.html}},
+    year = {2025}
+}
+
+@misc{bitcoinrust,
+    title = {{Bitcoin-Wallet-for-Trusted-OS-OPTEE}},
+    author = {{joaopeixoto13}},
+    howpublished = {\url{https://github.com/joaopeixoto13/Bitcoin-Wallet-for-Trusted-OS-OPTEE/tree/main}},
+    year = {2023}
+}
+
+@misc{rustbinder,
+    title = {{rust\_binder: add Rust Binder driver}},
+    howpublished = {\url{https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=eafedbc7c050c44744fbdf80bdf3315e860b7513}},
+    year = {2025}
+}
+
+@misc{fiasccco,
+    title = {{Not To Be Trusted - A Fiasco in Android TEEs}},
+    howpublished = {\url{https://media.ccc.de/v/39c3-not-to-be-trusted-a-fiasco-in-android-tees#t=1528}},
+    year = {2025}
+}
+
+@misc{ms2008,
+  title        = {{MS08-061: The case of the kernel mode double-fetch}},
+  howpublished = {\url{https://www.microsoft.com/en-us/msrc/blog/2008/10/ms08-061-the-case-of-the-kernel-mode-double-fetch}},
+  year         = {2008}  
+}
+
+@misc{rustfromraw,
+  title        = {{Rust Docs: Function from\_raw\_parts\_mut }},
+  howpublished = {\url{https://doc.rust-lang.org/std/slice/fn.from_raw_parts_mut.html}},
+  year         = {2026}  
+}
+
+@misc{teaclave,
+  title        = {{Apache TeaClave TrustZone SDK}},
+  howpublished = {\url{https://github.com/apache/teaclave-trustzone-sdk}},
+  year         = {2026}  
+}
+@inproceedings{dftinker,
+  title={Dftinker: Detecting and fixing double-fetch bugs in an automated way},
+  author={Luo, Yingqi and Wang, Pengfei and Zhou, Xu and Lu, Kai},
+  booktitle={International Conference on Wireless Algorithms, Systems, and Applications},
+  pages={780--785},
+  year={2018},
+  organization={Springer}
+}
+
+
+@inproceedings {safefetch,
+author = {Victor Duta and Mitchel Josephus Aloserij and Cristiano Giuffrida},
+title = {{SafeFetch}: Practical {Double-Fetch} Protection with {Kernel-Fetch} Caching},
+booktitle = {33rd USENIX Security Symposium (USENIX Security 24)},
+year = {2024},
+isbn = {978-1-939133-44-1},
+address = {Philadelphia, PA},
+pages = {1207--1224},
+url = {https://www.usenix.org/conference/usenixsecurity24/presentation/duta},
+publisher = {USENIX Association},
+month = aug
+}
+
+@inproceedings {globalconfusion,
+author = {Marcel Busch and Philipp Mao and Mathias Payer},
+title = {{GlobalConfusion}: {TrustZone} Trusted Application 0-Days by Design},
+booktitle = {33rd USENIX Security Symposium (USENIX Security 24)},
+year = {2024},
+isbn = {978-1-939133-44-1},
+address = {Philadelphia, PA},
+pages = {5537--5554},
+url = {https://www.usenix.org/conference/usenixsecurity24/presentation/busch-globalconfusion},
+publisher = {USENIX Association},
+month = aug
+}
+
+@inproceedings {midas,
+author = {Atri Bhattacharyya and Uros Tesic and Mathias Payer},
+title = {Midas: Systematic Kernel {TOCTTOU} Protection},
+booktitle = {31st USENIX Security Symposium (USENIX Security 22)},
+year = {2022},
+isbn = {978-1-939133-31-1},
+address = {Boston, MA},
+pages = {107--124},
+url = {https://www.usenix.org/conference/usenixsecurity22/presentation/bhattacharyya},
+publisher = {USENIX Association},
+month = aug
+}
+
+@inproceedings{chen2024enclavefuzz,
+  title={EnclaveFuzz: Finding Vulnerabilities in SGX Applications},
+  author={Chen, Liheng and Li, Zheming and Ma, Zheyu and Li, Yuan and Chen, Baojian and Zhang, Chao},
+  booktitle={Network and Distributed System Security (NDSS) Symposium},
+  year={2024}
+}
+
+@inproceedings{wang2017double,
+  title={{How Double-Fetch situations turn into Double-Fetch vulnerabilities: A study of double fetches in the linux kernel}},
+  author={Wang, Pengfei and Krinke, Jens and Lu, Kai and Li, Gen and Dodier-Lazaro, Steve},
+  booktitle={26th USENIX Security Symposium (USENIX Security 17)},
+  pages={1--16},
+  year={2017}
+}
+
+@inproceedings{decaf,
+  title={Automated detection, exploitation, and elimination of double-fetch bugs using modern cpu features},
+  author={Schwarz, Michael and Gruss, Daniel and Lipp, Moritz and Maurice, Cl{\'e}mentine and Schuster, Thomas and Fogh, Anders and Mangard, Stefan},
+  booktitle={Proceedings of the 2018 on Asia Conference on Computer and Communications Security},
+  pages={587--600},
+  year={2018}
+}
+
+
+@inproceedings{bochspwn,
+    title      = {Identifying and Exploiting Windows Kernel Race Conditions via Memory Access Patterns},
+    author = {Mateusz Jurczyk and Gynvael Coldwind},
+    year   = {2013},
+    booktitle      = {Bochspwn: Exploiting Kernel Race Conditions Found via Memory Access Patterns},
+    pages  = {69},
+}
+
+@inproceedings{deadline,
+  author={Xu, Meng and Qian, Chenxiong and Lu, Kangjie and Backes, Michael and Kim, Taesoo},
+  booktitle={2018 IEEE Symposium on Security and Privacy (SP)}, 
+  title={Precise and Scalable Detection of Double-Fetch Bugs in OS Kernels}, 
+  year={2018},
+  volume={},
+  number={},
+  pages={661-678},
+  keywords={Computer bugs;Kernel;Linux;Manuals;Protocols;Memory management;kernel;bug;detection},
+  doi={10.1109/SP.2018.00017}
+}
+
+
+@techreport{gpintapi,
+  title        = {{GlobalPlatform TEE Internal Core API Specification, Version 1.3.1}},
+  institution  = {GlobalPlatform},
+  year         = {2021},
+  note          = {\url{https://globalplatform.org/wp-content/uploads/2021/03/GPD_TEE_Internal_Core_API_Specification_v1.3.1_PublicRelease_CC.pdf}}
+}
+
+@techreport{gpclientapi,
+  title        = {{GlobalPlatform TEE Client API Specification, Version 1.0}},
+  institution  = {GlobalPlatform},
+  year         = {2010},
+  note          = {\url{https://globalplatform.org/wp-content/uploads/2010/07/TEE_Client_API_Specification-V1.0.pdf}}
+}
+
+@misc{qiling,
+  title        = {{Qiling: A True Instrumentable Binary Emulation Framework}},
+  howpublished = {\url{https://github.com/qilingframework/qiling}},
+  year         = {2025}  
+}
+
+@misc{unicorn,
+  title        = {{Unicorn: Multi-platform CPU Emulator Framework}},
+  howpublished = {\url{https://github.com/unicorn-engine/unicorn}},
+  year         = {2025}
+}
+
+@inproceedings {AFLplusplus,
+author = {Andrea Fioraldi and Dominik Maier and Heiko Ei{\ss}feldt and Marc Heuse},
+title = {{AFL++}: Combining Incremental Steps of Fuzzing Research},
+booktitle = {14th {USENIX} Workshop on Offensive Technologies ({WOOT} 20)},
+year = {2020},
+publisher = {{USENIX} Association},
+month = aug,
+}
+
+@misc{ghidra,
+  title        = {{Ghidra: A Software Reverse Engineering (SRE) Framework}},
+  author       = {{National Security Agency}},
+  howpublished = {\url{https://github.com/NationalSecurityAgency/ghidra}},
+  year         = {2025}
+}
+
+
+% TA Emulation
+
+@inproceedings {partemu,
+author = {Lee Harrison and Hayawardh Vijayakumar and Rohan Padhye and Koushik Sen and Michael Grace},
+title = {{PARTEMU}: Enabling Dynamic Analysis of {Real-World} {TrustZone} Software Using Emulation},
+booktitle = {29th USENIX Security Symposium (USENIX Security 20)},
+year = {2020},
+isbn = {978-1-939133-17-5},
+pages = {789--806},
+url = {https://www.usenix.org/conference/usenixsecurity20/presentation/harrison},
+publisher = {USENIX Association},
+month = aug
+}
+
+@INPROCEEDINGS{lightemu,
+  author={Shan, Haoqi and Nissankararao, Sravani and Liu, Yujia and Huang, Moyao and Wang, Shuo and Jin, Yier and Sullivan, Dean},
+  booktitle={2024 IEEE International Symposium on Hardware Oriented Security and Trust (HOST)}, 
+  title={LightEMU: Hardware Assisted Fuzzing of Trusted Applications}, 
+  year={2024},
+  volume={},
+  number={},
+  pages={01-11},
+  keywords={Codes;Computer bugs;Fuzzing;Hardware;Security;Internet of Things;Smart phones;TrustZone;ARM;CoreSight;Fuzzing},
+  doi={10.1109/HOST55342.2024.10545377}}
+
+@ARTICLE{dta,
+  author={Song, Juhyun and Jo, Eunji and Kim, Jaehyu},
+  journal={IEEE Access}, 
+  title={DTA: Run TrustZone TAs Outside the Secure World for Security Testing}, 
+  year={2024},
+  volume={12},
+  number={},
+  pages={16715-16727},
+  keywords={Fuzzing;Security;Software;Codes;Task analysis;Switches;Monitoring;Trusted computing;Trusted application (TA);trusted execution environment (TEE);fuzzing;OP-TEE},
+  doi={10.1109/ACCESS.2024.3358612}}
+
+
+@article{crowbar,
+  title={Crowbar: Natively fuzzing trusted applications using arm coresight},
+  author={Shan, Haoqi and Huang, Moyao and Liu, Yujia and Nissankararao, Sravani and Jin, Yier and Wang, Shuo and Sullivan, Dean},
+  journal={Journal of Hardware and Systems Security},
+  volume={7},
+  number={2},
+  pages={44--54},
+  year={2023},
+  publisher={Springer}
+}
+ 
+@INPROCEEDINGS{syncemu,
+  author={Lindenmeier, Christian and Schulze, Matti and Röckl, Jonas and Busch, Marcel},
+  booktitle={2024 IEEE European Symposium on Security and Privacy Workshops (EuroS\&PW)}, 
+  title={SyncEmu: Enabling Dynamic Analysis of Stateful Trusted Applications}, 
+  year={2024},
+  volume={},
+  number={},
+  pages={177-185},
+  keywords={Analytical models;Computer bugs;Computer architecture;Fuzzing;Software;Hardware;Security},
+  doi={10.1109/298202EuroSPW61312.2024.00024}}
+
+@INPROCEEDINGS{open-tee,
+  author={McGillion, Brian and Dettenborn, Tanel and Nyman, Thomas and Asokan, N.},
+  booktitle={2015 IEEE Trustcom/BigDataSE/ISPA}, 
+  title={Open-TEE -- An Open Virtual Trusted Execution Environment}, 
+  year={2015},
+  volume={1},
+  number={},
+  pages={400-407},
+  keywords={Hardware;Software;Debugging;Mobile handsets;Standardization;Cryptography;Trusted Execution Environments;GlobalPlatform;Hardware security;Usability;Software development;Open source},
+  doi={10.1109/Trustcom.2015.400}}
+
+
+@misc{fan2025qsee,
+      title={Qualcomm Trusted Application Emulation for Fuzzing Testing}, 
+      author={Chun-I Fan and Li-En Chang and Cheng-Han Shie},
+      year={2025},
+      eprint={2507.08331},
+      archivePrefix={arXiv},
+      primaryClass={cs.CR},
+      url={https://arxiv.org/abs/2507.08331}, 
+}
+
+@INPROCEEDINGS{teezz,
+  author={Busch, Marcel and Machiry, Aravind and Spensky, Chad and Vigna, Giovanni and Kruegel, Christopher and Payer, Mathias},
+  booktitle={2023 IEEE Symposium on Security and Privacy (SP)}, 
+  title={TEEzz: Fuzzing Trusted Applications on COTS Android Devices}, 
+  year={2023},
+  volume={},
+  number={},
+  pages={1204-1219},
+  keywords={Privacy;Protocols;Codes;Systematics;Source coding;Computer bugs;Production;Fuzzing;Android;TEE;ARM TrustZone},
+  doi={10.1109/SP46215.2023.10179302}}
+
+@inproceedings {trustdies,
+author = {Alon Shakevsky and Eyal Ronen and Avishai Wool},
+title = {Trust Dies in Darkness: Shedding Light on Samsung{\textquoteright}s {TrustZone} Keymaster Design},
+booktitle = {31st USENIX Security Symposium (USENIX Security 22)},
+year = {2022},
+isbn = {978-1-939133-31-1},
+address = {Boston, MA},
+pages = {251--268},
+url = {https://www.usenix.org/conference/usenixsecurity22/presentation/shakevsky},
+publisher = {USENIX Association},
+month = aug
+}
+
+@inproceedings {unearthing,
+author = {Marcel Busch and Johannes Westphal and Tilo Mueller},
+title = {Unearthing the {TrustedCore}: A Critical Review on {Huawei{\textquoteright}s} Trusted Execution Environment},
+booktitle = {14th USENIX Workshop on Offensive Technologies (WOOT 20)},
+year = {2020},
+url = {https://www.usenix.org/conference/woot20/presentation/busch},
+publisher = {USENIX Association},
+month = aug
+}
+
+@inproceedings {horta,
+author = {Darius Suciu and Stephen McLaughlin and Laurent Simon and Radu Sion},
+title = {Horizontal Privilege Escalation in Trusted Applications},
+booktitle = {29th USENIX Security Symposium (USENIX Security 20)},
+year = {2020},
+url = {https://www.usenix.org/conference/usenixsecurity20/presentation/suciu},
+publisher = {USENIX Association},
+month = aug
+}
+
+@misc{zhao2021wideshears,
+  title        = {Wideshears: Investigating and Breaking Widevine on QTEE},
+  author       = {Zhao, Qi},
+  howpublished    = {Black Hat Asia},
+  year         = {2021},
+  note          = {Available at: \url{https://i.blackhat.com/asia-21/Thursday-Handouts/as-21-Zhao-Wideshears-Investigating-And-Breaking-Widevine-On-QTEE.pdf}}
+}
+
+@misc{Makkaveev2019TrustZoneFuzzing,
+  author       = {Slava Makkaveev},
+  title        = {The Road to Qualcomm TrustZone Apps Fuzzing},
+  howpublished = {Check Point Research Blog},
+  year         = {2019},
+  note         = {Available at: \url{https://research.checkpoint.com/2019/the-road-to-qualcomm-trustzone-apps-fuzzing/}}
+}
+
+@misc{AdamTC,
+  author       = {Adam Crenshaw},
+  title        = {On the Nose Bypassing Huaweis Fingerprint authentication by exploiting the TrustZone},
+  howpublished = {Derbycon},
+  year         = {2018},
+  note         = {Available at: \url{https://www.youtube.com/watch?v=QFFhdqP7Dxg/}}
+}
+
+@misc{qseecyberes,
+  author       = {Marco, Hector and Vano Fernando},
+  title        = {Auditing Closed Source Trusted Applications
+for Qualcomm Secure Execution Environment (QSEE)},
+  howpublished = {CYBER Intelligence Blog},
+  year         = {2022},
+  note         = {Available at: \url{https://cyberintel.es/publications/2022-11-17_DeepSec_pub/}}
+}
+
+@misc{berard2018kinibi,
+  author       = {David Berard},
+  title        = {Kinibi TEE: Trusted Application exploitation},
+  howpublished = {Blog post, Synacktiv},
+  year         = {2018},
+  note          = {Available at: \url{https://www.synacktiv.com/en/publications/kinibi-tee-trusted-application-exploitation.html}}
+}
+
+@misc{beniaini2017trustissues,
+  author       = {Gal Beniamini},
+  title        = {Trust Issues: Exploiting TrustZone TEEs},
+  howpublished = {Blog post, Google Project Zero},
+  year         = {2017},
+  note          = {Available at: \url{https://googleprojectzero.blogspot.com/2017/07/trust-issues-exploiting-trustzone-tees.html}}
+}
+
+@inproceedings{busch2020finding,
+  title={Finding 1-day vulnerabilities in trusted applications using selective symbolic execution},
+  author={Busch, Marcel and Dirsch, Kalle},
+  booktitle={Proceedings of the 27th Annual Network and Distributed System Security Symposium (NDSS), San Diego, CA, USA},
+  pages={23--26},
+  year={2020}
+}
+
+@misc{Thalium2023PivotingSecureWorld,
+  author       = {Anonymous},
+  title        = {ARM TrustZone: pivoting to the secure world},
+  howpublished = {Thalium Blog},
+  year         = {2023},
+  note         = {Available at: \url{https://blog.thalium.re/posts/pivoting_to_the_secure_world/}}
+}
+
+@misc{AdamskiGuilbonPeterlin2019SamsungTrustZone,
+  author       = {Alexandre Adamski and Joffrey Guilbon and Maxime Peterlin},
+  title        = {A Deep Dive Into Samsung’s TrustZone (Part 2)},
+  howpublished = {Quarkslab Blog},
+  year         = {2019},
+  note         = {Available at: \url{https://blog.quarkslab.com/a-deep-dive-into-samsungs-trustzone-part-2.html}}
+}
+
+@misc{Komaromy2021UnboxYourPhone,
+  author       = {Daniel Komaromy},
+  title        = {Unbox Your Phone -- Exploring and Breaking Samsung's TrustZone Sandboxes},
+  howpublished = {Ecoparty},
+  year         = {2021},
+  note         = {Available at: \url{https://www.youtube.com/watch?v=L2Mo8WcmmZo}}
+}
+
+@misc{Li2024DiveIntoAndroidTA,
+  author       = {Zhongquan Li},
+  title        = {Dive into Android TA Bug Hunting And Fuzzing},
+  howpublished = {Zhongquan Li’s Blog},
+  year         = {2024},
+  note         = {Available at: \url{https://imlzq.com/android/fuzzing/unicorn/tee/2024/05/29/Dive-Into-Android-TA-BugHunting-And-Fuzzing.html}}
+}
+
+
+
+@inproceedings {rollback,
+author = {Marcel Busch and Philipp Mao and Mathias Payer},
+title = {Spill the {TeA}: An Empirical Study of Trusted Application Rollback Prevention on Android Smartphones},
+booktitle = {33rd USENIX Security Symposium (USENIX Security 24)},
+year = {2024},
+isbn = {978-1-939133-44-1},
+address = {Philadelphia, PA},
+pages = {5071--5088},
+url = {https://www.usenix.org/conference/usenixsecurity24/presentation/busch-tea},
+publisher = {USENIX Association},
+month = aug
+}
+
+@INPROCEEDINGS{warpattack,
+  author={Xu, Jianhao and Bartolomeo, Luca Di and Toffalini, Flavio and Mao, Bing and Payer, Mathias},
+  booktitle={2023 IEEE Symposium on Security and Privacy (SP)}, 
+  title={WarpAttack: Bypassing CFI through Compiler-Introduced Double-Fetches}, 
+  year={2023},
+  volume={},
+  number={},
+  pages={1271-1288},
+  keywords={Concurrent computing;Privacy;Codes;Operating systems;Process control;Static analysis;Cognition;Control-Flow-Integrity;Program-Analysis;Mitigation},
+  doi={10.1109/SP46215.2023.10179433}}
+

@@ -1,0 +1,64 @@
+\definecolor{pgreen}{rgb}{0,0.5,0}
+\definecolor{pblue}{rgb}{0.13,0.13,1}
+\definecolor{pred}{rgb}{0.9,0,0}
+\definecolor{pgrey}{rgb}{0.46,0.45,0.48}
+\definecolor{light-gray}{gray}{0.975}
+\definecolor{darkgreen}{rgb}{0,0.5,0}
+\definecolor{vscodepurple}{RGB}{128, 0, 128}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+
+\lstset{escapechar=@,
+                backgroundcolor = \color{light-gray},
+                linebackgroundcolor={%
+                \ifnum\value{lstnumber}>0
+                    \ifnum\value{lstnumber}<30
+                        \color{light-gray}
+                    \fi
+                \fi
+                %\ifnum\value{lstnumber}>10
+                %    \ifnum\value{lstnumber}<12
+                %        \color{teal!40}
+                %    \fi
+                %\fi
+                \ifnum\value{lstnumber}>3
+                    \ifnum\value{lstnumber}<5
+                        \color{blue!20}
+                    \fi
+                \fi 
+                \ifnum\value{lstnumber}>6
+                    \ifnum\value{lstnumber}<8
+                        \color{red!20}
+                    \fi
+                \fi
+                },
+                tabsize=2,
+                basicstyle=\fontencoding{T1}\selectfont\footnotesize,
+                %basicstyle=\fontfamily{lmvtt}\selectfont\footnotesize,
+                commentstyle=\color{darkgreen!80},
+                keywordstyle=\color{pblue},
+                stringstyle=\color{pred},
+                %stringstyle=\color{vscodepurple},
+                frame = single,
+                showstringspaces=false,
+                language=c,
+                xleftmargin=5pt, 
+                xrightmargin=5pt, 
+                %framexleftmargin=-5pt,
+                numbers=left,                  % Line numbers
+                numberstyle=\tiny\color{black}, % Line number style
+                numbersep=4pt, %moredelim=[is][\textbf]{@}{@}
+                %escapeinside={(*@}{@*)}
+}
+\center
+
+\begin{lstlisting}[columns=fullflexible]
+void combine_file_name(char* part1, char* shm){
+  char out_path[0x80];
+  size_t p1_len = strlen(part1);
+  size_t p2_len = strlen(shm); 
+  if(p1_len + p2_len > 0x80) return;
+  strcpy(out_path, p1);
+  strcpy(out_path + p1_len, shm);
+  ...
+}
+\end{lstlisting}

@@ -1,0 +1,52 @@
+
+
+\definecolor{pgreen}{rgb}{0,0.5,0}
+\definecolor{pblue}{rgb}{0.13,0.13,1}
+\definecolor{pred}{rgb}{0.9,0,0}
+\definecolor{pgrey}{rgb}{0.46,0.45,0.48}
+\definecolor{light-gray}{gray}{0.975}
+\definecolor{darkgreen}{rgb}{0,0.5,0}
+\definecolor{vscodepurple}{RGB}{128, 0, 128}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+
+
+\lstset{escapechar=@,
+                backgroundcolor = \color{light-gray},
+                tabsize=2,
+                basicstyle=\fontfamily{lmvtt}\selectfont\footnotesize,
+                commentstyle=\color{darkgreen!80},
+                keywordstyle=\color{pblue},
+                stringstyle=\color{pred},
+                %stringstyle=\color{vscodepurple},
+                frame = single,
+                language=python,
+                xleftmargin=5pt,
+                xrightmargin=5pt,
+                %xleftmargin=5pt, 
+                %framexleftmargin=-5pt,
+                %numbers=left,                  % Line numbers
+                numberstyle=\tiny\color{black}, % Line number style
+                numbersep=4pt, %moredelim=[is][\textbf]{@}{@}
+                %escapeinside={(*@}{@*)}
+}
+
+    \center
+
+
+\begin{lstlisting}[columns=fullflexible]
+def fuzz_one_input(data: bytes, size: int):
+  if size < 2:
+        return False
+
+  cmd = (data[0] % 3) + 1
+  params = []
+  params.append(
+    MemRefParam(data[1:], size-1)
+  )
+  params.append(NoneParam())
+  params.append(NoneParam())
+  params.append(NoneParam())
+  ptypes= 0x7
+  TA_InvokeCommandEntryPoint(cmd, ptypes, params) 
+
+\end{lstlisting}

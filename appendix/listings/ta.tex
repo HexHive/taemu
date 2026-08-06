@@ -1,0 +1,93 @@
+\definecolor{pgreen}{rgb}{0,0.5,0}
+\definecolor{pblue}{rgb}{0.13,0.13,1}
+\definecolor{pred}{rgb}{0.9,0,0}
+\definecolor{pgrey}{rgb}{0.46,0.45,0.48}
+\definecolor{light-gray}{gray}{0.975}
+\definecolor{darkgreen}{rgb}{0,0.5,0}
+\definecolor{vscodepurple}{RGB}{128, 0, 128}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+
+\lstset{escapechar=@,
+                backgroundcolor = \color{light-gray},
+                linebackgroundcolor={%
+                \ifnum\value{lstnumber}>0
+                    \ifnum\value{lstnumber}<30
+                        \color{light-gray}
+                    \fi
+                \fi
+                %\ifnum\value{lstnumber}>10
+                %    \ifnum\value{lstnumber}<12
+                %        \color{teal!40}
+                %    \fi
+                %\fi
+                \ifnum\value{lstnumber}>15
+                    \ifnum\value{lstnumber}<17
+                        \color{blue!20}
+                    \fi
+                \fi 
+                \ifnum\value{lstnumber}>20
+                    \ifnum\value{lstnumber}<22
+                        \color{red!20}
+                    \fi
+                \fi
+                \ifnum\value{lstnumber}>22
+                    \ifnum\value{lstnumber}<24
+                        \color{red!20}
+                    \fi
+                \fi
+                \ifnum\value{lstnumber}>23
+                    \ifnum\value{lstnumber}<25
+                        \color{red!20}
+                    \fi
+                \fi
+                },
+                tabsize=2,
+                basicstyle=\fontencoding{T1}\selectfont\footnotesize,
+                %basicstyle=\fontfamily{lmvtt}\selectfont\footnotesize,
+                commentstyle=\color{darkgreen!80},
+                keywordstyle=\color{pblue},
+                stringstyle=\color{pred},
+                %stringstyle=\color{vscodepurple},
+                frame = single,
+                showstringspaces=false,
+                language=c,
+                xleftmargin=5pt, 
+                xrightmargin=5pt, 
+                %framexleftmargin=-5pt,
+                numbers=left,                  % Line numbers
+                numberstyle=\tiny\color{black}, % Line number style
+                numbersep=4pt, %moredelim=[is][\textbf]{@}{@}
+                %escapeinside={(*@}{@*)}
+}
+\center
+
+\begin{lstlisting}[columns=fullflexible]
+typedef struct in_data{
+    size_t size;
+    char data[0];
+} in_data;
+
+int* global = NULL;
+
+TEE_Result TA_InvokeCommandEntryPoint(
+  int commandID, int param_types, TEE_Param params[4])
+{
+  if (param_types != 0x7) return -1;
+
+  in_data* in = (in_data*)params[0].memref.buffer;
+  size_t in_buf_sz = params[0].memref.size;
+ 
+  size_t in_size = in->size; 
+  if(in_size > in_buf_sz || in_size > 0x2000) return 0;
+
+  char* copy_buf = TEE_Malloc(in_size, 0);
+  if(commandID == 1){
+    printf("[debug] called with size %zu\n", in->size);
+  } else if (commandID == 2){
+    memcpy(copy_buf, in->data, in->size);
+  } else if (commandID == 3 && in->size == 1234){
+    *global = 1;
+   }
+  return 0;
+}
+\end{lstlisting}

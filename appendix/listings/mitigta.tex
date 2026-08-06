@@ -1,0 +1,70 @@
+\definecolor{pgreen}{rgb}{0,0.5,0}
+\definecolor{pblue}{rgb}{0.13,0.13,1}
+\definecolor{pred}{rgb}{0.9,0,0}
+\definecolor{pgrey}{rgb}{0.46,0.45,0.48}
+\definecolor{light-gray}{gray}{0.975}
+\definecolor{darkgreen}{rgb}{0,0.5,0}
+\definecolor{vscodepurple}{RGB}{128, 0, 128}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+
+\lstset{escapechar=@,
+                backgroundcolor = \color{light-gray},
+                linebackgroundcolor={%
+                \ifnum\value{lstnumber}>0
+                    \ifnum\value{lstnumber}<30
+                        \color{light-gray}
+                    \fi
+                \fi
+                %\ifnum\value{lstnumber}>10
+                %    \ifnum\value{lstnumber}<12
+                %        \color{teal!40}
+                %    \fi
+                %\fi
+                \ifnum\value{lstnumber}>15
+                    \ifnum\value{lstnumber}<17
+                        \color{blue!20}
+                    \fi
+                \fi 
+                \ifnum\value{lstnumber}>20
+                    \ifnum\value{lstnumber}<22
+                        \color{red!20}
+                    \fi
+                \fi
+                \ifnum\value{lstnumber}>22
+                    \ifnum\value{lstnumber}<24
+                        \color{red!20}
+                    \fi
+                \fi
+                \ifnum\value{lstnumber}>23
+                    \ifnum\value{lstnumber}<25
+                        \color{red!20}
+                    \fi
+                \fi
+                },
+                tabsize=2,
+                basicstyle=\fontencoding{T1}\selectfont\footnotesize,
+                %basicstyle=\fontfamily{lmvtt}\selectfont\footnotesize,
+                commentstyle=\color{darkgreen!80},
+                keywordstyle=\color{pblue},
+                stringstyle=\color{pred},
+                %stringstyle=\color{vscodepurple},
+                frame = single,
+                showstringspaces=false,
+                language=c,
+                xleftmargin=5pt, 
+                xrightmargin=5pt, 
+                %framexleftmargin=-5pt,
+                numbers=left,                  % Line numbers
+                numberstyle=\tiny\color{black}, % Line number style
+                numbersep=4pt, %moredelim=[is][\textbf]{@}{@}
+                %escapeinside={(*@}{@*)}
+}
+\center
+
+\begin{lstlisting}[columns=fullflexible]
+TEE_Result TA_CreateEntryPoint()
+{
+   bool paramsShm[4] = {true,false,false,false};
+   TEE_RegisterShm(3, &paramsShm);
+}
+\end{lstlisting}

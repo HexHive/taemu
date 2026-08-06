@@ -1,0 +1,71 @@
+\definecolor{pgreen}{rgb}{0,0.5,0}
+\definecolor{pblue}{rgb}{0.13,0.13,1}
+\definecolor{pred}{rgb}{0.9,0,0}
+\definecolor{pgrey}{rgb}{0.46,0.45,0.48}
+\definecolor{light-gray}{gray}{0.975} \definecolor{darkgreen}{rgb}{0,0.5,0}
+\definecolor{vscodepurple}{RGB}{128, 0, 128}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+
+\lstset{escapechar=@,
+                backgroundcolor = \color{light-gray},
+                %linebackgroundcolor={%
+                %\ifnum\value{lstnumber}>0
+                %    \ifnum\value{lstnumber}<30
+                %        \color{light-gray}
+                %    \fi
+                %\fi
+                %}
+                tabsize=2,
+                basicstyle=\fontencoding{T1}\selectfont\footnotesize,
+                %basicstyle=\fontfamily{lmvtt}\selectfont\footnotesize,
+                commentstyle=\color{darkgreen!80},
+                keywordstyle=\color{pblue},
+                stringstyle=\color{pred},
+                %stringstyle=\color{vscodepurple},
+                frame = single,
+                showstringspaces=false,
+                language=c,
+                xleftmargin=5pt, 
+                xrightmargin=5pt, 
+                %framexleftmargin=-5pt,
+                numbers=left,                  % Line numbers
+                numberstyle=\tiny\color{black}, % Line number style
+                numbersep=4pt, %moredelim=[is][\textbf]{@}{@}
+                %escapeinside={(*@}{@*)}
+}
+\center
+
+\begin{lstlisting}[columns=fullflexible]
+void* mod_thread(void* shm){
+  while(1){
+    mod1(shm);
+    mod2(shm);
+  }
+}
+typedef struct imp_shm{
+  uint64_t _ignore[3];
+  void* shm;
+}
+void trigger_df(TEEC_Context *context, 
+    TEEC_Session *session, cmd){
+  TEEC_SharedMemory in_mem;
+  in_mem.size = buf_size;
+  in_mem.flags = TEEC_MEM_INPUT; 
+  res = TEEC_AllocateSharedMemory(context, &in_mem);
+  if (res != TEEC_SUCCESS) exit(-1);
+  imp_shm* imp = in_mem->imp;
+  void* shm = imp->shm;
+    
+  pthread_t tid;
+  pthread_create(&tid, NULL, mod_thread, shm);
+  
+  setup_params(&op, &in_mem);
+  TEEC_InvokeCommand_impl(session, cmd, &op, &err_origin);
+}
+
+int main(){
+  TEEC_Context context; TEEC_Session session;
+  open_session(&context, &session);
+  trigger_df(&context, &session);
+}
+\end{lstlisting}

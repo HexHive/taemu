@@ -274,6 +274,65 @@ itself needs a built OP-TEE QEMU-v8 tree, which is not part of the artifact;
 
 `AE_SCALE=paper ./ae.sh all` restores the paper's budgets (weeks of CPU time).
 
+### Recommended settings for artifact evaluation
+
+On a commodity desktop (8 cores, 16 GB RAM) the harness picks `AE_JOBS=6`
+(`min(8-2, (16 GB - 2 GB)/512 MB)`). The following covers **all 30 TAs of
+Table I** and finishes in well under a day:
+
+```sh
+cd ae && ./ae.sh setup
+AE_SUBSET=all \
+AE_EXPLORE_TIME=1800 AE_EXPLORE_REPS=1 \
+AE_FAF_TIME=900 AE_FAF_MAX_SNAPSHOTS=4 \
+AE_DEDUP_LIMIT=0 \
+nohup ./ae.sh all > ae_full_run.log 2>&1 &
+```
+
+| stage | work | ~wall clock at `AE_JOBS=6` |
+|---|---|---|
+| `e1_exploration` | 27 harnesses x 30 min, 5 waves + dedup | ~3 h |
+| `e2_faf` | 27 x 4 snapshots x 15 min, 18 waves | ~4.5 h |
+| `e3_distillation` | every crash found above | minutes |
+| `e4_table1` | Table I of that campaign | seconds |
+| `e5_vulns` | six PoCs raced against the emulator | ~15 min |
+| `e6_rust` | 5 Rust TAs x 30 min | ~40 min |
+| `e7_reshaping`, `e9_mitigation` | Table V, patch + benchmark | seconds |
+| `e8_figures` | CFGs + coverage replays (~1 s each) | ~30 min |
+| **total** | | **~9 h** |
+
+Needs ~15 GB of disk: 3.8 GB of docker images, ~4 GB of TA corpus and campaign
+data, and ~300 MB produced by the run itself.
+
+Two smaller options:
+
+```sh
+./ae.sh setup && ./ae.sh e5_vulns          # kick the tires, ~25 min, Table II
+./ae.sh all                                # default 5-TA subset, ~2 h
+```
+
+### What the scaled-down run does and does not show
+
+Preserved in full:
+
+* the **dataset** of Table I (all 66 GlobalPlatform TAs, all 30 that operate on
+  shared memory, verified against `ae/data/dataset.json`),
+* all **five TEEs**, each fuzzed with the same emulator and harnesses as the paper,
+* the **three stages** end to end on every one of those 30 TAs, producing Table I
+  of the run, Figures 4 and 5,
+* **Table II**: all six vulnerabilities, reproduced by racing each TA with its
+  proof-of-concept client - this is independent of the fuzzing budget,
+* **Table IV**: which Rust TAs contain double fetches,
+* **Section VII**: the size of the mitigation and its measured overhead.
+
+Reduced: the paper explores each TA for 5 x 24 h and fuzzes each of its 17,232
+snapshots for 15 min (4,330 CPU-hours). The run above spends 30 min per TA and
+fuzzes 4 snapshots per TA, so the absolute counts in Table I (overlapped
+fetches, snapshots, crashes) are correspondingly smaller; the columns are
+reported next to the paper's numbers. Raising `AE_EXPLORE_TIME`,
+`AE_EXPLORE_REPS` and `AE_FAF_MAX_SNAPSHOTS` scales the run continuously up to
+`AE_SCALE=paper`.
+
 ## 8. Cleaning up
 
 ```sh
