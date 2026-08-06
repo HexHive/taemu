@@ -40,7 +40,7 @@
 # Usage:
 #   ./ae_ondevice.sh                                        # every device
 #   ./ae_ondevice.sh R58N349AKNY                            # one of them
-#   AE_ONDEVICE_RUNS=50 ./ae_ondevice.sh                    # more attempts
+#   AE_ONDEVICE_RUNS=20 ./ae_ondevice.sh                    # give up after 20
 #   AE_ONDEVICE_BUILD=1 ANDROID_NDK=~/opt/android-ndk-r26d ./ae_ondevice.sh
 #
 # Results: ae/results/ondevice/{ondevice.txt,csv,tex}, per-run logs beside them.
@@ -55,7 +55,9 @@ log() { echo "${C_BLU}[ae]${C_RST} $*"; }
 ok()  { echo "${C_GRN}[ok]${C_RST} $*"; }
 err() { echo "${C_RED}[--]${C_RST} $*"; }
 
-RUNS="${AE_ONDEVICE_RUNS:-25}"
+# Winning the race is probabilistic, so by default a PoC is retried until it
+# lands. AE_ONDEVICE_RUNS=<n> caps that for a PoC that never will.
+RUNS="${AE_ONDEVICE_RUNS:-0}"
 BUILD="${AE_ONDEVICE_BUILD:-0}"
 PREBUILT="$AE_DIR/prebuilt/ondevice"
 
@@ -71,7 +73,6 @@ POCS=(
   "qsee/pocs/a985_test|qsee|A985D3EB-3B52-4D44-BE6C-628A813561E8|"
   "beanpod/pocs/df1e_test|kinibi|df1edda8627911e980ae507b9d9a7e7d|"
   "beanpod/pocs/0801_df_oob|beanpod|08010203000000000000000000000000|"
-  "teegris/pocs/4662_FbCkmR_df|teegris|00000000-0000-0000-0000-4662436b6d52|"
   "mitee/pocs/377e_double_fetch_stackov|mitee|377ee4e8-af0e-474f-a9d636a9268fe85c|"
   "mitee/pocs/88ce_df_oobr|mitee|88ce8e6b-8646-4092-bb78faf5b55ff4df|"
   "mitee/pocs/3d08_df_memsetoob|mitee|3d08821c-33a6-11e6-a1fa089e01c83aa2|"
@@ -138,8 +139,11 @@ run_poc() {
         fi
     fi
 
-    local out="" klog="" crashed=0 reached=0 nota=0 df=0 dfline="" i
-    for i in $(seq 1 "$RUNS"); do
+    local out="" klog="" crashed=0 reached=0 nota=0 df=0 dfline="" i=0
+    while :; do
+        i=$((i + 1))
+        [ "$RUNS" -gt 0 ] && [ "$i" -gt "$RUNS" ] && break
+        [ $((i % 25)) = 0 ] && log "  $name: $i attempts, still racing"
         # Clear the kernel log first: the Kinibi TA writes its own trace there.
         adb -s "$serial" shell "su -c 'dmesg -c'" >/dev/null 2>&1
         out=$(adb -s "$serial" shell "su -c 'cd /data/local/tmp && chmod 755 poc && timeout 30 ./poc $pocargs 2>&1'" 2>&1 | tr -d '\r')
@@ -178,13 +182,14 @@ run_poc() {
                 dfline="TA wrote into the buffer mid-invoke, $(printf '%s' "$out" | grep -o 'poll [0-9]* of [0-9]*' | tail -1)"
                 ;;
         esac
-        # Winning the race is probabilistic, so keep going until it lands.
         { [ "$crashed" = 1 ] || [ "$df" = 1 ]; } && break
+        # A TA that is not installed will never be, so do not retry forever.
+        [ "$nota" = 1 ] && break
     done
 
     local last; last=$(printf '%s' "$out" | grep -E "TEEC_Result|OpenSession failed" | tail -1)
     if   [ "$crashed" = 1 ]; then echo "CRASHED|$last"
-    elif [ "$df" = 1 ];      then echo "DOUBLE-FETCH|$dfline (run $i of $RUNS)"
+    elif [ "$df" = 1 ];      then echo "DOUBLE-FETCH|$dfline (attempt $i)"
     elif [ "$reached" = 1 ]; then echo "reached|$last"
     elif [ "$nota" = 1 ];    then echo "no TA|TEEC_OpenSession failed"
     else                          echo "no result|see $(basename "$logf")"; fi

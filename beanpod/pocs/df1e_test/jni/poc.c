@@ -61,7 +61,12 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
     if (pthread_create(&tid, NULL, mod_thread, mem_area1) != 0) {
         perror("pthread_create failed");
         return;
-    } 
+    }
+    /* Do not invoke before the racing thread has actually been scheduled:
+     * otherwise buf0[0] is still the initial value for the whole call and both
+     * fetches trivially agree, which is most of the runs that show nothing. */
+    while (*(volatile int *)mem_area1 == 0x100a)
+        ;
 
     /* The TA logs the value of its first fetch and then the branch it takes
      * on the second one (Listing 7). On this device those logs land in the

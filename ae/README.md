@@ -281,7 +281,7 @@ put together, and it is the tool to use after a fresh campaign.
   ```sh
   ae/ae_ondevice.sh                                       # every device
   ae/ae_ondevice.sh R58N349AKNY                           # one of them
-  AE_ONDEVICE_RUNS=50 ae/ae_ondevice.sh                   # more attempts
+  AE_ONDEVICE_RUNS=20 ae/ae_ondevice.sh                   # give up after 20
 
   # rebuild from source instead of using the shipped binaries
   AE_ONDEVICE_BUILD=1 ANDROID_NDK=~/opt/android-ndk-r26d ae/ae_ondevice.sh
@@ -309,8 +309,9 @@ put together, and it is the tool to use after a fresh campaign.
   QSEE      OnePlus CPH2609          yes
   ```
 
-  which is claim C5 for Kinibi, QSEE and TEEGris. Winning the race is probabilistic,
-  so each PoC runs up to `AE_ONDEVICE_RUNS` times (default 25). The Table II
+  which is claim C5 for Kinibi, QSEE and TEEGris. Winning the race is
+  probabilistic, so a PoC is retried until it lands; `AE_ONDEVICE_RUNS=<n>`
+  caps that. A TA that is not installed is not retried. The Table II
   vulnerabilities need the phone to ship the vulnerable TA, which none of these
   three does. Listing 2 of the paper shows the racing app.
 
