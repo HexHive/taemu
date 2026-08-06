@@ -9,7 +9,7 @@
     "  ta    the TA the PoC opens a session to.",
     "",
     "The remaining fields pin the crash that Fetch-Anchored Fuzzing found for this",
-    "vulnerability. They are only used by 'e6_vulns --replay', which needs the",
+    "vulnerability. They are only used by 'e2_vulns --replay', which needs the",
     "campaign data (not part of the git repository):",
     "  seed/reg_hash/snapshot/crash - the Exploration seed, the second fetch and",
     "  the crashing shared-memory value."

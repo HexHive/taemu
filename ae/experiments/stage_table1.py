@@ -1,13 +1,8 @@
 #!/usr/bin/env python3
-"""E4 - Table I: overview of the study (~1 minute).
+"""Stage 4 of e1_automatic_df_detection: Table I.
 
-Table I is the summary of a whole campaign, so this experiment comes *after*
-the three stages:
-
-    ./ae.sh e1_exploration      # Stage 1 -> overlapped fetches, snapshots
-    ./ae.sh e2_faf --from exploration
-    ./ae.sh e3_distillation --from faf
-    ./ae.sh e4_table1 --source ae
+Table I is the summary of a whole campaign, so this stage runs after the three
+stages of Section III have produced one.
 
 With --source ae it computes Table I over the campaign *you* just ran (the
 ae_* working harnesses); with --source campaign (the default) it computes it
@@ -157,7 +152,7 @@ def harnessed_vs_dataset():
 
 
 def main():
-    res_dir = os.path.join(ae.RESULTS_DIR, "e4_table1")
+    res_dir = ae.result_dir("4_table1")
     os.makedirs(res_dir, exist_ok=True)
     json_path = os.path.join(res_dir, "statistics.json")
     source = "campaign"
@@ -217,7 +212,9 @@ def main():
     p_row = paper["all"]
     rows.append(["all"] + [tables.cmp_cell(m[c], p_row[i]) for i, c in enumerate(COLUMNS)])
 
-    tables.write(res_dir, f"table1_{source}", HEADERS, rows,
+    # When this runs as a stage of e1_automatic_df_detection the merged
+    # experiment prints Table I once, at the end, as its deliverable.
+    tables.write(res_dir, f"table1_{source}", HEADERS, rows, quiet=bool(ae.STAGE_OF),
                  title=f"Table I [{source}]",
                  caption="Overview of the results of our large-scale study of shared memory "
                          "usage and vulnerabilities in TAs.",
@@ -271,7 +268,7 @@ def main():
         elif d["listed_gp_tas"]:
             ae.ok(f"{tee}: {d['listed_gp_tas']}/{d['listed_gp_tas']} dataset TAs present")
 
-    ae.write_report("e4_table1", {"source": source, "measured": measured, "paper": paper,
+    ae.write_report("4_table1", {"source": source, "measured": measured, "paper": paper,
                                   "deltas": deltas, "checks": checks,
                                   "dataset": ds, "dataset_vs_harnesses": xcheck,
                                   "orphaned_snapshots": orphans})

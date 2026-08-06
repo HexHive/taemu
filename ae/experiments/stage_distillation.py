@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""E3 - Stage 3: Distillation (Section III-C).
+"""Stage 3 of e1_automatic_df_detection: Distillation (Section III-C).
 
 Not every crash found by Fetch-Anchored Fuzzing needs the shared-memory race:
 the fuzzed value may just as well be reachable through the first fetch. To tell
@@ -14,7 +14,7 @@ TA_InvokeCommandEntryPoint with the crashing value placed in shared memory
 
 Paper: 330 crashes -> 62 crashes that are only triggerable with shared memory.
 
-Sources:  --from faf       the crashes produced by E2 (ae_e2_* harnesses)
+Sources:  --from faf       the crashes produced by stage 2 (ae_e2_* harnesses)
           --from campaign  the crashes shipped with the artifact (default)
 Output:   ae/results/e3_distillation/{distillation.txt,csv,tex}
 """
@@ -85,7 +85,7 @@ def distill(job):
     rc, out = ae.docker_run(
         f"./df_validate.sh '{h_rel}' '{seed_rel}' {crash['reg_hash']} '{crash_rel}'",
         timeout=seconds)
-    logs = os.path.join(ae.RESULTS_DIR, "e3_distillation", "logs")
+    logs = os.path.join(ae.result_dir("3_distillation"), "logs")
     os.makedirs(logs, exist_ok=True)
     tag = f"{os.path.basename(work)}_{crash['reg_hash'][:12]}_{os.path.basename(crash['crash'])[:12]}"
     with open(os.path.join(logs, tag.replace("/", "_") + ".log"), "w") as f:
@@ -109,7 +109,7 @@ def main():
     ap.add_argument("--timeout", type=int, default=900)
     args = ap.parse_args()
 
-    res_dir = os.path.join(ae.RESULTS_DIR, "e3_distillation")
+    res_dir = ae.result_dir("3_distillation")
     os.makedirs(res_dir, exist_ok=True)
 
     jobs, per_ta = [], {}
@@ -143,7 +143,7 @@ def main():
                      caption="Distillation results.", label="tab:ae-distillation")
         checks = {"crashes replayed": True}
         ae.verdict(True, "no crashes to distil")
-        ae.write_report("e3_distillation", {"source": args.source, "per_ta": per_ta,
+        ae.write_report("3_distillation", {"source": args.source, "per_ta": per_ta,
                                             "crashes": [], "distilled": 0,
                                             "checks": checks})
         ae.exit_with(checks)
@@ -179,7 +179,7 @@ def main():
     for k, v in checks.items():
         ae.verdict(v, k)
 
-    ae.write_report("e3_distillation", {"source": args.source, "per_ta": per_ta,
+    ae.write_report("3_distillation", {"source": args.source, "per_ta": per_ta,
                                         "crashes": results, "distilled": kept_total,
                                         "checks": checks})
     ae.exit_with(checks)

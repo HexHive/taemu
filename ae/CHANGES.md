@@ -84,7 +84,7 @@ can drive the TA. That path had rotted:
 * When a client disconnected, the emulator shut down. It now waits for the next
   one, so a PoC can be retried without restarting the TA.
 
-With those fixed, `ae/ae.sh e6_vulns` reproduces the Table II vulnerabilities by
+With those fixed, `ae/ae.sh e2_vulns` reproduces the Table II vulnerabilities by
 racing the TA with the shipped PoCs - no campaign data involved.
 
 ## Data that was missing from the artifact
@@ -128,17 +128,26 @@ The benchmark measured what the mitigation *costs* but never checked that it
 Measured (OP-TEE QEMU-v8, 100,000 double fetches per configuration): unpatched
 37,369 raced successfully, opted-in 38,994, not opted-in **0**.
 
-`ae/experiments/e9_mitigation.py` turns that into `double_fetch.{txt,csv,tex}`
+`ae/experiments/e5_mitigation.py` turns that into `double_fetch.{txt,csv,tex}`
 and three checks; `--run-qemu` re-measures it instead of re-analysing
 `optee_shm_patch/benchmark/results/df_test.csv`.
 
-## Experiment numbering
+## Experiments
 
-The figures used to be the last experiment (`e8_figures`) although they
-describe the campaign that E1-E3 produce, which put three unrelated experiments
-between the campaign and its plots. They are now `e5_figures`, directly after
-Table I, and the rest shifted up: `e5_vulns` -> `e6_vulns`, `e6_rust` ->
-`e7_rust`, `e7_reshaping` -> `e8_reshaping`. Claim IDs (C1-C9) are unchanged.
+The three stages of Section III, Table I and the figures used to be five
+separate experiments that only made sense run in one order, with the sequencing
+(`--from exploration`, `--from faf`, `--source ae`) left to the caller. They are
+now one experiment, `e1_automatic_df_detection`: one campaign, five stages, with
+Table I and Figures 4 and 5 as its output.
+
+Each stage is still its own script (`ae/experiments/stage_*.py`) and writes its
+own tables, logs and `result.json` to
+`ae/results/e1_automatic_df_detection/<n>_<stage>/`; `--only <stage>...` and
+`--from <stage>` select which of them run, so a campaign can be continued or its
+output re-rendered without refuzzing.
+
+The remaining experiments shifted up: `e2_vulns`, `e3_rust`, `e4_reshaping`,
+`e5_mitigation`. Claim IDs (C1-C9) are unchanged.
 
 ## Defaults
 

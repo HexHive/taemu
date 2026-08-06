@@ -58,7 +58,8 @@ def render_tex(headers, rows, caption="", label=""):
     return "\n".join(out) + "\n"
 
 
-def write(result_dir, name, headers, rows, title=None, notes=(), caption="", label=""):
+def write(result_dir, name, headers, rows, title=None, notes=(), caption="", label="",
+          quiet=False):
     os.makedirs(result_dir, exist_ok=True)
     txt = render_txt(headers, rows, title=title, notes=notes)
     with open(os.path.join(result_dir, name + ".txt"), "w") as f:
@@ -71,7 +72,8 @@ def write(result_dir, name, headers, rows, title=None, notes=(), caption="", lab
                 w.writerow(r)
     with open(os.path.join(result_dir, name + ".tex"), "w") as f:
         f.write(render_tex(headers, rows, caption=caption, label=label))
-    print(txt)
+    if not quiet:
+        print(txt)
     return txt
 
 

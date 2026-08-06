@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""E6 - Table II: the six TOCTTOU vulnerabilities (~15 minutes).
+"""E2 - Table II: the six TOCTTOU vulnerabilities (~15 minutes).
 
 This is the central "reproduced" experiment. For every vulnerability of Table II
 the artifact ships the proof-of-concept client that was also used on the phones
@@ -18,12 +18,12 @@ violation (Unicorn exception or the built-in ASAN), which is what this
 experiment checks. Winning the race is probabilistic, so the PoC is run
 over and over until the TA crashes (--attempts N puts a cap on that).
 
-  ./ae.sh e6_vulns                 # run the PoCs against the emulator
-  ./ae.sh e6_vulns --replay        # instead replay the crashing input that
+  ./ae.sh e2_vulns                 # run the PoCs against the emulator
+  ./ae.sh e2_vulns --replay        # instead replay the crashing input that
                                    # Fetch-Anchored Fuzzing found (needs the
                                    # campaign data, which is not in the repo)
 
-Output: ae/results/e6_vulns/{table2.txt,csv,tex}
+Output: ae/results/e2_vulns/{table2.txt,csv,tex}
 """
 
 import argparse
@@ -95,7 +95,7 @@ def run_one(entry, attempts, replay):
 
     poc_rel = entry.get("poc")
     ta_rel = entry.get("ta_path")
-    logdir = os.path.join(ae.RESULTS_DIR, "e6_vulns", "logs")
+    logdir = os.path.join(ae.RESULTS_DIR, "e2_vulns", "logs")
     os.makedirs(logdir, exist_ok=True)
 
     if not poc_rel or not os.path.isdir(os.path.join(ae.REPO_DIR, poc_rel, "jni")):
@@ -168,7 +168,7 @@ def replay_crash(entry):
 
     crash = {"snapshot": entry["snapshot"], "seed": entry["seed"],
              "seed_path": seed_path, "reg_hash": entry["reg_hash"], "crash": crash_path}
-    work = os.path.join(ae.RESULTS_DIR, "e6_vulns", "work", entry["id"])
+    work = os.path.join(ae.RESULTS_DIR, "e2_vulns", "work", entry["id"])
     shutil.rmtree(work, ignore_errors=True)
     ae.stage_harness(src, work, seeds=[seed_path], crashes=[crash])
 
@@ -178,7 +178,7 @@ def replay_crash(entry):
     crash_rel = ae.rel_to_emulator(os.path.join(
         work, "df_fuzz", entry["snapshot"], "out", "default", "crashes",
         os.path.basename(crash_path)))
-    logdir = os.path.join(ae.RESULTS_DIR, "e6_vulns", "logs")
+    logdir = os.path.join(ae.RESULTS_DIR, "e2_vulns", "logs")
     os.makedirs(logdir, exist_ok=True)
 
     ae.log(f"[{entry['id']}] replaying the crashing double fetch ...")
@@ -218,7 +218,7 @@ def main():
     if args.only:
         entries = [e for e in entries if e["id"] in args.only]
 
-    res_dir = os.path.join(ae.RESULTS_DIR, "e6_vulns")
+    res_dir = os.path.join(ae.RESULTS_DIR, "e2_vulns")
     os.makedirs(res_dir, exist_ok=True)
 
     # One emulator container per vulnerability, so they can run concurrently.
@@ -259,7 +259,7 @@ def main():
             ae.fail(f"  {r['id']}: {r.get('detail') or 'no crash observed'}")
 
 
-    ae.write_report("e6_vulns", {"mode": "replay" if args.replay else "poc",
+    ae.write_report("e2_vulns", {"mode": "replay" if args.replay else "poc",
                                  "results": results, "reproduced": reproduced,
                                  "checks": checks})
     ae.exit_with(checks)

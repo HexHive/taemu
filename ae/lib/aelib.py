@@ -19,6 +19,10 @@ AE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # controller the repository is mounted at exactly that path, so both agree.
 REPO_DIR = os.environ.get("TAEMU_ROOT") or os.path.dirname(AE_DIR)
 RESULTS_DIR = os.path.join(AE_DIR, "results")
+# Experiments that are run as a stage of a larger one (see
+# experiments/e1_automatic_df_detection.py) write below its result directory
+# instead of next to it.
+STAGE_OF = os.environ.get("AE_STAGE_OF", "")
 
 TEES = ["teegris", "qsee", "kinibi", "mitee", "beanpod"]
 
@@ -314,7 +318,7 @@ def all_harnesses(root=REPO_DIR):
 
 # The five TEEs of Table I. Kinibi TAs are emulated with the Beanpod runtime and
 # their harnesses live under beanpod/harness, so they are covered by "beanpod".
-# optee/ holds the Rust TAs of Table IV, which E7 runs separately.
+# optee/ holds the Rust TAs of Table IV, which E3 runs separately.
 CAMPAIGN_TEES = ["teegris", "qsee", "mitee", "beanpod"]
 
 
@@ -424,10 +428,16 @@ def rel_to_emulator(path):
 # -------------------------------------------------------------------- reports
 
 
+def result_dir(name):
+    """Directory an experiment writes to, nested when it runs as a stage."""
+    d = os.path.join(RESULTS_DIR, STAGE_OF, name)
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
 def write_report(name, payload):
     """Persist a machine-readable result next to the experiment's logs."""
-    d = os.path.join(RESULTS_DIR, name)
-    os.makedirs(d, exist_ok=True)
+    d = result_dir(name)
     p = os.path.join(d, "result.json")
     payload = dict(payload)
     payload.setdefault("experiment", name)

@@ -17,16 +17,50 @@ import tables
 
 CLAIMS = {
     "e0_selftest":     "artifact is functional (emulator, recording, snapshot replay, distillation)",
-    "e1_exploration":  "Stage 1 finds overlapped fetches in TAs and turns them into snapshots",
-    "e2_faf":          "Stage 2 fuzzes the second fetch of a snapshot and finds crashes",
-    "e3_distillation": "Stage 3 keeps only crashes that need the shared-memory race",
-    "e4_table1":       "Table I: dataset, overlapped fetches, crashes, distilled crashes",
-    "e5_figures":      "Figures 4 and 5: coverage of Exploration and of Fetch-Anchored Fuzzing",
-    "e6_vulns":        "Table II: the six TOCTTOU vulnerabilities reproduce in the emulator",
-    "e7_rust":         "Table IV: Rust TAs are affected by shared memory double fetches",
-    "e8_reshaping":    "Table V: only a small fraction of executions triggers a double fetch",
-    "e9_mitigation":   "Section VII: opt-in mitigation for OP-TEE closes the double fetch",
+    "e1_automatic_df_detection":
+                       "Section III: the pipeline finds overlapped fetches, turns them into "
+                       "crashes and keeps the ones that need the race - Table I, Figures 4 and 5",
+    "e2_vulns":        "Table II: the six TOCTTOU vulnerabilities reproduce in the emulator",
+    "e3_rust":         "Table IV: Rust TAs are affected by shared memory double fetches",
+    "e4_reshaping":    "Table V: only a small fraction of executions triggers a double fetch",
+    "e5_mitigation":   "Section VII: opt-in mitigation for OP-TEE closes the double fetch",
 }
+
+# The pipeline's stages report separately, below its result directory.
+PIPELINE_STAGES = ["1_exploration", "2_faf", "3_distillation", "4_table1", "5_figures"]
+
+
+def stage(name, sub):
+    p = os.path.join(ae.RESULTS_DIR, name, sub, "result.json")
+    try:
+        return json.load(open(p))
+    except Exception:
+        return {}
+
+
+def pipeline_highlight(name):
+    """One line for the whole campaign, from the stages that produced it."""
+    bits = []
+    e = stage(name, "1_exploration")
+    if e:
+        bits.append(f"{e.get('tas_with_overlapped_fetches')} TAs with overlapped fetches, "
+                    f"{e.get('total_snapshots')} snapshots")
+    f = stage(name, "2_faf")
+    if f:
+        bits.append(f"{f.get('total_crashes')} crashes")
+    d = stage(name, "3_distillation")
+    if d:
+        bits.append(f"{d.get('distilled')} need the race")
+    t = stage(name, "4_table1")
+    if t:
+        m = t.get("measured", {}).get("all", {})
+        bits.append(f"Table I: {m.get('tas_no_local_copy')} TAs w/o local copy")
+    g = stage(name, "5_figures")
+    if g:
+        pngs = sorted(k for k in (g.get("produced") or {}) if k.endswith(".png"))
+        if pngs:
+            bits.append(", ".join(pngs))
+    return "; ".join(bits)
 
 
 def main():
@@ -44,32 +78,19 @@ def main():
         status = "ok" if passed == len(checks) and checks else (
             "partial" if passed else "FAILED")
         highlight = ""
-        if name == "e4_table1":
-            m = data.get("measured", {}).get("all", {})
-            highlight = (f"[{data.get('source', 'campaign')}] {m.get('tas_no_local_copy')} TAs "
-                         f"w/o local copy, {m.get('crashes')} crashes, "
-                         f"{m.get('crashes_distilled')} distilled")
-        elif name == "e1_exploration":
-            highlight = (f"{data.get('tas_with_overlapped_fetches')} TAs with overlapped fetches, "
-                         f"{data.get('total_snapshots')} snapshots")
-        elif name == "e2_faf":
-            highlight = f"{data.get('total_crashes')} crashes"
-        elif name == "e3_distillation":
-            highlight = f"{data.get('distilled')} shared-memory-only crashes"
-        elif name == "e6_vulns":
+        if name == "e1_automatic_df_detection":
+            highlight = pipeline_highlight(name)
+        elif name == "e2_vulns":
             highlight = (f"{data.get('reproduced')}/{len(data.get('results', []))} reproduced "
                          f"[{data.get('mode', 'poc')}]")
-        elif name == "e7_rust":
+        elif name == "e3_rust":
             tas = data.get("tas", {})
             highlight = f"{sum(1 for v in tas.values() if v['overlapped_fetches'])} of {len(tas)} Rust TAs"
-        elif name == "e8_reshaping":
+        elif name == "e4_reshaping":
             highlight = (f"{data.get('percent')}% of executions (paper: 11%), "
                          f"over {data.get('harnesses_with_data', '?')} harnesses with "
                          f"recorder data")
-        elif name == "e5_figures":
-            highlight = ", ".join(sorted(k for k in (data.get("produced") or {})
-                                         if k.endswith(".png")))
-        elif name == "e9_mitigation":
+        elif name == "e5_mitigation":
             df = data.get("double_fetch", {})
             if df:
                 highlight = ", ".join(
@@ -89,10 +110,11 @@ def main():
         for r in rows:
             f.write("| " + " | ".join(str(c) for c in r) + " |\n")
         f.write("\nGenerated tables and figures:\n\n")
-        for p in sorted(glob.glob(os.path.join(ae.RESULTS_DIR, "*", "*.txt")) +
-                        glob.glob(os.path.join(ae.RESULTS_DIR, "*", "*.pdf")) +
-                        glob.glob(os.path.join(ae.RESULTS_DIR, "*", "*.png")) +
-                        glob.glob(os.path.join(ae.RESULTS_DIR, "*", "*.csv"))):
+        arts = []
+        for depth in ("*", "*/*"):
+            for ext in ("txt", "pdf", "png", "csv"):
+                arts += glob.glob(os.path.join(ae.RESULTS_DIR, depth, f"*.{ext}"))
+        for p in sorted(set(arts)):
             f.write(f"- `{os.path.relpath(p, ae.REPO_DIR)}`\n")
     ae.ok(f"summary written to {os.path.relpath(ae.RESULTS_DIR, ae.REPO_DIR)}/summary.md")
 

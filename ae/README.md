@@ -36,15 +36,11 @@ RAM, `AE_JOBS=6`); they shrink on a bigger machine, see §7.
 
 | # | Paper claim | Experiment | Runtime |
 |---|---|---|---|
-| C2 | Exploration finds overlapped fetches from shared memory in binary-only TAs (Sec. III-A) | `e1_exploration` | ~3 h |
-| C3 | Fetch-Anchored Fuzzing turns overlapped fetches into crashes (Sec. III-B) | `e2_faf` | ~4.5 h |
-| C4 | Distillation keeps only crashes that require the shared-memory race (Sec. III-C) | `e3_distillation` | ~10 min |
-| C1 | Table I: TAs, overlapped fetches, snapshots, crashes, distilled crashes | `e4_table1` | ~1 min |
-| C8 | Figures 4 and 5: coverage of Exploration and of Fetch-Anchored Fuzzing | `e5_figures` | ~30 min |
-| C5 | **Table II: six 0-day TOCTTOU vulnerabilities in five TAs**, reproduced by racing the TA with the PoC of each vulnerability | `e6_vulns` | ~15 min |
-| C6 | Table IV: TAs written in Rust are affected as well (Sec. VI) | `e7_rust` | ~40 min |
-| C7 | Table V: only ~11 % of fuzzing iterations execute a double fetch (Sec. VIII-c) | `e8_reshaping` | ~1 min |
-| C9 | Section VII: a 140-LoC opt-in mitigation for OP-TEE that closes the double fetch and is cheap when opted in | `e9_mitigation` | ~1 min |
+| C1–C4, C8 | The pipeline of Section III: Exploration finds overlapped fetches in binary-only TAs (III-A), Fetch-Anchored Fuzzing turns them into crashes (III-B), Distillation keeps the ones that need the race (III-C) — summarised in **Table I** and **Figures 4 and 5** | `e1_automatic_df_detection` | ~8 h |
+| C5 | **Table II: six 0-day TOCTTOU vulnerabilities in five TAs**, reproduced by racing the TA with the PoC of each vulnerability | `e2_vulns` | ~15 min |
+| C6 | Table IV: TAs written in Rust are affected as well (Sec. VI) | `e3_rust` | ~40 min |
+| C7 | Table V: only ~11 % of fuzzing iterations execute a double fetch (Sec. VIII-c) | `e4_reshaping` | ~1 min |
+| C9 | Section VII: a 140-LoC opt-in mitigation for OP-TEE that closes the double fetch and is cheap when opted in | `e5_mitigation` | ~1 min |
 | — | Table III: zero-copy shared memory on COTS phones (Section V) | **not reproducible without the phones**, see §6 | — |
 
 `./ae.sh all` runs all of it, in this order, in about 8 h. `AE_SCALE=quick`
@@ -80,10 +76,10 @@ images that `./ae.sh setup` builds:
 
 Optional, for parts that are not self-contained:
 
-* `$OPTEE_DIR` pointing at an `optee_os` checkout - lets E9 verify that the
+* `$OPTEE_DIR` pointing at an `optee_os` checkout - lets E5 verify that the
   mitigation patch applies (without it the patch is only measured)
 * a built OP-TEE QEMU-v8 tree - to re-run the mitigation benchmark itself
-  (`optee_shm_patch/benchmark/README.md`); E9 otherwise re-analyses the shipped
+  (`optee_shm_patch/benchmark/README.md`); E5 otherwise re-analyses the shipped
   measurements
 * Android NDK and a rooted phone from Table III - to run the PoCs on a device
   (Section V); the artifact runs them against the emulator instead
@@ -104,7 +100,7 @@ the race. It must end with `all checks passed`.
 
 ```sh
 ./ae.sh list                 # all experiments, and the budgets picked for this machine
-./ae.sh e6_vulns             # the central "reproduced" experiment (Table II), ~15 min
+./ae.sh e2_vulns             # the central "reproduced" experiment (Table II), ~15 min
 ./ae.sh all                  # everything, in order, all 30 TAs, ~8 h
 AE_SCALE=quick ./ae.sh all   # the same on five TAs with short budgets, ~1 h
 ./ae.sh report               # summary of everything that was run
@@ -115,17 +111,20 @@ machine's cores and free memory at every invocation, and the time budgets are
 sized so that the full run covers all 30 TAs of Table I within a day on a
 commodity desktop (§7).
 
-The pipeline of Section III, run explicitly:
+`e1_automatic_df_detection` is one campaign in five stages; individual stages
+can be re-run without repeating the ones before them:
 
 ```sh
-./ae.sh e1_exploration               # Stage 1: overlapped fetches -> snapshots
-./ae.sh e2_faf --from exploration    # Stage 2: fuzz the second fetch -> crashes
-./ae.sh e3_distillation --from faf   # Stage 3: keep the shared-memory crashes
-./ae.sh e4_table1 --source ae        # Table I for the campaign you just ran
+./ae.sh e1_automatic_df_detection                        # the whole pipeline
+./ae.sh e1_automatic_df_detection --from faf             # continue an existing campaign
+./ae.sh e1_automatic_df_detection --only table1 figures  # only re-render the output
+./ae.sh e1_automatic_df_detection --time 3600 --harnesses mitee/harness/88ce_fuzz
 ```
 
 Results, tables (`.txt`, `.csv`, `.tex`) and figures (`.pdf`, `.png`) are
-written to `ae/results/<experiment>/`.
+written to `ae/results/<experiment>/`; the pipeline's stages write to
+`ae/results/e1_automatic_df_detection/<n>_<stage>/`, with Table I and the two
+figures copied up into the experiment's own directory.
 
 ## 5. Experiments
 
@@ -135,7 +134,15 @@ pruned, a missing `$OPTEE_DIR`, harnesses excluded from a count) is not printed
 but recorded in `ae/results/<experiment>/notes.log` and in the `notes` field of
 `result.json`, next to the numbers it qualifies.
 
-### `e1_exploration` — Stage 1
+### `e1_automatic_df_detection` — Section III, Table I, Figures 4 and 5
+
+The pipeline of the paper, as one experiment, because each stage consumes what
+the previous one produced. `--only <stage>...` runs a subset and `--from
+<stage>` continues from one; the stage scripts are `ae/experiments/stage_*.py`
+and each writes its own tables, logs and `result.json` to
+`ae/results/e1_automatic_df_detection/<n>_<stage>/`.
+
+#### Stage 1 — Exploration
 
 Fuzzes each TA of `$AE_SUBSET` with `emulator/fuzz.sh` while tracing accesses to
 the memref buffers, deduplicates the recordings (`eval/deduplicate.py`,
@@ -146,55 +153,44 @@ Working copies are created as `<tee>/harness/ae_e2_<name>` — the campaign data
 shipped with the artifact is never modified.
 
 ```sh
-./ae.sh e1_exploration                          # all 30 TAs, 30 min each
-AE_EXPLORE_TIME=3600 ./ae.sh e1_exploration     # longer budget
-AE_SCALE=quick ./ae.sh e1_exploration           # five TAs, 5 min each
-./ae.sh e1_exploration --harnesses mitee/harness/88ce_fuzz qsee/harness/3d08_fuzz
+./ae.sh e1_automatic_df_detection                       # all 30 TAs, 30 min each
+./ae.sh e1_automatic_df_detection --time 3600           # longer budget
+AE_SCALE=quick ./ae.sh e1_automatic_df_detection        # five TAs, 5 min each
+./ae.sh e1_automatic_df_detection --harnesses mitee/harness/88ce_fuzz qsee/harness/3d08_fuzz
 ```
 
-`all` — the default, also accepted as `--harnesses all` by
-`e2_faf`/`e3_distillation` — selects
-**27 harnesses covering the 30 TAs of Table I** — the three Kinibi TAs are fuzzed
-through their Beanpod harnesses and count for both TEEs. E1 prints the resulting
-TA count and an estimate of the wall clock before it starts, e.g. 27 harnesses at
-30 min each with `AE_JOBS=6` is ~3 h of fuzzing plus deduplication.
+`all` — the default `AE_SUBSET` — selects **27 harnesses covering the 30 TAs of
+Table I**; the three Kinibi TAs are fuzzed through their Beanpod harnesses and
+count for both TEEs. The stage prints the resulting TA count and an estimate of
+the wall clock before it starts, e.g. 27 harnesses at 30 min each with
+`AE_JOBS=6` is ~3 h of fuzzing plus deduplication.
 
-### `e2_faf` — Stage 2
+#### Stage 2 — Fetch-Anchored Fuzzing
 
 Restores each snapshot and fuzzes the value read at the second fetch
-(`emulator/df_fuzz.sh`). `--from exploration` uses the snapshots produced by E1;
-`--from campaign` (the default) uses the snapshots of the paper's campaign.
-
-```sh
-./ae.sh e2_faf --from exploration --time 900 --max-snapshots 6
-```
+(`emulator/df_fuzz.sh`), for up to `AE_FAF_MAX_SNAPSHOTS` snapshots per TA.
 
 The budget matters: with the paper's 900 s per snapshot, Fetch-Anchored Fuzzing
 rediscovers the crashes of the SoterApp and Mlipay vulnerabilities from scratch;
 with a much shorter budget a snapshot is restored and fuzzed but usually stays
-crash-free (the paper found crashes in 330 of 17,232 snapshots). E3 therefore
-asserts only that snapshots are restored and fuzzed, and reports the crashes it
-finds.
+crash-free (the paper found crashes in 330 of 17,232 snapshots). The stage
+therefore asserts only that snapshots are restored and fuzzed, and reports the
+crashes it finds.
 
-### `e3_distillation` — Stage 3
+#### Stage 3 — Distillation
 
 Replays every crash with the crashing value already in place
 (`emulator/df_validate.sh` via `eval/df_validate.py`) and reports which crashes
 survive only *with* the race, i.e. which are real double-fetch vulnerabilities.
-`--from faf` uses the crashes of E2, `--from campaign` those of the paper.
 
-### `e4_table1` — Table I
+#### Stage 4 — Table I
 
-Summarises a campaign with the artifact's own `statistics.sh` and prints it next
-to the paper's Table I.
-
-* `--source ae` — the campaign produced by E1-E3 in this evaluation.
-* `--source campaign` (default) — the campaign data shipped with the artifact.
-  This is an inventory of files on disk, not a re-run, so the AE budget does not
-  influence it; §9 explains why some of its columns deviate from the paper.
-
-`--annotate` recomputes the overlapped-fetch flags of all recordings first
-(`eval/annotate_fetches.py --dirs both`).
+Summarises the campaign the three stages just produced with the artifact's own
+`statistics.sh` and prints it next to the paper's Table I. Run standalone,
+`ae/experiments/stage_table1.py --source campaign` does the same for the
+campaign data shipped with the artifact — an inventory of files on disk, not a
+re-run, so the AE budget does not influence it; §9 explains why some of its
+columns deviate from the paper.
 
 Only one column of Table I cannot be derived from the repository: `# TAs`, the
 number of GlobalPlatform-compliant TAs. The corpus in `<tee>/tas` is a superset
@@ -208,11 +204,11 @@ python3 ae/tools/make_dataset_skeleton.py > ae/data/dataset.json   # candidates
 $EDITOR ae/data/dataset.json                                       # prune
 ```
 
-E4 then uses that list for `# TAs` and checks every entry is present; until then
+The stage then uses that list for `# TAs` and checks every entry is present; until then
 it counts the corpus and says so. `# TAs w/o Local Copy` needs no such list: it
 is the set of TAs that have a harness, which already matches the paper (9/3/3/10/5).
 
-### `e5_figures` — Figures 4 and 5
+#### Stage 5 — Figures 4 and 5
 
 Figure 4 accumulates the drcov coverage of the Exploration queue seeds
 (`<harness>/out/cov`) over campaign time and normalises it by the basic blocks
@@ -220,9 +216,9 @@ reachable from `TA_InvokeCommandEntryPoint` in the TA's CFG
 (`<tee>/tas/bbs/bb_*.json`, produced by `ghidra/analyze-bbs.sh`).
 Figure 5 splits the basic blocks discovered per snapshot during Fetch-Anchored
 Fuzzing into the four categories of the paper; it needs coverage for the FAF
-queue, which `--regen-faf-cov` produces by replaying the queue entries.
+queue, which the stage produces by replaying the queue entries.
 
-### `e6_vulns` — Table II *(main experiment)*
+### `e2_vulns` — Table II *(main experiment)*
 
 Runs the **proof-of-concept client of each vulnerability against the emulator**.
 Built with `-DEMULATE` the PoC does not talk to a TEE driver but to the
@@ -240,9 +236,9 @@ be mistaken for a crash. `--attempts N` caps that if you want the experiment to
 end even when a PoC never hits.
 
 ```sh
-./ae.sh e6_vulns                        # PoCs against the emulator, until they crash
-./ae.sh e6_vulns --attempts 20          # give up after 20 runs of a PoC
-./ae.sh e6_vulns --replay               # instead replay the crashing input that
+./ae.sh e2_vulns                        # PoCs against the emulator, until they crash
+./ae.sh e2_vulns --attempts 20          # give up after 20 runs of a PoC
+./ae.sh e2_vulns --replay               # instead replay the crashing input that
                                         # Fetch-Anchored Fuzzing found (needs the
                                         # campaign data, see §9)
 ```
@@ -256,12 +252,12 @@ the offset the PoC writes is exactly the offset of the recorded second fetch.
 How many runs a PoC needs varies from one execution of the experiment to the
 next (1-13 in ours); the table reports the number it took this time.
 
-### `e7_rust` — Table IV
+### `e3_rust` — Table IV
 
 Runs Exploration on the OP-TEE Rust TAs in `optee/harness/` and counts the
 detected double fetches per TA.
 
-### `e8_reshaping` — Table V
+### `e4_reshaping` — Table V
 
 Compares the total number of Exploration executions with the number of
 executions that actually reach a double fetch (`eval/reshaping_cmp.py
@@ -275,7 +271,7 @@ harnesses and prints the observed crash type and the Distillation verdict. It is
 how `ae/data/vulns.json` (the crash pinned to each Table II vulnerability) was
 put together, and it is the tool to use after a fresh campaign.
 
-### `e9_mitigation` — Section VII
+### `e5_mitigation` — Section VII
 
 Reports the size of `optee_shm_patch/optee_os.patch` (paper: 140 LoC), applies
 it to an OP-TEE tree if `$OPTEE_DIR` points at one, checks that the mitigation
@@ -303,7 +299,7 @@ normal world is writing to a buffer the TA no longer reads.
 
 By default the experiment re-analyses the shipped measurement
 (`optee_shm_patch/benchmark/results/df_test.csv`, console log next to it).
-`./ae.sh e9_mitigation --run-qemu` re-measures it by booting OP-TEE, and
+`./ae.sh e5_mitigation --run-qemu` re-measures it by booting OP-TEE, and
 re-running the latency benchmark likewise needs a built OP-TEE QEMU-v8 tree,
 which is not part of the artifact; `optee_shm_patch/benchmark/README.md`
 documents the build.
@@ -338,7 +334,7 @@ commodity desktop. `./ae.sh list` prints what they resolved to.
 | `AE_DEDUP_LIMIT` | 0 = every recording | 150 per TA | 0 |
 
 Anything set in the environment wins over the `AE_SCALE` preset, so
-`AE_SCALE=quick AE_SUBSET=all ./ae.sh e1_exploration` does what it says.
+`AE_SCALE=quick AE_SUBSET=all ./ae.sh e1_automatic_df_detection` does what it says.
 
 ### What `./ae.sh all` costs
 
@@ -353,16 +349,17 @@ cd ae && ./ae.sh setup
 nohup ./ae.sh all > ae_full_run.log 2>&1 &
 ```
 
-| stage | work | ~wall clock at `AE_JOBS=6` |
+| experiment | work | ~wall clock at `AE_JOBS=6` |
 |---|---|---|
-| `e1_exploration` | 27 harnesses x 30 min, 5 waves + dedup | ~3 h |
-| `e2_faf` | 27 x 4 snapshots x 15 min, 18 waves | ~4.5 h |
-| `e3_distillation` | every crash found above | minutes |
-| `e4_table1` | Table I of that campaign | seconds |
-| `e5_figures` | CFGs + coverage replays (~1 s each) | ~30 min |
-| `e6_vulns` | six PoCs raced against the emulator | ~15 min |
-| `e7_rust` | 5 Rust TAs x 30 min | ~40 min |
-| `e8_reshaping`, `e9_mitigation` | Table V, patch + benchmark + double-fetch probe | seconds |
+| `e1_automatic_df_detection` | | **~8 h** |
+| &nbsp;&nbsp;stage 1, exploration | 27 harnesses x 30 min, 5 waves + dedup | ~3 h |
+| &nbsp;&nbsp;stage 2, FAF | 27 x 4 snapshots x 15 min, 18 waves | ~4.5 h |
+| &nbsp;&nbsp;stage 3, distillation | every crash found above | minutes |
+| &nbsp;&nbsp;stage 4, Table I | Table I of that campaign | seconds |
+| &nbsp;&nbsp;stage 5, figures | CFGs + coverage replays (~1 s each) | ~30 min |
+| `e2_vulns` | six PoCs raced against the emulator | ~15 min |
+| `e3_rust` | 5 Rust TAs x 30 min | ~40 min |
+| `e4_reshaping`, `e5_mitigation` | Table V, patch + benchmark + double-fetch probe | seconds |
 | **total** | | **~9 h** |
 
 Needs ~15 GB of disk: 3.8 GB of docker images, ~4 GB of TA corpus and campaign
@@ -371,7 +368,7 @@ data, and ~300 MB produced by the run itself.
 Two smaller options:
 
 ```sh
-./ae.sh setup && ./ae.sh e6_vulns      # kick the tires, ~25 min, Table II
+./ae.sh setup && ./ae.sh e2_vulns      # kick the tires, ~25 min, Table II
 AE_SCALE=quick ./ae.sh all             # five TAs, short budgets, ~1 h
 ```
 
@@ -411,18 +408,18 @@ any experiment.
 
 ## 9. Notes on the campaign data shipped with the artifact
 
-`e4_table1 --source campaign` compares the campaign state in this repository against Table I and
+`ae/experiments/stage_table1.py --source campaign` compares the campaign state
+in this repository against Table I and
 prints every deviation. The tree that is shipped is a **pruned** state of the
 campaign: `eval/deduplicate.py --enable-del` removes redundant Exploration seeds
 (and their `.meta` records) once a campaign is finished, and the recordings of
 some TAs were not kept. As a consequence the raw `# Overl. Fetches` column and
 the number of TAs with overlapped fetches are lower than in the paper. Re-running
-`e1_exploration` (followed by `e2_faf`, `e3_distillation` and
-`e4_table1 --source ae`) produces fresh, self-consistent numbers for the TAs it
-covers.
+`e1_automatic_df_detection` produces fresh, self-consistent numbers for the TAs
+it covers.
 
 A concrete symptom: `# Overl. Fetches merged` can exceed `# Overl. Fetches` on
 the shipped tree, because `df_fuzz/<seed>_<reghash>/` directories survive while
 the recordings they were derived from were deleted (`mitee/harness/86f6_fuzz`
-alone has 13,149 snapshot directories and no `.meta` files left). E4 lists every
-harness in that state instead of silently printing the impossible ratio.
+alone has 13,149 snapshot directories and no `.meta` files left). Stage 4 lists
+every harness in that state instead of silently printing the impossible ratio.

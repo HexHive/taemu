@@ -25,15 +25,11 @@ REPO_DIR="$(cd "$AE_DIR/.." && pwd)"
 CTL_IMAGE="${AE_CTL_IMAGE:-ta_emu_ae_ctl}"
 
 EXPERIMENTS=(
-  "e1_exploration:Stage 1 - Exploration: find overlapped fetches in TAs"
-  "e2_faf:Stage 2 - Fetch-Anchored Fuzzing on the snapshots of Stage 1"
-  "e3_distillation:Stage 3 - Distillation: keep only shared-memory crashes"
-  "e4_table1:Table I - summary of a campaign (run E1-E3 first, then --source ae)"
-  "e5_figures:Figures 4 and 5 - coverage of Exploration and of FAF"
-  "e6_vulns:Table II - reproduce the six TOCTTOU vulnerabilities"
-  "e7_rust:Table IV - double fetches in Rust TAs"
-  "e8_reshaping:Table V - executions that trigger a double fetch"
-  "e9_mitigation:Section VII - OP-TEE opt-in mitigation, and that it holds"
+  "e1_automatic_df_detection:Section III - the pipeline: Exploration, Fetch-Anchored Fuzzing, Distillation, then Table I and Figures 4 and 5"
+  "e2_vulns:Table II - reproduce the six TOCTTOU vulnerabilities"
+  "e3_rust:Table IV - double fetches in Rust TAs"
+  "e4_reshaping:Table V - executions that trigger a double fetch"
+  "e5_mitigation:Section VII - OP-TEE opt-in mitigation, and that it holds"
 )
 
 usage() {
@@ -49,7 +45,7 @@ Oversharing artifact evaluation
 Experiments:
 EOF
     for e in "${EXPERIMENTS[@]}"; do
-        printf "  %-16s %s\n" "${e%%:*}" "${e#*:}"
+        printf "  %-26s %s\n" "${e%%:*}" "${e#*:}"
     done
     cat <<EOF
 
@@ -141,21 +137,10 @@ main() {
         shell) cmd_shell ;;
         all)
             ae_require_image; ae_require_redis
-            # The first four experiments form one campaign: each stage consumes
-            # what the previous one produced, and Table I summarises that run.
-            local args
             for e in "${EXPERIMENTS[@]}"; do
                 local name="${e%%:*}"
-                case "$name" in
-                    e2_faf)          args="--from exploration" ;;
-                    e3_distillation) args="--from faf" ;;
-                    e4_table1)       args="--source ae" ;;
-                    e5_figures)      args="--fuzz-mode ALL --regen-cov \
-                                           --max-timestamps $AE_EXPLORE_TIME --show-rate" ;;
-                    *)               args="" ;;
-                esac
                 ae_banner "${e#*:}"
-                run_in_controller "python3 '$AE_DIR/experiments/${name}.py' $args" \
+                run_in_controller "python3 '$AE_DIR/experiments/${name}.py'" \
                     || err "$name reported failures (see ae/results/$name)"
             done
             run_in_controller "python3 '$AE_DIR/experiments/report.py'"
@@ -169,7 +154,7 @@ main() {
             ;;
         report) run_in_controller "python3 '$AE_DIR/experiments/report.py'" ;;
         clean)
-            log "removing the working harnesses of E2/E3/E4 and ae/results ..."
+            log "removing the working harnesses of the pipeline and ae/results ..."
             run_in_controller "rm -rf '$AE_DIR/results' '$REPO_DIR'/*/harness/ae_e*_*"
             docker ps -a --format '{{.Names}}' | grep -E '^(emu_|swarm_emu_)' \
                 | xargs -r docker rm -f >/dev/null 2>&1

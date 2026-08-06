@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""E1 - Stage 1: Exploration (Section III-A).
+"""Stage 1 of e1_automatic_df_detection: Exploration (Section III-A).
 
 Fuzzes TAs with the emulator (emulator/fuzz.sh) while tracing accesses to the
 shared memref buffers, deduplicates the recorded traces (eval/deduplicate.py),
 annotates the overlapped fetches (eval/annotate_fetches.py) and reports, per
 TA, how many overlapped fetches were found and how many snapshots they merge
-into. Those snapshots are the input of Fetch-Anchored Fuzzing (E2).
+into. Those snapshots are the input of Fetch-Anchored Fuzzing (stage 2).
 
 Claim under test: "ScHMuzz detected overlapped fetches in 23 TAs (75% of the
 fuzzed TAs)" - at AE scale, on the TA subset of ae/config.env, we expect
@@ -13,7 +13,7 @@ overlapped fetches in the TAs that the paper reports them for.
 
 Budget:  AE_EXPLORE_TIME seconds x AE_EXPLORE_REPS repetitions per TA
          (paper: 86400 s x 5).  Default: 300 s x 1 per TA.
-Output:  ae/results/e1_exploration/{exploration.txt,csv,tex}
+Output:  ae/results/e1_automatic_df_detection/1_exploration/
 """
 
 import argparse
@@ -69,7 +69,7 @@ def explore(job):
     ae.log(f"exploring {os.path.basename(work)} (repetition {rep + 1}, {seconds}s)")
     rc, out = ae.docker_run(f"./fuzz.sh '{rel}'", timeout=seconds + 900,
                             env={"FUZZTIME": str(seconds)})
-    logs = os.path.join(ae.RESULTS_DIR, "e1_exploration", "logs")
+    logs = os.path.join(ae.result_dir("1_exploration"), "logs")
     os.makedirs(logs, exist_ok=True)
     with open(os.path.join(logs, f"{os.path.basename(work)}_rep{rep}.log"), "w") as f:
         f.write(out)
@@ -83,7 +83,7 @@ def deduplicate(paths):
     # thousands of recordings would dominate the AE runtime. AE_DEDUP_LIMIT
     # bounds how many recordings per TA are considered (0 = all, as in the paper).
     limit = int(ae.cfg("AE_DEDUP_LIMIT", "150"))
-    logs = os.path.join(ae.RESULTS_DIR, "e1_exploration", "logs")
+    logs = os.path.join(ae.result_dir("1_exploration"), "logs")
     os.makedirs(logs, exist_ok=True)
 
     # Harnesses are deduplicated concurrently, each with its own set of worker
@@ -177,7 +177,7 @@ def main():
                 "--harnesses all)")
         sys.exit(1)
 
-    res_dir = os.path.join(ae.RESULTS_DIR, "e1_exploration")
+    res_dir = ae.result_dir("1_exploration")
     os.makedirs(res_dir, exist_ok=True)
     kinibi = sum(1 for h in harnesses
                  if os.path.basename(h) in ("0801_fuzz", "abcd_fuzz", "df1e_fuzz"))
@@ -229,7 +229,7 @@ def main():
     for k, v in checks.items():
         ae.verdict(v, k)
 
-    ae.write_report("e1_exploration", {
+    ae.write_report("1_exploration", {
         "budget_seconds": args.time, "repetitions": args.reps,
         "per_ta": per_ta, "tas_with_overlapped_fetches": with_fetches,
         "total_overlapped_fetches": total_fetches, "total_snapshots": total_snaps,

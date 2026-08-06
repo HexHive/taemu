@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""E8 - Table V: how often a fuzzing iteration actually triggers a double fetch
+"""E4 - Table V: how often a fuzzing iteration actually triggers a double fetch
 (Section VIII-c).
 
 Reshaping-based fuzzers (Morphuzz, EnclaveFuzz) inject data on every read of
@@ -18,7 +18,7 @@ The numbers come from the campaign state:
 This is what eval/reshaping_cmp.py --print-numbers computes; this experiment
 drives it and renders the table.
 
-Output: ae/results/e8_reshaping/{table5.txt,csv,tex}
+Output: ae/results/e4_reshaping/{table5.txt,csv,tex}
 """
 
 import argparse
@@ -76,7 +76,7 @@ def main():
                     help="default: every harness of the artifact")
     args = ap.parse_args()
 
-    res_dir = os.path.join(ae.RESULTS_DIR, "e8_reshaping")
+    res_dir = os.path.join(ae.RESULTS_DIR, "e4_reshaping")
     os.makedirs(res_dir, exist_ok=True)
 
     # The original script prints the same numbers; keep its output for reference.
@@ -132,7 +132,7 @@ def main():
     if skipped:
         ae.warn(f"{len(skipped)} harnesses without record_meta/, excluded")
 
-    ae.write_report("e8_reshaping", {"per_harness": detail, "execs": t_execs,
+    ae.write_report("e4_reshaping", {"per_harness": detail, "execs": t_execs,
                                      "execs_df": t_df, "percent": round(total_pct, 1),
                                      "paper_percent": 11,
                                      "harnesses_with_data": len(detail),

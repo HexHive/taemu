@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""E7 - Table IV: shared memory double fetches in TAs written in Rust
+"""E3 - Table IV: shared memory double fetches in TAs written in Rust
 (Section VI).
 
 The Rust TAs are OP-TEE TAs built from the Teaclave TrustZone SDK examples and
@@ -14,7 +14,7 @@ contain double fetches (Table IV).
 
 Budget:  AE_EXPLORE_TIME seconds per TA (paper: the same budget as the COTS
          campaign, 5 x 24 h).
-Output:  ae/results/e7_rust/{table4.txt,csv,tex}
+Output:  ae/results/e3_rust/{table4.txt,csv,tex}
 """
 
 import argparse
@@ -28,7 +28,7 @@ sys.path.insert(0, HERE)
 
 import aelib as ae
 import tables
-import e1_exploration as stage1
+import stage_exploration as stage1
 
 
 def main():
@@ -39,7 +39,7 @@ def main():
     args = ap.parse_args()
 
     paper = tables.paper_tables()["table4"]
-    res_dir = os.path.join(ae.RESULTS_DIR, "e7_rust")
+    res_dir = os.path.join(ae.RESULTS_DIR, "e3_rust")
     os.makedirs(res_dir, exist_ok=True)
 
     entries = []
@@ -93,7 +93,7 @@ def main():
     if found != (expected & set(detail)):
         ae.warn(f"  expected {sorted(expected & set(detail))}, found {sorted(found)}")
 
-    ae.write_report("e7_rust", {"budget_seconds": args.time, "tas": detail,
+    ae.write_report("e3_rust", {"budget_seconds": args.time, "tas": detail,
                                 "checks": checks})
     ae.exit_with(checks)
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""E2 - Stage 2: Fetch-Anchored Fuzzing (Section III-B).
+"""Stage 2 of e1_automatic_df_detection: Fetch-Anchored Fuzzing (Sec. III-B).
 
 For every snapshot found by Exploration, the emulator restores the TA state
 right before the second fetch and fuzzes *the value read from shared memory*
@@ -7,7 +7,7 @@ right before the second fetch and fuzzes *the value read from shared memory*
 normal-world app could trigger by winning the race.
 
 Sources of snapshots:
-  --from exploration  the snapshots produced by E1 (ae_e1_* working harnesses)
+  --from exploration  the snapshots produced by stage 1 (ae_e1_* harnesses)
   --from campaign     the snapshots shipped with the artifact (default), i.e.
                       the ones of the paper's campaign; only snapshots whose
                       Exploration seed is still present can be restored
@@ -88,7 +88,7 @@ def fuzz_snapshot(job):
     rc, out = ae.docker_run(
         f"./df_fuzz.sh '{h_rel}' '{seed_rel}' {snap['reg_hash']}",
         timeout=seconds + 900, env={"FUZZTIME": str(seconds)})
-    logs = os.path.join(ae.RESULTS_DIR, "e2_faf", "logs")
+    logs = os.path.join(ae.result_dir("2_faf"), "logs")
     os.makedirs(logs, exist_ok=True)
     with open(os.path.join(logs, f"{os.path.basename(work)}_{snap['reg_hash'][:12]}.log"), "w") as f:
         f.write(out)
@@ -107,7 +107,7 @@ def main():
                     default=int(ae.cfg("AE_FAF_MAX_SNAPSHOTS", "25")))
     args = ap.parse_args()
 
-    res_dir = os.path.join(ae.RESULTS_DIR, "e2_faf")
+    res_dir = ae.result_dir("2_faf")
     os.makedirs(res_dir, exist_ok=True)
 
     rows, per_ta, jobs = [], {}, []
@@ -173,7 +173,7 @@ def main():
     ae.log(f"double fetch reached: {reproduced}/{len(jobs)} snapshots")
     ae.log(f"crashes: {total_crashes}")
 
-    ae.write_report("e2_faf", {"budget_seconds": args.time, "source": args.source,
+    ae.write_report("2_faf", {"budget_seconds": args.time, "source": args.source,
                                "per_ta": per_ta, "snapshots": results,
                                "total_crashes": total_crashes, "checks": checks})
     ae.exit_with(checks)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""E9 - Section VII: the opt-in shared memory mitigation for OP-TEE.
+"""E5 - Section VII: the opt-in shared memory mitigation for OP-TEE.
 
 The mitigation extends the GlobalPlatform API with TEE_RegisterShm(): a TA
 declares which memref parameters of which command really need zero-copy shared
@@ -26,7 +26,7 @@ What this experiment does:
 Steps 3 and 4 re-analyse the shipped measurements; --run-qemu re-measures them
 in QEMU, which needs a built OP-TEE tree ($OPTEE_DIR) and build.sh's output.
 
-Output: ae/results/e9_mitigation/{mitigation,double_fetch}.{txt,csv,tex} plus
+Output: ae/results/e5_mitigation/{mitigation,double_fetch}.{txt,csv,tex} plus
         shm_mitigation_overhead.png
 """
 
@@ -136,7 +136,7 @@ def double_fetch_check(res_dir, checks, optee_dir=None, run_qemu=False):
     tables.write(res_dir, "double_fetch",
                  ["config", "libutee", "double fetches", "raced", "rate",
                   "observed", "expected"], rows,
-                 title="E9 double-fetch probe (OP-TEE under QEMU)",
+                 title="E5 double-fetch probe (OP-TEE under QEMU)",
                  caption="A normal-world thread races a memref while the TA "
                          "reads the same word twice. Without the opt-in the "
                          "mitigation makes the two reads always agree.",
@@ -154,7 +154,7 @@ def main():
                          "(needs a built $OPTEE_DIR and benchmark/build.sh output)")
     args = ap.parse_args()
 
-    res_dir = os.path.join(ae.RESULTS_DIR, "e9_mitigation")
+    res_dir = os.path.join(ae.RESULTS_DIR, "e5_mitigation")
     os.makedirs(res_dir, exist_ok=True)
     checks = {}
 
@@ -214,11 +214,11 @@ def main():
 
     tables.write(res_dir, "mitigation",
                  ["patch", "# files", "+ lines", "- lines"], rows,
-                 title="E9 mitigation patch",
+                 title="E5 mitigation patch",
                  caption="Size of the mitigation patch.",
                  label="tab:mitigation")
 
-    ae.write_report("e9_mitigation", {"patches": rows, "double_fetch": df,
+    ae.write_report("e5_mitigation", {"patches": rows, "double_fetch": df,
                                       "checks": checks})
     ae.exit_with(checks)
 
