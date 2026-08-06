@@ -39,7 +39,6 @@ RAM, `AE_JOBS=6`); they shrink on a bigger machine, see §7.
 | C1–C4, C8 | The pipeline of Section III: Exploration finds overlapped fetches in binary-only TAs (III-A), Fetch-Anchored Fuzzing turns them into crashes (III-B), Distillation keeps the ones that need the race (III-C) — summarised in **Table I** and **Figures 4 and 5** | `e1_automatic_df_detection` | ~8 h |
 | C5 | **Table II: six 0-day TOCTTOU vulnerabilities in five TAs**, reproduced by racing the TA with the PoC of each vulnerability | `e2_vulns` | ~15 min |
 | C6 | Table IV: TAs written in Rust are affected as well (Sec. VI) | `e3_rust` | ~40 min |
-| C7 | Table V: only ~11 % of fuzzing iterations execute a double fetch (Sec. VIII-c) | `e4_reshaping` | ~1 min |
 | C9 | Section VII: a 140-LoC opt-in mitigation for OP-TEE that closes the double fetch and is cheap when opted in | **not an experiment**, see §6 | — |
 | — | Table III: zero-copy shared memory on COTS phones (Section V) | **not reproducible without the phones**, see §6 | — |
 
@@ -255,13 +254,6 @@ next (1-13 in ours); the table reports the number it took this time.
 Runs Exploration on the OP-TEE Rust TAs in `optee/harness/` and counts the
 detected double fetches per TA.
 
-### `e4_reshaping` — Table V
-
-Compares the total number of Exploration executions with the number of
-executions that actually reach a double fetch (`eval/reshaping_cmp.py
---print-numbers`), i.e. the share of the budget a reshaping-based fuzzer would
-waste.
-
 ### Helper
 
 `ae/experiments/_probe_vulns.py` replays *every* replayable crash of a set of
@@ -288,7 +280,18 @@ put together, and it is the tool to use after a fresh campaign.
   ANDROID_NDK=... ae/ae_ondevice.sh R58N349AKNY                 # one of them
   ```
 
-  What a reviewer sees depends entirely on which TAs their phones ship;
+  What a reviewer sees depends entirely on which TAs their phones ship. On the
+  three devices this was developed against:
+
+  | device | TEE | PoC | verdict |
+  |---|---|---|---|
+  | TECNO Mobile LH8n | Kinibi | `beanpod/pocs/df1e_test` | ZERO-COPY (poll 94,734 of 195,983) |
+  | Samsung SM-G973F (S10) | TEEGris | `teegris/pocs/s10_5345_SECFR` | ZERO-COPY (poll 32,539 of 68,949) |
+  | Samsung SM-G973F (S10) | TEEGris | `teegris/pocs/4662_FbCkmR_df` | no TA |
+  | OnePlus CPH2621 | QSEE | `qsee/pocs/a985_test` | no TA |
+
+  which is claim C5 for TEEGris and Kinibi. The Table II vulnerabilities need
+  the phone to ship the vulnerable TA, which none of these three does.
   Listing 2 of the paper shows the racing app.
 * **The full campaign** — the paper's numbers come from 5 × 24 h of Exploration
   per TA and 15 min of Fetch-Anchored Fuzzing for each of 17,232 snapshots
@@ -348,7 +351,6 @@ nohup ./ae.sh all > ae_full_run.log 2>&1 &
 | &nbsp;&nbsp;stage 5, figures | CFGs + coverage replays (~1 s each) | ~30 min |
 | `e2_vulns` | six PoCs raced against the emulator | ~15 min |
 | `e3_rust` | 5 Rust TAs x 30 min | ~40 min |
-| `e4_reshaping` | Table V from the campaign state | seconds |
 | **total** | | **~9 h** |
 
 Needs ~15 GB of disk: 3.8 GB of docker images, ~4 GB of TA corpus and campaign

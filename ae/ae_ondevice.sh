@@ -11,9 +11,12 @@
 #   3. runs each one and classifies what happened:
 #
 #        no TA          TEEC_OpenSession failed - that TA is not installed here
-#        reached        session opened, the TA processed a memref that a second
-#                       thread kept rewriting for the whole call: the shared
-#                       buffer is not copied, which is what Table III asserts
+#        reached        the TA processed a memref that a second thread kept
+#                       rewriting for the whole call, but nothing observable
+#                       came back
+#        ZERO-COPY      the TA wrote into the registered buffer *while*
+#                       TEEC_InvokeCommand was still blocked, i.e. it operates
+#                       on normal-world memory directly - Table III, claim C5
 #        CRASHED        the TA died - the double fetch was exploited
 #
 # Usage:
@@ -39,15 +42,19 @@ RUNS="${AE_ONDEVICE_RUNS:-5}"
 # poc dir | TEE | TA UUID | extra argv for ./poc
 # The argv column carries the per-firmware constants a PoC needs; see the PoC
 # source for what they mean.
+# The first entry per TEE is the zero-copy probe of claim C5: it races a memref
+# and reports whether the TA writes into it mid-call. The rest are the Table II
+# vulnerabilities, which only reproduce on a phone that ships the vulnerable TA.
 POCS=(
   "teegris/pocs/s10_5345_SECFR|teegris|00000000-0000-0000-0000-5345435f4652|0x212010 0x11"
-  "teegris/pocs/4662_FbCkmR_df|teegris|00000000-0000-0000-0000-4662436b6d52|"
   "qsee/pocs/a985_test|qsee|A985D3EB-3B52-4D44-BE6C-628A813561E8|"
+  "beanpod/pocs/df1e_test|kinibi|df1edda8627911e980ae507b9d9a7e7d|"
+  "beanpod/pocs/0801_df_oob|beanpod|08010203000000000000000000000000|"
+  "teegris/pocs/4662_FbCkmR_df|teegris|00000000-0000-0000-0000-4662436b6d52|"
   "mitee/pocs/377e_double_fetch_stackov|mitee|377ee4e8-af0e-474f-a9d636a9268fe85c|"
   "mitee/pocs/88ce_df_oobr|mitee|88ce8e6b-8646-4092-bb78faf5b55ff4df|"
   "mitee/pocs/3d08_df_memsetoob|mitee|3d08821c-33a6-11e6-a1fa089e01c83aa2|"
   "mitee/pocs/3d08_doublefree|mitee|3d08821c-33a6-11e6-a1fa089e01c83aa2|"
-  "beanpod/pocs/0801_df_oob|beanpod|08010203000000000000000000000000|"
 )
 
 die() { err "$*"; exit 1; }
@@ -86,7 +93,7 @@ run_poc() {
         echo "build failed|see $(basename "$logf")"; return
     fi
 
-    local out="" crashed=0 reached=0 nota=0 i
+    local out="" crashed=0 reached=0 nota=0 zerocopy=0 zcline="" i
     for i in $(seq 1 "$RUNS"); do
         out=$(adb -s "$serial" shell "su -c 'cd /data/local/tmp && chmod 755 poc && timeout 30 ./poc $pocargs 2>&1'" 2>&1 | tr -d '\r')
         printf '=== run %s\n%s\n' "$i" "$out" >>"$logf"
@@ -97,14 +104,23 @@ run_poc() {
         # A TA that answers an invocation while the racing thread rewrites the
         # registered buffer is the observation Table III is about.
         case "$out" in *"TEEC_Result:"*) reached=1 ;; esac
-        [ "$crashed" = 1 ] && break
+        case "$out" in
+            *"ZEROCOPY: yes"*)
+                zerocopy=1
+                zcline=$(printf '%s' "$out" | grep -o "poll [0-9]* of [0-9]*" | tail -1)
+                ;;
+        esac
+        # The watcher thread is not always scheduled before a short invoke
+        # returns, so keep trying until it is; a crash ends it immediately.
+        { [ "$crashed" = 1 ] || [ "$zerocopy" = 1 ]; } && break
     done
 
     local last; last=$(printf '%s' "$out" | grep -E "TEEC_Result|OpenSession failed" | tail -1)
-    if   [ "$crashed" = 1 ]; then echo "CRASHED|$last"
-    elif [ "$reached" = 1 ]; then echo "reached|$last"
-    elif [ "$nota" = 1 ];    then echo "no TA|TEEC_OpenSession failed"
-    else                          echo "no result|see $(basename "$logf")"; fi
+    if   [ "$crashed" = 1 ];  then echo "CRASHED|$last"
+    elif [ "$zerocopy" = 1 ]; then echo "ZERO-COPY|TA wrote into the buffer mid-invoke ($zcline)"
+    elif [ "$reached" = 1 ];  then echo "reached|$last"
+    elif [ "$nota" = 1 ];     then echo "no TA|TEEC_OpenSession failed"
+    else                           echo "no result|see $(basename "$logf")"; fi
 }
 
 # ----------------------------------------------------------------------------- main
@@ -151,7 +167,7 @@ main() {
             ran=$((ran + 1))
             IFS='|' read -r verdict detail < <(run_poc "$serial" "$poc" "$pargs")
             case "$verdict" in
-                CRASHED) ok "$(basename "$poc"): $verdict - $detail" ;;
+                CRASHED|ZERO-COPY) ok "$(basename "$poc"): $verdict - $detail" ;;
                 reached) ok "$(basename "$poc"): $verdict - $detail" ;;
                 *)       err "$(basename "$poc"): $verdict - $detail" ;;
             esac
