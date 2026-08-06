@@ -79,8 +79,14 @@ def ok(msg):
     print(f"{C['grn']}[ok]{C['rst']} {msg}", flush=True)
 
 
+# Advisory notes collected during a run. They are not printed: an experiment's
+# output is its table and its checks. They end up in notes.log and in the
+# "notes" field of result.json, next to the numbers they qualify.
+NOTES = []
+
+
 def warn(msg):
-    print(f"{C['yel']}[!!]{C['rst']} {msg}", flush=True)
+    NOTES.append(str(msg))
 
 
 def fail(msg):
@@ -426,8 +432,12 @@ def write_report(name, payload):
     payload = dict(payload)
     payload.setdefault("experiment", name)
     payload.setdefault("timestamp", time.strftime("%Y-%m-%d %H:%M:%S"))
+    payload.setdefault("notes", list(NOTES))
     with open(p, "w") as f:
         json.dump(payload, f, indent=2)
+    if NOTES:
+        with open(os.path.join(d, "notes.log"), "w") as f:
+            f.write("\n".join(NOTES) + "\n")
     log(f"result written to {os.path.relpath(p, REPO_DIR)}")
     return p
 

@@ -124,7 +124,7 @@ cmd_setup() {
     ae_require_redis
     log "building the campaign orchestrator (swarm) ..."
     run_in_controller "cd '$REPO_DIR/swarm' && cargo build --release 2>&1 | tail -3" \
-        || warn "swarm build failed - e2/e3 fall back to the built-in scheduler"
+        || err "swarm build failed - e2/e3 fall back to the built-in scheduler"
     ae_banner "Self-test: emulate a TA and replay one Exploration seed"
     run_in_controller "python3 '$AE_DIR/experiments/e0_selftest.py'"
 }
@@ -156,7 +156,7 @@ main() {
                 esac
                 ae_banner "${e#*:}"
                 run_in_controller "python3 '$AE_DIR/experiments/${name}.py' $args" \
-                    || warn "$name reported failures (see ae/results/$name)"
+                    || err "$name reported failures (see ae/results/$name)"
             done
             run_in_controller "python3 '$AE_DIR/experiments/report.py'"
             ;;

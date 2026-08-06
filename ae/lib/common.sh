@@ -13,8 +13,12 @@ C_RED=$'\e[1;31m'; C_GRN=$'\e[1;32m'; C_YEL=$'\e[1;33m'; C_BLU=$'\e[1;34m'; C_RS
 
 log()  { echo "${C_BLU}[ae]${C_RST} $*"; }
 ok()   { echo "${C_GRN}[ok]${C_RST} $*"; }
-warn() { echo "${C_YEL}[!!]${C_RST} $*"; }
+err()  { echo "${C_RED}[--]${C_RST} $*"; }
 die()  { echo "${C_RED}[--]${C_RST} $*" >&2; exit 1; }
+
+# Advisory notes are not printed - an experiment's output is its table and its
+# checks. They go to ae/results/notes.log, next to the numbers they qualify.
+warn() { mkdir -p "$RESULTS_DIR"; echo "$*" >> "$RESULTS_DIR/notes.log"; }
 
 # ae_have_image -- does the emulator image exist?
 ae_have_image() { docker image inspect "$AE_IMAGE" >/dev/null 2>&1; }

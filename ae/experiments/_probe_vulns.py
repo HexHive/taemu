@@ -39,7 +39,7 @@ for h in CANDIDATES:
     crashes.sort(key=lambda c: (not c["distilled"],))
     chosen = crashes[:MAX]
     if not chosen:
-        ae.warn(f"{h}: no replayable crash"); continue
+        ae.log(f"{h}: no replayable crash"); continue
     work = os.path.join(ae.RESULTS_DIR, "_probe_vulns", h.replace("/", "__"))
     shutil.rmtree(work, ignore_errors=True)
     ae.stage_harness(src, work, seeds={c["seed_path"] for c in chosen}, crashes=chosen)

@@ -160,3 +160,15 @@ so a reviewer can see what their machine picked before starting a run.
 smoke-testing, and `AE_SCALE=paper` is unchanged. Both presets now yield to
 anything set explicitly in the environment, so `AE_SCALE=quick AE_SUBSET=all`
 does what it says instead of silently ignoring the subset.
+
+## Output
+
+Experiments no longer print `[!!]` advisories. An experiment's output is its
+table and its checks; everything advisory — a TA whose campaign data is pruned,
+a missing `$OPTEE_DIR`, harnesses excluded from a count, a column that differs
+from the paper (which the table already shows) — is collected and written to
+`ae/results/<experiment>/notes.log` and the `notes` field of `result.json`,
+where it sits next to the numbers it qualifies instead of scrolling past.
+
+Failures are unaffected: failed checks are still `[--]` on stdout, and
+`./ae.sh all` still reports an experiment that exited non-zero.

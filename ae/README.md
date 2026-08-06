@@ -129,7 +129,11 @@ written to `ae/results/<experiment>/`.
 
 ## 5. Experiments
 
-Each experiment prints its table and ends with an explicit list of checks.
+Each experiment prints its table and ends with an explicit list of checks —
+`[ok]` or `[--]` per check, nothing else. Anything advisory (a TA whose data is
+pruned, a missing `$OPTEE_DIR`, harnesses excluded from a count) is not printed
+but recorded in `ae/results/<experiment>/notes.log` and in the `notes` field of
+`result.json`, next to the numbers it qualifies.
 
 ### `e1_exploration` — Stage 1
 
