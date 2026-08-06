@@ -84,7 +84,12 @@ run_in_controller() {
     # scripts, CI and `nohup ./ae.sh all &`.
     local tty=()
     [ -t 0 ] && [ -t 1 ] && tty=(-it)
-    docker run --rm "${tty[@]}" \
+    # An OP-TEE tree, if the reviewer has one, is mounted at its own path so
+    # that e5_mitigation can build the patched libutee and boot QEMU.
+    local optee=()
+    [ -n "${OPTEE_DIR:-}" ] && [ -d "$OPTEE_DIR" ] && \
+        optee=(-v "$OPTEE_DIR:$OPTEE_DIR" -e "OPTEE_DIR=$OPTEE_DIR")
+    docker run --rm "${tty[@]}" "${optee[@]}" \
         -v /var/run/docker.sock:/var/run/docker.sock \
         -v "$REPO_DIR:$REPO_DIR" \
         -v /dev/shm:/dev/shm --ipc=host \

@@ -79,17 +79,64 @@ def read_df_csv(path):
     return out
 
 
-def run_qemu_df(res_dir, optee_dir):
-    """Re-measure the double-fetch probe in QEMU (needs a built OP-TEE tree)."""
+# What a built OP-TEE QEMU-v8 tree has to provide for the probe: its own QEMU,
+# the aarch64 toolchain and buildroot sysroot the TAs and the client are built
+# with, and the boot images.
+def optee_tree_usable(optee_dir):
+    if not optee_dir or not os.path.isdir(optee_dir):
+        return None
+    need = {
+        "qemu": os.path.join(optee_dir, "qemu", "build", "qemu-system-aarch64"),
+        "toolchain": os.path.join(optee_dir, "toolchains", "aarch64", "bin",
+                                  "aarch64-linux-gnu-gcc"),
+        "sysroot": os.path.join(optee_dir, "out-br", "host",
+                                "aarch64-buildroot-linux-gnu", "sysroot"),
+        "optee_os": os.path.join(optee_dir, "optee_os", "lib", "libutee"),
+        "boot images": os.path.join(optee_dir, "linux", "arch", "arm64", "boot", "Image"),
+    }
+    missing = [k for k, p in need.items() if not os.path.exists(p)]
+    return missing or []
+
+
+def build_bench(res_dir, optee_dir, out_dir):
+    """optee_shm_patch/benchmark/build.sh: dev-kits, TAs, host binaries.
+
+    The mitigation is entirely in libutee, so the patched build is a copy of
+    $OPTEE_DIR/optee_os with optee_os.patch applied; the core image and
+    therefore the whole boot chain is shared with the baseline.
+    """
+    ae.log("building the benchmark TAs against a patched and an unpatched libutee ...")
+    p = subprocess.run(
+        ["bash", os.path.join(ae.REPO_DIR, BENCH, "build.sh")],
+        cwd=os.path.join(ae.REPO_DIR, BENCH),
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=3600,
+        env=dict(os.environ, OPTEE_DIR=optee_dir, BASE_TREE=optee_dir, OUT=out_dir))
+    open(os.path.join(res_dir, "build.log"), "wb").write(p.stdout or b"")
+    if p.returncode != 0:
+        ae.fail("building the benchmark failed, see build.log")
+        print("\n".join((p.stdout or b"").decode("utf-8", "replace").splitlines()[-15:]))
+    return p.returncode == 0
+
+
+def run_qemu_df(res_dir, optee_dir, rebuild=True):
+    """Build the two libutee variants and re-measure the probe in QEMU."""
     bench = os.path.join(ae.REPO_DIR, BENCH)
     out_dir = os.path.join(bench, "out")
     csv_path = os.path.join(res_dir, "df_test.csv")
-    qemu = os.path.join(optee_dir, "qemu", "build", "qemu-system-aarch64")
-    for need in (qemu, os.path.join(out_dir, "share", "optee_shm_dftest"),
-                 os.path.join(out_dir, "run", "bl1.bin")):
-        if not os.path.exists(need):
-            ae.warn(f"--run-qemu: missing {need} (run {BENCH}/build.sh first)")
+
+    missing = optee_tree_usable(optee_dir)
+    if missing is None:
+        ae.fail("no OP-TEE tree: set $OPTEE_DIR to a built optee/ QEMU-v8 tree")
+        return None
+    if missing:
+        ae.fail(f"{optee_dir} is not a built OP-TEE QEMU-v8 tree "
+                f"(missing: {', '.join(missing)})")
+        return None
+
+    if rebuild or not os.path.exists(os.path.join(out_dir, "share", "optee_shm_dftest")):
+        if not build_bench(res_dir, optee_dir, out_dir):
             return None
+
     ae.log("booting OP-TEE in QEMU for the double-fetch probe ...")
     p = subprocess.run(
         [sys.executable, os.path.join(bench, "harness", "driver.py"), "--df-only"],
@@ -99,18 +146,32 @@ def run_qemu_df(res_dir, optee_dir):
                  DF_CSV=csv_path))
     open(os.path.join(res_dir, "df_test_console.log"), "wb").write(p.stdout or b"")
     if p.returncode != 0 or not os.path.exists(csv_path):
-        ae.warn("--run-qemu: the probe run failed, see df_test_console.log")
+        ae.fail("the probe run failed, see df_test_console.log")
         return None
     return csv_path
 
 
-def double_fetch_check(res_dir, checks, optee_dir=None, run_qemu=False):
-    """Does the mitigation actually close the double-fetch window?"""
+def double_fetch_check(res_dir, checks, optee_dir=None, run_qemu=None):
+    """Does the mitigation actually close the double-fetch window?
+
+    With a built OP-TEE tree this builds both libutee variants and measures it;
+    without one it re-analyses the measurement shipped with the artifact.
+    """
+    measured_here = False
     csv_path = None
-    if run_qemu and optee_dir:
+    if run_qemu is None:                # auto: measure it if we have the tree
+        run_qemu = optee_tree_usable(optee_dir) == []
+    if run_qemu:
         csv_path = run_qemu_df(res_dir, optee_dir)
+        measured_here = csv_path is not None
+        if not measured_here:
+            checks["double-fetch probe measured"] = False
     if csv_path is None:
         csv_path = os.path.join(ae.REPO_DIR, BENCH, "results", "df_test.csv")
+        ae.log(f"using the shipped measurement, "
+               f"{os.path.relpath(csv_path, ae.REPO_DIR)}"
+               + ("" if run_qemu else
+                  " (set $OPTEE_DIR to a built OP-TEE QEMU-v8 tree to measure it)"))
     if not os.path.exists(csv_path):
         checks["double-fetch probe present"] = ae.verdict(False, f"missing {csv_path}")
         return {}
@@ -136,7 +197,8 @@ def double_fetch_check(res_dir, checks, optee_dir=None, run_qemu=False):
     tables.write(res_dir, "double_fetch",
                  ["config", "libutee", "double fetches", "raced", "rate",
                   "observed", "expected"], rows,
-                 title="E5 double-fetch probe (OP-TEE under QEMU)",
+                 title="E5 double-fetch probe (OP-TEE under QEMU"
+                       + (", measured now)" if measured_here else ", shipped measurement)"),
                  caption="A normal-world thread races a memref while the TA "
                          "reads the same word twice. Without the opt-in the "
                          "mitigation makes the two reads always agree.",
@@ -148,10 +210,12 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--optee-dir", default=os.environ.get("OPTEE_DIR"),
                     help="a checked-out optee_os tree to test the patch against")
-    ap.add_argument("--run-qemu", action="store_true",
-                    help="re-measure the double-fetch probe by booting OP-TEE "
-                         "in QEMU instead of re-analysing the shipped result "
-                         "(needs a built $OPTEE_DIR and benchmark/build.sh output)")
+    ap.add_argument("--run-qemu", dest="run_qemu", action="store_true", default=None,
+                    help="build both libutee variants and measure the "
+                         "double-fetch probe in QEMU (the default when "
+                         "$OPTEE_DIR is a built OP-TEE QEMU-v8 tree)")
+    ap.add_argument("--no-run-qemu", dest="run_qemu", action="store_false",
+                    help="re-analyse the measurement shipped with the artifact")
     args = ap.parse_args()
 
     res_dir = os.path.join(ae.RESULTS_DIR, "e5_mitigation")
@@ -175,15 +239,17 @@ def main():
             ae.log(f"optee_os.patch: {core[1]} files +{core[2]}/-{core[3]} lines")
 
     # ------------------------------------------------------- patch applies?
-    if args.optee_dir and os.path.isdir(args.optee_dir):
+    # The patch is against optee_os, which sits inside the OP-TEE tree.
+    optee_os = os.path.join(args.optee_dir or "", "optee_os")
+    if args.optee_dir and os.path.isdir(optee_os):
         p = subprocess.run(
             ["git", "apply", "--check",
              os.path.join(ae.REPO_DIR, PATCH_DIR, "optee_os.patch")],
-            cwd=args.optee_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            cwd=optee_os, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         out = p.stdout.decode(errors="replace")
         open(os.path.join(res_dir, "git_apply.log"), "w").write(out)
         checks["patch applies to $OPTEE_DIR"] = ae.verdict(
-            p.returncode == 0, f"optee_os.patch applies to {args.optee_dir}")
+            p.returncode == 0, f"optee_os.patch applies to {optee_os}")
         if p.returncode:
             ae.warn(out.strip()[:500])
     else:

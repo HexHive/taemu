@@ -22,17 +22,23 @@
 #
 set -euo pipefail
 
-# --- paths (edit to taste) --------------------------------------------------
+# --- paths ------------------------------------------------------------------
+# Everything is derived from one built OP-TEE QEMU-v8 tree ($OPTEE_DIR): its
+# toolchain, its buildroot sysroot, its boot images, and its optee_os. The
+# mitigation lives entirely in libutee and the core image is unchanged, so the
+# patched build is a *copy of optee_os* with optee_os.patch applied - a second
+# full OP-TEE tree (~30 GB) is not needed. Set MITIG_TREE to use one anyway.
 HERE_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 PATCH_DIR=${PATCH_DIR:-$(cd "$HERE_DIR/.." && pwd)}
-DF=${DF:-/home/philipp/taemu/df}
-BASE_TREE=${BASE_TREE:-$DF/optee}         # clean OP-TEE tree (baseline)
-MITIG_TREE=${MITIG_TREE:-$DF/optee_patch} # OP-TEE tree that receives optee_os.patch
+BASE_TREE=${BASE_TREE:-${OPTEE_DIR:-/home/philipp/taemu/df/optee}}
 OUT=${OUT:-$PATCH_DIR/benchmark/out}   # writable build output (not root-owned)
 
 TC64=$BASE_TREE/toolchains/aarch64/bin/aarch64-linux-gnu-
 SYSROOT=$BASE_TREE/out-br/host/aarch64-buildroot-linux-gnu/sysroot
 HERE=$PATCH_DIR/benchmark
+
+[ -x "${TC64}gcc" ] || { echo "no aarch64 toolchain at ${TC64}gcc" >&2; exit 1; }
+[ -d "$SYSROOT" ]   || { echo "no buildroot sysroot at $SYSROOT" >&2; exit 1; }
 
 mkdir -p "$OUT"/devkit_base "$OUT"/devkit_mitig "$OUT"/ta_base "$OUT"/ta_mitig "$OUT"/share
 
@@ -48,19 +54,30 @@ devkit () {  # $1 = optee_os path, $2 = output dir
 echo "==> [1] baseline dev-kit"
 devkit "$BASE_TREE/optee_os" "$OUT/devkit_base"
 
-echo "==> [2] apply mitigation patch (+ strip hot-path debug EMSGs)"
-git -C "$MITIG_TREE/optee_os" apply "$PATCH_DIR/optee_os.patch" || \
-    echo "   (patch may already be applied; continuing)"
+echo "==> [2] patched libutee"
+if [ -n "${MITIG_TREE:-}" ]; then
+    MITIG_OS=$MITIG_TREE/optee_os
+else
+    # Always from a clean copy: re-applying a patch on top of itself is how a
+    # half-patched libutee happens, and "did this already apply?" is not a
+    # question worth answering when the copy costs a few seconds.
+    MITIG_OS=$OUT/optee_os_mitig
+    echo "    copying $BASE_TREE/optee_os -> $MITIG_OS"
+    rm -rf "$MITIG_OS"
+    cp -a --reflink=auto "$BASE_TREE/optee_os" "$MITIG_OS"
+    rm -rf "$MITIG_OS/out"
+fi
+patch -p1 -d "$MITIG_OS" --batch --forward < "$PATCH_DIR/optee_os.patch"
 # Debug EMSG()s in the mitigation hot path would write to the secure serial
 # console on every invocation and completely dominate timing; they are debug
 # artifacts, not part of the mitigation, so remove them for benchmarking.
 sed -i -E '/EMSG\("(new InvokeShm|inserting new command|InvokeShms is NULL|cur: %p|cur->commandID|matching commandID|commandID not found)/d' \
-    "$MITIG_TREE/optee_os/lib/libutee/tee_api.c"
+    "$MITIG_OS/lib/libutee/tee_api.c"
 sed -i -E '/EMSG\("(tmpBufs\[n\]= %p|size: %p, tmpBufs)/d' \
-    "$MITIG_TREE/optee_os/lib/libutee/user_ta_entry.c"
+    "$MITIG_OS/lib/libutee/user_ta_entry.c"
 
 echo "==> [2] mitigated dev-kit"
-devkit "$MITIG_TREE/optee_os" "$OUT/devkit_mitig"
+devkit "$MITIG_OS" "$OUT/devkit_mitig"
 
 echo "==> [3] benchmark TAs"
 make -C "$HERE/bench_ta" O="$OUT/ta_base" CROSS_COMPILE="$TC64" \

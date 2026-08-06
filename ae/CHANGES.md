@@ -201,3 +201,40 @@ was a mixture of the reviewer's own edits and output:
 
 With `ae/results/`, `*/harness/ae_e*_*` and the campaign state that was already
 ignored, a full evaluation now leaves the working tree clean.
+
+## Measuring the mitigation instead of reciting it
+
+`e5_mitigation` used to need `optee_shm_patch/benchmark/build.sh` to have been
+run by hand before `--run-qemu` would do anything, and `build.sh` in turn wanted
+*two* full OP-TEE trees (~31 GB each) because the patched dev-kit was built from
+a separate checkout. So in practice nobody ever re-measured anything.
+
+The mitigation is entirely in libutee and the core image is unchanged, so one
+tree is enough: `build.sh` now copies `$OPTEE_DIR/optee_os`, applies
+`optee_os.patch` to the copy (always from a clean copy - re-applying a patch on
+top of itself is how a half-patched libutee happens) and builds both dev-kits
+from there. A dev-kit build takes 9 s.
+
+`e5_mitigation` drives all of it and does so **by default whenever `$OPTEE_DIR`
+is a built OP-TEE QEMU-v8 tree**: build both libutee variants, build the TAs and
+the client binaries, boot OP-TEE under QEMU, run the double-fetch probe. 30 s
+end to end. `--run-qemu` forces it and fails loudly if the tree is unusable;
+`--no-run-qemu` forces the re-analysis; without a tree the shipped measurement
+is re-analysed as before.
+
+Two things had to move for this to run inside docker, as everything else does:
+
+* `ae/ae.sh` bind-mounts `$OPTEE_DIR` into the controller at its own path. It
+  never did, so the pre-existing `git apply --check` of the patch could not have
+  worked from inside the container.
+* the controller image gained `patch`, `pexpect` and the three shared libraries
+  the OP-TEE tree's own `qemu-system-aarch64` links against (`libfdt1`,
+  `libslirp0`, `libusb-1.0-0`). The aarch64 toolchain comes from the tree.
+
+Also fixed: `git apply --check` ran in `$OPTEE_DIR` instead of
+`$OPTEE_DIR/optee_os`, so the "patch applies" check failed on a tree the patch
+applies to perfectly well.
+
+Measured from a freshly patched tree, independent of the shipped CSV:
+44,301 / 27,422 / **0** raced double fetches out of 100,000 for baseline /
+opted-in / not-opted-in.

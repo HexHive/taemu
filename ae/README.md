@@ -76,11 +76,12 @@ images that `./ae.sh setup` builds:
 
 Optional, for parts that are not self-contained:
 
-* `$OPTEE_DIR` pointing at an `optee_os` checkout - lets E5 verify that the
-  mitigation patch applies (without it the patch is only measured)
-* a built OP-TEE QEMU-v8 tree - to re-run the mitigation benchmark itself
-  (`optee_shm_patch/benchmark/README.md`); E5 otherwise re-analyses the shipped
-  measurements
+* `$OPTEE_DIR` pointing at a **built** OP-TEE QEMU-v8 tree (~31 GB, hours to
+  build - see `optee_shm_patch/benchmark/README.md`) - lets E5 build the patched
+  and the unpatched libutee and *measure*, in QEMU, that the mitigation stops
+  double fetches, in about 30 s. Without it E5 re-analyses the measurement
+  shipped with the artifact and says so. The same tree is what re-running the
+  latency benchmark needs.
 * Android NDK and a rooted phone from Table III - to run the PoCs on a device
   (Section V); the artifact runs them against the emulator instead
 * Ghidra (`ghidra/`) - only needed to regenerate the per-TA CFGs used by
@@ -289,20 +290,36 @@ values as fast as it can while the command runs, and reports the count:
 
 | config | libutee | double fetches | raced | expected |
 |---|---|---:|---:|---|
-| `baseline` | unpatched | 100,000 | 37,369 (37.4 %) | possible |
-| `mitig_shared` | patched, opted in | 100,000 | 38,994 (39.0 %) | possible |
+| `baseline` | unpatched | 100,000 | ~40 % | possible |
+| `mitig_shared` | patched, opted in | 100,000 | ~30 % | possible |
 | `mitig_copied` | patched, **not** opted in | 100,000 | **0** | impossible |
 
 So the opt-in preserves the zero-copy semantics a TA asks for (and with it the
 double fetch), while the default path makes the two reads always agree: the
 normal world is writing to a buffer the TA no longer reads.
 
-By default the experiment re-analyses the shipped measurement
-(`optee_shm_patch/benchmark/results/df_test.csv`, console log next to it).
-`./ae.sh e5_mitigation --run-qemu` re-measures it by booting OP-TEE, and
-re-running the latency benchmark likewise needs a built OP-TEE QEMU-v8 tree,
-which is not part of the artifact; `optee_shm_patch/benchmark/README.md`
-documents the build.
+**With `$OPTEE_DIR` set to a built OP-TEE QEMU-v8 tree this is measured, not
+recited** — and it takes about 30 seconds. The experiment copies
+`$OPTEE_DIR/optee_os`, applies `optee_os.patch` to the copy, builds a patched
+and an unpatched TA dev-kit from it, builds the benchmark TAs and the two
+client binaries, boots OP-TEE under QEMU and runs the probe
+(`optee_shm_patch/benchmark/build.sh` + `harness/driver.py --df-only`, both
+inside the controller container, which is why the image carries `libfdt1`,
+`libslirp0`, `libusb-1.0-0` and `pexpect`). The mitigation is entirely in
+libutee and the core image is unchanged, so **one** OP-TEE tree is enough — the
+9-second dev-kit build is the only thing that differs between the two
+configurations.
+
+Without such a tree the experiment re-analyses the measurement shipped with the
+artifact (`optee_shm_patch/benchmark/results/df_test.csv`, console log next to
+it) and says so. `--run-qemu` forces the measurement and fails loudly if the
+tree is unusable; `--no-run-qemu` forces the re-analysis.
+
+What the artifact cannot do for you is *build* the OP-TEE tree: a QEMU-v8 tree
+is ~31 GB and hours of compiling (buildroot, kernel, TF-A, QEMU, toolchains),
+which does not fit the evaluation budget. `optee_shm_patch/benchmark/README.md`
+documents that build, and re-running the latency benchmark (as opposed to the
+probe) needs it too.
 
 ## 6. What cannot be reproduced by a reviewer
 
@@ -359,7 +376,8 @@ nohup ./ae.sh all > ae_full_run.log 2>&1 &
 | &nbsp;&nbsp;stage 5, figures | CFGs + coverage replays (~1 s each) | ~30 min |
 | `e2_vulns` | six PoCs raced against the emulator | ~15 min |
 | `e3_rust` | 5 Rust TAs x 30 min | ~40 min |
-| `e4_reshaping`, `e5_mitigation` | Table V, patch + benchmark + double-fetch probe | seconds |
+| `e4_reshaping` | Table V from the campaign state | seconds |
+| `e5_mitigation` | patch + benchmark re-analysis (+30 s if `$OPTEE_DIR` is set: build both libutee variants, boot QEMU, run the probe) | seconds |
 | **total** | | **~9 h** |
 
 Needs ~15 GB of disk: 3.8 GB of docker images, ~4 GB of TA corpus and campaign
