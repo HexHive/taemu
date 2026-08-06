@@ -86,7 +86,9 @@ is_tee_harness() {
     ae)       [[ "$base" == ae_* ]] || return 1 ;;
   esac
   if [[ "$tee" == "kinibi" ]]; then
-    [[ " ${kinibiTas[*]} " == *" $base "* ]]
+    # A working harness is named ae_e<n>_<harness>; match on the harness it was
+    # copied from, otherwise no Kinibi TA is ever recognised in an AE run.
+    [[ " ${kinibiTas[*]} " == *" ${base#ae_e*_} "* ]]
     return $?
   fi
   return 0

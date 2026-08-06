@@ -238,3 +238,16 @@ applies to perfectly well.
 Measured from a freshly patched tree, independent of the shipped CSV:
 44,301 / 27,422 / **0** raced double fetches out of 100,000 for baseline /
 opted-in / not-opted-in.
+
+## Kinibi disappeared from Table I of an AE run
+
+`statistics.sh` recognises a Kinibi TA by the name of the harness that fuzzes it
+(`beanpod/harness/{0801,abcd,df1e}_fuzz` — Kinibi TAs are emulated with the
+Beanpod runtime and count for both TEEs). An artifact-evaluation run works in
+copies named `ae_e<n>_<harness>`, which matched none of those three, so
+`--include ae` reported Kinibi as `0` TAs w/o local copy and zeroes across the
+whole row while the same run credited the fetches and crashes to Beanpod alone.
+`--include campaign` was unaffected, which is why the shipped tree always showed
+the paper's 3.
+
+The match now strips the `ae_e<n>_` prefix.
