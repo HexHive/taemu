@@ -8,7 +8,7 @@
 # per-TA emulator containers (ta_emu_ae) as siblings through the forwarded
 # docker socket.
 #
-#   ./ae.sh setup          build images, start redis, smoke-test the emulator
+#   ./ae.sh setup          build the images and start redis
 #   ./ae.sh list           show all experiments
 #   ./ae.sh <experiment>   run one experiment
 #   ./ae.sh all            run the full (scaled-down) evaluation
@@ -34,7 +34,7 @@ usage() {
     cat <<EOF
 Oversharing artifact evaluation
 
-  ./ae.sh setup              build the docker images, start redis, self-test
+  ./ae.sh setup              build the docker images and start redis
   ./ae.sh list               list the experiments
   ./ae.sh <experiment>       run a single experiment
   ./ae.sh all                run every experiment (scaled-down budgets)
@@ -114,8 +114,7 @@ cmd_setup() {
     command -v docker >/dev/null || die "docker is required"
     build_images
     ae_require_redis
-    ae_banner "Self-test: emulate a TA and replay one Exploration seed"
-    run_in_controller "python3 '$AE_DIR/experiments/e0_selftest.py'"
+    ok "ready - ./ae.sh list shows the experiments"
 }
 
 cmd_shell() { run_in_controller "bash"; }

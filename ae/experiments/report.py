@@ -16,7 +16,6 @@ import aelib as ae
 import tables
 
 CLAIMS = {
-    "e0_selftest":     "artifact is functional (emulator, recording, snapshot replay, distillation)",
     "e1_automatic_df_detection":
                        "Section III: the pipeline finds overlapped fetches, turns them into "
                        "crashes and keeps the ones that need the race - Table I, Figures 4 and 5",

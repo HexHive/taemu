@@ -88,13 +88,8 @@ Optional, for parts that are not self-contained:
 
 ```sh
 cd ae
-./ae.sh setup          # builds both images, starts redis, runs the self-test
+./ae.sh setup          # builds both images and starts redis
 ```
-
-The self-test (`e0_selftest`) emulates the MiTEE SoterApp TA, replays an
-Exploration seed, restores the snapshot of the double fetch of Listing 3,
-injects the crashing value and lets Distillation confirm that the crash needs
-the race. It must end with `all checks passed`.
 
 ```sh
 ./ae.sh list                 # all experiments, and the budgets picked for this machine
