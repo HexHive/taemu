@@ -95,19 +95,16 @@ def main():
                        ["experiment", "claim", "status", "result"], rows,
                        title="Oversharing - artifact evaluation summary")
 
-    with open(os.path.join(ae.RESULTS_DIR, "summary.md"), "w") as f:
-        f.write("# Oversharing - artifact evaluation summary\n\n")
-        f.write("| experiment | claim | status | result |\n|---|---|---|---|\n")
-        for r in rows:
-            f.write("| " + " | ".join(str(c) for c in r) + " |\n")
-        f.write("\nGenerated tables and figures:\n\n")
-        arts = []
-        for depth in ("*", "*/*"):
-            for ext in ("txt", "pdf", "png", "csv"):
-                arts += glob.glob(os.path.join(ae.RESULTS_DIR, depth, f"*.{ext}"))
+    # The list of everything the run produced, so a reviewer can find it.
+    arts = []
+    for depth in ("*", "*/*"):
+        for ext in ("txt", "pdf", "png", "csv"):
+            arts += glob.glob(os.path.join(ae.RESULTS_DIR, depth, f"*.{ext}"))
+    with open(os.path.join(ae.RESULTS_DIR, "artifacts.txt"), "w") as f:
         for p in sorted(set(arts)):
-            f.write(f"- `{os.path.relpath(p, ae.REPO_DIR)}`\n")
-    ae.ok(f"summary written to {os.path.relpath(ae.RESULTS_DIR, ae.REPO_DIR)}/summary.md")
+            f.write(f"{os.path.relpath(p, ae.REPO_DIR)}\n")
+
+    ae.ok(f"summary written to {os.path.relpath(ae.RESULTS_DIR, ae.REPO_DIR)}/summary.txt")
 
 
 if __name__ == "__main__":
