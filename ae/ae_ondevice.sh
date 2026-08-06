@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # Oversharing - on-device reproduction (Section V, Table III).
 #
-# Unlike ./ae.sh this does NOT run in docker: it needs USB access to the phones
-# and the Android NDK on the host. It is the only part of the artifact that
-# talks to real hardware.
+# Unlike ./ae.sh this does NOT run in docker: it needs USB access to the phones.
+# It is the only part of the artifact that talks to real hardware.
+#
+# The proof-of-concept clients are shipped prebuilt for arm64 in
+# ae/prebuilt/ondevice/, so no Android NDK is needed to run them. Set
+# ANDROID_NDK and AE_ONDEVICE_BUILD=1 to rebuild from source instead (which
+# also refreshes the prebuilt copies).
 #
 # For every connected device it
 #   1. identifies the TEE (client library, device nodes, SoC),
@@ -34,9 +38,10 @@
 #                  that TA is not on every Samsung phone.)
 #
 # Usage:
-#   ANDROID_NDK=~/opt/android-ndk-r26d ./ae_ondevice.sh            # all devices
-#   ANDROID_NDK=... ./ae_ondevice.sh R58N349AKNY                   # one device
-#   AE_ONDEVICE_RUNS=20 ./ae_ondevice.sh                           # more attempts
+#   ./ae_ondevice.sh                                        # every device
+#   ./ae_ondevice.sh R58N349AKNY                            # one of them
+#   AE_ONDEVICE_RUNS=50 ./ae_ondevice.sh                    # more attempts
+#   AE_ONDEVICE_BUILD=1 ANDROID_NDK=~/opt/android-ndk-r26d ./ae_ondevice.sh
 #
 # Results: ae/results/ondevice/{ondevice.txt,csv,tex}, per-run logs beside them.
 set -uo pipefail
@@ -51,6 +56,8 @@ ok()  { echo "${C_GRN}[ok]${C_RST} $*"; }
 err() { echo "${C_RED}[--]${C_RST} $*"; }
 
 RUNS="${AE_ONDEVICE_RUNS:-25}"
+BUILD="${AE_ONDEVICE_BUILD:-0}"
+PREBUILT="$AE_DIR/prebuilt/ondevice"
 
 # ---------------------------------------------------------------- proof of concepts
 # poc dir | TEE | TA UUID | extra argv for ./poc
@@ -103,8 +110,19 @@ run_poc() {
     local dir="$REPO_DIR/$poc" name; name="$(basename "$poc")"
     local logf="$RES_DIR/${serial}_${name}.log"
 
-    if ! ANDROID_SERIAL="$serial" make -C "$dir" phone >"$logf" 2>&1; then
-        echo "build failed|see $(basename "$logf")"; return
+    if [ "$BUILD" = 1 ]; then
+        if ! ANDROID_SERIAL="$serial" make -C "$dir" phone >"$logf" 2>&1; then
+            echo "build failed|see $(basename "$logf")"; return
+        fi
+        cp "$dir/libs/arm64-v8a/poc" "$PREBUILT/$name" 2>/dev/null
+    else
+        [ -f "$PREBUILT/$name" ] || {
+            echo "no binary|$PREBUILT/$name is missing, rebuild with AE_ONDEVICE_BUILD=1"
+            return
+        }
+        if ! adb -s "$serial" push "$PREBUILT/$name" /data/local/tmp/poc >"$logf" 2>&1; then
+            echo "push failed|see $(basename "$logf")"; return
+        fi
     fi
 
     local out="" klog="" crashed=0 reached=0 nota=0 df=0 dfline="" i
@@ -162,8 +180,11 @@ run_poc() {
 # ----------------------------------------------------------------------------- main
 main() {
     command -v adb >/dev/null || die "adb is required"
-    [ -n "${ANDROID_NDK:-}" ] || die "set ANDROID_NDK (e.g. ~/opt/android-ndk-r26d)"
-    [ -x "$ANDROID_NDK/ndk-build" ] || die "no ndk-build in $ANDROID_NDK"
+    if [ "$BUILD" = 1 ]; then
+        [ -n "${ANDROID_NDK:-}" ] || die "AE_ONDEVICE_BUILD=1 needs ANDROID_NDK"
+        [ -x "$ANDROID_NDK/ndk-build" ] || die "no ndk-build in $ANDROID_NDK"
+        mkdir -p "$PREBUILT"
+    fi
     mkdir -p "$RES_DIR"
 
     # adb separates serial and state with a tab, so split on whitespace.

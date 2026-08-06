@@ -78,8 +78,10 @@ Optional, for parts that are not self-contained:
 * a **built** OP-TEE QEMU-v8 tree (~31 GB, hours to build) plus `pexpect` -
   only to rebuild or re-measure the Section VII mitigation, outside this
   harness; see `optee_shm_patch/benchmark/README.md`. No experiment needs it.
-* Android NDK and a rooted phone from Table III - to run the PoCs on a device
-  (Section V); the artifact runs them against the emulator instead
+* a rooted Android phone and `adb` - to run the PoCs on a device (Section V,
+  `ae/ae_ondevice.sh`); the PoCs ship prebuilt for arm64, so the NDK is only
+  needed to rebuild them. Without a phone the artifact runs them against the
+  emulator instead
 * Ghidra (`ghidra/`) - only needed to regenerate the per-TA CFGs used by
   Figure 4; they ship in `<tee>/tas/bbs/`
 
@@ -268,16 +270,21 @@ put together, and it is the tool to use after a fresh campaign.
   and their vendor firmware. `ae/ae_ondevice.sh` does as much of it as the
   hardware at hand allows: for every phone connected over adb it identifies the
   TEE, builds the proof-of-concept clients that target it
-  (`<tee>/pocs/<vuln>/`, `ANDROID_NDK=… make phone`), runs them and classifies
+  (`<tee>/pocs/<vuln>/`), runs them and classifies
   the outcome as `no TA` (that TA is not installed on this phone), `reached`
   (the TA processed a memref that a second thread rewrote for the whole call)
   or `CRASHED` (the double fetch was exploited). It is the one part of the
-  artifact that does *not* run in docker — it needs USB and the NDK on the
-  host:
+  artifact that does *not* run in docker — it needs USB access to the phones.
+  The PoCs are shipped prebuilt for arm64 in `ae/prebuilt/ondevice/`, so no
+  Android NDK is needed:
 
   ```sh
-  ANDROID_NDK=~/opt/android-ndk-r26d ae/ae_ondevice.sh          # every device
-  ANDROID_NDK=... ae/ae_ondevice.sh R58N349AKNY                 # one of them
+  ae/ae_ondevice.sh                                       # every device
+  ae/ae_ondevice.sh R58N349AKNY                           # one of them
+  AE_ONDEVICE_RUNS=50 ae/ae_ondevice.sh                   # more attempts
+
+  # rebuild from source instead of using the shipped binaries
+  AE_ONDEVICE_BUILD=1 ANDROID_NDK=~/opt/android-ndk-r26d ae/ae_ondevice.sh
   ```
 
   How a double fetch is *observed* differs per TEE, because it depends on what
