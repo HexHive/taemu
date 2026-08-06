@@ -1,4 +1,0 @@
-label,tag,which,cmd,size,iters,rounds,differ,total_iters,flips
-baseline,DFRESULT,0,3,4096,20000,5,37369,100000,1558592168
-mitig_shared,DFRESULT,1,3,4096,20000,5,38994,100000,34273888
-mitig_copied,DFRESULT,1,2,4096,20000,5,0,100000,38090450

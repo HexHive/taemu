@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.1.14)  6 AUG 2026 17:40
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.1.14)  6 AUG 2026 19:01
 entering extended mode
  \write18 enabled.
  %&-line parsing enabled.
@@ -138,25 +138,28 @@ LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 9.
 LaTeX Font Info:    ... okay on input line 9.
 
 -- Lines per column: 56 (exact).
-LaTeX Font Info:    Trying to load font information for OT1+pcr on input line 5
-7.
+LaTeX Font Info:    Trying to load font information for OT1+pcr on input line 3
+6.
 (/usr/share/texlive/texmf-dist/tex/latex/psnfss/ot1pcr.fd
 File: ot1pcr.fd 2001/06/04 font definitions for OT1/pcr.
 )
-LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <7> on input line 78.
-LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <5> on input line 78.
-LaTeX Font Info:    Trying to load font information for OML+ptm on input line 1
-16.
+Underfull \hbox (badness 1629) in paragraph at lines 35--38
+\OT1/ptm/m/n/10 pro-duce the pa-per's claim. The mit-i-ga-tion is stored in
+ []
 
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <7> on input line 90.
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <5> on input line 90.
+LaTeX Font Info:    Trying to load font information for OML+ptm on input line 1
+27.
 (/usr/share/texlive/texmf-dist/tex/latex/psnfss/omlptm.fd
 File: omlptm.fd 
 )
 LaTeX Font Info:    Font shape `OML/ptm/m/n' in size <10> not available
-(Font)              Font shape `OML/cmm/m/it' tried instead on input line 116.
+(Font)              Font shape `OML/cmm/m/it' tried instead on input line 127.
 
-Underfull \hbox (badness 2717) in paragraph at lines 116--117
+Underfull \hbox (badness 2717) in paragraph at lines 127--128
  \OT1/ptm/m/it/10 2) Ex-per-i-ment (E2): [][] \OT1/ptm/m/n/10 [TOCT-TOU Vul-ner
 -a-bil-i-ties] [\OML/cmm/m/it/10 <\OT1/ptm/m/n/10 1
  []
@@ -182,23 +185,22 @@ L3 programming layer <2024-01-22>
  ***********
  ) 
 Here is how much of TeX's memory you used:
- 1408 strings out of 476033
- 27250 string characters out of 5790556
- 1936975 words of memory out of 5000000
+ 1407 strings out of 476033
+ 27244 string characters out of 5790556
+ 1937975 words of memory out of 5000000
  23496 multiletter control sequences out of 15000+600000
- 585729 words of font info for 87 fonts, out of 8000000 for 9000
+ 584622 words of font info for 86 fonts, out of 8000000 for 9000
  59 hyphenation exceptions out of 8191
  40i,5n,53p,447b,153s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb></us
 r/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb></usr/share
 /texlive/texmf-dist/fonts/type1/urw/courier/ucrr8a.pfb></usr/share/texlive/texm
-f-dist/fonts/type1/urw/times/utmb8a.pfb></usr/share/texlive/texmf-dist/fonts/ty
-pe1/urw/times/utmr8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/times/u
-tmri8a.pfb>
-Output written on paper.pdf (1 page, 78500 bytes).
+f-dist/fonts/type1/urw/times/utmr8a.pfb></usr/share/texlive/texmf-dist/fonts/ty
+pe1/urw/times/utmri8a.pfb>
+Output written on paper.pdf (1 page, 70452 bytes).
 PDF statistics:
- 39 PDF objects out of 1000 (max. 8388607)
- 23 compressed objects within 1 object stream
+ 34 PDF objects out of 1000 (max. 8388607)
+ 20 compressed objects within 1 object stream
  0 named destinations out of 1000 (max. 500000)
  1 words of extra memory for PDF output out of 10000 (max. 10000000)
 
