@@ -265,9 +265,15 @@ Everything that substantiates Section VII stays where it belongs, in
 racing client, the latency sweeps, the measured results and the plot, and the
 build/run scripts that reproduce them in about 30 s given an OP-TEE tree.
 `ae/README.md` §6 says so, next to the on-device results that are likewise
-documented rather than run. `./ae.sh` still mounts `$OPTEE_DIR` into the
-controller when it is set, so the benchmark can be built and run from
-`./ae.sh shell` without leaving docker.
+documented rather than run.
+
+With the experiment gone, so is everything that existed only to serve it:
+`ae/ae.sh` no longer bind-mounts or forwards `$OPTEE_DIR`, and the controller
+image no longer installs the three shared libraries the OP-TEE tree's own
+`qemu-system-aarch64` links against (`libfdt1`, `libslirp0`, `libusb-1.0-0`).
+`patch` and `pexpect` came from the emulator base image all along - the lines
+adding them to the controller image were redundant and are gone too, but both
+are still present.
 
 The remaining experiments are `e1_automatic_df_detection`, `e2_vulns`,
 `e3_rust`, `e4_reshaping`.

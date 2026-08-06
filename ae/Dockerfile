@@ -16,8 +16,7 @@ FROM ${BASE_IMAGE}
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
-        ca-certificates curl gnupg jq bc pv patch \
-        libfdt1 libslirp0 libusb-1.0-0 && \
+        ca-certificates curl gnupg jq bc pv && \
     install -m 0755 -d /etc/apt/keyrings && \
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
         -o /etc/apt/keyrings/docker.asc && \
@@ -27,13 +26,9 @@ https://download.docker.com/linux/ubuntu jammy stable" > /etc/apt/sources.list.d
     apt-get update && \
     apt-get install -y --no-install-recommends docker-ce-cli docker-compose-plugin
 
-# Table generation and plotting (Figures 4 and 5, mitigation benchmark plot),
-# plus pexpect, which drives the OP-TEE QEMU boot of the mitigation experiment.
-# libfdt/libslirp/libusb are the shared libraries the OP-TEE tree's own
-# qemu-system-aarch64 needs; the aarch64 toolchain comes from that tree.
+# Table generation and plotting (Figures 4 and 5).
 RUN pip3 install --no-cache-dir \
         matplotlib==3.10.8 \
-        pexpect \
         numpy \
         networkx \
         tqdm \

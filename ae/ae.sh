@@ -83,13 +83,7 @@ run_in_controller() {
     # scripts, CI and `nohup ./ae.sh all &`.
     local tty=()
     [ -t 0 ] && [ -t 1 ] && tty=(-it)
-    # An OP-TEE tree, if the reviewer has one, is mounted at its own path so
-    # that the Section VII benchmark (optee_shm_patch/benchmark) can be built
-    # and run from `./ae.sh shell` without leaving the container.
-    local optee=()
-    [ -n "${OPTEE_DIR:-}" ] && [ -d "$OPTEE_DIR" ] && \
-        optee=(-v "$OPTEE_DIR:$OPTEE_DIR" -e "OPTEE_DIR=$OPTEE_DIR")
-    docker run --rm "${tty[@]}" "${optee[@]}" \
+    docker run --rm "${tty[@]}" \
         -v /var/run/docker.sock:/var/run/docker.sock \
         -v "$REPO_DIR:$REPO_DIR" \
         -v /dev/shm:/dev/shm --ipc=host \

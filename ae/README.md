@@ -76,11 +76,9 @@ images that `./ae.sh setup` builds:
 
 Optional, for parts that are not self-contained:
 
-* `$OPTEE_DIR` pointing at a **built** OP-TEE QEMU-v8 tree (~31 GB, hours to
-  build) - needed to rebuild or re-measure the Section VII mitigation
-  (`optee_shm_patch/benchmark/README.md`). No experiment needs it; `./ae.sh`
-  mounts it into the controller if it is set, so the benchmark can be built and
-  run from `./ae.sh shell`.
+* a **built** OP-TEE QEMU-v8 tree (~31 GB, hours to build) plus `pexpect` -
+  only to rebuild or re-measure the Section VII mitigation, outside this
+  harness; see `optee_shm_patch/benchmark/README.md`. No experiment needs it.
 * Android NDK and a rooted phone from Table III - to run the PoCs on a device
   (Section V); the artifact runs them against the emulator instead
 * Ghidra (`ghidra/`) - only needed to regenerate the per-TA CFGs used by
@@ -130,7 +128,7 @@ figures copied up into the experiment's own directory.
 
 Each experiment prints its table and ends with an explicit list of checks —
 `[ok]` or `[--]` per check, nothing else. Anything advisory (a TA whose data is
-pruned, a missing `$OPTEE_DIR`, harnesses excluded from a count) is not printed
+pruned, harnesses excluded from a count, a TA whose data is missing) is not printed
 but recorded in `ae/results/<experiment>/notes.log` and in the `notes` field of
 `result.json`, next to the numbers it qualifies.
 
