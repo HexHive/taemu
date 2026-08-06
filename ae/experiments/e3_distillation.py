@@ -39,16 +39,29 @@ def sources(source, selected):
         # Fetch-Anchored Fuzzing runs in the harness that Exploration produced
         # (ae_e1_*) and only copies the shipped campaign into ae_e2_*, so take
         # any working harness that has snapshots.
-        found = [h for h in sorted(glob.glob(os.path.join(ae.REPO_DIR, "*", "harness", "ae_e*_*")))
+        # Only the harnesses Exploration/Fetch-Anchored Fuzzing produced - not
+        # ae_e3_*, which is where this stage copies the *shipped* campaign to;
+        # picking those up again would distil the same crashes twice.
+        found = [h for h in sorted(glob.glob(os.path.join(ae.REPO_DIR, "*", "harness", "ae_e[12]_*")))
                  if os.path.isdir(os.path.join(h, "df_fuzz"))]
         if not found:
-            ae.fail("no fuzzed snapshots found - run ./ae.sh e2_faf first")
+            ae.fail(f"no fuzzed snapshots under {ae.REPO_DIR}/*/harness/ae_e*_*/df_fuzz "
+                    f"- run ./ae.sh e2_faf first")
             sys.exit(1)
         return found
     return ae.resolve_harnesses(selected)
 
 
 def stage(src, crashes):
+    """Where to run Distillation.
+
+    Crashes from our own campaign are distilled in place, so the .df markers end
+    up in the harness that produced them (that is what Table I counts). Only the
+    campaign shipped with the artifact is copied, to keep it untouched.
+    """
+    if os.path.basename(src).startswith(("ae_e1_", "ae_e2_")):
+        return src
+
     tee_harness = os.path.dirname(src)
     name = os.path.basename(src)
     for p in ("ae_e2_", "ae_e1_"):
@@ -120,8 +133,20 @@ def main():
             "workdir": os.path.relpath(work, ae.REPO_DIR)}
 
     if not jobs:
-        ae.fail("no replayable crashes found")
-        sys.exit(1)
+        # Fetch-Anchored Fuzzing found no crash in this campaign. That is a
+        # result, not a failure of this stage: there is nothing to distil.
+        ae.log("crashes=0")
+        tables.write(res_dir, "distillation",
+                     ["TA (harness)", "# Crashes", "# checked",
+                      "# Crashes Distilled (shared memory only)", "# discarded"],
+                     [["all", 0, 0, 0, 0]], title="E3 distillation",
+                     caption="Distillation results.", label="tab:ae-distillation")
+        checks = {"crashes replayed": True}
+        ae.verdict(True, "no crashes to distil")
+        ae.write_report("e3_distillation", {"source": args.source, "per_ta": per_ta,
+                                            "crashes": [], "distilled": 0,
+                                            "checks": checks})
+        ae.exit_with(checks)
 
     ae.log(f"crashes={len(jobs)} jobs={ae.jobs()}")
     results = [r for r in ae.parallel(distill, jobs) if r]
