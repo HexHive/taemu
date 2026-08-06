@@ -43,7 +43,7 @@
 #   AE_ONDEVICE_RUNS=20 ./ae_ondevice.sh                    # give up after 20
 #   AE_ONDEVICE_BUILD=1 ANDROID_NDK=~/opt/android-ndk-r26d ./ae_ondevice.sh
 #
-# Results: ae/results/ondevice/{ondevice.txt,csv,tex}, per-run logs beside them.
+# It prints Table III; the per-run logs are in ae/results/ondevice/.
 set -uo pipefail
 
 AE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -221,8 +221,7 @@ main() {
 
     [ ${#serials[@]} -gt 0 ] || die "no usable device (adb devices)"
 
-    local rows=() csv="$RES_DIR/ondevice.csv"
-    echo "serial,device,tee,rooted,poc,ta,verdict,detail" >"$csv"
+    local rows=()
 
     for serial in "${serials[@]}"; do
         local model tee rooted
@@ -247,9 +246,6 @@ main() {
                 *)       err "$(basename "$poc"): $verdict - $detail" ;;
             esac
             rows+=("$serial|$model|$tee|$(basename "$poc")|$uuid|$verdict|$detail")
-            printf '%s,%s,%s,%s,%s,%s,%s,%s\n' \
-                "$serial" "$model" "$tee" "$rooted" "$(basename "$poc")" \
-                "$uuid" "$verdict" "${detail//,/ }" >>"$csv"
         done
         [ "$ran" -gt 0 ] || err "$serial: no proof-of-concept targets $tee"
     done
@@ -281,11 +277,7 @@ main() {
             done
             printf "%-9s %-24s %s\n" "$(tee_label "$t")" "$m" "$verdict"
         done
-    } | tee "$RES_DIR/ondevice.txt"
-
-    echo
-    echo "  $(realpath --relative-to="$REPO_DIR" "$RES_DIR/ondevice.txt")"
-    echo "  $(realpath --relative-to="$REPO_DIR" "$csv")"
+    }
 }
 
 main "$@"

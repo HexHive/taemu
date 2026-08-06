@@ -297,9 +297,8 @@ put together, and it is the tool to use after a fresh campaign.
   | QSEE | `qsee/pocs/a985_test` | the TA returns −5 when both fetches agree and −24 (`0xffffffe8`) only when they disagree (Listing 6) |
   | TEEGris | `teegris/pocs/s10_5345_SECFR` | a third thread watches the registered buffer; a change while `TEEC_InvokeCommand` is still blocked means the TA writes into normal-world memory. The paper establishes TEEGris from an on-device *crash* of a Table II TA instead — which needs a phone that ships that TA |
 
-  It prints Table III - one line per phone - and the per-PoC detail goes to
-  `ondevice.csv` and the logs beside it. On the three devices this was
-  developed against:
+  It prints Table III, one line per phone; the per-run logs are in
+  `ae/results/ondevice/`. On the three devices this was developed against:
 
   ```
   TEE       MODEL                    ZERO-COPY SHM
