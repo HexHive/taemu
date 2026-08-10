@@ -71,21 +71,23 @@ def main():
         _, fetches, snaps = stage1.count(w)
         detail[row["ta"]] = {"harness": row["harness"], "overlapped_fetches": fetches,
                             "snapshots": snaps, "paper": row["double_fetches"]}
-        if fetches:
+        if snaps:
             with_df += 1
+        # The paper's "# Detected Double Fetches" is the deduplicated count -
+        # contiguous second fetches from one instruction are one double fetch,
+        # which is exactly what a snapshot is.
         rows.append([row["ta"], row["shm_operation"],
-                     tables.cmp_cell(fetches, row["double_fetches"]), snaps])
+                     tables.cmp_cell(snaps, row["double_fetches"])])
 
     tables.write(res_dir, "table4",
-                 ["TA", "SHM Operation", "# Detected Double Fetches",
-                  "# Snapshots (not in the paper)"],
+                 ["TA", "SHM Operation", "# Detected Double Fetches"],
                  rows,
                  title="Table IV",
                  caption="The Rust TAs that operate on shared memory.",
                  label="tab:rust")
 
     expected = {r["ta"] for r in paper if r["double_fetches"] > 0}
-    found = {ta for ta, d in detail.items() if d["overlapped_fetches"] > 0}
+    found = {ta for ta, d in detail.items() if d["snapshots"] > 0}
     checks = {
         "double fetches found in Rust TAs": with_df > 0,
         "TAs with double fetches match the paper": found == (expected & set(detail)),
