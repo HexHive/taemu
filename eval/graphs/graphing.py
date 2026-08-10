@@ -646,10 +646,38 @@ def df_control_flow_graph(
             part_two_segments = [b / d * 100 for b, d in zip(part_two_segments, coverage_denominators)]
             part_three_segments = [b / d * 100 for b, d in zip(part_three_segments, coverage_denominators)]
         
-        ax.bar(x, basic_segments, label="Basic")
-        ax.bar(x, part_one_segments, bottom=basic_segments, label="Part 1")
-        ax.bar(x, part_two_segments, bottom=np.array(basic_segments)+np.array(part_one_segments), label="Part 2")
-        ax.bar(x, part_three_segments, bottom=np.array(basic_segments)+np.array(part_one_segments)+np.array(part_two_segments), label="Part 3")
+        # One bar per snapshot, stacked in the order of the paper's caption:
+        # the blocks executed up to the second fetch, then those also covered
+        # by the seed that triggered the double fetch, then those also covered
+        # during Exploration, then the ones only Fetch-Anchored Fuzzing reached.
+        b = np.array(basic_segments)
+        p1 = np.array(part_one_segments)
+        p2 = np.array(part_two_segments)
+        ax.bar(x, basic_segments, label="Executed until the second fetch")
+        ax.bar(x, part_one_segments, bottom=b,
+               label="Also covered by the triggering seed")
+        ax.bar(x, part_two_segments, bottom=b + p1,
+               label="Also covered during Exploration")
+        ax.bar(x, part_three_segments, bottom=b + p1 + p2,
+               label="Only covered during Fetch-Anchored Fuzzing")
+
+        ax.set_xlabel("Double-fetch snapshot", fontsize=10)
+        ax.set_ylabel("Covered basic blocks (%)" if show_rate
+                      else "Covered basic blocks", fontsize=10)
+        if show_rate:
+            ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:.0f}%"))
+        # Snapshots are discrete: number them 1..n rather than letting matplotlib
+        # put half-snapshots on the axis. Thin the labels out when there are many.
+        step = max(1, len(x) // 20)
+        ax.set_xticks(x[::step])
+        ax.set_xticklabels([str(i + 1) for i in x[::step]], fontsize=8)
+        ax.set_xlim(-0.6, len(x) - 0.4)
+        # Leave room for the legend instead of drawing it over the tallest bar.
+        totals = b + p1 + np.array(part_two_segments) + np.array(part_three_segments)
+        if len(totals):
+            ax.set_ylim(0, max(totals) * 1.28)
+        ax.legend(loc="upper right", fontsize=7)
+        ax.grid(True, alpha=0.3, linestyle="--", linewidth=0.8, axis="y")
 
         ax.set_title(
             f"Harness: {naming_change(vanilla_id)}",
