@@ -185,13 +185,18 @@ The \texttt{ae.sh} script can be customized using a number of environment varaia
 
 \texttt{AE\_EXPLORE\_TIME} scales the time to fuzz each TA in the exploration phase.
 
-\texttt{AE\_FAF\_TIME} sclaes the time spent on fetch anchored fuzzing per snapshot.
+\texttt{AE\_FAF\_TIME} scales the time spent on fetch anchored fuzzing per snapshot.
 
 % Provide here notes on how to customize your experiments, when applicable. The section is optional.
 
 \subsection{Notes}
 % This section is meant to allow authors to include any further important notes that may not fall within any of the previous categories. We kindly encourage you to remove this section where this sort of content may not be strictly needed (rather than filling it with unnecessary or redundant information).
-The reproduction for C5 includes only a subset of the testing devices used for the experiment in the paper. 
+
+For E1, you may notice there are 27 harnesses even though we cover 30 TAs. The reason is that the 3 Kinibi TAs also exist for Beanpod. 
+TÄMU does not support Kinibi TAs but we can still cover Kinibi by simply reusing the Beanpod TÄMU harnesses. (The static analysis of 
+copying shared memory was done on the actual Kinibi Tas).
+
+The reproduction for C4 includes only a subset of the testing devices used for the experiment in the paper. 
 This is because some of these devices are currently being used for other projects. Additionally, both our mitee testing devices were unrooted during 
 an update and can not be easily rerooted.
 

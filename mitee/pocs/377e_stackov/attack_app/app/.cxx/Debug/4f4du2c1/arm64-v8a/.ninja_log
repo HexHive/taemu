@@ -1,7 +1,0 @@
-# ninja log v5
-0	375	1756465105154733069	CMakeFiles/ohgreat.dir/hello-libs.cpp.o	3fc27568caf88c9a
-376	399	1756465105179732926	/home/philipp/ta_emu/TA_GP_emulator/mitee/pocs/377e_stackov/attack_app/app/build/intermediates/cxx/Debug/4f4du2c1/obj/arm64-v8a/libohgreat.so	73296ee8527f1043
-0	2	0	clean	c831fa3897dea13f
-2	348	1756466584763887562	CMakeFiles/ohgreat.dir/hello-libs.cpp.o	3fc27568caf88c9a
-348	369	1756466584786887409	/home/philipp/ta_emu/TA_GP_emulator/mitee/pocs/377e_stackov/attack_app/app/build/intermediates/cxx/Debug/4f4du2c1/obj/arm64-v8a/libohgreat.so	73296ee8527f1043
-0	2	0	clean	c831fa3897dea13f

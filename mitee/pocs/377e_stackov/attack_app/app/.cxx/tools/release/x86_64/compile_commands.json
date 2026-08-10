@@ -1,7 +1,0 @@
-[
-{
-  "directory": "/home/philipp/ta_emu/TA_GP_emulator/mitee/pocs/377e_stackov/attack_app/app/.cxx/RelWithDebInfo/4816711h/x86_64",
-  "command": "/home/philipp/Android/Sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ --target=x86_64-none-linux-android28 --sysroot=/home/philipp/Android/Sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/sysroot -Dohgreat_EXPORTS -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security   -std=c++11 -O2 -g -DNDEBUG -fPIC -o CMakeFiles/ohgreat.dir/hello-libs.cpp.o -c /home/philipp/ta_emu/TA_GP_emulator/mitee/pocs/377e_stackov/attack_app/app/src/main/cpp/hello-libs.cpp",
-  "file": "/home/philipp/ta_emu/TA_GP_emulator/mitee/pocs/377e_stackov/attack_app/app/src/main/cpp/hello-libs.cpp"
-}
-]

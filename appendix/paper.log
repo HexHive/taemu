@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.1.14)  6 AUG 2026 19:01
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.1.14)  10 AUG 2026 10:30
 entering extended mode
  \write18 enabled.
  %&-line parsing enabled.
@@ -143,16 +143,13 @@ LaTeX Font Info:    Trying to load font information for OT1+pcr on input line 3
 (/usr/share/texlive/texmf-dist/tex/latex/psnfss/ot1pcr.fd
 File: ot1pcr.fd 2001/06/04 font definitions for OT1/pcr.
 )
-Underfull \hbox (badness 1629) in paragraph at lines 35--38
-\OT1/ptm/m/n/10 pro-duce the pa-per's claim. The mit-i-ga-tion is stored in
- []
-
 LaTeX Font Info:    External font `cmex10' loaded for size
 (Font)              <7> on input line 90.
 LaTeX Font Info:    External font `cmex10' loaded for size
 (Font)              <5> on input line 90.
 LaTeX Font Info:    Trying to load font information for OML+ptm on input line 1
 27.
+
 (/usr/share/texlive/texmf-dist/tex/latex/psnfss/omlptm.fd
 File: omlptm.fd 
 )
@@ -197,7 +194,7 @@ r/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb></usr/share
 /texlive/texmf-dist/fonts/type1/urw/courier/ucrr8a.pfb></usr/share/texlive/texm
 f-dist/fonts/type1/urw/times/utmr8a.pfb></usr/share/texlive/texmf-dist/fonts/ty
 pe1/urw/times/utmri8a.pfb>
-Output written on paper.pdf (1 page, 70452 bytes).
+Output written on paper.pdf (1 page, 70437 bytes).
 PDF statistics:
  34 PDF objects out of 1000 (max. 8388607)
  20 compressed objects within 1 object stream
