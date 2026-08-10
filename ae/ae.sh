@@ -39,6 +39,8 @@ Oversharing artifact evaluation
   ./ae.sh <experiment>       run a single experiment
   ./ae.sh all                run every experiment (scaled-down budgets)
   ./ae.sh shell              interactive shell in the controller container
+  ./ae.sh clean [-y]         delete ae/results and ALL fuzzing data, including
+                             the campaign shipped with the artifact
 
 Experiments:
 EOF
@@ -146,8 +148,33 @@ main() {
             ;;
         report) run_in_controller "python3 '$AE_DIR/experiments/report.py'" ;;
         clean)
-            log "removing the working harnesses of the pipeline and ae/results ..."
+            # Everything a campaign writes: the working harnesses, the results,
+            # and the fuzzing state of *every* harness - AFL queues and coverage
+            # (out/), recorded double-fetch seeds (in/), snapshots (df_fuzz/),
+            # the recorder's bookkeeping (record_meta/) and logs/.
+            #
+            # That includes the campaign shipped with the artifact, which is not
+            # in git, so it does not come back. fuzz.sh recreates in/ with its
+            # initial seeds, so Exploration still runs on a cleaned tree; what
+            # is gone is the paper's campaign, which --source campaign and
+            # e2_vulns --replay read.
+            if [ "${1:-}" != "-y" ] && [ "${AE_YES:-}" != 1 ] && [ -t 0 ]; then
+                warn_line="this deletes the campaign data in */harness/*/ too, \
+including the one shipped with the artifact (not recoverable from git)"
+                echo "${C_RED}[--]${C_RST} $warn_line"
+                printf "     continue? [y/N] "
+                read -r reply
+                case "$reply" in [yY]*) ;; *) die "aborted" ;; esac
+            fi
+            log "removing ae/results and the ae_* working harnesses ..."
             run_in_controller "rm -rf '$AE_DIR/results' '$REPO_DIR'/*/harness/ae_e*_*"
+            log "removing the fuzzing state of every harness ..."
+            run_in_controller "rm -rf \
+                '$REPO_DIR'/*/harness/*/in '$REPO_DIR'/*/harness/*/out \
+                '$REPO_DIR'/*/harness/*/df_fuzz '$REPO_DIR'/*/harness/*/record_meta \
+                '$REPO_DIR'/*/harness/*/logs \
+                '$REPO_DIR'/*/harness_dev/*/in '$REPO_DIR'/*/harness_dev/*/out \
+                '$REPO_DIR'/*/harness_dev/*/df_fuzz '$REPO_DIR'/*/harness_dev/*/record_meta"
             docker ps -a --format '{{.Names}}' | grep -E '^emu_' \
                 | xargs -r docker rm -f >/dev/null 2>&1
             ok "cleaned"
