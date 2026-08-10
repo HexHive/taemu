@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 import pickle
 import hashlib
 import json
@@ -640,12 +641,9 @@ def df_control_flow_graph(
                     out_dir=out_dir)
 
         x = np.arange(len(basic_segments))
-        if show_rate:
-            basic_segments = [b / d * 100 for b, d in zip(basic_segments, coverage_denominators)]
-            part_one_segments = [b / d * 100 for b, d in zip(part_one_segments, coverage_denominators)]
-            part_two_segments = [b / d * 100 for b, d in zip(part_two_segments, coverage_denominators)]
-            part_three_segments = [b / d * 100 for b, d in zip(part_three_segments, coverage_denominators)]
-        
+        # Figure 5 counts basic blocks; --show_rate only applies to Figure 4,
+        # where coverage is a fraction of the TA's reachable blocks.
+
         # One bar per snapshot, stacked in the order of the paper's caption:
         # the blocks executed up to the second fetch, then those also covered
         # by the seed that triggered the double fetch, then those also covered
@@ -662,10 +660,9 @@ def df_control_flow_graph(
                label="Only covered during Fetch-Anchored Fuzzing")
 
         ax.set_xlabel("Double-fetch snapshot", fontsize=10)
-        ax.set_ylabel("Covered basic blocks (%)" if show_rate
-                      else "Covered basic blocks", fontsize=10)
-        if show_rate:
-            ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:.0f}%"))
+        ax.set_ylabel("Covered basic blocks", fontsize=10)
+        # Basic blocks are counted, so the axis carries whole numbers only.
+        ax.yaxis.set_major_locator(MaxNLocator(integer=True))
         # Snapshots are discrete: number them 1..n rather than letting matplotlib
         # put half-snapshots on the axis. Thin the labels out when there are many.
         step = max(1, len(x) // 20)
