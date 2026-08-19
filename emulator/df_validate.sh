@@ -15,7 +15,8 @@ fi
 
 
 if [ ! -f /.dockerenv ]; then
-    echo "Not running inside emulator Docker. Execute ./run-docker.sh first."
+    echo "Not running inside the emulator container. Run this through ae/ae.sh"
+    echo "(e.g. ./ae.sh shell), which mounts the repository at /srv."
     exit 1 
 fi
 

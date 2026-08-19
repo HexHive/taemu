@@ -79,7 +79,7 @@ is_tee_harness() {
   # Is this harness directory part of the given TEE's TA set?
   local tee="$1" harness="$2" base
   base="$(basename "$harness")"
-  # ae_* are the scratch harnesses of an artifact-evaluation run (ae/README.md).
+  # ae_* are the scratch harnesses of an artifact-evaluation run (README.md).
   # They are copies of a campaign harness, so mixing both would double-count.
   case "$include" in
     campaign) [[ "$base" == ae_* ]] && return 1 ;;

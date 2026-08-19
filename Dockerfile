@@ -32,7 +32,6 @@ RUN cd qiling && git checkout 56dd77b6608698bfe54f4bde01981a40609c9532 && git ap
 COPY emulator/requirements.txt .
 RUN pip3 install -r requirements.txt
 RUN sed -i 's/super(ELF,self).__init__(self.mmap)/super(ELF,self).__init__(self.file)/' "$(python3 -c 'import pwnlib.elf.elf; print(pwnlib.elf.elf.__file__)')"
-#RUN ./setup.sh
 
 ################################################################################
 # AFL++

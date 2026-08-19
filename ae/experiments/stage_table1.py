@@ -4,10 +4,12 @@
 Table I is the summary of a whole campaign, so this stage runs after the three
 stages of Section III have produced one.
 
-With --source ae it computes Table I over the campaign *you* just ran (the
-ae_* working harnesses); with --source campaign (the default) it computes it
-over the campaign data shipped with the artifact. Either way the numbers are
-printed next to the ones in the paper.
+--source ae (the default) computes Table I over the campaign *you* just ran,
+i.e. over the ae_* working harnesses that Exploration created. --source
+campaign does the same for a campaign fuzzed in the harness directories
+themselves, and --source all for both. No campaign data ships with the
+artifact, so on an untouched checkout only --source ae has anything to count.
+Either way the numbers are printed next to the ones in the paper.
 
 It never fuzzes anything itself: it calls the artifact's own statistics script
 (../statistics.sh), which counts the on-disk state of a campaign.
@@ -155,7 +157,7 @@ def main():
     res_dir = ae.result_dir("4_table1")
     os.makedirs(res_dir, exist_ok=True)
     json_path = os.path.join(res_dir, "statistics.json")
-    source = "campaign"
+    source = "ae"
     if "--source" in sys.argv:
         source = sys.argv[sys.argv.index("--source") + 1]
     if source not in ("campaign", "ae", "all"):
@@ -165,7 +167,7 @@ def main():
     if "--annotate" in sys.argv:
         # Re-derive the is_second_fetch flags of every recording before
         # counting. Deterministic and idempotent, but it rewrites the .meta
-        # files of the shipped campaign, so it is opt-in.
+        # files that Exploration produced, so it is opt-in.
         ae.log("annotating overlapped fetches")
         subprocess.run(
             [sys.executable, os.path.join(ae.REPO_DIR, "eval", "annotate_fetches.py"),

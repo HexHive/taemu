@@ -1,3 +1,8 @@
+# Everything listed here is *produced by running the artifact*. A fresh
+# checkout contains none of it, and ./ae.sh clean removes all of it again.
+# If a path is not listed here and not in the repository, it is not part of
+# the artifact.
+
 # ---------------------------------------------------------------- AE output
 ae/results/
 ae/ae_full_run.log
@@ -6,50 +11,53 @@ nohup.out
 */harness/ae_e*_*
 
 # ------------------------------------------------------------ campaign state
-# Results of a fuzzing campaign: recorded shared-memory accesses, AFL state,
-# snapshots and crashes. Regenerate with ae/ae.sh e1_exploration .. e3_distillation.
+# What a fuzzing campaign writes into a harness: recorded shared-memory
+# accesses, AFL state, snapshots and crashes. Produced by ./ae.sh
+# e1_automatic_df_detection; none of it is shipped.
 */harness/*/in/
 */harness/*/out/
 */harness/*/df_fuzz/
 */harness/*/record_meta/
 */harness/*/logs/
-*/harness_dev/*/in/
-*/harness_dev/*/out/
-*/harness_dev/*/df_fuzz/
-*/harness_dev/*/record_meta/
 
-# emulator run-time droppings (fuzz.sh copies the TA under test into rootfs/)
+# ------------------------------------------------- emulator run-time droppings
+# fuzz.sh copies the TA under test into emulator/rootfs/ before running it;
+# the loader stubs (ld.so.1, lib64/, rom/) that live there *are* tracked.
 emulator/rootfs/*.ta
 emulator/rootfs/*.json
 emulator/rootfs/id:*
-emulator/tmp/
 emulator/ql-emulator.log*
 annotate_fetches_error.txt
 # secure-storage objects a TA creates while it runs (the object ID is derived
-# from data the fuzzer controls, so the file name is junk)
+# from data the fuzzer controls, so the file name is junk). The seed objects
+# under emulate/files/{1,2147483648,2147483904}/ are tracked.
 emulator/emulate/files/*/*-,
 
-# generated evaluation data and figures
+# ------------------------------------------- generated evaluation data/figures
 eval/bbs_out/
-eval/fuzz_graphs/
 eval/campaign_out/
+eval/fuzz_graphs/
+eval/graphs/rawinfo/
+eval/graphs/df_rawinfo/
 eval/graphs/multi_graph_out/
 eval/graphs/multi_graph_data/
 eval/graphs/*.log
+eval/graphs/*.png
 # list of coverage files, built by eval/graphs/bk_suspicious_inputs_covs.sh
 .suspicious_inputs_cov_files.txt
-# eval/graphs/{rawinfo,df_rawinfo,*_control_flow_graph.png} are the paper's own
-# figures and their raw data, and are tracked. The artifact evaluation writes
-# its own to ae/results/ (eval/graphs/main.py --out_dir), so a run leaves them
-# alone.
 
-# proof-of-concept build output (ndk-build for the phones, gcc for the emulator)
+# ----------------------------- proof-of-concept build output (ndk-build / gcc)
 */pocs/*/obj/
 */pocs/*/libs/
 */pocs/*/poc
 
-# build output (the measured benchmark results in benchmark/results are kept)
-optee_shm_patch/benchmark/out/
+# ------------------------------------------------------------- LaTeX build out
+appendix/paper.aux
+appendix/paper.bbl
+appendix/paper.blg
+appendix/paper.log
+appendix/paper.out
+appendix/paper.pdf
 
 # python
 **/__pycache__/

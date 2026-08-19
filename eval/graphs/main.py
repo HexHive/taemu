@@ -72,7 +72,7 @@ def main(
     # ae/results/... so that a run does not overwrite the paper's own figures.
     out_dir = out_dir or os.path.join(path, "eval/graphs")
     all_tas: set[str] = list_tas(path)
-    tees = tees or ["mitee", "teegris", "beanpod", "t6", "qsee"]
+    tees = tees or ["mitee", "teegris", "beanpod", "qsee"]
     if tees == ["kinibi"]:
         kinibi_tas = ["df1edda8627911e980ae507b9d9a7e7d", "abcd270ea5c44c58bcd3384a2fa2539e", "08010203000000000000000000000000"]
         filtered_tas = list(filter(lambda ta: any(kinibi_ta in ta for kinibi_ta in kinibi_tas), all_tas))

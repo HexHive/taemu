@@ -41,23 +41,58 @@ ae_docker() {
         "$AE_IMAGE" bash -c "$*"
 }
 
-ae_redis_up() {
-    if (echo >"/dev/tcp/$AE_REDIS_HOST/$AE_REDIS_PORT") 2>/dev/null; then
-        return 0
+# ae_compose <args ...> -- compose v2 (the plugin) or, failing that, v1.
+ae_compose() {
+    if docker compose version >/dev/null 2>&1; then
+        docker compose "$@"
+    elif command -v docker-compose >/dev/null 2>&1; then
+        docker-compose "$@"
+    else
+        err "neither 'docker compose' (v2 plugin) nor 'docker-compose' (v1) is installed."
+        err "on Debian/Ubuntu, including Ubuntu under WSL:"
+        err "    sudo apt-get install docker-compose-plugin"
+        err "(the distribution's docker.io package does not pull the plugin in;"
+        err " see docs.docker.com/engine/install/ubuntu for docker's own repository)"
+        return 127
     fi
+}
+
+# The recorder reaches redis over the published port, so probe the loopback and
+# not the container: an "up" container whose port is not reachable is not up as
+# far as the emulator is concerned. localhost can resolve to ::1 first while the
+# port is only published on 0.0.0.0 (the common case under WSL), so try the
+# literal v4 and v6 loopbacks as well.
+ae_redis_up() {
+    local h
+    for h in "$AE_REDIS_HOST" 127.0.0.1 ::1; do
+        (echo >"/dev/tcp/$h/$AE_REDIS_PORT") 2>/dev/null || continue
+        [ "$h" = "$AE_REDIS_HOST" ] || {
+            warn "redis: $AE_REDIS_HOST:$AE_REDIS_PORT was not reachable, using $h"
+            AE_REDIS_HOST="$h"
+        }
+        return 0
+    done
     return 1
 }
 
 ae_require_redis() {
     ae_redis_up && return 0
     log "starting redis ..."
-    docker compose -f "$REPO_DIR/docker-compose.redis.yml" up -d >/dev/null 2>&1 \
-        || die "could not start redis (docker compose -f docker-compose.redis.yml up -d)"
+    local out
+    if ! out="$(ae_compose -f "$REPO_DIR/docker-compose.redis.yml" up -d 2>&1)"; then
+        [ -n "$out" ] && printf '%s\n' "$out" >&2
+        die "could not start redis (docker compose -f docker-compose.redis.yml up -d)"
+    fi
     for _ in $(seq 20); do
         ae_redis_up && { ok "redis is up"; return 0; }
         sleep 1
     done
-    die "redis did not come up on $AE_REDIS_HOST:$AE_REDIS_PORT"
+    # The container came up but nothing is listening on the host port. Say what
+    # docker thinks the state is - that is what tells the two cases apart.
+    err "redis did not come up on $AE_REDIS_HOST:$AE_REDIS_PORT"
+    ae_compose -f "$REPO_DIR/docker-compose.redis.yml" ps >&2 2>/dev/null
+    docker logs --tail 20 ta_emulator_redis >&2 2>&1
+    die "set AE_REDIS_HOST/AE_REDIS_PORT if redis runs elsewhere"
 }
 
 # ae_result_dir <experiment> -- create and echo the result directory

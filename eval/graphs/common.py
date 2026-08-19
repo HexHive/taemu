@@ -80,7 +80,6 @@ def list_tas(path: str):
             for filename in filenames
             if filename.endswith(".ta")
             and "harness" in dir_path
-            and "harness_dev" not in dir_path
         ]
     )
 
@@ -106,7 +105,7 @@ def parse_drcov(tee, ta, path):
         size = int.from_bytes(bbs[offset+4:offset+6], "little")
         mod_id = int.from_bytes(bbs[offset+6:offset+8], "little")
         if mod_id == ta_id:
-            if tee == "beanpod" or tee == "t6":
+            if tee == "beanpod":
                 start = base + start
             bbs_out.append(BB(ta, start, size, mod_id))
         #bbs = bbs[8:]

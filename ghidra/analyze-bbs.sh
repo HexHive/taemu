@@ -1,7 +1,6 @@
 #!/bin/bash
 
 dirs=(
-    "../t6/tas"
     "../teegris/tas"
     "../beanpod/tas"
     "../mitee/tas"

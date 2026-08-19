@@ -69,8 +69,8 @@ typedef struct pls{
     uint64_t ptr;
 }pls;
 
-/* The size the TA accepts differs per firmware: 0x212214 on the A16 (whose TA
- * binary is in ../a16/), 0x212010 on the S10. Anything else is rejected with
+/* The size the TA accepts differs per firmware: 0x212214 on the Galaxy A16,
+ * 0x212010 on the S10. Anything else is rejected with
  * TEEC_ERROR_SHORT_BUFFER before the TA touches the buffer, so it is the first
  * thing to vary on a new device. Override at run time: ./poc [size] [cmd]. */
 static size_t buf_size = 0x212214;

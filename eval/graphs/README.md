@@ -1,64 +1,54 @@
-# 1.Prerequisition 
+# Figures 4 and 5
 
-### 1.1 Generate bbs dir for different tee (Passed if you have)
+Turns a finished campaign into the two coverage figures of the paper.
+`ae/experiments/stage_figures.py` drives all of this — **a reviewer runs
+`./ae.sh e1_automatic_df_detection` and never calls anything here directly.**
+The notes below are for re-running or extending the figures by hand, inside the
+controller container (`cd ae && ./ae.sh shell`).
 
-```shell
-cd ghidra
-# make -> docker -> ghidra headless mode -> load and run scripts for bb-level coverage
-./analyze-bbs.sh 
+| file | what it is |
+|---|---|
+| `main.py` | the entry point: collects coverage, builds both figures |
+| `collect_cov.py` | replays queue seeds to produce `.cov` files, and links coverage to the harness and TA it came from |
+| `bb.py` | reads `<tee>/tas/bbs/bb_*.ta.json` (from `ghidra/`), builds the TA's CFG and computes the blocks reachable from `TA_InvokeCommandEntryPoint` — the denominator of Figure 4 |
+| `graphing.py` | the matplotlib code, and the `rawinfo/` / `df_rawinfo/` caches of the aggregated data |
+| `common.py` | drcov parsing, harness/TA discovery, the docker pool |
+| `bk_suspicious_inputs_covs.sh` | collects `*/harness/*/out/cov/run:id:*.cov` into one directory, which `main.py` takes as `--ss_cov_rdir` |
+
+## What the two figures are
+
+* **Figure 4** accumulates the drcov coverage of the Exploration queue seeds
+  over campaign time, normalised by the reachable basic blocks of each TA.
+* **Figure 5** splits the basic blocks discovered per snapshot during
+  Fetch-Anchored Fuzzing into the four categories of the paper. It is built on
+  top of Figure 4's data, so `--fuzz_mode DF` is always run as `ALL`.
+
+## Running it by hand
+
+```sh
+# 1. collect the coverage of the deduplicated Exploration inputs
+./bk_suspicious_inputs_covs.sh /srv /tmp/ss_cov
+#    -> /tmp/ss_cov/suspicious_inputs_covs
+
+# 2. build the figures
+python3 main.py --path /srv \
+                --ss_cov_rdir /tmp/ss_cov/suspicious_inputs_covs \
+                --out_dir /tmp/figures \
+                --regen_coverage
 ```
 
-### 1.2 Backup coverage files of suspicious inputs
+`--regen_coverage` replays the queue seeds to produce the `.cov` files and is
+needed on the first run; drop it afterwards. Other flags:
 
-```shell
-$ cd eval/graphs
-$ ./bk_suspicious_inputs_covs.sh
-Usage: ./bk_suspicious_inputs_covs.sh <root_dir> <back_dir>
-Example: ./bk_suspicious_inputs_covs.sh /root/TA_GP_emulator /root/bk_ss_cov
+| flag | |
+|---|---|
+| `--fuzz_mode {ORG,DF,ALL}` | Figure 4 only, Figure 5 only, or both (default) |
+| `--tees mitee qsee …` | restrict to some TEEs |
+| `--tas ae_e1` | restrict to some harnesses — this is how the stage keeps the figure to the campaign just run |
+| `--out_dir DIR` | where figures and the `rawinfo/` caches go (default: this directory) |
+| `--max_timestamps N` | length of Figure 4's x-axis in seconds (paper: 86400) |
+| `--show_rate` | plot coverage as a percentage instead of a basic-block count |
+| `--org_group_field tee` | group Figure 4 by TEE instead of by TA |
 
-$ ./bk_suspicious_inputs_covs.sh /home/sp1der/code/ta_graph/TA_GP_emulator /home/sp1der/code/ta_graph/ss_cov
-
-# Then the susipicious inputs' coverage files should be under the `ss_cov/{ts}/suspicious_inputs_covs`
-
-# The output of script will show you the right backup dir at the end.
-```
-
-
-# 2. Get coverage graph
-
-There are two stages of Coverage Graph Generation, indicated by `--fuzz_mode`
-
-```shell
-$ cd eval/graphs
-
-$ uv run main.py --help  
-usage: main.py [-h] [--fuzz_mode {ORG,DF,ALL}] [--tees TEES [TEES ...]] [--regen_coverage] [--path PATH] --ss_cov_rdir SS_COV_RDIR [--org_group_field {tee,None}] [--show_rate]
-
-options:
-  -h, --help            show this help message and exit
-  --fuzz_mode {ORG,DF,ALL}
-  --tees TEES [TEES ...]
-                        Filter by TEEs
-  --regen_coverage
-  --path PATH
-  --ss_cov_rdir SS_COV_RDIR
-  --org_group_field {tee,None}
-  --show_rate
-
-# Usually, ss_cov_rdir and path is required
-# ss_cov_rdir is the backup dir of Section 1.2
-$ uv run main.py --path /home/sp1der/code/TA_GP_emulator --ss_cov_rdir /home/sp1der/code/ta_graph/ss_cov/20260129_135401/suspicious_inputs_covs
-
-# At least, run with `--regen_coverage` once to generate cov files from queue seeds
-# if you generate all the cov files before, delete `--regen_coverage` arg afterwards.
-$ uv run main.py --path /home/sp1der/code/TA_GP_emulator --ss_cov_rdir /home/sp1der/code/ta_graph/ss_cov/20260129_135401/suspicious_inputs_covs --regen_coverage
-
-# More configuration
-# use --show_rate to get coverage rather than bb count
-# re-generate cov files and build graph only relaed to certain tees [check pre_clean flag in code]
-$ uv run main.py --path <sth> --ss_cov_rdir <sth> --regen_coverage --tees qsee beanpod
-# only generate exploration coverage graph
-$ uv run main.py --path <sth> --ss_cov_rdir <sth> --tees qsee beanpod --fuzz_mode ORG
-# enable grouping of exploration coverage graph in tee level
-$ uv run main.py --path <sth> --ss_cov_rdir <sth> --tees qsee beanpod --fuzz_mode ORG --org_group_field tee
-```
+The CFGs this needs (`<tee>/tas/bbs/`) ship with the artifact; `ghidra/` is
+only needed to regenerate them.

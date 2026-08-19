@@ -39,8 +39,8 @@ Oversharing artifact evaluation
   ./ae.sh <experiment>       run a single experiment
   ./ae.sh all                run every experiment (scaled-down budgets)
   ./ae.sh shell              interactive shell in the controller container
-  ./ae.sh clean [-y]         delete ae/results and ALL fuzzing data, including
-                             the campaign shipped with the artifact
+  ./ae.sh clean              delete everything the experiments produced
+                             (ae/results and all fuzzing state)
 
 Experiments:
 EOF
@@ -102,6 +102,8 @@ run_in_controller() {
         -e "AE_DEDUP_LIMIT=$AE_DEDUP_LIMIT" \
         -e "AE_SUBSET=$AE_SUBSET" \
         -e "PYTHONPATH=$REPO_DIR/ae/lib:$REPO_DIR/eval" \
+        -e "AE_REDIS_HOST=$AE_REDIS_HOST" -e "AE_REDIS_PORT=$AE_REDIS_PORT" \
+        -e "REDIS_HOST=$AE_REDIS_HOST" -e "REDIS_PORT=$AE_REDIS_PORT" \
         -e "TAEMU_KEEP_REDIS=1" \
         -e "AE_HOST_UID=$(id -u)" -e "AE_HOST_GID=$(id -g)" \
         "$CTL_IMAGE" bash -c "touch /.ae_controller; $*; rc=\$?; \
@@ -148,33 +150,34 @@ main() {
             ;;
         report) run_in_controller "python3 '$AE_DIR/experiments/report.py'" ;;
         clean)
-            # Everything a campaign writes: the working harnesses, the results,
-            # and the fuzzing state of *every* harness - AFL queues and coverage
-            # (out/), recorded double-fetch seeds (in/), snapshots (df_fuzz/),
-            # the recorder's bookkeeping (record_meta/) and logs/.
+            # Everything the experiments produce: ae/results, the ae_* working
+            # harnesses, and the fuzzing state of every harness - AFL queues and
+            # coverage (out/), recorded double-fetch seeds (in/), snapshots
+            # (df_fuzz/), the recorder's bookkeeping (record_meta/) and logs/.
             #
-            # That includes the campaign shipped with the artifact, which is not
-            # in git, so it does not come back. fuzz.sh recreates in/ with its
-            # initial seeds, so Exploration still runs on a cleaned tree; what
-            # is gone is the paper's campaign, which --source campaign and
-            # e2_vulns --replay read.
-            if [ "${1:-}" != "-y" ] && [ "${AE_YES:-}" != 1 ] && [ -t 0 ]; then
-                warn_line="this deletes the campaign data in */harness/*/ too, \
-including the one shipped with the artifact (not recoverable from git)"
-                echo "${C_RED}[--]${C_RST} $warn_line"
-                printf "     continue? [y/N] "
-                read -r reply
-                case "$reply" in [yY]*) ;; *) die "aborted" ;; esac
-            fi
+            # None of this is shipped with the artifact: a fresh checkout has
+            # none of these directories and every one of them is recreated by
+            # ./ae.sh all. Nothing that is part of the artifact is touched.
             log "removing ae/results and the ae_* working harnesses ..."
             run_in_controller "rm -rf '$AE_DIR/results' '$REPO_DIR'/*/harness/ae_e*_*"
             log "removing the fuzzing state of every harness ..."
             run_in_controller "rm -rf \
                 '$REPO_DIR'/*/harness/*/in '$REPO_DIR'/*/harness/*/out \
                 '$REPO_DIR'/*/harness/*/df_fuzz '$REPO_DIR'/*/harness/*/record_meta \
-                '$REPO_DIR'/*/harness/*/logs \
-                '$REPO_DIR'/*/harness_dev/*/in '$REPO_DIR'/*/harness_dev/*/out \
-                '$REPO_DIR'/*/harness_dev/*/df_fuzz '$REPO_DIR'/*/harness_dev/*/record_meta"
+                '$REPO_DIR'/*/harness/*/logs"
+            # Droppings outside the harnesses: the TA copies fuzz.sh leaves in
+            # emulator/rootfs (the loader stubs there are tracked and stay),
+            # the secure-storage objects a TA created, the coverage file list
+            # and the plotting log, and python bytecode.
+            log "removing the emulator and evaluation droppings ..."
+            run_in_controller "rm -rf \
+                '$REPO_DIR'/emulator/rootfs/*.ta '$REPO_DIR'/emulator/rootfs/*.json \
+                '$REPO_DIR'/emulator/rootfs/id:* '$REPO_DIR'/emulator/ql-emulator.log* \
+                '$REPO_DIR'/emulator/emulate/files/*/*-, \
+                '$REPO_DIR'/.suspicious_inputs_cov_files.txt \
+                '$REPO_DIR'/eval/graphs/*.log; \
+                find '$REPO_DIR' -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null; \
+                true"
             docker ps -a --format '{{.Names}}' | grep -E '^emu_' \
                 | xargs -r docker rm -f >/dev/null 2>&1
             ok "cleaned"

@@ -552,7 +552,7 @@ def analyze_all():
     global do_tee_name
     do_ta_uuid = True
     do_tee_name = True
-    tees = ["mitee", "teegris", "beanpod", "t6"]
+    tees = ["mitee", "teegris", "beanpod"]
     tee_cfgs = []
     for tee in tees:
         tee_path = f"../{tee}"
@@ -612,7 +612,7 @@ if __name__ == "__main__":
     elif inp_path == "all":
         analyze_all()
     elif inp_path == "full":
-        for tee in ["mitee", "teegris", "beanpod", "t6"]:
+        for tee in ["mitee", "teegris", "beanpod"]:
             analyze_tee(f"../{tee}")
         analyze_all()
     else:
