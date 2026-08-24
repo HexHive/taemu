@@ -20,7 +20,7 @@ def place_input_callback(ql: Qiling, input: bytes, _: int):
     # input = p64(input[0] + (len(input)-8-1)<<0x20) + input[1:]
     command_params = []
     command_params.append(MemRefParam(data, len(data)))
-    command_params.append(MemRefParam(bytes(0x1000), 0x1000)
+    command_params.append(MemRefParam(bytes(0x1000), 0x1000))
     command_params.append(NoneParam())
     command_params.append(NoneParam())
     ptypes = 0x65
