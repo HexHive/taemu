@@ -1,0 +1,155 @@
+{
+  "_comment": [
+    "The TA dataset of Section IV-a (Table I), imported from the manual analysis",
+    "spreadsheet 'df-taemu - eval dataset.csv'.",
+    "",
+    "  gp_tas   the GlobalPlatform TAs of this TEE  ('# TAs')",
+    "  shm_tas  the subset that operates directly on shared memory and was therefore",
+    "           harnessed ('# TAs w/o Local Copy'). E4 cross-checks this against the",
+    "           harnesses actually present in the repository.",
+    "",
+    "Kinibi TAs are emulated with the Beanpod runtime, so their binaries live in",
+    "beanpod/tas and they are fuzzed through the beanpod harnesses."
+  ],
+  "teegris": {
+    "expected_gp_tas": 33,
+    "expected_shm_tas": 9,
+    "resolve_in": "teegris",
+    "gp_tas": [
+      "00000000-0000-0000-0000-544545535355.ta",
+      "00000000-0000-0000-0000-64756c444152.ta",
+      "00000000-0000-0000-0000-564c544b5052.ta",
+      "00000000-0000-0000-0000-4d7073534d43.ta",
+      "00000000-0000-0000-0000-656e676d6f64.ta",
+      "00000000-0000-0000-0000-000000010081.ta",
+      "00000000-0000-0000-0000-000000020081.ta",
+      "00000000-0000-0000-0000-4d5053545549.ta",
+      "00000000-0000-0000-0000-54412d48444d.ta",
+      "00000000-0000-0000-0000-0050524f4341.ta",
+      "00000000-0000-0000-0000-505256544545.ta",
+      "00000000-0000-0000-0000-00575644524d.ta",
+      "00000000-0000-0000-0000-0053545354ab.ta",
+      "00000000-0000-0000-0000-6b6e78677564.ta",
+      "00000000-0000-0000-0000-4d70536b566e.ta",
+      "00000000-0000-0000-0000-54496473706c.ta",
+      "00000000-0000-0000-0000-4d7073617574.ta",
+      "00000000-0000-0000-0000-42494f535542.ta",
+      "00000000-0000-0000-0000-4d704e434954.ta",
+      "00000000-0000-0000-0000-6d73745f5441.ta",
+      "00000000-0000-0000-0000-487641557457.ta",
+      "00000000-0000-0000-0000-544974684c6c.ta",
+      "00000000-0000-0000-0000-6d706f667376.ta",
+      "00000000-0000-0000-0000-46494e474502.ta",
+      "00000000-0000-0000-0000-657365636f6d.ta",
+      "00000000-0000-0000-0000-53454d655345.ta",
+      "00000000-0000-0000-0000-0000534b504d.ta",
+      "00000000-0000-0000-0000-474154454b45.ta",
+      "00000000-0000-0000-0000-4662436b6d52.ta",
+      "00000000-0000-0000-0000-5345435f4652.ta",
+      "00000000-0000-0000-0000-000048444350.ta",
+      "00000000-0000-0000-0000-534258505859.ta",
+      "00000000-0000-0000-0000-000000534b4d.ta"
+    ],
+    "shm_tas": [
+      "00000000-0000-0000-0000-657365636f6d.ta",
+      "00000000-0000-0000-0000-53454d655345.ta",
+      "00000000-0000-0000-0000-0000534b504d.ta",
+      "00000000-0000-0000-0000-474154454b45.ta",
+      "00000000-0000-0000-0000-4662436b6d52.ta",
+      "00000000-0000-0000-0000-5345435f4652.ta",
+      "00000000-0000-0000-0000-000048444350.ta",
+      "00000000-0000-0000-0000-534258505859.ta",
+      "00000000-0000-0000-0000-000000534b4d.ta"
+    ]
+  },
+  "qsee": {
+    "expected_gp_tas": 4,
+    "expected_shm_tas": 3,
+    "resolve_in": "qsee",
+    "gp_tas": [
+      "620303A6-A694-452D-B53F-7E199D8E19BD.ta",
+      "3D08821C-33A6-11E6-A1FA-089E01C83AA2.ta",
+      "876BFD99-1189-4650-B260-FC7DD452D7BA.ta",
+      "A985D3EB-3B52-4D44-BE6C-628A813561E8.ta"
+    ],
+    "shm_tas": [
+      "3D08821C-33A6-11E6-A1FA-089E01C83AA2.ta",
+      "876BFD99-1189-4650-B260-FC7DD452D7BA.ta",
+      "A985D3EB-3B52-4D44-BE6C-628A813561E8.ta"
+    ]
+  },
+  "kinibi": {
+    "expected_gp_tas": 6,
+    "expected_shm_tas": 3,
+    "resolve_in": "beanpod",
+    "gp_tas": [
+      "08110000000000000000000000000000.ta",
+      "08030000000000000000000000000000.ta",
+      "e97c270ea5c44c58bcd3384a2fa2539e.ta",
+      "df1edda8627911e980ae507b9d9a7e7d.ta",
+      "abcd270ea5c44c58bcd3384a2fa2539e.ta",
+      "08010203000000000000000000000000.ta"
+    ],
+    "shm_tas": [
+      "df1edda8627911e980ae507b9d9a7e7d.ta",
+      "abcd270ea5c44c58bcd3384a2fa2539e.ta",
+      "08010203000000000000000000000000.ta"
+    ]
+  },
+  "mitee": {
+    "expected_gp_tas": 12,
+    "expected_shm_tas": 10,
+    "resolve_in": "mitee",
+    "gp_tas": [
+      "e5140b33-76fa-4c63-ab18062caab2fb5c.ta",
+      "14b0aad8-c011-4a3f-b66aca8d0e66f273.ta",
+      "377ee4e8-af0e-474f-a9d636a9268fe85c.ta",
+      "a734eed9-d6a1-4244-aa507c99719e7b7f.ta",
+      "e97c270e-a5c4-4c58-bcd3384a2fa2539e.ta",
+      "3d08821c-33a6-11e6-a1fa089e01c83aa2.ta",
+      "9811c1f6-47e3-5cea-ae6ef62ba433c4fd.ta",
+      "59a4867c-9fe5-f7c2-b409a46bae6ff73e.ta",
+      "8aaaf201-2460-0000-7143fe4f7c823c80.ta",
+      "88ce8e6b-8646-4092-bb78faf5b55ff4df.ta",
+      "86f623f6-a299-4dfd-b560ffd3e5a62c29.ta",
+      "655a4b46-cd77-11ea-aafbf382a6988e7b.ta"
+    ],
+    "shm_tas": [
+      "377ee4e8-af0e-474f-a9d636a9268fe85c.ta",
+      "a734eed9-d6a1-4244-aa507c99719e7b7f.ta",
+      "e97c270e-a5c4-4c58-bcd3384a2fa2539e.ta",
+      "3d08821c-33a6-11e6-a1fa089e01c83aa2.ta",
+      "9811c1f6-47e3-5cea-ae6ef62ba433c4fd.ta",
+      "59a4867c-9fe5-f7c2-b409a46bae6ff73e.ta",
+      "8aaaf201-2460-0000-7143fe4f7c823c80.ta",
+      "88ce8e6b-8646-4092-bb78faf5b55ff4df.ta",
+      "86f623f6-a299-4dfd-b560ffd3e5a62c29.ta",
+      "655a4b46-cd77-11ea-aafbf382a6988e7b.ta"
+    ]
+  },
+  "beanpod": {
+    "expected_gp_tas": 11,
+    "expected_shm_tas": 5,
+    "resolve_in": "beanpod",
+    "gp_tas": [
+      "08010203000000000000000000000000.ta",
+      "08030000000000000000000000000000.ta",
+      "08110000000000000000000000000000.ta",
+      "14498ace2a8f11e880c8509a4c146f4c.ta",
+      "655a4b46cd7711eaaafbf382a6988e7b.ta",
+      "8aaaf201246000007143fe4f7c823c80.ta",
+      "abcd270ea5c44c58bcd3384a2fa2539e.ta",
+      "d91f322ad5a441d5955110eda3272fc0.ta",
+      "df1edda8627911e980ae507b9d9a7e7d.ta",
+      "e5140b3376fa4c63ab18062caab2fb5c.ta",
+      "e97c270ea5c44c58bcd3384a2fa2539e.ta"
+    ],
+    "shm_tas": [
+      "08010203000000000000000000000000.ta",
+      "655a4b46cd7711eaaafbf382a6988e7b.ta",
+      "df1edda8627911e980ae507b9d9a7e7d.ta",
+      "8aaaf201246000007143fe4f7c823c80.ta",
+      "abcd270ea5c44c58bcd3384a2fa2539e.ta"
+    ]
+  }
+}

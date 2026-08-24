@@ -458,3 +458,9 @@ emulator/rootfs/*
 **/in/suspicious_inputs
 emulator/emulate/files/*
 **/Cargo.lock.ghidra-projects
+
+### Artifact evaluation
+# the generic `lib/` rule above (C++ template) would swallow ae/lib/,
+# which holds the AE's own library -- re-include it
+!ae/lib/
+ae/results/

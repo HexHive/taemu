@@ -1,0 +1,31 @@
+# The paper's campaign: one harness per TA of Table I (30 TAs, 27 harnesses).
+# Pinned so the artifact evaluates the paper's dataset even though this
+# repository now carries many additional harnesses. Delete this file (or set
+# AE_CAMPAIGN_DISCOVER=1) to fall back to discovering every harnessed TA.
+beanpod/harness/0801_fuzz
+beanpod/harness/655a_fuzz
+beanpod/harness/8aaa_fuzz
+beanpod/harness/abcd_fuzz
+beanpod/harness/df1e_fuzz
+mitee/harness/377e_double_fetch_stackov
+mitee/harness/3d08_fuzz
+mitee/harness/59a4_fuzz
+mitee/harness/655a_fuzz
+mitee/harness/86f6_fuzz
+mitee/harness/88ce_fuzz
+mitee/harness/8aaa_fuzz
+mitee/harness/9811_fuzz
+mitee/harness/a374_fuzz
+mitee/harness/e97c_fuzz
+qsee/harness/3d08_fuzz
+qsee/harness/876b_fuzz
+qsee/harness/a985_fuzz
+teegris/harness/000000534b4d_fuzz
+teegris/harness/000048444350_fuzz
+teegris/harness/0000534b504d_fuzz
+teegris/harness/4662436b6d52_fuzz
+teegris/harness/474154454b45_cmd7e
+teegris/harness/657365636f6d_fuzz
+teegris/harness/secfr_fuzz
+teegris/harness/semese_fuzz
+teegris/harness/sspproxy_fuzz
