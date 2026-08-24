@@ -136,6 +136,7 @@ async def coverage_based_deduplicate(
     # .replace("/in", "") rewrites the FIRST "/in" anywhere in the path, so any
     # checkout below a directory containing it (/integ, /install, /index, ...)
     # silently got a nonexistent harness dir and every replay failed.
+    group_dir = os.path.normpath(group_dir)  # callers pass ".../in/" with a slash
     if os.path.basename(group_dir) == "in":
         group_dir = os.path.dirname(group_dir)
     results = []
