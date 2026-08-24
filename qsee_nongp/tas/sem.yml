@@ -1,0 +1,19 @@
+CElfFile_invoke:
+  end: [0x4720c]
+  start: 0x46fec
+
+command_handler:
+  end: [0x47630]
+  start: 0x473cc
+
+setup_teardown:
+  end: [0x473b4]
+  start: 0x472c8
+
+tz_app_cmd_handler:
+  end: [
+      0x2d0,
+      0x360, # b memcpy
+      0x364, # qsee_err_fatal
+    ]
+  start: 0x200

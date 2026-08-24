@@ -1,23 +1,52 @@
+from collections import defaultdict
+from dataclasses import dataclass
+import datetime
 from enum import Enum
+import functools
+import hashlib
+import os
+import random
+import struct
+from colorama import Fore
+import pwn
 from qiling import Qiling
-from qiling.os.const import STRING, INT, BYTE, POINTER
+from qiling.os.const import LONGLONG, STRING, INT, BYTE, POINTER
+
 from .gp.utils.param import TEE_Param_Memref
 from .gp.utils.err import *
 from .gp.utils.string import *
-from .gp_api import malloc
+from .gp_api import TEE_LogPrintf, malloc
 from .common import crash, crash_notimpl
 from .gp.utils.printf import parse_fmt_str, fixup_format, read_c_str
+import time
+from typing import TYPE_CHECKING
+from .non_gp.qsee.api_common import _ret, _read_u32, _log_args, nonfaithful
+from .non_gp.qsee.api_shared_buffers import *
+from .non_gp.qsee.api_cfg import *
+from .non_gp.qsee.api_stor_device import *
+from .non_gp.qsee.api_crypto import *
+
+if TYPE_CHECKING:
+    from .emulator_no_loader import HookData
+
 
 def qsee_is_sw_fuse_blown(ql: Qiling, hook_data):
     p = ql.os.resolve_fcall_params(
             {"idk": INT, "out": POINTER}
         )
     ql.mem.write(p["out"], 4*b"\x00")
-    ql.os.fcall.cc.setReturnValue(0)
+    _ret(ql, 0)
+
+__current_log_mask = 0
+def qsee_log_set_mask(ql: Qiling, hook_data):
+    p = ql.os.resolve_fcall_params(
+        {"mask": BYTE}
+    )
+    __current_log_mask = p["mask"] & 0x1f
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def qsee_log_set_mask(ql: Qiling, hook_data):
-    ql.os.fcall.cc.setReturnValue(0)
+def qsee_log_get_mask(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(__current_log_mask)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def qsee_log(ql: Qiling, hook_data):
@@ -29,6 +58,7 @@ def qsee_log(ql: Qiling, hook_data):
         format_param_ptr = p["format"]
         hook_data.emu.update_shm(format_param_ptr)
         format_param = ql.mem.string(format_param_ptr)
+        ql.log.debug("qsee_log: lvl: %d, fmt: %s", log_level, format_param)
         final_params = {"log_level": INT, "format": STRING}
         params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
         format_param = fixup_format(format_param)
@@ -40,7 +70,15 @@ def qsee_log(ql: Qiling, hook_data):
             if hook_data.emu.crash_on_not_implemented:
                 crash_notimpl(ql, f"format string not supported: {format_param}")
                 return
-        ql.log.info(f"{hook_data.func_name}: {log_level}, {out_str}")
+        # overengineered pretty printing
+        l1 = len(out_str) - len(out_str.rstrip())
+        out_str = out_str.rstrip() + Fore.RED + "\\n"*l1 + Fore.RESET
+        if "\n" in out_str:
+            for i, line in enumerate(out_str.split("\n")):
+                ql.log.info("%s: [%s]/L%02d:  %s", hook_data.func_name, log_level, i, line)
+        else:
+            ql.log.info("%s: [%s]: %s", hook_data.func_name, log_level, out_str)
+            
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, hook_data.func_name)
         return
@@ -84,13 +122,602 @@ def qsee_free(ql: Qiling, hook_data):
     free_core(ql, p["ptr"], hook_data, False)
 
 def sm2_encrypt(ql: Qiling, hook_data):
-    ql.os.fcall.cc.setReturnValue(0)
-    ql.arch.regs.arch_pc = ql.arch.regs.lr
+    _ret(ql, 0)
 
 def calcsm3(ql: Qiling, hook_data):
-    ql.os.fcall.cc.setReturnValue(0)
-    ql.arch.regs.arch_pc = ql.arch.regs.lr
+    _ret(ql, 0)
 
 def sm4_crypt(ql: Qiling, hook_data):
-    ql.os.fcall.cc.setReturnValue(0)
+    _ret(ql, 0)
+
+def cmnlib_init(ql: Qiling, hook_data):
+    dest = ql.os.resolve_fcall_params({
+        "dest": POINTER, # uint32_t*
+    })
+    dest = dest['dest']
+    ql.log.info("cmnlib_init(dest=%#x)", dest)
+    if (dest & 0xffff0000) != 0x20000:
+        # mimicking the behavior of the real cmnlib_init
+        ql.log.warning("cmnlib_init(dest=%#x) is not a valid destination", dest)
+    ql.mem.write(dest, pwn.p32(0))
+
+    _ret(ql, 0)
+
+def cmnlib_release(ql: Qiling, hook_data):
+    ql.log.info("cmnlib_release, back to %#x", ql.arch.regs.lr)
+    _ret(ql, 0)
+
+def GPAppLib_init(ql: Qiling, hook_data):
+    ql.log.info("GPAppLib_init, back to %#x", ql.arch.regs.lr)
+    _ret(ql, 0)
+
+def GPAppLib_appInit(ql: Qiling, hook_data):
+    ql.log.info("GPAppLib_appInit, back to %#x", ql.arch.regs.lr)
+    _ret(ql, 0)
+
+def GPAppLib_appShutdown(ql: Qiling, hook_data):
+    ql.log.info("GPAppLib_appShutdown, back to %#x", ql.arch.regs.lr)
+    _ret(ql, 0)
+
+def __funcs_on_exit(ql: Qiling, hook_data:'HookData'):
+    ql.log.info("__funcs_on_exit, back to %#x", ql.arch.regs.lr)
+    _ret(ql, 0)
+
+
+def qsee_err_fatal(ql: Qiling, hook_data:'HookData'):
+    ql.log.critical("stack_chk_fail ***stack smashing detected***")
+    crash(ql, hook_data.func_name)
+
+
+def qsee_prng_getdata(ql: Qiling, hook_data:'HookData'):
+    args = ql.os.resolve_fcall_params({
+        "dest": POINTER,
+        "size": INT,
+    })
+
+    dest = args['dest']
+    size = args['size']
+    ql.mem.write(dest, os.urandom(size))
+
+    ql.log.info("qsee_prng_getdata(dest=%#x, size=%#x)", dest, size)
+    ql.os.fcall.cc.setReturnValue(args['size'])
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def qsee_get_random_bytes(ql: Qiling, hook_data:'HookData'):
+    return qsee_prng_getdata(ql, hook_data)
+
+def qsee_prng_seed(ql: Qiling, hook_data:'HookData'):
+    ql.log.info("qsee_prng_seed, back to %#x", ql.arch.regs.lr)
+    _ret(ql, 0)
+
+def qsee_prng_stir(ql: Qiling, hook_data:'HookData'):
+    ql.log.info("qsee_prng_stir, back to %#x", ql.arch.regs.lr)
+    _ret(ql, 0)
+
+def qsee_printf(ql: Qiling, hook_data):
+    TEE_LogPrintf(ql, hook_data)
+
+def qsee_is_ns_range(ql: Qiling, hook_data:'HookData'):
+    args = ql.os.resolve_fcall_params({
+        "addr": POINTER,
+        "size": INT,
+    })
+    addr = args['addr']
+    size = args['size']
+    _log_args(ql, "qsee_is_ns_range", args)
+    # is_mapped = False
+    for start, end, perms, info, _ in ql.mem.get_mapinfo():
+        # Sanity check, that we are in the params
+        if start <= addr < addr + size < end:
+            #  and "[qsee_ns]" in info
+            is_mapped = True
+            break
+    if not is_mapped:
+        ql.log.warning("qsee_is_ns_range ptr: %#0x size:%#0x not mapped", addr, size)
+    # We just lie for simplicity
+    is_mapped = True
+
+    mapped_response = 0 if is_mapped else 0xffffffff
+    ql.os.fcall.cc.setReturnValue(mapped_response)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def time_getutcsec(ql: Qiling, hook_data:'HookData'):
+    args = ql.os.resolve_fcall_params({
+        "dest": POINTER,
+    })
+    dest = args['dest']
+    _log_args(ql, "time_getutcsec", args)
+    t = time.time_ns()
+    sec = t // 1_000_000_000
+    nsec = t % 1_000_000_000
+    
+    ql.mem.write(dest, pwn.p64(((nsec & 0xFFFFFFFF) << 32) | (sec & 0xFFFFFFFF)))
+    _ret(ql, 0)
+
+@nonfaithful
+def qsee_get_uptime(ql: Qiling, hook_data:'HookData'):
+    # Should return ms time
+    ql.log.info("qsee_get_uptime, back to %#x", ql.arch.regs.lr)
+    
+    # TODO: Check if we need to be more precise
+    t = datetime.timedelta(seconds=1)
+    ql.os.fcall.cc.setReturnValue(int(t.total_seconds() * 1000))
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+@nonfaithful
+def lstat(ql: Qiling, hook_data:'HookData'):
+    args = ql.os.resolve_fcall_params({
+        "path": STRING,
+        "stat": POINTER,
+    })
+    path = args['path']
+    stat = args['stat']
+    ql.log.info("lstat(%s)", path)
+    # with pwn.context.local(binary=hook_data.emu.ta_elf):
+    #     ql.mem.write(stat, pwn.flat({}))
+
+    # TODO: We just pretend it doesn't exist
+    ql.os.fcall.cc.setReturnValue(-1)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+from .non_gp.qsee.models import HookData, get_active_qsee_session_state
+
+def qsee_open(ql: Qiling, hook_data:'HookData'):
+    # Definitly not normal open syscall...
+    args = ql.os.resolve_fcall_params({
+        "objdid": INT,
+        "dest": POINTER,
+    })
+    objdid = args['objdid']
+    dest = args['dest']
+    ql.log.info("qsee_open(%s, %#x)", objdid, dest)
+
+    qsee_state = get_active_qsee_session_state(hook_data.emu)
+    obj = qsee_state.open_object(ql, hook_data.emu, objdid)
+    ql.log.debug("object opened: %#x", obj.addr)
+    ql.mem.write(dest, pwn.p64(obj.addr))
+    _ret(ql, 0)
+
+def qsee_kdf(ql: Qiling, hook_data:'HookData'):
+    args = ql.os.resolve_fcall_params({
+        "a": INT,
+        "b": INT,
+        "label":POINTER,
+        "label_len":INT,
+        "salt":POINTER,
+        "salt_len":INT,
+        "output":POINTER,
+        "output_len":INT,
+    })
+
+    # what are a and b?
+    a = args['a']
+    b = args['b']
+    
+    label_ptr = args['label']
+    label_len = args['label_len']
+    label = ql.mem.read(label_ptr, label_len)
+    salt_ptr = args['salt']
+    salt_len = args['salt_len']
+    salt = ql.mem.read(salt_ptr, salt_len)
+    
+    # not sure if this is really output
+    output_ptr = args['output']
+    output_len = args['output_len']
+    _log_args(ql, "qsee_kdf", args)
+    ql.log.info("label: %s", label)
+    ql.log.info("salt: %s", salt)
+    ql.log.info("ret_addr: %#x", ql.arch.regs.lr)
+
+    # TODO: This is completely done by vibes.
+    data = hashlib.md5(label + salt + b"medicwashere").digest()
+
+    r = random.Random()
+    r.seed(int.from_bytes(data, "little"))
+    random_data = r.getrandbits(output_len * 8)
+    ql.mem.write(output_ptr, random_data.to_bytes(output_len, "little"))
+
+    _ret(ql, 0)
+
+
+
+INT_MASK = 0
+def qsee_get_intmask(ql: Qiling, hook_data:'HookData'):
+    global INT_MASK
+    args = ql.os.resolve_fcall_params({
+        "intmask": POINTER,
+    })
+    intmask = args['intmask']
+    ql.log.debug("qsee_get_intmask(%#x)", intmask)
+    ql.mem.write(intmask, pwn.p32(INT_MASK))
+    _ret(ql, 0)
+
+def qsee_set_intmask(ql: Qiling, hook_data:'HookData'):
+    global INT_MASK
+    args = ql.os.resolve_fcall_params({
+        "intmask": INT,
+    })
+    intmask = args['intmask']
+    ql.log.debug("qsee_set_intmask(%#x)", intmask)
+    INT_MASK = intmask
+    _ret(ql, 0)
+
+def qsee_disable_all_interrupts(ql: Qiling, hook_data:'HookData'):
+    global INT_MASK
+    INT_MASK = 0
+    _ret(ql, 0)
+
+
+SECURE_STATE = 0x39393939 & ~0x1
+def qsee_get_secure_state(ql: Qiling, hook_data:'HookData'):
+    args = ql.os.resolve_fcall_params({
+        "dst": POINTER,
+    })
+    dst = args['dst']
+    ql.log.debug("qsee_get_secure_state(%#x)", dst)
+    # (val >> 5) & 1 == 0, to indicate  RPBM key is provisioned
+    ql.mem.write(dst, pwn.p32(SECURE_STATE & ~(1 << 5)))
+    _ret(ql, 0)
+
+
+### GPIO for mst.elf ###
+
+@dataclass()
+class GPIO_Output:
+    gpio_num: int
+    name: str
+    out: str = ""
+    config: int = 0
+
+GPIO_NAME_TO_ID = {}
+GPIO_OUTPUTS: dict[int, GPIO_Output] = {}
+def qsee_tlmm_get_gpio_id(ql: Qiling, hook_data:'HookData'):
+    global GPIO_NAME_TO_ID
+    args = ql.os.resolve_fcall_params({
+        "gpio_name": STRING,
+        "gpio_id_out":POINTER, # uint32 ptr
+    })
+    gpio_name = args['gpio_name']
+    gpio_id_out = args['gpio_id_out']
+    ql.log.debug("qsee_tlmm_get_gpio_id(%s, %#x)", gpio_name, gpio_id_out)
+
+    gpio_id = GPIO_NAME_TO_ID.get(gpio_name, len(GPIO_NAME_TO_ID) + 0x01)
+    GPIO_NAME_TO_ID[gpio_name] = gpio_id
+    GPIO_OUTPUTS[gpio_id] = GPIO_Output(gpio_id, gpio_name)
+
+    ql.mem.write(gpio_id_out, pwn.p32(gpio_id))
+    _ret(ql, 0)
+
+def qsee_tlmm_release_gpio_id(ql: Qiling, hook_data:'HookData'):
+    global GPIO_NAME_TO_ID
+    args = ql.os.resolve_fcall_params({
+        "gpio_id": INT,
+    })
+    gpio_id = args['gpio_id']
+    ql.log.debug("qsee_tlmm_release_gpio_id(%#x)", gpio_id)
+    gpio = GPIO_OUTPUTS.get(gpio_id, None)
+    if gpio is None:
+        ql.log.warning("qsee_tlmm_release_gpio_id(%#x) not found", gpio_id)
+    else:
+        GPIO_NAME_TO_ID.pop(gpio.name)
+    GPIO_OUTPUTS.pop(gpio_id)
+    _ret(ql, 0)
+
+def qsee_tlmm_config_gpio_id(ql: Qiling, hook_data:'HookData'):
+    global GPIO_NAME_TO_ID
+    args = ql.os.resolve_fcall_params({
+        "gpio_id": INT,
+        "conf_ptr":POINTER, # uint64 ptr, not sure about what it does
+    })
+    gpio_id = args['gpio_id']
+    conf_ptr = args['conf_ptr']
+    ql.log.debug("qsee_tlmm_config_gpio_id(%s, %#x)", gpio_id, conf_ptr)
+    conf = ql.mem.read(conf_ptr, 8)
+    config = int.from_bytes(conf, "little")
+    GPIO_OUTPUTS[gpio_id].config = config
+
+    _ret(ql, 0)
+
+def qsee_tlmm_gpio_id_out(ql: Qiling, hook_data:'HookData'):
+    global GPIO_OUTPUTS
+    args = ql.os.resolve_fcall_params({
+        "gpio_num": INT,
+        "val": INT,
+    })
+    gpio_num = args['gpio_num']
+    val = args['val']
+    ql.log.debug("qsee_tlmm_gpio_id_out(%#x, %#x)", gpio_num, val)
+    
+    # Kinda guessing that we can only write 1 bit at a time
+    GPIO_OUTPUTS[gpio_num].out += "1" if (val & 1) else "0"
+    # ql.log.info("GPIO_OUTPUTS[%#x].out: %s", gpio_num, GPIO_OUTPUTS[gpio_num].out)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def qsee_spin(ql: Qiling, hook_data:'HookData'):
+    global GPIO_OUTPUTS
+    args = ql.os.resolve_fcall_params({
+        "time_ms": INT,
+    })
+    time_ms = args['time_ms']
+
+    ql.log.debug("qsee_spin(%#x)", time_ms)
+    # Let's emulate fake delay in string:
+    for k in GPIO_OUTPUTS:
+        last = GPIO_OUTPUTS[k].out[-1] if GPIO_OUTPUTS[k].out else ""
+        GPIO_OUTPUTS[k].out += last * (time_ms // 1000 - 1)
+
+    _ret(ql, 0)
+
+QSEE_CIPHER_PARAM_KEY  = 0
+QSEE_CIPHER_PARAM_IV   = 1
+QSEE_CIPHER_PARAM_MODE = 2
+QSEE_CIPHER_PARAM_PAD  = 3
+QSEE_CIPHER_CTXS = {}
+
+def qsee_cipher_init(ql: Qiling, hook_data: "HookData"):
+    args = ql.os.resolve_fcall_params({
+        "alg": INT,
+        "out_ctx": POINTER,
+    })
+
+    alg = args["alg"]
+    out_ctx = args["out_ctx"]
+
+    ctxbuf = malloc_core(ql, 0x100, hook_data, True)
+    if ctxbuf == 0:
+        ql.log.error("qsee_cipher_init: failed to allocate ctx buffer")
+        return _ret(ql, -1)
+    
+    QSEE_CIPHER_CTXS[ctxbuf] = {
+        "alg": alg,
+        "key": b"",
+        "iv": b"",
+        "mode": None,
+        "pad": None,
+    }
+    ql.log.info("qsee_cipher_init(alg=%#x, out_ctx=%#x) -> ctx=%#x", alg, out_ctx, ctxbuf)
+    ql.mem.write_ptr(out_ctx, ctxbuf)
+
+    _ret(ql, 0)
+
+def qsee_cipher_free_ctx(ql: Qiling, hook_data: "HookData"):
+    args = ql.os.resolve_fcall_params({
+        "ctx": POINTER,
+    })
+    _log_args(ql, "qsee_cipher_free_ctx", args)
+    ctx = args["ctx"]
+    if ctx not in QSEE_CIPHER_CTXS:
+        ql.log.warning("qsee_cipher_free_ctx: unknown ctx %#x", ctx)
+    else:
+        QSEE_CIPHER_CTXS.pop(ctx)
+    free_core(ql, ctx, hook_data)
+    _ret(ql, 0)
+
+
+def qsee_cipher_set_param(ql: Qiling, hook_data: "HookData"):
+    args = ql.os.resolve_fcall_params({
+        "ctx": POINTER,
+        "param_id": INT,
+        "data": POINTER,
+        "data_len": INT,
+    })
+
+    ctx = args["ctx"]
+    param_id = args["param_id"]
+    data = args["data"]
+    data_len = args["data_len"]
+    _log_args(ql, "qsee_cipher_set_param", args)
+
+    if ctx not in QSEE_CIPHER_CTXS:
+        ql.log.warning("qsee_cipher_set_param: unknown ctx %#x, creating permissive ctx, which is not malloced!", ctx)
+        QSEE_CIPHER_CTXS[ctx] = {
+            "alg": None,
+            "key": b"",
+            "iv": b"",
+            "mode": None,
+            "pad": None,
+        }
+
+    st = QSEE_CIPHER_CTXS[ctx]
+
+    if param_id == QSEE_CIPHER_PARAM_KEY:
+        st["key"] = ql.mem.read(data, data_len)
+        ql.log.info("  key = %s", st["key"].hex())
+
+    elif param_id == QSEE_CIPHER_PARAM_IV:
+        st["iv"] = ql.mem.read(data, data_len)
+        ql.log.info("  iv = %s", st["iv"].hex())
+
+    elif param_id == QSEE_CIPHER_PARAM_MODE:
+        st["mode"] = _read_u32(ql, data)
+        ql.log.info("  mode = %#x", st["mode"])
+
+    elif param_id == QSEE_CIPHER_PARAM_PAD:
+        st["pad"] = _read_u32(ql, data)
+        ql.log.info("  pad = %#x", st["pad"])
+
+    else:
+        ql.log.warning("qsee_cipher_set_param: unknown param_id %#x", param_id)
+
+    _ret(ql, 0)
+
+@nonfaithful
+def qsee_cipher_encrypt(ql: Qiling, hook_data: "HookData"):
+    args = ql.os.resolve_fcall_params({
+        "ctx": POINTER,
+        "data": POINTER,
+        "data_len": INT,
+        "out": POINTER,
+    })
+    ctx = args["ctx"]
+    data = args["data"]
+    data_len = args["data_len"]
+    out = args["out"]
+    ql.log.debug("qsee_cipher_encrypt(ctx=%#x, data=%#x, data_len=%#x, out=%#x)", ctx, data, data_len, out)
+    ql.mem.write(out, ql.mem.read(data, data_len))
+    _ret(ql, 0)
+
+@nonfaithful
+def qsee_cipher_decrypt(ql: Qiling, hook_data: "HookData"):
+    args = ql.os.resolve_fcall_params({
+        "ctx": POINTER,
+        "data": POINTER,
+        "data_len": INT,
+        "out": POINTER,
+    })
+    ctx = args["ctx"]
+    data = args["data"]
+    data_len = args["data_len"]
+    out = args["out"]
+    ql.log.debug("qsee_cipher_decrypt(ctx=%#x, data=%#x, data_len=%#x, out=%#x)", ctx, data, data_len, out)
+    ql.mem.write(out, ql.mem.read(data, data_len))
+    _ret(ql, 0)
+
+@nonfaithful
+def qsee_hmac(ql: Qiling, hook_data: "HookData"):
+    args = ql.os.resolve_fcall_params({
+        "ctx": POINTER,
+        "data": POINTER,
+        "data_len": INT,
+        "out": POINTER,
+    })
+    ctx = args["ctx"]
+    data = args["data"]
+    data_len = args["data_len"]
+    out = args["out"]
+    ql.log.debug("qsee_hmac(ctx=%#x, data=%#x, data_len=%#x, out=%#x)", ctx, data, data_len, out)
+    ql.mem.read(data, data_len)
+    ql.mem.write(out, bytes(range(0x20)))
+    _ret(ql, 0)
+
+@nonfaithful
+def qsee_set_bandwidth(ql: Qiling, hook_data: "HookData"):
+    args = ql.os.resolve_fcall_params({
+        "client_name": STRING,
+        "client_name_len": INT,
+        "bus_id?": INT,
+        "value?": INT,
+        "flags?": INT,
+    })
+    client_name = args["client_name"]
+    client_name_len = args["client_name_len"]
+    if len(client_name) != args["client_name_len"]:
+        ql.log.warning("qsee_set_bandwidth: client_name length mismatch %d != %d", len(client_name), client_name_len)
+    _log_args(ql, "qsee_set_bandwidth", args)
+    _ret(ql, 0)
+
+GLOBAL_FLAGS = 0
+def qsee_set_global_flag(ql: Qiling, hook_data: "HookData"):
+    global GLOBAL_FLAGS
+    args = ql.os.resolve_fcall_params({
+        "flag": INT,
+    })
+    flag = args["flag"]
+    _log_args(ql, "qsee_set_global_flag", args)
+    GLOBAL_FLAGS = flag
+    _ret(ql, 0)
+
+def qsee_get_global_flag(ql: Qiling, hook_data: "HookData"):
+    global GLOBAL_FLAGS
+    _log_args(ql, "qsee_get_global_flag", {})
+    _ret(ql, GLOBAL_FLAGS)
+
+
+def qsee_util_init_s_bigint(ql: Qiling, hook_data: "HookData"):
+    args = ql.os.resolve_fcall_params({
+        "out": POINTER,
+    })
+    _log_args(ql, "qsee_util_init_s_bigint", args)
+    out = args["out"]
+    if out == 0:
+        return _ret(ql, pwn.p32(-6, sign="signed"))
+    
+    addr = malloc_core(ql, 0x20c, hook_data, True)
+    # if addr == 0 -> return -5
+    ql.mem.write(addr, 0x20c * b"\x00")
+    ql.mem.write_ptr(out, addr)
+    _ret(ql, 0)
+
+
+def qsee_util_free_s_bigint(ql: Qiling, hook_data: "HookData"):
+    args = ql.os.resolve_fcall_params({
+        "bigint": POINTER,
+    })
+    bigint = args["bigint"]
+    ql.log.debug("qsee_util_free_s_bigint(%#x)", bigint)
+    free_core(ql, bigint, hook_data)
+    _ret(ql, 0)
+
+def qsee_spi_close(ql: Qiling, hook_data: "HookData"):
+    args = ql.os.resolve_fcall_params({
+        "spi_id": INT,
+    })
+    _log_args(ql, "qsee_spi_close", args)
+    _ret(ql, 0)
+
+# WARNING: This is some Quasi-Encapsulation. Useless if app only need decapsulation of the messages. Needs more investigation.
+@nonfaithful
+def qsee_encapsulate_inter_app_message(ql: Qiling, hook_data: "HookData"):
+    args = ql.os.resolve_fcall_params({
+        "dest_app_name": STRING,
+        "plain_msg": POINTER,
+        "plain_msg_len": INT,
+        "encap_msg_out": POINTER,
+        "encap_msg_out_len": POINTER, # in + out pointer
+    })
+    _log_args(ql, "qsee_decapsulate_inter_app_message", args)
+    input_msg = ql.mem.read(args["encap_msg_out"], args["encap_msg_out_len"])
+
+    dest_app_name = args["dest_app_name"]
+    if len(dest_app_name) > 0x80:
+        ql.log.error("dest_app_name too long")
+        return _ret(ql, 0xff000fff)
+    
+    # Our quasi encapsulation
+    "Taemu Encapsulation: len dest app, len enc msg, dest app, enc msg"
+    quasi_encrypted_msg = b"TE:" + struct.pack("<II", len(dest_app_name), len(input_msg)) + dest_app_name + input_msg
+
+    available_out_buf = ql.mem.read_ptr(args["encap_msg_out_len"])
+    if len(quasi_encrypted_msg) > available_out_buf:
+        ql.log.error("qsee_decapsulate_inter_app_message: not enough space for output")
+        return _ret(ql, 0xff000fff) # vibes based error from cmlib
+
+    ql.mem.write(args["plain_msg"], quasi_encrypted_msg)
+    ql.mem.write(args["plain_msg_len"], pwn.p32(len(quasi_encrypted_msg)))
+    _ret(ql, 0)
+
+@nonfaithful
+def qsee_decapsulate_inter_app_messages(ql: Qiling, hook_data: "HookData"):
+    args = ql.os.resolve_fcall_params({
+        "peer_app_name_out": STRING,
+        "encap_msg": POINTER,
+        "encap_msg_len": INT,
+        "plain_msg_out": POINTER,
+        "plain_msg_out_len": POINTER,
+    })
+    _log_args(ql, "qsee_encapsulate_inter_app_message", args)
+    input_msg = ql.mem.read(args["encap_msg"], args["encap_msg_len"])
+    if len(input_msg) < 8:
+        ql.log.error("input_msg too short for our Quasi Encapsulation")
+        return _ret(ql, 0xff000fff)
+    
+    # Our quasi encapsulation
+    if input_msg[:4] != b"TE:":
+        ql.log.error("input_msg is not our Quasi Encapsulation")
+        return _ret(ql, 0xff000fff)
+    len_dest_app, len_enc_msg = struct.unpack("<I", input_msg[4:12])
+    if len_dest_app + len_enc_msg + 12 > len(input_msg):
+        ql.log.error("input_msg too short for our Quasi Encapsulation")
+        return _ret(ql, 0xff000fff)
+    
+    dest_app = input_msg[12:12+len_dest_app]
+    enc_msg = input_msg[12+len_dest_app:12+len_dest_app+len_enc_msg]
+
+    if len(dest_app) > 0x80:
+        ql.log.error("dest_app too long")
+        return _ret(ql, 0xff000fff)
+
+    ql.mem.write(args["peer_app_name_out"], dest_app)
+    ql.mem.write(args["plain_msg_out"], enc_msg)
+    ql.mem.write(args["plain_msg_out_len"], pwn.p32(len(enc_msg)))
+    _ret(ql, 0)

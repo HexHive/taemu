@@ -1,4 +1,5 @@
 from enum import Enum
+import os
 from qiling import Qiling
 from qiling.os.const import STRING, INT, BYTE, POINTER
 from .gp.utils.param import TEE_Param_Memref
@@ -43,15 +44,24 @@ fd_counter = 5
 fds = {}
 
 
+def _parse_flags(flags:int):
+    all_possible_flags = {k[2:]:v for k, v in vars(os).items() if isinstance(v, int) and k.startswith("O_")}
+    return [flag for flag, v in all_possible_flags.items() if flags & v]
+
 def _open(ql: Qiling, hook_data):
     global fds, fd_counter
     p = ql.os.resolve_fcall_params(
         {
             "path": STRING,
+            "flags": INT,
         }
     )
+    
     path = p["path"]
-    ql.log.info(f"{hook_data.func_name} called for {path} returning fd {fd_counter}")
+    flags = p["flags"]
+    parsed_flags = _parse_flags(flags)
+    ql.log.info(f"{hook_data.func_name} called for {path} ({parsed_flags}) returning fd {fd_counter}")
+    
     ql.os.fcall.cc.setReturnValue(fd_counter)
     fds[fd_counter] = path
     fd_counter += 1

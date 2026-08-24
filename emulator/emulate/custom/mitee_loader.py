@@ -1,28 +1,10 @@
 import subprocess
 import sys
 import re
-
-def qsee_read_relocs(ta_path):
-    raw = subprocess.check_output(
-        f"readelf -r --use-dynamic --wide {ta_path}", shell=True
-    ).decode()
-    plt_off = raw.find("'PLT' relocation section")
-    plt = raw[plt_off:]
-    plt_lines = plt.split("\n")
-    plt_lines = plt_lines[2:]
-    out = []
-    for l in plt_lines:
-        mtch = re.match(
-            r"([0-9a-z]+) +([0-9a-z]+) +R_AARCH64_JUMP_SLOT +0000000000000000 +([a-zA-Z_]+) \+",
-            l,
-        )
-        if not mtch:
-            continue
-        out.append((mtch.group(3), int(mtch.group(1), 16)))
-    return out
+from pathlib import Path
 
 
-def mitee_read_relocs(ta_path):
+def mitee_read_relocs(ta_path:Path):
     raw = subprocess.check_output(
         f"readelf -r --use-dynamic --wide {ta_path}", shell=True
     ).decode()
@@ -73,7 +55,7 @@ def mitee_relr_relocs(ta_path):
         out.append(int(mtch.group(1), 16))
     return out
 
-def mitee_rela_relocs(ta_path):
+def mitee_rela_relocs(ta_path:Path):
     raw = subprocess.check_output(
         f"readelf -r --use-dynamic --wide {ta_path}", shell=True
     ).decode()

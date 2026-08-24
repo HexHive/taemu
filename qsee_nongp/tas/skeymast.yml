@@ -1,0 +1,15 @@
+CElfFile_invoke:
+  end: [0x4be5c]
+  start: 0x4bc44
+command_handler:
+  end: [0x4c268]
+  start: 0x4c01c
+setup_teardown:
+  end: [0x4c000]
+  start: 0x4bf1c
+tz_app_cmd_handler:
+  end: [
+      0x350, # b km_get_log_fmt
+      0x408, # b no_printf
+    ]
+  start: 0x2b8

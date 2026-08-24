@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+from elftools.elf.dynamic import DynamicSegment
 from pwn import *
 import json
 import importlib
@@ -9,6 +11,7 @@ import io
 from qiling import Qiling
 from qiling.utils import ql_get_module
 from capstone import Cs
+from pathlib import Path
 from elftools.elf.elffile import ELFFile
 from qiling.const import QL_ARCH, QL_OS 
 from elftools.elf.relocation import RelocationSection
@@ -29,18 +32,21 @@ from .gp import (
     session,
     transient_objects,
 )
-from unicorn.arm64_const import UC_ARM64_INS_MRS
+from unicorn.arm64_const import UC_ARM64_INS_MRS, UC_ARM64_REG_PC
 from unicorn import UC_PROT_READ, UC_PROT_WRITE, UC_PROT_EXEC
-from .custom.mitee_loader import mitee_read_relocs, mitee_relr_relocs,qsee_read_relocs, mitee_rela_relocs
+from .custom.mitee_loader import mitee_read_relocs, mitee_relr_relocs, mitee_rela_relocs
+from .custom.qsee_loader import qsee_read_relocs
 from .custom.teegris_32_loader import teegris_32_rel
 from .custom.tc_loader import tc_read_relcall
 from keystone import Ks, KS_ARCH_ARM, KS_MODE_ARM
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .ta_mgr import TAEMU
 
-
+@dataclass
 class HookData:
-    def __init__(self, emu, func_name):
-        self.emu = emu
-        self.func_name = func_name
+    emu: 'TAEMU'
+    func_name: str
 
 
 def get_api_impl(func_name, strict=False):
@@ -110,9 +116,9 @@ counter = 0
 ql_resolve_mem = 0x99999000
 ql_resolve_mem_size = 0x1000
 
-def fixup_got(ql: Qiling, ta_path, ta_elf: ELF, is_mitee=False):
+def fixup_got(ql: Qiling, ta_path:Path, ta_elf: ELF, is_mitee=False):
     # ... :/
-    ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
+    ta_base = ql.mem.get_lib_base(ta_path.name)
     for section in ta_elf.iter_sections():
         if not isinstance(section, RelocationSection):
             continue
@@ -128,7 +134,7 @@ def fixup_got(ql: Qiling, ta_path, ta_elf: ELF, is_mitee=False):
 
 def hook_ta_dl(
     ql: Qiling,
-    ta_path,
+    ta_path:Path,
     ta_elf: ELF,
     emu,
     is_mitee=False,
@@ -138,7 +144,7 @@ def hook_ta_dl(
 ):
     hook_dict = {}
     counter = 0
-    ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
+    ta_base = ql.mem.get_lib_base(ta_path.name)
     ta_elf.address = ta_base
     ql.mem.map(ql_resolve_mem, ql_resolve_mem_size, info="dl_resolve")
     for func, addr in ta_elf.plt.items():
@@ -174,22 +180,32 @@ def hook_ta_dl(
                 user_data=HookData(emu, func),
             )
             counter += ql.arch.pointersize
+
     if is_qsee:
-        to_hook = qsee_read_relocs(ta_path)
-        for func, off in to_hook:
+        for qsee_reloc in qsee_read_relocs(ta_path):
+            funcname = qsee_reloc.name
+            off = qsee_reloc.offset
+            sym = qsee_reloc.symbol_value
+
+            intercept_addr = ql_resolve_mem + counter
+            counter += ql.arch.pointersize
+
             ql.mem.write(
                 ta_base + off,
-                (ql_resolve_mem + counter).to_bytes(ql.arch.pointersize, "little"),
+                intercept_addr.to_bytes(ql.arch.pointersize, "little"),
             )
-            # ql.log.info(
-            #     f"[mitee] hooking plt relocation function {func}, {hex(off)}, {hex(ql_resolve_mem+counter)}"
-            # )
+            ql.log.info(
+                "[qsee] hooking plt relocation function %s@%#x -> %#x", funcname, off, intercept_addr
+            )
+            func_impl = get_api_impl(funcname)
+            if func_impl is None:
+                ql.log.warning(f"[qsee] function {funcname} not found")
             ql.hook_address(
-                get_api_impl(func),
-                ql_resolve_mem + counter,
-                user_data=HookData(emu, func),
+                func_impl,
+                intercept_addr,
+                user_data=HookData(emu, funcname),
             )
-            counter += ql.arch.pointersize
+    
     if is_tc:
         # IGNORE ME!!
         ks = Ks(KS_ARCH_ARM, KS_MODE_ARM)
@@ -227,7 +243,7 @@ def hook_ta_dl(
                 ql_resolve_mem+counter,
                 user_data=HookData(emu, sym),
             )
-    if "00000000-0000-0000-0000-4b45594d5354.ta" in ta_path:
+    if "00000000-0000-0000-0000-4b45594d5354.ta" in str(ta_path):
         # load libscrypto.so to emulate ASN1 stuff
         lib_path = os.path.join(os.path.dirname(ta_path), "lib64", "libscrypto.so")
         
@@ -288,14 +304,14 @@ def hook_ta_dl(
 
 def hook_ta_custom(
     ql: Qiling,
-    ta_path,
+    ta_path: Path,
     ta_elf: ELF,
-    emu,
+    emu: 'TAEMU',
 ):
     # inline hooks for TAs
-    ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
+    ta_base = ql.mem.get_lib_base(ta_path.name)
     ta_elf.address = ta_base
-    ta_info = json.load(open(f"{ta_path[:-3]}.json", "r"))
+    ta_info = emu.ta_info
     if "inline" in ta_info:
         addr_map = defaultdict(list)
         for func_name, info in ta_info["inline"].items():
@@ -337,9 +353,9 @@ def teegris_32_setup(ql: Qiling, ta_path, ta_base):
 def optee_setup(ql: Qiling, ta_path, ta_base, emu):
     ql.hook_intno(optee_api.optee_syscall, 2, user_data=emu)
 
-def qsee_setup(ql: Qiling, ta_path, ta_base):
+def qsee_setup(ql: Qiling, ta_path:Path, ta_base, emu: 'TAEMU'):
     reloc_offsets = mitee_rela_relocs(ta_path)
-    ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
+    ta_base = ql.mem.get_lib_base(ta_path.name)
     for off in reloc_offsets:
         reloc_off = ql.mem.read_ptr(ta_base + off)
         # ql.log.info(f"[mitee] fixing relcation at {hex(off)} for {hex(reloc_off)}")
@@ -347,8 +363,24 @@ def qsee_setup(ql: Qiling, ta_path, ta_base):
     def handle_retab(ql: Qiling, user_data):
         ql.arch.regs.arch_pc = ql.arch.regs.lr
     ql.hook_intno(handle_retab, 1)
+    has_pac = emu.ta_info.get("has_pac", False)
+    if has_pac:
+        def hook_pointer_authentication(ql: Qiling, port, size):
+            code_bytes = ql.mem.read(ql.arch.regs.arch_pc, 4)
+            for (address, size, mnemonic, op_str) in ql.arch.disassembler.disasm_lite(code_bytes, ql.arch.regs.arch_pc, count=1):
+                if mnemonic in ("pacib", "bti", "btic", "pacda", "pacib"):
+                    # nop it out
+                    next_addr = ql.arch.regs.arch_pc + size
+                    ql.uc.reg_write(UC_ARM64_REG_PC, next_addr)
+                elif mnemonic in ("retab",):
+                    ql.log.debug("retabbed")
+                    ql.arch.regs.arch_pc = ql.arch.regs.lr
+        
+        emu.ql.log.warning("hooking pointer authentication, expect slowdown")
+        ql.hook_code(hook_pointer_authentication)
 
-def mitee_setup(ql: Qiling, ta_path, ta_base):
+
+def mitee_setup(ql: Qiling, ta_path:Path, ta_base:int):
     # 1: setup tls for mrs
     TLS_MEM_BASE = 0xEEE000
     THREAD_STACK_BASE = 0xF00000
@@ -377,7 +409,7 @@ def mitee_setup(ql: Qiling, ta_path, ta_base):
     ql.hook_insn(hook_mrs, UC_ARM64_INS_MRS)
     # 2: fixup data relocations
     reloc_offsets = mitee_relr_relocs(ta_path)
-    ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
+    ta_base = ql.mem.get_lib_base(ta_path.name)
     for off in reloc_offsets:
         reloc_off = ql.mem.read_ptr(ta_base + off)
         # ql.log.info(f"[mitee] fixing relcation at {hex(off)} for {hex(reloc_off)}")
@@ -385,4 +417,8 @@ def mitee_setup(ql: Qiling, ta_path, ta_base):
 
 
 def trace_block(ql: Qiling, address, size):
-    ql.log.debug("basic block at 0x%x" % (address))
+    for start, end, _, label, _ in ql.mem.get_mapinfo():
+        if start <= address < end:
+            ql.log.info("basic block at %#x - %#x ([%s] + %#x)", address, address+size, label, address - start)
+            return
+    ql.log.info("basic block at %#x - %#x", address, address+size)

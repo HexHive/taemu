@@ -7,7 +7,7 @@ from pwn import ELF
 # from qiling import Qiling
 from .qiling_extend import QilingExtend as Qiling
 from .redis_queue import create_redis_queue
-from qiling.const import QL_VERBOSE
+from qiling.const import QL_STOP, QL_VERBOSE
 from qiling.const import QL_ARCH, QL_OS, QL_VERBOSE
 from .fuzz_record import SimpleFilterRecorder, Record
 from .redis_queue import RedisQueue
@@ -115,7 +115,19 @@ def setup_args():
         "--log_file", required=False, help="Log output to specified file.", default=None
     )
     parser.add_argument(
-        "--tee", help="specify the TEE.", required=False, default="beanpod"
+        "--tee", help="specify the TEE.", required=False, default=""
+    )
+    parser.add_argument(
+        "--use-cache",
+        action="store_true",
+        help="Use cache for loading state after execution of entrypoint(s).",
+        default=False,
+    )
+    parser.add_argument(
+        "--disable-redis",
+        action="store_true",
+        help="Disable Redis recording",
+        default=False,
     )
 
 
@@ -132,7 +144,7 @@ if __name__ == "__main__":
     ta_path = ta_name
     ta_elf = ELF(ta_path)
 
-    if args.verbose:
+    if args.verbose or os.environ.get("TAEMU_VERBOSE", "0") == "1":
         v = QL_VERBOSE.DEBUG
     else:
         v = QL_VERBOSE.DEFAULT
@@ -158,7 +170,10 @@ if __name__ == "__main__":
         )
         custom_logger = logging.getLogger()
 
-    if b"TEEGRIS" in open(ta_path, "rb").read():
+    specified_tee = args.tee or os.environ.get("TAEMU_TEE")
+    if specified_tee:
+        TEE = specified_tee
+    elif b"TEEGRIS" in open(ta_path, "rb").read():
         TEE = "teegris"
     elif b"optee" in open(ta_path, "rb").read() and b"ta_head" in open(ta_path, "rb").read():
         TEE = "optee"
@@ -171,9 +186,11 @@ if __name__ == "__main__":
     elif b"com.huawei.hidisk" in open(ta_path, "rb").read():
         TEE = "trustedcore"
     elif b"GPAppLib_handleRequest" in open(ta_path, "rb").read():
-        TEE = "qsee"
-    if TEE == "":
-        TEE = args.tee
+        if b"CElfFile_invoke" in open(ta_path, "rb").read():
+            TEE = "qsee_nongp"
+        else:
+            TEE = "qsee"
+    print(f"[+] TEE: {TEE} [+]")
     if TEE == "beanpod":
         if ta_elf.header["e_flags"] & 0x200 == 0:
             is_thumb = True
@@ -221,11 +238,11 @@ if __name__ == "__main__":
             ostype=QL_OS.LINUX,
             archtype=QL_ARCH.ARM64,
             verbose=v,
-            env={"LD_LIBRARY_PATH": "/"},
+            env={"LD_LIBRARY_PATH": "/:/lib64"},
             profile="tee.ql",
             log_override=custom_logger,
         )
-    elif TEE == "qsee":
+    elif TEE == "qsee" or TEE == "qsee_nongp":
         ql = Qiling(
             [ta_path],
             rootfs=ROOTFS_PATH,
@@ -234,6 +251,7 @@ if __name__ == "__main__":
             verbose=v,
             env={"LD_LIBRARY_PATH": "/"},
             profile="tee.ql",
+            stop=QL_STOP.EXIT_TRAP,
             log_override=custom_logger,
         )
     elif TEE == "optee":
@@ -293,7 +311,10 @@ if __name__ == "__main__":
         ql.hook_code(unicorn_why)
         
     
-    if args.fuzz or args.fuzz_replay:
+    if args.disable_redis:
+        print("[+] Redis recording is disabled. [+]")
+        record_q = None
+    elif args.fuzz or args.fuzz_replay:
         # Create Redis queue
         try:
             record_q: RedisQueue = create_redis_queue(
@@ -331,6 +352,7 @@ if __name__ == "__main__":
                 else Status.INTERACTIVE
             ),
             record_q=curr_record_q,
+            use_cache=args.use_cache,
         ) as emu:
             try:
                 print(args.df_validate)

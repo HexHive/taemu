@@ -6,7 +6,7 @@ entry_point = 0x1000000
 
 [OS64]
 stack_address = 0x7ffffffde000
-stack_size = 0x300000
+stack_size = 0x600000
 load_address = 0x555555554000
 interp_address = 0x7ffff7dd5000
 mmap_address = 0x7fffb7dd6000

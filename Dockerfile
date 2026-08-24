@@ -10,6 +10,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
+        binutils-aarch64-linux-gnu \
         wget \
         file \
         vim \
@@ -48,7 +49,7 @@ ENV PYTHONPATH=$PATH:/opt/afl
 # Debug tools (gef, ...)
 ################################################################################
 
-RUN wget -q https://raw.githubusercontent.com/bata24/gef/dev/install-uv.sh -O- | sh
+RUN touch /.dockerenv && wget -q https://raw.githubusercontent.com/bata24/gef/dev/install-uv.sh -O- | sh
 
 ################################################################################
 # Build swarm
@@ -64,6 +65,7 @@ WORKDIR /opt/src
 RUN git clone https://github.com/vanhauser-thc/drcov-merge.git && cd drcov-merge && make && mv drcov-merge /opt/afl
 
 RUN pip3 install networkx 
+RUN sed -i 's/import distutils/import distutils\nimport distutils.sysconfig/g' /opt/afl/unicornafl/unicornafl.py
 
 # WTFFFFFFFFF
 COPY unicornafl.py /opt/afl/unicornafl/

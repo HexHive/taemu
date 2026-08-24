@@ -1,6 +1,7 @@
 import os
 import json
 from argparse import ArgumentParser
+from pathlib import Path
 from decompile_util import (
     Decompiler,
     INVOKE_COMMAND_FUNC_NAME,
@@ -181,13 +182,17 @@ def is_call(ghidra_func, instr):
     return False
 
 
-ta_fw = [
-    "TA_CreateEntryPoint",
-    "TA_OpenSessionEntryPoint",
-    "TA_InvokeCommandEntryPoint",
-    "TA_CloseSessionEntryPoint",
-    "TA_DestroyEntryPoint",
-]
+def get_entrypoints(tee):
+    if tee == "qsee_nongp":
+        return ["tz_app_cmd_handler"]
+    ta_fw = [
+        "TA_CreateEntryPoint",
+        "TA_OpenSessionEntryPoint",
+        "TA_InvokeCommandEntryPoint",
+        "TA_CloseSessionEntryPoint",
+        "TA_DestroyEntryPoint",
+    ]
+    return ta_fw
 
 
 def gen_cfg(func, func_cfgs, tee, inline_funcs):
@@ -347,7 +352,7 @@ def do_work(tee, ta_json):
         inline_funcs = convert(ta_info["inline"])
     else:
         inline_funcs = {}
-    for ta_f in ta_fw:
+    for ta_f in get_entrypoints(tee):
         if ta_info[ta_f + "_start"] == -1:
             continue
         func_todo.append((hex(ta_info[ta_f + "_start"])))
@@ -382,19 +387,21 @@ def main():
         help="target TEE",
     )
     args = arg_parser.parse_args(args=getScriptArgs())
-    prog_path = getCurrentProgram().getExecutablePath()
-    if not os.path.exists(prog_path):
-        prog_path = os.path.join("/mnt", prog_path[prog_path.find(args.tee) :])
-    ta_json = prog_path[:-3] + ".json"
-    out_dir = os.path.join(os.path.dirname(prog_path), "bbs")
-    out_path = os.path.join(out_dir, "bb_" + os.path.basename(prog_path) + ".json")
-    if not os.path.exists(out_dir):
-        os.system(f"mkdir -p {out_dir}")
-        os.system(f"chmod 777 {out_dir}")
+    program = getCurrentProgram()
+    prog_path = Path(program.getExecutablePath())
+    if not prog_path.exists():
+        ppp = prog_path.as_posix()
+        prog_path = Path("/mnt") / ppp[ppp.find(args.tee) :]
+    ta_json = prog_path.with_suffix(".json")
+    out_dir = prog_path.parent / "bbs"
+    out_path = out_dir / f"bb_{prog_path.name}.json"
+    if not out_dir.exists():
+        out_dir.mkdir(parents=True, exist_ok=True)
+        os.system(f"chmod 777 {out_dir.as_posix()}")
 
     out = do_work(args.tee, ta_json)
     print(out)
-    open(out_path, "w").write(json.dumps(out, indent=4))
+    out_path.write_text(json.dumps(out, indent=4))
     os.system(f"chmod 666 {out_path}")
     return
 

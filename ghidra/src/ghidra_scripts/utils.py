@@ -75,7 +75,7 @@ def find_returns(function, is_thumb=False, is_pie=False):
                     ret_offsets.append(instr.getAddress().getOffset())
         else:
             mnemonic = instr.getMnemonicString().upper()
-            if mnemonic in ["RET", "RETN", "RETQ"]:
+            if mnemonic in ["RET", "RETN", "RETQ", "RETA", "RETAB"]:
                 ret_offsets.append(instr.getAddress().getOffset() - 0x100000)
         last_instr = instr
 

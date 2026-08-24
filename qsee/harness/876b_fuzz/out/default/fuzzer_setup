@@ -1,0 +1,12 @@
+# environment variables:
+AFL_AUTORESUME=1
+AFL_CUSTOM_INFO_PROGRAM=python3
+AFL_CUSTOM_INFO_PROGRAM_ARGV=-m emulate --fuzz @@ --fuzz_harness /srv/qsee/harness/876b_fuzz/harness.py rootfs/876BFD99-1189-4650-B260-FC7DD452D7BA.ta
+AFL_CUSTOM_INFO_OUT=/srv/qsee/harness/876b_fuzz/out/default
+AFL_FORKSRV_INIT_TMOUT=1999999
+AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
+AFL_NO_AFFINITY=1
+AFL_SKIP_CPUFREQ=1
+AFL_NO_FASTRESUME=1
+# command line:
+'afl-fuzz' '-t' '5000' '-i' '/srv/qsee/harness/876b_fuzz/in' '-o' '/srv/qsee/harness/876b_fuzz/out' '-m' 'none' '-U' '--' 'python3' '-m' 'emulate' '--fuzz' '@@' '--fuzz_harness' '/srv/qsee/harness/876b_fuzz/harness.py' 'rootfs/876BFD99-1189-4650-B260-FC7DD452D7BA.ta'

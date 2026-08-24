@@ -1,4 +1,7 @@
+import abc
+from typing import List
 from qiling import Qiling
+
 from . import gp_api
 from .gp.utils.param import TEE_Param_Memref, TEE_Param_value
 import json
@@ -9,15 +12,18 @@ from .gp.utils.err import *
 from .fuzz_record import Record, Status
 
 min_addr = 0xBBBBB000
+MIN_PARAM_ADDR = 0xBBBBB000
 
+class Param(abc.ABC):
+    pass
 
-class ValueParam:
+class ValueParam(Param):
     def __init__(self, a: int, b: int):
         self.a = a
         self.b = b
 
 
-class MemRefParam:
+class MemRefParam(Param):
     def __init__(self, buf: bytes, size: int):
         self.buf = buf
         self.size = size
@@ -87,25 +93,26 @@ def shared_write_callback(
     
 
 
-class NoneParam:
+class NoneParam(Param):
     def __init__(self):
         pass
 
 
-def setup_fuzz(ql: Qiling, cmd, ptypes, params, input):
+def setup_fuzz(ql: Qiling, cmd, ptypes, params:List[Param], input):
+    # TODO: Why do we hash input, why not params directly?
     ql.emu.curr_input = input
     seed_id = f"run:id:{hashlib.md5(input).hexdigest()}"
     ql.emu.curr_record_key = seed_id
     ql.emu.curr_params = params 
     setup_params_fuzz(ql, cmd, ptypes, params)
 
-def setup_params_fuzz(ql: Qiling, cmd, ptypes, params):
+def setup_params_fuzz(ql: Qiling, cmd, ptypes, params:List[Param]):
     return setup_params(
         ql, ql.emu.fuzz_session, cmd, ptypes, params, is_32bit=ql.arch.pointersize == 4
     )
 
 
-def setup_params(ql: Qiling, session, cmd, ptypes, params, is_32bit=False):
+def setup_params(ql: Qiling, session: 'Session', cmd, ptypes, params:List[Param], is_32bit=False):
     if session is not None:
         ql.os.fcall.cc.setRawParam(0, session.session_id_mem)
     ql.os.fcall.cc.setRawParam(1, cmd)

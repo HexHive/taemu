@@ -4,6 +4,7 @@ from qiling.os.const import STRING, INT, BYTE, POINTER
 from .gp.utils.param import TEE_Param_Memref
 from .gp.utils.err import *
 from .gp.utils.string import *
+from . import asan
 from .gp.utils.printf import *
 from .gp.utils.const import *
 from .common import CRASH_PC, NOTIMPL_PC, crash, crash_notimpl, finalize_fuzzing
@@ -12,7 +13,9 @@ import unicorn
 
 from .custom import rpmb
 from unicorn import UC_PROT_READ, UC_PROT_WRITE
-
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .emulator_no_loader import HookData
 
 def GP_params_setup(
     ql: Qiling, command_id, parameters_type, tee_params, session_id=None
@@ -117,7 +120,7 @@ def TEE_Malloc(ql: Qiling, hook_data):
     size = ql.os.resolve_fcall_params({"size": INT})["size"]
     malloc_core(ql, size, hook_data, False)
 
-def memalign(ql: Qiling, hook_data):
+def memalign(ql: Qiling, hook_data: 'HookData'):
     params = ql.os.resolve_fcall_params({"alignment": INT, "size": INT})
     size = params["size"]
     alignment = params["alignment"]
@@ -137,11 +140,11 @@ def memalign(ql: Qiling, hook_data):
         del hook_data.emu.HEAP["freed"][ret2user_out]
 
     ql.log.info(f"redzone hook {hex(out)}")
-    asan.asan_hook_redzone_mem_rw(out, asan.ASAN_REDZONE_SIZE, ql)
+    hook_data.emu.asan.hook_redzone_mem_rw(out, asan.ASAN_REDZONE_SIZE)
     hook_data.emu.HEAP["redzones"][out] = asan.ASAN_REDZONE_SIZE
     ql.log.info(f"redzone hook {hex(ret2user_out + size)}")
-    asan.asan_hook_redzone_mem_rw(
-        ret2user_out + size, real_size - asan.ASAN_REDZONE_SIZE - size, ql
+    hook_data.emu.asan.hook_redzone_mem_rw(
+        ret2user_out + size, real_size - asan.ASAN_REDZONE_SIZE - size
     )
     hook_data.emu.HEAP["redzones"][ret2user_out + size] = (
         real_size - asan.ASAN_REDZONE_SIZE - size
@@ -204,6 +207,8 @@ def TEE_LogPrintf(ql: Qiling, hook_data):
         format_param_ptr = ql.os.resolve_fcall_params({"format": POINTER})["format"]
         hook_data.emu.update_shm(format_param_ptr)
         format_param = ql.mem.string(format_param_ptr)
+        ql.log.debug("format_param: '%s'", format_param)
+        ql.log.debug("Back to %#x", ql.arch.regs.lr)
         final_params = {"format": STRING}
         params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
         string_params = [params[f"{i}"] for i in range(0, len(params))]
@@ -275,8 +280,7 @@ def strncat(ql, hook_data):
     s2 = read_c_str(ql, str2)
     ql.log.info(f"strncat: {hex(str1)}->{hex(str2)} {n}")
     dest = str1 + len(s1)
-    if not asan.is_access_valid(
-        ql,
+    if not hook_data.emu.asan.is_access_valid(
         hook_data.emu.HEAP,
         dest,
         min(n, len(s2)),
@@ -403,8 +407,8 @@ def snprintf(ql: Qiling, hook_data):
         ql.log.info(
             f'{hook_data.func_name}: len: {hex(n)} "{out_str}" written to {hex(s)}, lr: {hex(ql.arch.regs.lr)}'
         )
-        if not asan.is_access_valid(
-            ql, hook_data.emu.HEAP, s, len(out_str), hook_data.func_name, is_write=True
+        if not hook_data.emu.asan.is_access_valid(
+            hook_data.emu.HEAP, s, len(out_str), hook_data.func_name, is_write=True
         ):
             return
         ql.mem.write(s, out_str)
@@ -443,8 +447,8 @@ def sprintf(ql: Qiling, hook_data):
         full_len = len(out_str)
         out_str = out_str.encode("latin-1") + b"\x00"
         ql.log.info(f'{hook_data.func_name}: "{out_str}" written to {hex(s)}')
-        if not asan.is_access_valid(
-            ql, hook_data.emu.HEAP, s, len(out_str), hook_data.func_name, is_write=True
+        if not hook_data.emu.asan.is_access_valid(
+            hook_data.emu.HEAP, s, len(out_str), hook_data.func_name, is_write=True
         ):
             return
         ql.mem.write(s, out_str)
@@ -500,8 +504,8 @@ def strcpy(ql: Qiling, hook_data):
     hook_data.emu.update_shm(src)  # +1 for the null terminator
     try:
         s = read_c_str(ql, src)
-        if not asan.is_access_valid(
-            ql, hook_data.emu.HEAP, dst, len(s) + 1, hook_data.func_name, is_write=True
+        if not hook_data.emu.asan.is_access_valid(
+            hook_data.emu.HEAP, dst, len(s) + 1, hook_data.func_name, is_write=True
         ):
             return
         ql.mem.write(dst, s + b"\x00")
@@ -525,14 +529,13 @@ def strncpy(ql: Qiling, hook_data):
     try:
         s = read_c_str(ql, src)
         if len(s) >= num:
-            if not asan.is_access_valid(
-                ql, hook_data.emu.HEAP, dst, num, hook_data.func_name, is_write=True
+            if not hook_data.emu.asan.is_access_valid(
+                hook_data.emu.HEAP, dst, num, hook_data.func_name, is_write=True
             ):
                 return
             ql.mem.write(dst, s[:num])
         else:
-            if not asan.is_access_valid(
-                ql,
+            if not hook_data.emu.asan.is_access_valid(
                 hook_data.emu.HEAP,
                 dst,
                 len(s) + 1,
@@ -581,8 +584,7 @@ def memmove(ql: Qiling, hook_data):
     ql.log.info(
         f'{hook_data.func_name} {params["size"]:#0x} from {hex(params["src"])} to {hex(params["dest"])}'
     )
-    if not asan.is_access_valid(
-        ql,
+    if not hook_data.emu.asan.is_access_valid(
         hook_data.emu.HEAP,
         params["dest"],
         params["size"],
@@ -590,8 +592,7 @@ def memmove(ql: Qiling, hook_data):
         is_write=True,
     ):
         return
-    if not asan.is_access_valid(
-        ql,
+    if not hook_data.emu.asan.is_access_valid(
         hook_data.emu.HEAP,
         params["src"],
         params["size"],
@@ -634,12 +635,12 @@ def TEE_MemCompare(ql: Qiling, hook_data):
     buffer_1 = params["dest"]
     buffer_2 = params["src"]
     size = params["size"]
-    if not asan.is_access_valid(
-        ql, hook_data.emu.HEAP, buffer_1, size, hook_data.func_name, is_write=False
+    if not hook_data.emu.asan.is_access_valid(
+        hook_data.emu.HEAP, buffer_1, size, hook_data.func_name, is_write=False
     ):
         return
-    if not asan.is_access_valid(
-        ql, hook_data.emu.HEAP, buffer_2, size, hook_data.func_name, is_write=False
+    if not hook_data.emu.asan.is_access_valid(
+        hook_data.emu.HEAP, buffer_2, size, hook_data.func_name, is_write=False
     ):
         return
     ret = 0
@@ -678,8 +679,7 @@ def strcmp(ql: Qiling, hook_data):
         crash(ql, hook_data.func_name)
         return
 
-    if not asan.is_access_valid(
-        ql,
+    if not hook_data.emu.asan.is_access_valid(
         hook_data.emu.HEAP,
         str1,
         len(content_1),
@@ -687,8 +687,7 @@ def strcmp(ql: Qiling, hook_data):
         is_write=False,
     ):
         return
-    if not asan.is_access_valid(
-        ql,
+    if not hook_data.emu.asan.is_access_valid(
         hook_data.emu.HEAP,
         str2,
         len(content_2),
@@ -728,8 +727,7 @@ def strncmp(ql: Qiling, hook_data):
         crash(ql, hook_data.func_name)
         return
 
-    if not asan.is_access_valid(
-        ql,
+    if not hook_data.emu.asan.is_access_valid(
         hook_data.emu.HEAP,
         str1,
         len(content_1),
@@ -737,8 +735,7 @@ def strncmp(ql: Qiling, hook_data):
         is_write=False,
     ):
         return
-    if not asan.is_access_valid(
-        ql,
+    if not hook_data.emu.asan.is_access_valid(
         hook_data.emu.HEAP,
         str2,
         len(content_2),

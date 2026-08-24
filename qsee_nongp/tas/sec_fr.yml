@@ -1,0 +1,19 @@
+CElfFile_invoke:
+  end: [0xe068]
+  start: 0xde48
+
+command_handler:
+  end: [0xe48c]
+  start: 0xe228
+
+setup_teardown:
+  end: [0xe210]
+  start: 0xe124
+
+tz_app_cmd_handler:
+  end: [
+      0x29a0, # b PAL_Log
+      0x2a14, # b PAL_Log
+      0x2a18, # qsee_err_fatal
+    ]
+  start: 0x28d0

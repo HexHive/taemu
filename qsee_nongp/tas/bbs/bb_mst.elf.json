@@ -1,0 +1,991 @@
+{
+    "0x168": {
+        "function": "0x168",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "00000168",
+                "end": "000001a3",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_4",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "000001a4",
+                "end": "000001a7",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_4",
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "000001a8",
+                "end": "000001af",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_5",
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "000001b0",
+                "end": "000001c3",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "000001c4",
+                "end": "000001e3",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_5",
+                "start": "000001e8",
+                "end": "000001ef",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_8",
+                    "BB_6"
+                ]
+            },
+            {
+                "name": "BB_6",
+                "start": "000001f0",
+                "end": "000001ff",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_7",
+                "start": "00000200",
+                "end": "00000217",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_8",
+                "start": "0000021c",
+                "end": "0000022b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_10",
+                    "BB_9"
+                ]
+            },
+            {
+                "name": "BB_9",
+                "start": "0000022c",
+                "end": "0000024f",
+                "calls": [
+                    {
+                        "func": "00000384",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_10",
+                "start": "00000254",
+                "end": "00000273",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "00000384": {
+        "function": "00000384",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "00000384",
+                "end": "000003c7",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_3",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "000003c8",
+                "end": "000003cf",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_5",
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "000003d0",
+                "end": "000003ff",
+                "calls": [
+                    {
+                        "func": "00001afc",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000004f0",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_4"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "00000400",
+                "end": "0000042b",
+                "calls": [
+                    {
+                        "func": "00001afc",
+                        "api": false,
+                        "api_type": null
+                    },
+                    {
+                        "func": "000004f0",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_4"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "0000042c",
+                "end": "0000045b",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_5",
+                "start": "00000460",
+                "end": "000004ab",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "00001afc": {
+        "function": "00001afc",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "00001afc",
+                "end": "00001b17",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "00001b18",
+                "end": "00001b2b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_3",
+                    "BB_2"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "00001b2c",
+                "end": "00001b43",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "00001b44",
+                "end": "00001b57",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_12",
+                    "BB_4"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "00001b58",
+                "end": "00001b63",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_26",
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_5",
+                "start": "00001b64",
+                "end": "00001b6b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_17",
+                    "BB_6"
+                ]
+            },
+            {
+                "name": "BB_6",
+                "start": "00001b6c",
+                "end": "00001b73",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_20",
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_7",
+                "start": "00001b74",
+                "end": "00001b7b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_26",
+                    "BB_8"
+                ]
+            },
+            {
+                "name": "BB_8",
+                "start": "00001b7c",
+                "end": "00001b8b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_9"
+                ]
+            },
+            {
+                "name": "BB_9",
+                "start": "00001b8c",
+                "end": "00001b93",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_35",
+                    "BB_10"
+                ]
+            },
+            {
+                "name": "BB_10",
+                "start": "00001b94",
+                "end": "00001bd7",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_9"
+                ]
+            },
+            {
+                "name": "BB_11",
+                "start": "00001bd8",
+                "end": "00001bf7",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_12"
+                ]
+            },
+            {
+                "name": "BB_12",
+                "start": "00001bf8",
+                "end": "00001bff",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_11",
+                    "BB_13"
+                ]
+            },
+            {
+                "name": "BB_13",
+                "start": "00001c00",
+                "end": "00001c0b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_15",
+                    "BB_14"
+                ]
+            },
+            {
+                "name": "BB_14",
+                "start": "00001c0c",
+                "end": "00001c13",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_15"
+                ]
+            },
+            {
+                "name": "BB_15",
+                "start": "00001c14",
+                "end": "00001c17",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_30",
+                    "BB_16"
+                ]
+            },
+            {
+                "name": "BB_16",
+                "start": "00001c18",
+                "end": "00001c23",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_30"
+                ]
+            },
+            {
+                "name": "BB_17",
+                "start": "00001c24",
+                "end": "00001c47",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_18"
+                ]
+            },
+            {
+                "name": "BB_18",
+                "start": "00001c48",
+                "end": "00001c4f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_23",
+                    "BB_19"
+                ]
+            },
+            {
+                "name": "BB_19",
+                "start": "00001c50",
+                "end": "00001c93",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_18"
+                ]
+            },
+            {
+                "name": "BB_20",
+                "start": "00001c94",
+                "end": "00001caf",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_21"
+                ]
+            },
+            {
+                "name": "BB_21",
+                "start": "00001cb0",
+                "end": "00001cb7",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_25",
+                    "BB_22"
+                ]
+            },
+            {
+                "name": "BB_22",
+                "start": "00001cb8",
+                "end": "00001cfb",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_21"
+                ]
+            },
+            {
+                "name": "BB_23",
+                "start": "00001cfc",
+                "end": "00001d17",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_27",
+                    "BB_24"
+                ]
+            },
+            {
+                "name": "BB_24",
+                "start": "00001d18",
+                "end": "00001d1b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_36"
+                ]
+            },
+            {
+                "name": "BB_25",
+                "start": "00001d1c",
+                "end": "00001d33",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_26"
+                ]
+            },
+            {
+                "name": "BB_26",
+                "start": "00001d34",
+                "end": "00001d37",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_36",
+                    "BB_27"
+                ]
+            },
+            {
+                "name": "BB_27",
+                "start": "00001d38",
+                "end": "00001d3b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_37",
+                    "BB_28"
+                ]
+            },
+            {
+                "name": "BB_28",
+                "start": "00001d3c",
+                "end": "00001d3f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_30",
+                    "BB_29"
+                ]
+            },
+            {
+                "name": "BB_29",
+                "start": "00001d40",
+                "end": "00001d6b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_30"
+                ]
+            },
+            {
+                "name": "BB_30",
+                "start": "00001d6c",
+                "end": "00001d6f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_33",
+                    "BB_31"
+                ]
+            },
+            {
+                "name": "BB_31",
+                "start": "00001d70",
+                "end": "00001d73",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_34",
+                    "BB_32"
+                ]
+            },
+            {
+                "name": "BB_32",
+                "start": "00001d74",
+                "end": "00001d77",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_33",
+                "start": "00001d78",
+                "end": "00001d97",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_32",
+                    "BB_34"
+                ]
+            },
+            {
+                "name": "BB_34",
+                "start": "00001d98",
+                "end": "00001da3",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            },
+            {
+                "name": "BB_35",
+                "start": "00001da4",
+                "end": "00001dbf",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_27",
+                    "BB_36"
+                ]
+            },
+            {
+                "name": "BB_36",
+                "start": "00001dc0",
+                "end": "00001e23",
+                "calls": [
+                    {
+                        "func": "00001e4c",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_28",
+                    "BB_37"
+                ]
+            },
+            {
+                "name": "BB_37",
+                "start": "00001e24",
+                "end": "00001e47",
+                "calls": [
+                    {
+                        "func": "00001e4c",
+                        "api": false,
+                        "api_type": null
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_29",
+                    "BB_38"
+                ]
+            },
+            {
+                "name": "BB_38",
+                "start": "00001e48",
+                "end": "00001e4b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_30"
+                ]
+            }
+        ]
+    },
+    "000004f0": {
+        "function": "000004f0",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "000004f0",
+                "end": "0000054f",
+                "calls": [
+                    {
+                        "func": "qsee_tlmm_get_gpio_id",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_2",
+                    "BB_1"
+                ]
+            },
+            {
+                "name": "BB_1",
+                "start": "00000550",
+                "end": "0000055b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_17"
+                ]
+            },
+            {
+                "name": "BB_2",
+                "start": "0000055c",
+                "end": "00000573",
+                "calls": [
+                    {
+                        "func": "qsee_tlmm_get_gpio_id",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_4",
+                    "BB_3"
+                ]
+            },
+            {
+                "name": "BB_3",
+                "start": "00000574",
+                "end": "0000057f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_17"
+                ]
+            },
+            {
+                "name": "BB_4",
+                "start": "00000580",
+                "end": "00000593",
+                "calls": [
+                    {
+                        "func": "qsee_tlmm_config_gpio_id",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_6",
+                    "BB_5"
+                ]
+            },
+            {
+                "name": "BB_5",
+                "start": "00000594",
+                "end": "0000059f",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_17"
+                ]
+            },
+            {
+                "name": "BB_6",
+                "start": "000005a0",
+                "end": "000005b3",
+                "calls": [
+                    {
+                        "func": "qsee_tlmm_config_gpio_id",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_8",
+                    "BB_7"
+                ]
+            },
+            {
+                "name": "BB_7",
+                "start": "000005b4",
+                "end": "000005bf",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_17"
+                ]
+            },
+            {
+                "name": "BB_8",
+                "start": "000005c0",
+                "end": "00000627",
+                "calls": [
+                    {
+                        "func": "qsee_get_intmask",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "qsee_disable_all_interrupts",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "qsee_tlmm_gpio_id_out",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "qsee_tlmm_gpio_id_out",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "qsee_spin",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "qsee_tlmm_gpio_id_out",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_9"
+                ]
+            },
+            {
+                "name": "BB_9",
+                "start": "00000628",
+                "end": "0000065f",
+                "calls": [
+                    {
+                        "func": "qsee_tlmm_gpio_id_out",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_11",
+                    "BB_10"
+                ]
+            },
+            {
+                "name": "BB_10",
+                "start": "00000660",
+                "end": "00000683",
+                "calls": [
+                    {
+                        "func": "qsee_spin",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "qsee_tlmm_gpio_id_out",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_12"
+                ]
+            },
+            {
+                "name": "BB_11",
+                "start": "00000684",
+                "end": "0000068b",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_12"
+                ]
+            },
+            {
+                "name": "BB_12",
+                "start": "0000068c",
+                "end": "0000069b",
+                "calls": [
+                    {
+                        "func": "qsee_spin",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_9",
+                    "BB_13"
+                ]
+            },
+            {
+                "name": "BB_13",
+                "start": "0000069c",
+                "end": "000006cb",
+                "calls": [
+                    {
+                        "func": "qsee_tlmm_gpio_id_out",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "qsee_tlmm_gpio_id_out",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "qsee_set_intmask",
+                        "api": true,
+                        "api_type": "tee"
+                    },
+                    {
+                        "func": "qsee_tlmm_release_gpio_id",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_15",
+                    "BB_14"
+                ]
+            },
+            {
+                "name": "BB_14",
+                "start": "000006cc",
+                "end": "000006d7",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_17"
+                ]
+            },
+            {
+                "name": "BB_15",
+                "start": "000006d8",
+                "end": "000006e3",
+                "calls": [
+                    {
+                        "func": "qsee_tlmm_release_gpio_id",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_18",
+                    "BB_16"
+                ]
+            },
+            {
+                "name": "BB_16",
+                "start": "000006e4",
+                "end": "000006eb",
+                "calls": [],
+                "svc": [],
+                "edges": [
+                    "BB_17"
+                ]
+            },
+            {
+                "name": "BB_17",
+                "start": "000006ec",
+                "end": "000006f7",
+                "calls": [
+                    {
+                        "func": "qsee_log",
+                        "api": true,
+                        "api_type": "tee"
+                    }
+                ],
+                "svc": [],
+                "edges": [
+                    "BB_18"
+                ]
+            },
+            {
+                "name": "BB_18",
+                "start": "000006f8",
+                "end": "00000717",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    },
+    "00001e4c": {
+        "function": "00001e4c",
+        "nodes": [
+            {
+                "name": "BB_0",
+                "start": "00001e4c",
+                "end": "00001e8b",
+                "calls": [],
+                "svc": [],
+                "edges": []
+            }
+        ]
+    }
+}

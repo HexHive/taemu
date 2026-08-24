@@ -28,7 +28,7 @@ in_path=`realpath $1`
 
 if [ -d "$in_path" ]; then
     harness="$in_path/harness.py"
-    ta=$(ls -1 "$in_path"/*.ta 2>/dev/null | head -n 1)
+    ta=$(ls -1 "$in_path"/*.ta "$in_path"/*.elf 2>/dev/null | head -n 1)
 
     fuzz_in="$in_path/in"
     fuzz_out="$in_path/out"
@@ -51,9 +51,13 @@ echo "Using fuzz output dir: $fuzz_out"
 chmod -R 777 "$fuzz_in"
 chmod -R 777 "$fuzz_out"
 
-ta_name="${ta::-3}"
+ta_name="${ta%.*}"
 cp -n "$ta" rootfs/
-cp -n "${ta_name}.json" rootfs/
+
+v1a="${ta%.*}.yml"
+v1b="${ta%.*}.json"
+
+cp "$v1a" "rootfs/" || cp "$v1b" "rootfs/" || { echo "File $v1a or $v1b not found" && exit 1; }
 
 if [ ! -z "$2" ]; then
     echo "Replaying seed $2 ..."

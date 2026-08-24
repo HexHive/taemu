@@ -17,6 +17,7 @@ def fixup_format(format_param):
     format_param = format_param.replace("%p", "0x%x")
     format_param = format_param.replace("%llu", "%u")
     format_param = format_param.replace("%zu", "%u")
+    format_param = format_param.replace("%zd", "%d")
     format_param = format_param.replace("%#zx", "%#x")
     return format_param
 
@@ -66,6 +67,7 @@ def parse_fmt_str(ql, format_param, final_params, func_name, arg=None):
             func_name == "TEE_LogPrintf"
             or func_name == "printf"
             or func_name == "msee_ta_printf_va"
+            or func_name == "qsee_printf"
         ):
             del params["format"]
         elif func_name == "snprintf":

@@ -1,0 +1,12 @@
+# environment variables:
+AFL_AUTORESUME=1
+AFL_CUSTOM_INFO_PROGRAM=python3
+AFL_CUSTOM_INFO_PROGRAM_ARGV=-m emulate --df_fuzz @@ --fuzz_harness /srv/qsee/harness/a985_fuzz/harness.py --df_seed /srv/qsee/harness/a985_fuzz/in/suspicious_inputs_replay/run:id:70ddf5d338f6b5e5e21a1327558a0244 --df_reg_hash 188493924073502636532453711942594252980 rootfs/A985D3EB-3B52-4D44-BE6C-628A813561E8.ta
+AFL_CUSTOM_INFO_OUT=/srv/qsee/harness/a985_fuzz/df_fuzz/run:id:70ddf5d338f6b5e5e21a1327558a0244_188493924073502636532453711942594252980/out/default
+AFL_FORKSRV_INIT_TMOUT=179999
+AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
+AFL_NO_AFFINITY=1
+AFL_SKIP_CPUFREQ=1
+AFL_NO_FASTRESUME=1
+# command line:
+'afl-fuzz' '-t' '5000' '-i' '/srv/qsee/harness/a985_fuzz/df_fuzz/run:id:70ddf5d338f6b5e5e21a1327558a0244_188493924073502636532453711942594252980/in' '-o' '/srv/qsee/harness/a985_fuzz/df_fuzz/run:id:70ddf5d338f6b5e5e21a1327558a0244_188493924073502636532453711942594252980/out' '-m' 'none' '-U' '--' 'python3' '-m' 'emulate' '--df_fuzz' '@@' '--fuzz_harness' '/srv/qsee/harness/a985_fuzz/harness.py' '--df_seed' '/srv/qsee/harness/a985_fuzz/in/suspicious_inputs_replay/run:id:70ddf5d338f6b5e5e21a1327558a0244' '--df_reg_hash' '188493924073502636532453711942594252980' 'rootfs/A985D3EB-3B52-4D44-BE6C-628A813561E8.ta'

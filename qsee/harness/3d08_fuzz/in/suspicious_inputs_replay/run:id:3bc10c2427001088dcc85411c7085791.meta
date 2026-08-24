@@ -1,0 +1,82 @@
+{
+    "key": "run:id:3bc10c2427001088dcc85411c7085791",
+    "meta": {
+        "last_accessed": 1768046797.656247
+    },
+    "updated_at": 1768046797.6864476,
+    "full_to_replay": false,
+    "records": [
+        {
+            "addr": 3149651968,
+            "size": 4,
+            "regs": {
+                "PC": 93824992387624,
+                "ret_addr": 93824992387588,
+                "ret_addr_offset": 156164,
+                "is_read": true,
+                "reg_hash": "254306138599132095241283650109271144286"
+            },
+            "is_second_fetch": false
+        },
+        {
+            "addr": 3149651972,
+            "size": 4,
+            "regs": {
+                "PC": 93824992387640,
+                "ret_addr": 93824992387588,
+                "ret_addr_offset": 156164,
+                "is_read": true,
+                "reg_hash": "37837138352592869389064326732907355491"
+            },
+            "is_second_fetch": false
+        },
+        {
+            "addr": 3149656068,
+            "size": 4,
+            "regs": {
+                "PC": 93824992387644,
+                "ret_addr": 93824992387588,
+                "ret_addr_offset": 156164,
+                "is_read": true,
+                "reg_hash": "155998278418741457956684320234547210080"
+            },
+            "is_second_fetch": false
+        },
+        {
+            "addr": 3149656064,
+            "size": 4,
+            "regs": {
+                "PC": 93824992374936,
+                "ret_addr": 93824992374660,
+                "ret_addr_offset": 143236,
+                "is_read": false,
+                "reg_hash": "267885718807498140712192691586816414364"
+            },
+            "is_second_fetch": false
+        },
+        {
+            "addr": 3149656068,
+            "size": 4,
+            "regs": {
+                "PC": 93824992374936,
+                "ret_addr": 93824992374660,
+                "ret_addr_offset": 143236,
+                "is_read": false,
+                "reg_hash": "267885718807498140712192691586816414364"
+            },
+            "is_second_fetch": true
+        },
+        {
+            "addr": 3149656064,
+            "size": 4,
+            "regs": {
+                "PC": 93824992388036,
+                "ret_addr": 93824992387988,
+                "ret_addr_offset": 156564,
+                "is_read": false,
+                "reg_hash": "273266353780378584939246459653028642534"
+            },
+            "is_second_fetch": true
+        }
+    ]
+}
