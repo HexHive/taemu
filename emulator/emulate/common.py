@@ -7,6 +7,9 @@ CRASH_PC = 0xDEADBEEF
 CRASH_PC_2 = 0xDEADBEEE
 NOTIMPL_PC = 0xCAFECAFE
 HEAP_MEM = 0xAAAAA000
+# sentinel PC the RETURN syscall handler jumps to so the AFL forkserver sees a
+# deterministic, non-TA exit address when a TA entry completes normally.
+AFL_EXIT_PC = 0x13370
 
 def have_overlaps(records: List[Record]) -> bool:
     # sweep line algorithm to check for duplicates
