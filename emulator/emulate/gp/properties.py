@@ -106,14 +106,14 @@ def TEE_GetPropertyAsUUID(ql: Qiling, hook_data):
         else:
             ql.log.error(f"\tunknown property {name}")
             if hook_data.emu.crash_on_not_implemented:
-                crash_notimpl(f"unknown property {name}")
+                crash_notimpl(ql, f"unknown property {name}")
                 return
             ql.emu_stop()
 
     else:
         ql.log.error(f"{func_name}: unknown property {para_propsetOrEnumerator}")
         if hook_data.emu.crash_on_not_implemented:
-            crash_notimpl(f"unknown property {para_propsetOrEnumerator}")
+            crash_notimpl(ql, f"unknown property {para_propsetOrEnumerator}")
             return
         ql.emu_stop()
 

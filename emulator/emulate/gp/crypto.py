@@ -291,7 +291,7 @@ def TEE_SetOperationKey(ql: Qiling, hook_data):
         else:
             ql.log.error(f"TEE_SetOperationKey: unknown op type {type(op)}")
             if hook_data.emu.crash_on_not_implemented:
-                crash_notimpl(f"TEE_SetOperationKey: unknown op type {type(op)}")
+                crash_notimpl(ql, f"TEE_SetOperationKey: unknown op type {type(op)}")
                 return
             ql.emu_stop()
     except unicorn.unicorn_py3.unicorn.UcError as e:

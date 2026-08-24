@@ -43,7 +43,11 @@ class Recorder:
         self.record_seed_dir = record_seed_dir
         self.record_meta_dir = record_meta_dir
         self._log = log or logging.getLogger(__name__)
-        self._log.info("[+] Recorder is enabled and working on queue: {}".format(self.q.queue_name))
+        self._log.info(
+            "[+] Recorder is enabled and working on queue: {}".format(
+                getattr(self.q, "queue_name", None)
+            )
+        )
         if not log:
             self._log.handlers = [logging.StreamHandler(sys.stdout)]
             # self._log.setLevel(logging.INFO)

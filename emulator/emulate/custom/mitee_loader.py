@@ -37,7 +37,10 @@ def mitee_read_relocs(ta_path:Path):
         )
         if not mtch:
             continue
-        out.append((mtch.group(3), int(mtch.group(1), 16)))
+        # group 3 is the relocation TYPE, group 4 the symbol name. Appending
+        # group 3 hooked every GLOB_DAT/ABS64 import under the literal name
+        # "R_AARCH64_GLOB_DAT", so none of them ever resolved to a model.
+        out.append((mtch.group(4), int(mtch.group(1), 16)))
     return out
 
 
