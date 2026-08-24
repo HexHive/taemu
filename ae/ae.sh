@@ -167,17 +167,30 @@ main() {
             log "removing ae/results and the ae_* working harnesses ..."
             run_in_controller "rm -rf '$AE_DIR/results' '$REPO_DIR'/*/harness/ae_e*_*"
             log "removing the fuzzing state of every harness ..."
-            # NOTE: only the *generated* parts of in/ are removed. This
-            # repository tracks curated seed corpora under */harness/*/in/
-            # (the AE snapshot this script came from had none), so wiping the
-            # whole directory would delete committed inputs.
-            run_in_controller "rm -rf \
-                '$REPO_DIR'/*/harness/*/in/suspicious_inputs \
-                '$REPO_DIR'/*/harness/*/in/suspicious_inputs_replay \
-                '$REPO_DIR'/*/harness/*/out \
-                '$REPO_DIR'/*/harness/*/df_fuzz '$REPO_DIR'/*/harness/*/record_meta \
-                '$REPO_DIR'/*/harness/*/logs"
-            run_in_controller "find '$REPO_DIR' -path '*/harness/*/in/run:id:*' -delete" 
+            # The AE snapshot this script came from tracked NOTHING under the
+            # harness in/, out/, df_fuzz/ and record_meta/ directories, so it
+            # could simply rm -rf them. This repository does: curated seed
+            # corpora, committed df_fuzz snapshots and out/cov coverage that
+            # arrived with the qsee and mitee work -- thousands of tracked
+            # files, including some under in/suspicious_inputs and out/default.
+            # There is therefore no safe static path list: the only correct
+            # rule is "delete what git does not track", so we use git clean,
+            # which leaves tracked files alone. If git is not usable we skip
+            # this step rather than risk deleting part of the repository.
+            run_in_controller "sh -c '
+                cd \"$REPO_DIR\" || exit 0
+                git config --global --add safe.directory \"$REPO_DIR\" 2>/dev/null
+                if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+                    for d in */harness/*/; do
+                        git clean -fdxq -- \"\$d\" 2>/dev/null || true
+                    done
+                else
+                    echo \"[ae] WARNING: not a usable git work tree -- leaving the\"
+                    echo \"[ae]          harness fuzzing state in place. Removing it\"
+                    echo \"[ae]          blindly would delete tracked files of this\"
+                    echo \"[ae]          repository (committed corpora and campaign\"
+                    echo \"[ae]          data). Remove it by hand if you need to.\"
+                fi'"
             # Droppings outside the harnesses: the TA copies fuzz.sh leaves in
             # emulator/rootfs (the loader stubs there are tracked and stay),
             # the secure-storage objects a TA created, the coverage file list
