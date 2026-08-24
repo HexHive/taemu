@@ -189,6 +189,7 @@ class Recorder:
 
     def _trigger_batch_processing(self):
         with self._batch_lock:
+            self._dump_info()
             if self._batch_processing or not self._batch_items:
                 return
             self._batch_processing = True
@@ -200,7 +201,6 @@ class Recorder:
         def batch_worker():
             try:
                 self._batch_process_items(items_to_process)
-                self._dump_info()
             finally:
                 with self._batch_lock:
                     self._batch_processing = False
