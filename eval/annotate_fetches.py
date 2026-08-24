@@ -1,32 +1,49 @@
 import argparse
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures.process import BrokenProcessPool
 from tqdm import tqdm
 import os
 import json
 
+import taemu_env
 
-def get_all_suspicious_inputs(path="/root/TA_GP_emulator"):
+
+# Which recording directories to annotate. "suspicious_inputs_replay" holds the
+# deduplicated seeds that Fetch-Anchored Fuzzing works on; "suspicious_inputs"
+# holds every input the recorder flagged during Exploration and is needed to
+# count the *raw* number of overlapped fetches (Table I, column 4).
+DIRS = {
+    "replay": ["suspicious_inputs_replay/"],
+    "raw": ["suspicious_inputs/"],
+    "both": ["suspicious_inputs_replay/", "suspicious_inputs/"],
+}
+
+
+def get_all_suspicious_inputs(path=None, dirs="replay"):
+    path = path or taemu_env.repo_root()
+    wanted = DIRS[dirs]
     suspicious_inputs = []
-    for root, dirs, files in os.walk(path):
+    for root, _, files in os.walk(path):
         for file in files:
-            path = os.path.join(root, file)
-            if "suspicious_inputs_replay/" in path:
-                suspicious_inputs.append(path)
+            p = os.path.join(root, file)
+            if any(w in p for w in wanted):
+                suspicious_inputs.append(p)
     return suspicious_inputs
 
 def group_pair(suspicious_input_paths):
     grouped_inputs = {}
     for path in suspicious_input_paths:
-        base_dir = os.path.dirname(path).replace("suspicious_inputs_replay", "")
+        base_dir = os.path.dirname(path)
+        base_dir = base_dir.replace("suspicious_inputs_replay", "").replace(
+            "suspicious_inputs", "")
         if base_dir not in grouped_inputs:
             grouped_inputs[base_dir] = []
         grouped_inputs[base_dir].append(path)
     return grouped_inputs
 
 def validate(args):
-    if os.path.exists("/.dockerenv"):
-        print("[-] ERROR! Please run annotate_fetches.py outside of the emulator container")
-        exit(3)
+    # annotate_fetches only rewrites .meta files, no docker needed
+    return
 
 class Accesses:
     def __init__(self):
@@ -54,14 +71,14 @@ def annotate_dfs(meta_data):
             meta_data["records"][i]["is_second_fetch"] = False
     return meta_data, fetches
 
-def handle_in(in_path):
-    sus_path = os.path.join(in_path, "suspicious_inputs_replay")
-    if not os.path.exists(sus_path):
-        return 0
+def handle_in(in_path, dirs="replay"):
     all_dfs = 0
-    for meta in [f for f in os.listdir(sus_path) if f.endswith(".meta")]:
-        meta_path = os.path.join(sus_path, meta)
-        all_dfs += handle_meta(meta_path)
+    for sub in DIRS[dirs]:
+        sus_path = os.path.join(in_path, sub.rstrip("/"))
+        if not os.path.exists(sus_path):
+            continue
+        for meta in [f for f in os.listdir(sus_path) if f.endswith(".meta")]:
+            all_dfs += handle_meta(os.path.join(sus_path, meta))
     return all_dfs
 
 def handle_meta(meta_path):
@@ -81,26 +98,61 @@ def handle_meta(meta_path):
         return 0
     return fetches
 
-def main(in_paths):
+def main(in_paths, dirs="replay"):
+    """Annotate every recording, one worker process per recording directory.
+
+    A worker holds one .meta file at a time, so it is cheap - but the pool used
+    to default to os.cpu_count() workers regardless of how much memory the
+    machine has, and a killed child surfaces only as BrokenProcessPool. Size it
+    from the machine, and finish the rest here if a worker does get killed.
+
+    handle_in catches its own exceptions and returns 0, so reaching the
+    fallback means a worker was *killed*, not that a recording was malformed.
+    """
+    todo = list(in_paths)
+    workers = taemu_env.pool_workers(
+        per_worker_mb=int(os.environ.get("AE_ANNOTATE_WORKER_MB") or 256),
+        n_items=len(todo),
+        env_var="AE_ANNOTATE_WORKERS",
+    )
     results = []
-    with ProcessPoolExecutor() as pool:
-        futures = [pool.submit(handle_in, x) for x in in_paths]
-        for f in tqdm(as_completed(futures), total=len(futures)):
-            results.append(f.result())
+    done = set()
+    if workers > 1 and todo:
+        try:
+            with ProcessPoolExecutor(max_workers=workers) as pool:
+                futures = {pool.submit(handle_in, x, dirs): x for x in todo}
+                for f in tqdm(as_completed(futures), total=len(futures)):
+                    results.append(f.result())
+                    done.add(futures[f])
+        except BrokenProcessPool:
+            print(f"[-] an annotation worker was killed (out of memory?): "
+                  f"{taemu_env.available_mb()} MB available for {workers} "
+                  f"workers. Annotating the rest in this process; set "
+                  f"AE_ANNOTATE_WORKERS to pin the pool size.")
+
+    pending = [x for x in todo if x not in done]
+    if pending and done:
+        print(f"[-] {len(pending)} recordings left to annotate serially")
+    for x in tqdm(pending, disable=not done):
+        results.append(handle_in(x, dirs))
+    print(f"[+] annotated overlapped fetches: {sum(results)}")
+    return sum(results)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--path", type=str, default="/root/TA_GP_emulator")
+    parser.add_argument("--path", type=str, default=taemu_env.repo_root())
     parser.add_argument("--tee", type=str, default="all")
     parser.add_argument("--single", type=str, required=False)
+    parser.add_argument(
+        "--dirs",
+        choices=sorted(DIRS.keys()),
+        default="replay",
+        help="which recording directories to annotate (default: replay)",
+    )
     
     args = parser.parse_args()
     
-    
-    if "eval" in os.getcwd() or "TA_GP_emulator" not in os.getcwd():
-        print(f"[-] Please run annotate_fetches.py at /{os.getlogin()}/TA_GP_emulator")
-        exit(1)
     
     print(
         "[+] Processing path: {} annotaing double fetches".format(
@@ -109,11 +161,11 @@ if __name__ == "__main__":
     )
     validate(args)
     if args.single:
-        print(handle_in(args.single))
+        print(handle_in(args.single, args.dirs))
         exit(0)
 
-    suspicious_input_paths = get_all_suspicious_inputs(args.path)
+    suspicious_input_paths = get_all_suspicious_inputs(args.path, args.dirs)
     grouped_inputs = group_pair(suspicious_input_paths)
     if args.tee != "all":
         grouped_inputs = {k: v for k, v in grouped_inputs.items() if args.tee in k}
-    main(grouped_inputs.keys())
+    main(grouped_inputs.keys(), args.dirs)

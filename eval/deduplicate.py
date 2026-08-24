@@ -17,6 +17,7 @@ import struct
 import time
 import tqdm
 import aiofiles
+import taemu_env
 from graphs.common import parse_drcov
 from graphs.common import BB
 
@@ -30,11 +31,14 @@ MODULE_HEADER_V2_RE = (
 BB_HEADER_RE = r"BB Table: (?P<bbcount>\d+) bbs\n"
 
 
-def get_all_suspicious_inputs(path="/root/TA_GP_emulator"):
+def get_all_suspicious_inputs(path=None):
+    path = path or taemu_env.repo_root()
     suspicious_inputs = []
     for root, dirs, files in os.walk(path):
         for file in files:
             path = os.path.join(root, file)
+            # harness_dev/ holds work-in-progress harnesses that are not part
+            # of a campaign; keep them out of deduplication.
             if "suspicious_inputs/" in path and "harness_dev" not in path:
                 suspicious_inputs.append(path)
     return suspicious_inputs
@@ -56,7 +60,7 @@ def del_duplicate(meta_path):
 
 def calc_bbs_and_do_deduplication(ta_dir, coverage_path, enable_del=False):
     pattern = re.compile(
-        r"TA_GP_emulator/(?P<tee>[^/]+)/harness/(?P<group_name>[^/]+)/out/cov"
+        r"/(?P<tee>[^/]+)/harness/(?P<group_name>[^/]+)/out/cov"
     )
     hash_bbs = set()
     same_cov_collection = {}
@@ -105,7 +109,7 @@ def calc_bbs_and_do_deduplication(ta_dir, coverage_path, enable_del=False):
 
 async def async_replay(ta_dir, input_path, container_id):
     proc = await asyncio.create_subprocess_shell(
-        f'docker exec emu_{container_id} ./replay_sus.sh {ta_dir.replace("/root/TA_GP_emulator/", "../")} {input_path.replace("/root/TA_GP_emulator/", "../")}',
+        f'docker exec {taemu_env.emu_name(container_id)} ./replay_sus.sh {taemu_env.to_emulator_rel(ta_dir)} {taemu_env.to_emulator_rel(input_path)}',
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
@@ -132,22 +136,26 @@ async def coverage_based_deduplicate(
     results = []
     one_group_inputs = [item for item in one_group_inputs if not item.endswith(".meta")]
 
-    reuse_ratio = 1  # number of replays who reuse the same container [for stability]
-    batch_size = num_replay_containers * reuse_ratio
-    for i in tqdm.tqdm(
-        range(0, len(one_group_inputs), batch_size), desc=f"[^] Replaying {group_dir}:"
-    ):
-        if i != 0:
-            await asyncio.sleep(5)
-        batch = one_group_inputs[i : min(i + batch_size, len(one_group_inputs))]
-        print(
-            f"[+] {time.strftime('%Y-%m-%d %H:%M:%S')} Replaying {i} -> {min(i + len(batch), len(one_group_inputs))} inputs under {group_dir}\n"
-        )
-        tasks = [
-            async_replay(group_dir, input_path, (i + j) % num_replay_containers)
-            for j, input_path in enumerate(batch)
-        ]
-        results.extend(await asyncio.gather(*tasks, return_exceptions=True))
+    # Every worker container is kept busy: a container is handed to the next
+    # input as soon as it is free. This used to run in barriered batches with a
+    # fixed 5 s sleep between them, so with N containers and M inputs it spent
+    # M/N * 5 s doing nothing and idled whenever one replay in a batch was slow.
+    free = asyncio.Queue()
+    for cid in range(num_replay_containers):
+        free.put_nowait(cid)
+
+    async def replay_one(input_path):
+        cid = await free.get()
+        try:
+            return await async_replay(group_dir, input_path, cid)
+        finally:
+            free.put_nowait(cid)
+
+    print(f"[+] replaying {len(one_group_inputs)} inputs on "
+          f"{num_replay_containers} containers under {group_dir}")
+    results = await asyncio.gather(
+        *(replay_one(p) for p in one_group_inputs), return_exceptions=True
+    )
 
     if True in results:
         calc_bbs_and_do_deduplication(
@@ -225,16 +233,19 @@ def shut_down(num_replay_containers, mode):
     if mode == "coverage":
         print("[+] Stopping emulator container")
         for i in range(num_replay_containers):
-            subprocess.run(f"docker stop emu_{i}", shell=True)
-            subprocess.run(f"docker rm emu_{i}", shell=True)
+            subprocess.run(f"docker stop {taemu_env.emu_name(i)}", shell=True)
+            subprocess.run(f"docker rm {taemu_env.emu_name(i)}", shell=True)
         print("[+] Emulator containers stopped")
 
-        print("[+] Stopping Redis container")
-        subprocess.run("docker stop ta_emulator_redis_ui", shell=True)
-        subprocess.run("docker rm ta_emulator_redis_ui", shell=True)
-        subprocess.run("docker stop ta_emulator_redis", shell=True)
-        subprocess.run("docker rm ta_emulator_redis", shell=True)
-        print("[+] Redis container stopped")
+        if os.environ.get("TAEMU_KEEP_REDIS"):
+            print("[+] Leaving the redis container running (TAEMU_KEEP_REDIS)")
+        else:
+            print("[+] Stopping Redis container")
+            subprocess.run("docker stop ta_emulator_redis_ui", shell=True)
+            subprocess.run("docker rm ta_emulator_redis_ui", shell=True)
+            subprocess.run("docker stop ta_emulator_redis", shell=True)
+            subprocess.run("docker rm ta_emulator_redis", shell=True)
+            print("[+] Redis container stopped")
         exit(0)
 
 
@@ -258,23 +269,21 @@ async def main(mode, grouped_inputs, enable_del=False, num_replay_containers=10)
 
 
 def validate(args):
-    if os.path.exists("/.dockerenv"):
-        print("[-] ERROR! Please run deduplicate.py outside of the emulator container")
-        exit(3)
+    taemu_env.require_docker()
 
     if args.mode == "coverage":
-        ps = subprocess.run("docker ps", shell=True, capture_output=True)
-        if "redis" not in str(ps.stdout):
+        if not taemu_env.redis_container_running():
             print("[-] Redis container is not running")
             print("[-] Do you want to launch the Redis container and continue? (y/N)")
             reply = input().lower()
             if reply == "y":
                 subprocess.run(
-                    "docker compose -f docker-compose.redis.yml up -d", shell=True
+                    f"docker compose -f {os.path.join(taemu_env.repo_root(), 'docker-compose.redis.yml')} up -d",
+                    shell=True,
                 )
             else:
                 print("[-] Exiting...")
-        if "emu_" not in str(ps.stdout):
+        if not taemu_env.emulator_containers_running():
             print("[-] Coverage mode is not supported with emulator container")
             print(
                 "[-] Do you want to launch the emulator container and continue? (y/N)"
@@ -282,10 +291,13 @@ def validate(args):
             reply = input().lower()
             if reply == "y":
                 for i in range(args.num_replay_containers):
-                    subprocess.run(
-                        f"docker run -d --name emu_{i} --network host -it -v .:/srv -w /srv/emulator -v /dev/shm:/dev/shm --ipc=host --shm-size=100g ta_emu bash &>/dev/null",
-                        shell=True,
+                    r = subprocess.run(
+                        taemu_env.emulator_container_cmd(taemu_env.emu_name(i)),
+                        shell=True, capture_output=True,
                     )
+                    if r.returncode != 0:
+                        print(f"[-] could not start {taemu_env.emu_name(i)}: "
+                              f"{r.stderr.decode(errors='replace').strip()}")
             else:
                 print("[-] Exiting...")
                 exit(2)
@@ -295,7 +307,7 @@ def validate(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--path", type=str, default="/root/TA_GP_emulator")
+    parser.add_argument("--path", type=str, default=taemu_env.repo_root())
     parser.add_argument("--tee", type=str, default="all")
     parser.add_argument("--enable-del", action="store_true", default=False)
     parser.add_argument("--non-conservative", action="store_true", default=False)
@@ -315,10 +327,6 @@ if __name__ == "__main__":
         signal.SIGTERM,
         lambda signal, frame: shut_down(args.num_replay_containers, args.mode),
     )
-
-    if "eval" in os.getcwd() or "TA_GP_emulator" not in os.getcwd():
-        print(f"[-] Please run deduplicate.py at /{os.getlogin()}/TA_GP_emulator")
-        exit(1)
 
     print(
         "[+] Processing path: {} on {}-based deduplication mode with {}conservative type and {}del type".format(

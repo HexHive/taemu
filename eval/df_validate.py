@@ -17,8 +17,11 @@ import time
 import tqdm
 import aiofiles
 
+import taemu_env
 
-def get_all_crashes(path="/root/TA_GP_emulator"):
+
+def get_all_crashes(path=None):
+    path = path or taemu_env.repo_root()
     df_crashes = []
     invalid_exits = []
     for root, dirs, files in os.walk(path):
@@ -58,7 +61,7 @@ def reg_hash_from_crash(ta_dir, df_fuzz_crash):
 
 async def async_validate(ta_dir, df_fuzz_crash, df_seed, reg_hash, container_id):
     proc = await asyncio.create_subprocess_shell(
-        f'docker exec emu_{container_id} ./df_validate.sh {ta_dir.replace("/root/TA_GP_emulator/", "../")} {df_seed.replace("/root/TA_GP_emulator/", "../")} {reg_hash} {df_fuzz_crash.replace("/root/TA_GP_emulator", "../")}',
+        f'docker exec {taemu_env.emu_name(container_id)} ./df_validate.sh {taemu_env.to_emulator_rel(ta_dir)} {taemu_env.to_emulator_rel(df_seed)} {reg_hash} {taemu_env.to_emulator_rel(df_fuzz_crash)}',
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
@@ -81,22 +84,25 @@ async def validate_df_crashes(group_dir, one_group_inputs, num_replay_containers
     results = []
     one_group_inputs = [item for item in one_group_inputs]
     
-    reuse_ratio = 1 # number of replays who reuse the same container [for stability]
-    batch_size = num_replay_containers * reuse_ratio 
-    for i in tqdm.tqdm(range(0, len(one_group_inputs), batch_size), desc=f"[^] Validating {ta_dir}:"):
-        if i != 0:
-            await asyncio.sleep(5)
-        batch = one_group_inputs[i:min(i + batch_size, len(one_group_inputs))]
-        print(batch)
-        print(f"[+] {time.strftime('%Y-%m-%d %H:%M:%S')} Replaying {i} -> {min(i + len(batch), len(one_group_inputs))} inputs under {group_dir}\n")
-        for df_fuzz_crash in batch:
-            df_seed = df_seed_from_crash(ta_dir, df_fuzz_crash)
-            reg_hash = reg_hash_from_crash(ta_dir, df_fuzz_crash)
-            if df_seed is None or reg_hash is None:
-                print("WHYYYYYYYYYYY", ta_dir, df_fuzz_crash)
-            print(f'docker exec emu ./df_validate.sh {ta_dir.replace("/root/TA_GP_emulator/", "../")} {df_seed.replace("/root/TA_GP_emulator/", "../")} {reg_hash} {df_fuzz_crash.replace("/root/TA_GP_emulator", "../")}')
-        tasks = [async_validate(ta_dir, arg, df_seed_from_crash(ta_dir, arg), reg_hash_from_crash(ta_dir, arg), (i + j) % num_replay_containers) for j, arg in enumerate(batch)]
-        results.extend(await asyncio.gather(*tasks, return_exceptions=True))
+    # Same as in deduplicate.py: keep every container busy instead of running
+    # barriered batches with a fixed sleep in between.
+    free = asyncio.Queue()
+    for cid in range(num_replay_containers):
+        free.put_nowait(cid)
+
+    async def validate_one(crash):
+        cid = await free.get()
+        try:
+            return await async_validate(ta_dir, crash, df_seed_from_crash(ta_dir, crash),
+                                        reg_hash_from_crash(ta_dir, crash), cid)
+        finally:
+            free.put_nowait(cid)
+
+    print(f"[+] validating {len(one_group_inputs)} crashes on "
+          f"{num_replay_containers} containers under {group_dir}")
+    results = await asyncio.gather(
+        *(validate_one(c) for c in one_group_inputs), return_exceptions=True
+    )
 
 async def async_read_records(path, conservative=True):
     try:
@@ -125,8 +131,8 @@ def group_pair(df_crashes_paths):
 def shut_down(num_replay_containers):
     print("[+] Stopping emulator container")
     for i in range(num_replay_containers):
-        subprocess.run(f"docker stop emu_{i}", shell=True)
-        subprocess.run(f"docker rm emu_{i}", shell=True)
+        subprocess.run(f"docker stop {taemu_env.emu_name(i)}", shell=True)
+        subprocess.run(f"docker rm {taemu_env.emu_name(i)}", shell=True)
     print("[+] Emulator containers stopped")
     
     exit(0)
@@ -139,12 +145,9 @@ async def main(grouped_inputs, num_replay_containers=10):
 
 
 def validate(args):
-    if os.path.exists("/.dockerenv"):
-        print("[-] ERROR! Please run deduplicate.py outside of the emulator container")
-        exit(3)
+    taemu_env.require_docker()
 
-    ps = subprocess.run("docker ps", shell=True, capture_output=True)
-    if "emu_" not in str(ps.stdout):
+    if not taemu_env.emulator_containers_running():
         print("[-] Coverage mode is not supported with emulator container")
         print(
             "[-] Do you want to launch the emulator container and continue? (y/N)"
@@ -152,10 +155,13 @@ def validate(args):
         reply = input().lower()
         if reply == "y":
             for i in range(args.num_replay_containers):
-                subprocess.run(
-                    f"docker run -d --name emu_{i} --network host -it -v .:/srv -w /srv/emulator -v /dev/shm:/dev/shm --ipc=host --shm-size=100g ta_emu bash &>/dev/null",
-                    shell=True,
+                r = subprocess.run(
+                    taemu_env.emulator_container_cmd(taemu_env.emu_name(i)),
+                    shell=True, capture_output=True,
                 )
+                if r.returncode != 0:
+                    print(f"[-] could not start {taemu_env.emu_name(i)}: "
+                          f"{r.stderr.decode(errors='replace').strip()}")
         else:
             print("[-] Exiting...")
             exit(2)
@@ -165,7 +171,7 @@ def validate(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--path", type=str, default="/root/TA_GP_emulator")
+    parser.add_argument("--path", type=str, default=taemu_env.repo_root())
     parser.add_argument("--tee", type=str, default="all")
     parser.add_argument("--num-replay-containers", type=int, default=20)
     
@@ -173,10 +179,6 @@ if __name__ == "__main__":
     
     signal.signal(signal.SIGINT, lambda signal, frame: shut_down(args.num_replay_containers))
     signal.signal(signal.SIGTERM, lambda signal, frame: shut_down(args.num_replay_containers))
-    
-    if "eval" in os.getcwd() or "TA_GP_emulator" not in os.getcwd():
-        print(f"[-] Please run deduplicate.py at /{os.getlogin()}/TA_GP_emulator")
-        exit(1)
     
     validate(args)
 
