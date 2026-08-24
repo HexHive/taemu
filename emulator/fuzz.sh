@@ -23,6 +23,14 @@ if [ -z "$1" ]; then
 fi
 
 
+# The redis-backed recorder is what writes in/suspicious_inputs -- i.e. the
+# double fetches Exploration is supposed to find. The qsee work hard-coded
+# --disable-redis into every emulate invocation below, which silently switched
+# detection off for every TEE (E1/E3 of the artifact then report 0 double
+# fetches). Keep it opt-in via TAEMU_DISABLE_REDIS=1.
+redis_arg=()
+[ -n "${TAEMU_DISABLE_REDIS:-}" ] && redis_arg=(--disable-redis)
+
 if [ ! -f /.dockerenv ]; then
     echo "Not running inside emulator Docker. Execute ./run-docker.sh first."
     exit 1
@@ -183,18 +191,18 @@ if [ -z "$replay_seed" ]; then
         outer_fuzztime=$((FUZZTIME + FUZZTIME_GRACE))
         timeout -k "$FUZZTIME_GRACE" "$outer_fuzztime" \
             afl-fuzz -V "$FUZZTIME" -t "$FUZZ_TIMEOUT" -i "$fuzz_in" -o "$fuzz_out" -m none -U "${info_arg[@]}" -- \
-            python3 -m emulate --use-cache --disable-redis --fuzz @@ --fuzz_harness "$harness" "rootfs/$(basename "$ta")" "${log_arg[@]}"
+            python3 -m emulate --use-cache "${redis_arg[@]}" --fuzz @@ --fuzz_harness "$harness" "rootfs/$(basename "$ta")" "${log_arg[@]}"
     else
         afl-fuzz -t "$FUZZ_TIMEOUT" -i "$fuzz_in" -o "$fuzz_out" -m none -U "${info_arg[@]}" -- \
-            python3 -m emulate --use-cache --disable-redis --fuzz @@ --fuzz_harness "$harness" "rootfs/$(basename "$ta")" "${log_arg[@]}"
+            python3 -m emulate --use-cache "${redis_arg[@]}" --fuzz @@ --fuzz_harness "$harness" "rootfs/$(basename "$ta")" "${log_arg[@]}"
     fi
 else 
     echo "Replaying seed $replay_seed ..."
     if [ -d "$in_path" ]; then
         # swap these when you want to attach gdb to triage
         #python3 -m emulate "${replay_args[@]}" --gdb --fuzz_replay "$replay_seed" --fuzz_harness "$harness" "rootfs/$(basename "$ta")"
-        python3 -m emulate "${replay_args[@]}" --use-cache --disable-redis --fuzz_replay "$replay_seed" --fuzz_harness "$harness" "rootfs/$(basename "$ta")"
+        python3 -m emulate "${replay_args[@]}" --use-cache "${redis_arg[@]}" --fuzz_replay "$replay_seed" --fuzz_harness "$harness" "rootfs/$(basename "$ta")"
     else
-        python3 -m emulate "${replay_args[@]}" --use-cache --disable-redis --fuzz_replay "$replay_seed" "rootfs/$(basename "$ta")"
+        python3 -m emulate "${replay_args[@]}" --use-cache "${redis_arg[@]}" --fuzz_replay "$replay_seed" "rootfs/$(basename "$ta")"
     fi
 fi
