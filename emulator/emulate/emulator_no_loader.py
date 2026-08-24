@@ -296,6 +296,9 @@ def hook_ta_dl(
                 perm = UC_PROT_READ | UC_PROT_WRITE
             offset = start - orig_base
             ql.mem.map(curr_base + offset, size, perm, "libscrypto.so")
+            # the mapping above is empty; copy the segment's actual bytes in,
+            # otherwise every call into libscrypto executes zeroed memory
+            ql.mem.write(curr_base + offset, bytes(ql2.mem.read(start, size)))
         print(ql.mem.get_mapinfo())
         # handle relocations of libscrypto.so
         lib_elf = ELF(lib_path)
