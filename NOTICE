@@ -1,0 +1,85 @@
+Oversharing — third-party components and licensing scope
+========================================================
+
+The MIT license in `LICENSE` covers the work of the authors of this artifact:
+
+    ae/            emulator/       eval/       ghidra/
+    optee_shm_patch/*.patch        */harness/*/harness.py
+    */pocs/*                       Dockerfile, docker-compose.redis.yml,
+                                   statistics.sh, unicornafl.py
+
+It explicitly permits use, modification and redistribution, including use of
+ScHMuzz and of the harnesses as a baseline for comparison in other work.
+
+Everything listed below is **not** ours to license and is **not** covered by
+the MIT license. It is redistributed here only so that the results of the
+paper can be reproduced and compared against.
+
+--------------------------------------------------------------------------
+1. Trusted Application binaries — proprietary, all rights reserved
+--------------------------------------------------------------------------
+
+    teegris/tas/*.ta        Samsung TEEGris TAs
+    qsee/tas/*.ta           Qualcomm QSEE TAs
+    mitee/tas/*.ta          Xiaomi MiTEE TAs
+    beanpod/tas/*.ta        Beanpod TAs and Trustonic Kinibi TAs
+                            (Kinibi TAs run on the Beanpod runtime, so their
+                             binaries live in beanpod/tas)
+
+    emulator/rootfs/ld.so.1, emulator/rootfs/lib64/*.so,
+    emulator/rootfs/rom/libld-l4.so
+                            loader and runtime stubs from the same firmware,
+                            needed to load the TAs in the emulator
+
+These are unmodified binaries extracted from publicly distributed vendor
+firmware images (the exact images are recorded in `<tee>/README.md`). They
+remain the property of their respective vendors and are included solely as the
+research subject of the paper — the dataset of Table I. They carry no license
+from us; we make no claim to them and grant no rights in them. Redistribute
+them only if your jurisdiction and your own assessment allow it.
+
+The accompanying `<tee>/tas/*.json` (entry-point offsets) and
+`<tee>/tas/bbs/bb_*.json` (basic-block CFGs from `ghidra/`) are analysis
+results produced by us and are MIT-licensed.
+
+--------------------------------------------------------------------------
+2. OP-TEE Rust TAs (Section VI, Table IV) — open source
+--------------------------------------------------------------------------
+
+    optee/tas/*.ta          built binaries of third-party open-source TAs
+
+    133af0ca-…  message_passing_interface-rs  ) Apache License 2.0,
+    17556a46-…  udp/tcp_client-rs             ) apache/incubator-teaclave-
+    ff09aa8a-…  mnist-rs                      ) trustzone-sdk
+    be2dc9a0-…  eth_wallet                    )
+    59db8536-…  Bitcoin-Wallet-for-Trusted-OS-OPTEE (see upstream repository)
+
+They are governed by their upstream licenses, not by ours.
+
+--------------------------------------------------------------------------
+3. Vendored / patched third-party code
+--------------------------------------------------------------------------
+
+    emulator/qiling.diff        a patch against the Qiling Framework
+                                (github.com/qilingframework/qiling, GPL-2.0).
+                                The patch is applied to an upstream checkout
+                                at docker build time; Qiling itself is not
+                                redistributed here.
+
+    optee_shm_patch/*.patch     patches against OP-TEE (optee_os and
+                                optee_examples, BSD-2-Clause). The patched
+                                files remain under OP-TEE's license.
+
+    unicornafl.py               a drop-in replacement for the AFL++ unicornafl
+                                Python binding (AFLplusplus, Apache-2.0).
+
+    appendix/IEEEtran.cls       IEEEtran LaTeX class by Michael Shell,
+                                LaTeX Project Public License.
+
+--------------------------------------------------------------------------
+4. Pulled at docker build time, never redistributed
+--------------------------------------------------------------------------
+
+    ubuntu:jammy, redis:7-alpine, aflplusplus/aflplusplus:v4.32c,
+    vanhauser-thc/drcov-merge, bata24/gef, and the PyPI packages in
+    emulator/requirements.txt and ae/Dockerfile — each under its own license.
