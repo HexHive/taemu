@@ -167,10 +167,17 @@ main() {
             log "removing ae/results and the ae_* working harnesses ..."
             run_in_controller "rm -rf '$AE_DIR/results' '$REPO_DIR'/*/harness/ae_e*_*"
             log "removing the fuzzing state of every harness ..."
+            # NOTE: only the *generated* parts of in/ are removed. This
+            # repository tracks curated seed corpora under */harness/*/in/
+            # (the AE snapshot this script came from had none), so wiping the
+            # whole directory would delete committed inputs.
             run_in_controller "rm -rf \
-                '$REPO_DIR'/*/harness/*/in '$REPO_DIR'/*/harness/*/out \
+                '$REPO_DIR'/*/harness/*/in/suspicious_inputs \
+                '$REPO_DIR'/*/harness/*/in/suspicious_inputs_replay \
+                '$REPO_DIR'/*/harness/*/out \
                 '$REPO_DIR'/*/harness/*/df_fuzz '$REPO_DIR'/*/harness/*/record_meta \
                 '$REPO_DIR'/*/harness/*/logs"
+            run_in_controller "find '$REPO_DIR' -path '*/harness/*/in/run:id:*' -delete" 
             # Droppings outside the harnesses: the TA copies fuzz.sh leaves in
             # emulator/rootfs (the loader stubs there are tracked and stay),
             # the secure-storage objects a TA created, the coverage file list

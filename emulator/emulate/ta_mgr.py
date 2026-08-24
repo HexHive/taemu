@@ -854,13 +854,16 @@ class TAEMU:
                     + d[8:]
                 ).hex()
                 self.ql.log.debug(f"TEEC_OpenSession from uuid {uuid}")
-                if "-" in self.ta_path:
-                    if uuid != self.ta_path.replace("-", "").split("/")[-1][:-3] and uuid != self.ta_path.replace("-", "").split("/")[-1][:-3].lower():
+                # self.ta_path is a pathlib.Path since the qsee work; these
+                # comparisons are textual, so operate on its string form.
+                ta_path_s = str(self.ta_path)
+                if "-" in ta_path_s:
+                    if uuid != ta_path_s.replace("-", "").split("/")[-1][:-3] and uuid != ta_path_s.replace("-", "").split("/")[-1][:-3].lower():
                         self.ql.log.error(f"Inconsistent TA name!")
                         sock.close()
                         return
                 else:
-                    if uuid != self.ta_path.split("/")[-1][:-3] and uuid != self.ta_path.split("/")[-1][:-3].lower():
+                    if uuid != ta_path_s.split("/")[-1][:-3] and uuid != ta_path_s.split("/")[-1][:-3].lower():
                         self.ql.log.error(f"Inconsistent TA name!")
                         sock.close()
                         exit(-1)
