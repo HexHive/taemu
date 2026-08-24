@@ -12,6 +12,7 @@ from tqdm import tqdm
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures.process import BrokenProcessPool
 from typing import Optional, Callable
 import os
 import sys
@@ -88,24 +89,68 @@ def _worker(fuzzing_info: FuzzingInfo):
         "not_in_cfg": not_in_cfg_bbs
     }
 
+def _apply(fi: FuzzingInfo, res):
+    """Fold one worker result back into its FuzzingInfo.
+
+    max_nodes is *accumulated*, so this must run exactly once per
+    FuzzingInfo - see the bookkeeping in parse_unique_bbs.
+    """
+    fi.accumulated_cov_bbs = res['accumulated_cov_bbs']
+    fi.unique_cov_bbs_distribution = res['unique_cov_bbs_distribution']
+    fi.raw_bbs = res['raw_bbs']
+    fi.not_in_cfg_bbs = res['not_in_cfg']
+    fi.raw_covs.max_nodes += len(fi.not_in_cfg_bbs)
+
+
 def parse_unique_bbs(fuzzing_info_list: List[FuzzingInfo]):
-    with ProcessPoolExecutor(max_workers=50) as ex:
-        futures = {
-            ex.submit(_worker, fuzzing_info): fuzzing_info for fuzzing_info in fuzzing_info_list
-        }
-        for fut in tqdm(
-            as_completed(futures),
-            total=len(fuzzing_info_list),
-            desc="Parsing unique bbs for each TA",
-        ):
-            fi = futures[fut]
-            res = fut.result()
-            fi.accumulated_cov_bbs = res['accumulated_cov_bbs']
-            fi.unique_cov_bbs_distribution = res['unique_cov_bbs_distribution']
-            fi.raw_bbs = res['raw_bbs']
-            fi.not_in_cfg_bbs = res['not_in_cfg']
-            fi.raw_covs.max_nodes += len(fi.not_in_cfg_bbs)
-            #_ = fut.result()
+    """Parse the coverage of every TA, one worker process per TA.
+
+    A worker is handed a pickled FuzzingInfo (which carries the TA's CFG) and
+    materialises a BB object per basic block per coverage file, so its peak
+    footprint is on the order of a gigabyte for a long campaign. The pool used
+    to be a hard-coded 50 workers, which OOM-killed a child - reported as
+    BrokenProcessPool, with nothing else to go on - on any machine smaller than
+    the one this was developed on. Size it from the machine instead, and if a
+    worker is still killed, finish the remaining TAs in this process rather
+    than losing the run.
+    """
+    # ~1 GB per worker is deliberately generous: it is the long-campaign case
+    # that kills machines, and being too conservative only costs wall clock.
+    workers = taemu_env.pool_workers(
+        per_worker_mb=int(os.environ.get("AE_GRAPH_WORKER_MB") or 1024),
+        n_items=len(fuzzing_info_list),
+        env_var="AE_GRAPH_WORKERS",
+    )
+    logger.info(f"[+] parsing unique bbs for {len(fuzzing_info_list)} TAs "
+                f"with {workers} worker(s), "
+                f"{taemu_env.available_mb()} MB available")
+
+    todo = list(fuzzing_info_list)
+    done = []
+    if workers > 1:
+        try:
+            with ProcessPoolExecutor(max_workers=workers) as ex:
+                futures = {ex.submit(_worker, fi): fi for fi in todo}
+                for fut in tqdm(
+                    as_completed(futures),
+                    total=len(todo),
+                    desc="Parsing unique bbs for each TA",
+                ):
+                    fi = futures[fut]
+                    _apply(fi, fut.result())
+                    done.append(id(fi))
+        except BrokenProcessPool:
+            logger.warning(
+                f"[-] a coverage worker was killed (almost certainly out of "
+                f"memory: {taemu_env.available_mb()} MB available for "
+                f"{workers} workers). Finishing the remaining TAs in this "
+                f"process - slower, but it completes. Set AE_GRAPH_WORKERS "
+                f"to pin the pool size.")
+
+    remaining = [fi for fi in todo if id(fi) not in set(done)]
+    if remaining:
+        for fi in tqdm(remaining, desc="Parsing unique bbs (serial)"):
+            _apply(fi, _worker(fi))
     logger.info(f"[+] Finished parsing unique bbs for all TAs")
 
 

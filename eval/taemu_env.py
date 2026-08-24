@@ -108,3 +108,85 @@ def emulator_containers_running():
 
 def redis_container_running():
     return any("redis" in n for n in running_containers())
+
+
+# --------------------------------------------------------------- worker pools
+# The evaluation scripts fan out over python worker *processes*. Each worker is
+# a full copy of the data it is handed, so an oversized pool does not just
+# thrash - it gets a child SIGKILLed by the OOM killer, which surfaces as
+#
+#   concurrent.futures.process.BrokenProcessPool: A process in the process pool
+#   was terminated abruptly while the future was running or pending
+#
+# with no other diagnostic. Size the pools from the machine, the way ae/ae.sh
+# sizes AE_JOBS for the emulator containers.
+
+def _cgroup_limit_mb():
+    """Memory ceiling of our cgroup, or None.
+
+    Inside a container /proc/meminfo reports the *host*, so a `--memory` limit
+    (or Docker Desktop's VM cap) is invisible there. cgroup v2 first, then v1.
+    """
+    for path in ("/sys/fs/cgroup/memory.max",
+                 "/sys/fs/cgroup/memory/memory.limit_in_bytes"):
+        try:
+            raw = open(path).read().strip()
+        except OSError:
+            continue
+        if raw == "max":
+            continue
+        try:
+            v = int(raw)
+        except ValueError:
+            continue
+        # v1 reports a sentinel close to 2**63 when unlimited.
+        if 0 < v < (1 << 62):
+            return v // (1024 * 1024)
+    return None
+
+
+def available_mb():
+    """Memory we may actually use, in MB: min(cgroup limit, MemAvailable)."""
+    vals = []
+    lim = _cgroup_limit_mb()
+    if lim:
+        vals.append(lim)
+    try:
+        for line in open("/proc/meminfo"):
+            if line.startswith("MemAvailable:"):
+                vals.append(int(line.split()[1]) // 1024)
+                break
+    except OSError:
+        pass
+    return min(vals) if vals else 0
+
+
+def pool_workers(per_worker_mb, n_items=None, env_var=None, reserve_mb=1024):
+    """How many worker processes this machine can afford.
+
+    per_worker_mb  peak resident size of one worker, measured generously
+    n_items        never start more workers than there is work
+    env_var        name of a knob that overrides the calculation outright
+    """
+    for var in ([env_var] if env_var else []) + ["AE_POOL_WORKERS"]:
+        raw = os.environ.get(var)
+        if raw:
+            try:
+                return max(1, int(raw))
+            except ValueError:
+                pass
+
+    n = os.cpu_count() or 2
+    # AE_JOBS is what ae/ae.sh decided this machine can run in parallel; the
+    # python pools have no reason to be wider than that.
+    try:
+        n = min(n, int(os.environ.get("AE_JOBS", n)))
+    except ValueError:
+        pass
+
+    mem = available_mb()
+    if mem > 0:
+        n = min(n, max(1, (mem - reserve_mb) // max(1, per_worker_mb)))
+    if n_items:
+        n = min(n, n_items)
+    return max(1, int(n))

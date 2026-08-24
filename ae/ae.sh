@@ -102,6 +102,11 @@ run_in_controller() {
         -e "AE_DEDUP_LIMIT=$AE_DEDUP_LIMIT" \
         -e "AE_SUBSET=$AE_SUBSET" \
         -e "PYTHONPATH=$REPO_DIR/ae/lib:$REPO_DIR/eval" \
+        -e "AE_POOL_WORKERS=${AE_POOL_WORKERS:-}" \
+        -e "AE_GRAPH_WORKERS=${AE_GRAPH_WORKERS:-}" \
+        -e "AE_ANNOTATE_WORKERS=${AE_ANNOTATE_WORKERS:-}" \
+        -e "AE_GRAPH_WORKER_MB=${AE_GRAPH_WORKER_MB:-}" \
+        -e "AE_ANNOTATE_WORKER_MB=${AE_ANNOTATE_WORKER_MB:-}" \
         -e "AE_REDIS_HOST=$AE_REDIS_HOST" -e "AE_REDIS_PORT=$AE_REDIS_PORT" \
         -e "REDIS_HOST=$AE_REDIS_HOST" -e "REDIS_PORT=$AE_REDIS_PORT" \
         -e "TAEMU_KEEP_REDIS=1" \
@@ -118,6 +123,7 @@ cmd_setup() {
     command -v docker >/dev/null || die "docker is required"
     build_images
     ae_require_redis
+    ae_check_redis_from_container
     ok "ready - ./ae.sh list shows the experiments"
 }
 

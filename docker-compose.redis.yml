@@ -3,7 +3,7 @@ services:
     image: redis:7-alpine
     container_name: ta_emulator_redis
     ports:
-      - "6379:6379"
+      - "${AE_REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes
@@ -14,7 +14,12 @@ services:
       timeout: 10s
       retries: 3
 
+  # Browser UI for inspecting the recorder's streams. No experiment needs it,
+  # so it sits behind a profile: a bare "up -d" starts redis alone, and a
+  # failure to pull this image cannot hold up the evaluation.
+  #   docker compose -f docker-compose.redis.yml --profile ui up -d
   redis-commander:
+    profiles: ["ui"]
     image: rediscommander/redis-commander:latest
     container_name: ta_emulator_redis_ui
     hostname: redis-commander

@@ -145,14 +145,20 @@ cd ae
 ```
 
 Nothing beyond docker has to be installed: redis is the `redis:7-alpine`
-container of `../docker-compose.redis.yml`, not a host service. If `setup`
-stops at `could not start redis`, it is the compose plugin that is missing —
-Ubuntu's `docker.io` package does not pull it in, and neither does Docker
-Desktop's WSL integration on some setups:
+container of `../docker-compose.redis.yml`, not a host service. `setup` starts
+it with compose and, should compose be unusable, falls back to a plain
+`docker run`, so a missing compose plugin is not fatal. If it still stops at
+`could not start redis`, run the command it prints by hand — the error is
+docker's, and the two usual ones are a compose plugin that is missing (Ubuntu's
+`docker.io` package does not pull it in) and a port 6379 already taken by a
+host redis:
 
 ```sh
+docker compose -f ../docker-compose.redis.yml up -d redis   # the failing command
 docker compose version                             # must print v2.x
 sudo apt-get install docker-compose-plugin         # if it does not
+ss -ltnp | grep 6379                               # who else holds the port
+AE_REDIS_PORT=6380 ./ae.sh setup                   # or move ours out of the way
 ```
 
 On **WSL** we recommend Docker Engine installed *inside* the distribution
@@ -160,7 +166,21 @@ On **WSL** we recommend Docker Engine installed *inside* the distribution
 integration: the experiments run their containers with `--network host` and
 reach redis over the loopback, which Docker Desktop only supports with its
 host-networking feature enabled. `sudo service docker start` after every WSL
-restart, since WSL has no systemd by default.
+restart, since WSL has no systemd by default. Note too that a Windows service
+holding port 6379 blocks the publish from inside WSL — `AE_REDIS_PORT=6380`
+moves ours out of the way.
+
+`setup` ends by opening a socket to redis *from inside an emulator container*,
+not just from the host, and says so:
+
+```
+[ok] redis is reachable from the emulator containers
+```
+
+That is the property the experiments depend on, and the one Docker Desktop's
+WSL integration does not give you by default. If the check fails, `setup` stops
+there rather than letting an experiment run for an hour and fail at its first
+memory record.
 
 ```sh
 ./ae.sh list                 # all experiments, and the budgets picked for this machine
@@ -420,6 +440,47 @@ Anything set in the environment wins over the `AE_SCALE` preset, so
 `AE_SCALE=quick AE_SUBSET=all ./ae.sh e1_automatic_df_detection` does what it
 says.
 
+### Worker pools
+
+Deduplication, annotation and the plotting code fan out over python worker
+*processes* in the controller container. Each worker holds its own copy of what
+it is handed — a coverage worker peaks around a gigabyte on a long campaign —
+so the pools size themselves from the cores, the **cgroup memory limit** and
+`MemAvailable`, and print what they picked. Nothing has to be set.
+
+| variable | default |
+|---|---|
+| `AE_POOL_WORKERS` | unset — overrides every pool below |
+| `AE_GRAPH_WORKERS` | auto — coverage parsing for Figures 4 and 5 |
+| `AE_ANNOTATE_WORKERS` | auto — overlapped-fetch annotation |
+| `AE_GRAPH_WORKER_MB` | 1024 — assumed peak per coverage worker |
+| `AE_ANNOTATE_WORKER_MB` | 256 — assumed peak per annotation worker |
+
+The cgroup limit matters: inside a container `/proc/meminfo` reports the
+*host*, so a `docker --memory` cap — or the memory ceiling of Docker Desktop's
+and WSL2's VM, which is typically well below the host's RAM — is invisible
+there. If the controller has 2 GB, this is what you want reported, not the
+host's 16 GB.
+
+If a worker is killed anyway, the pool does **not** abort the run: it reports
+
+```
+[-] a coverage worker was killed (almost certainly out of memory: 2048 MB
+    available for 8 workers). Finishing the remaining TAs in this process -
+    slower, but it completes. Set AE_GRAPH_WORKERS to pin the pool size.
+```
+
+and finishes the remaining work serially. A run that previously died with
+
+```
+concurrent.futures.process.BrokenProcessPool: A process in the process pool
+was terminated abruptly while the future was running or pending
+```
+
+now completes. If you see the warning, raising the memory available to docker
+(Docker Desktop: Settings → Resources; WSL2: `memory=` in `.wslconfig`) will
+make it fast again.
+
 ### What `./ae.sh all` costs
 
 `AE_JOBS` is the only thing that decides wall clock: the pipeline runs the
@@ -481,7 +542,7 @@ reported next to the paper's numbers. Raising `AE_EXPLORE_TIME`,
 
 ```sh
 ./ae.sh clean                                    # everything a run produced (§1.2)
-docker compose -f ../docker-compose.redis.yml down
+docker compose -f ../docker-compose.redis.yml --profile ui down
 docker rmi ta_emu_ae ta_emu_ae_ctl
 ```
 

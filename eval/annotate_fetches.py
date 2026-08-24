@@ -1,5 +1,6 @@
 import argparse
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures.process import BrokenProcessPool
 from tqdm import tqdm
 import os
 import json
@@ -98,11 +99,42 @@ def handle_meta(meta_path):
     return fetches
 
 def main(in_paths, dirs="replay"):
+    """Annotate every recording, one worker process per recording directory.
+
+    A worker holds one .meta file at a time, so it is cheap - but the pool used
+    to default to os.cpu_count() workers regardless of how much memory the
+    machine has, and a killed child surfaces only as BrokenProcessPool. Size it
+    from the machine, and finish the rest here if a worker does get killed.
+
+    handle_in catches its own exceptions and returns 0, so reaching the
+    fallback means a worker was *killed*, not that a recording was malformed.
+    """
+    todo = list(in_paths)
+    workers = taemu_env.pool_workers(
+        per_worker_mb=int(os.environ.get("AE_ANNOTATE_WORKER_MB") or 256),
+        n_items=len(todo),
+        env_var="AE_ANNOTATE_WORKERS",
+    )
     results = []
-    with ProcessPoolExecutor() as pool:
-        futures = [pool.submit(handle_in, x, dirs) for x in in_paths]
-        for f in tqdm(as_completed(futures), total=len(futures)):
-            results.append(f.result())
+    done = set()
+    if workers > 1 and todo:
+        try:
+            with ProcessPoolExecutor(max_workers=workers) as pool:
+                futures = {pool.submit(handle_in, x, dirs): x for x in todo}
+                for f in tqdm(as_completed(futures), total=len(futures)):
+                    results.append(f.result())
+                    done.add(futures[f])
+        except BrokenProcessPool:
+            print(f"[-] an annotation worker was killed (out of memory?): "
+                  f"{taemu_env.available_mb()} MB available for {workers} "
+                  f"workers. Annotating the rest in this process; set "
+                  f"AE_ANNOTATE_WORKERS to pin the pool size.")
+
+    pending = [x for x in todo if x not in done]
+    if pending and done:
+        print(f"[-] {len(pending)} recordings left to annotate serially")
+    for x in tqdm(pending, disable=not done):
+        results.append(handle_in(x, dirs))
     print(f"[+] annotated overlapped fetches: {sum(results)}")
     return sum(results)
 

@@ -182,7 +182,19 @@ def find_best_add(cfg, all_apis, implemented_apis, filterf):
             if api in implemented_apis:
                 continue
             work_queue.append((cfg, implemented_apis, api))
-        with Pool(10) as pool:
+        # Same sizing as the other pools: a hard-coded width OOM-kills a
+        # child on a small machine, which surfaces only as BrokenProcessPool.
+        # (Not on the ae.sh path - reached when bb.py is run standalone.)
+        try:
+            sys.path.insert(0, os.path.dirname(os.path.dirname(
+                os.path.abspath(__file__))))
+            import taemu_env
+            nproc = taemu_env.pool_workers(per_worker_mb=512,
+                                           n_items=len(work_queue),
+                                           env_var="AE_CFG_WORKERS")
+        except Exception:
+            nproc = min(10, os.cpu_count() or 2)
+        with Pool(nproc) as pool:
             results = pool.map(pool_worker, work_queue, chunksize=5)
         for api, reach in results:
             if reach > max_nr:
