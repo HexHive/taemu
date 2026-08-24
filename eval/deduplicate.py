@@ -132,7 +132,12 @@ async def coverage_based_deduplicate(
     group_dir, one_group_inputs, enable_del=False, num_replay_containers=10
 ):
     print(f"Processing {len(one_group_inputs)} inputs under {group_dir}\n")
-    group_dir = group_dir.replace("/in", "")
+    # group_dir is "<harness>/in"; strip that one trailing component. A plain
+    # .replace("/in", "") rewrites the FIRST "/in" anywhere in the path, so any
+    # checkout below a directory containing it (/integ, /install, /index, ...)
+    # silently got a nonexistent harness dir and every replay failed.
+    if os.path.basename(group_dir) == "in":
+        group_dir = os.path.dirname(group_dir)
     results = []
     one_group_inputs = [item for item in one_group_inputs if not item.endswith(".meta")]
 
