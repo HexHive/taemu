@@ -77,3 +77,54 @@ def soter_load_fingerprint_result(ql: Qiling, hook_data):
 def tee_get_cpuid(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+# --- API stubs carried over from main (2058fea) ---
+
+def TEE_SESessionOpenBasicChannel(ql: Qiling, hook_data):
+    TEE_OpenTASession(ql, hook_data)
+
+
+def TEE_SESessionOpenLogicalChannel(ql: Qiling, hook_data):
+    TEE_OpenTASession(ql, hook_data)
+
+
+def TEE_SEChannelGetNumber_ext(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def tee_se_open_spi_clk(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def tee_se_close_spi_clk(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def tee_get_enc_rot(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def TEE_SEChannelClose(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def TEE_SaveTA_Data(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def gen_random(ql: Qiling, hook_data):
+    params = ql.os.resolve_fcall_params({"randomBuffer": POINTER, "randomBufferLen": INT})
+    r = get_random_bytes(params["randomBufferLen"])
+    try:
+        ql.mem.write(params["randomBuffer"], r)
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
+    ql.arch.regs.arch_pc = ql.arch.regs.lr

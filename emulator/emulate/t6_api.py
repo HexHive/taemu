@@ -154,3 +154,33 @@ def sensor_get_chip_id(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(0x20)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
  
+
+
+# --- API stubs carried over from main (2058fea) ---
+
+def __assert_fail(ql: Qiling, hook_data):
+    ql.log.error(f'assertion failure!')
+    crash(ql, hook_data.func_name)
+    return
+
+
+def init_ta_session(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def sf_spi_write_buf(ql: Qiling, hook_data):
+    p = ql.os.resolve_fcall_params({"data": POINTER})
+    ql.os.fcall.cc.setReturnValue(len(p["data"]))
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def sf_spi_write_buf_then_read_buf(ql: Qiling, hook_data):
+    p = ql.os.resolve_fcall_params({"data": POINTER})
+    ql.os.fcall.cc.setReturnValue(len(p["data"]))
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def platform_open_driver(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr

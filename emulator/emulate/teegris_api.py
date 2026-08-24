@@ -652,3 +652,15 @@ def TEES_TUIOpenSession(ql, hook_data):
 def TEES_TUIDrawImage(ql, hook_data):
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+# --- API stubs carried over from main (2058fea) ---
+
+def TEES_UnwrapSecureObject(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0) 
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def TEES_SPIWriteRead(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr

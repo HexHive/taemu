@@ -2,6 +2,8 @@ from enum import Enum
 from qiling import Qiling
 from qiling.os.const import STRING, INT, BYTE, POINTER, UINT
 from .gp.utils.param import TEE_Param_Memref
+import base64
+from .gp.utils.printf import read_c_str
 from .gp.utils.err import *
 from .gp.utils.string import *
 
@@ -401,3 +403,28 @@ def ut_pf_km_get_hmac_key(ql: Qiling, func_name):
 
 def dm_data_base_init(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+# --- API stubs carried over from main (2058fea) ---
+
+def base64_decode(ql: Qiling, hook_data):
+    try:
+        p = ql.os.resolve_fcall_params({"data": POINTER, "out": POINTER})
+        data = read_c_str(p["data"])
+        ql.mem.write(p["out"], base64.b64decode(data))
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr 
+
+
+def TEE_RpbmOpenSession(ql: Qiling, hook_data):
+    ut_pf_rpmb_open(ql, hook_data)
+
+
+def TEE_RpbmReadData(ql: Qiling, hook_data):
+    ut_pf_rpmb_read_data_blocks(ql, hook_data)
+
+
+def ut_pf_info_get_deviceinfo(ql: Qiling, hook_data):
+    get_device_info(ql, hook_data)
