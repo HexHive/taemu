@@ -128,6 +128,21 @@ class Asan:
         ql.hook_del(wh)
         del self.HOOKS[redzone_after]
 
+def asan_hook_redzone_mem_rw(redzone, size, ql: Qiling):
+    """Module-level entry point for callers that only hold a `ql`.
+
+    asan.py is class-based here (Asan.HOOKS lives on the emulator instance), but
+    the redzoned allocator in gp/utils/string.py and the uefi harnesses call this
+    free function. Delegate to the instance so there is a single hook registry
+    that remove_param_redzones / Asan._unhook_all can actually tear down.
+    """
+    inst = getattr(getattr(ql, "emu", None), "asan", None)
+    if inst is None:
+        ql.log.warning("ASAN: no Asan instance on ql.emu; redzone hooks not installed")
+        return
+    inst.hook_redzone_mem_rw(redzone, size)
+
+
 def install_param_redzones(ql, emu, data, size, minaddr):
     """Map a redzoned region for a TEE_Param memref buffer:
     [redzone_before][ data (size) ][redzone_after ... page end].
@@ -147,9 +162,11 @@ def install_param_redzones(ql, emu, data, size, minaddr):
         ql.mem.write(user, bytes(data[:size]))
     after = user + size
     after_size = real_size - ASAN_REDZONE_SIZE - size
-    asan_hook_redzone_mem_rw(region, ASAN_REDZONE_SIZE, ql)
-    asan_hook_redzone_mem_rw(after, after_size, ql)
     if emu is not None:
+        # asan.py is class-based here (Asan.HOOKS), so the redzone hooks are
+        # registered on the instance rather than a module-level HOOKS dict.
+        emu.asan.hook_redzone_mem_rw(region, ASAN_REDZONE_SIZE)
+        emu.asan.hook_redzone_mem_rw(after, after_size)  # same registry as the shim
         emu.HEAP["redzones"][region] = ASAN_REDZONE_SIZE
         emu.HEAP["redzones"][after] = after_size
     return user, region, real_size
@@ -166,29 +183,14 @@ def remove_param_redzones(ql, emu, region, size, real_size):
     multi-command PoCs (UC_ERR_WRITE_UNMAPPED)."""
     after = region + ASAN_REDZONE_SIZE + size
     for start in (region, after):
-        hooks = HOOKS.pop(start, None)
+        if emu is None:
+            continue
+        # Asan.HOOKS entries are [read_hook, write_hook, size]
+        hooks = emu.asan.HOOKS.pop(start, None)
         if hooks:
-            for h in hooks:
+            for h in hooks[:2]:
                 try:
                     ql.hook_del(h)
                 except Exception:
                     pass
-        if emu is not None:
-            emu.HEAP["redzones"].pop(start, None)
-
-
-def asan_hook_free_mem_rw(freed_region, size, ql:Qiling):
-    real_size = memory_alignment_round_up(size + 2*ASAN_REDZONE_SIZE, 0x1000)
-    #ql.hook_mem_unmapped(unmmaped_region_access, begin=freed_region, end=freed_region+real_size-1)
-    redzone_before = freed_region
-    redzone_after = freed_region + ASAN_REDZONE_SIZE + size
-    rh, wh = HOOKS[redzone_before]
-    ql.log.debug(f"ASAN: unhook rw for redzone [{redzone_before:#0x}:{redzone_before+ASAN_REDZONE_SIZE:#0x}]")
-    ql.hook_del(rh)
-    ql.hook_del(wh)
-    del(HOOKS[redzone_before])
-    rh, wh = HOOKS[redzone_after]
-    ql.log.debug(f"ASAN: unhook rw for redzone [{redzone_after:#0x}:{redzone_before+real_size:#0x}]")
-    ql.hook_del(rh)
-    ql.hook_del(wh)
-    del(HOOKS[redzone_after])
+        emu.HEAP["redzones"].pop(start, None)

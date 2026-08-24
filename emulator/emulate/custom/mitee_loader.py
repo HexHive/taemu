@@ -25,7 +25,9 @@ def mitee_read_relocs(ta_path:Path):
         )
         if not mtch:
             continue
-        out.append((mtch.group(3), int(mtch.group(1), 16)))
+        # group 3 is the symbol VALUE, group 4 the name (the regex gained the
+        # value capture; the name moved along with it)
+        out.append((mtch.group(4), int(mtch.group(1), 16)))
     rela_lines = rela.split("\n")
     rela_lines = rela_lines[2:]
     for l in rela_lines:
