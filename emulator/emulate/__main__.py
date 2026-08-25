@@ -1,6 +1,7 @@
 from multiprocessing import Process
 import os
 import argparse
+from pathlib import Path
 
 from pwn import ELF
 
@@ -13,6 +14,7 @@ from .fuzz_record import SimpleFilterRecorder, Record
 from .redis_queue import RedisQueue
 from .emulator_no_loader import simple_diassembler, trace_block, simple_diassembler, unicorn_why
 from .ta_mgr import TAEMU, Status
+from .ta_info import load_ta_adjacent_info
 from .custom.tc_loader import tc_load
 from concurrent_log_handler import ConcurrentRotatingFileHandler
 
@@ -186,10 +188,23 @@ if __name__ == "__main__":
     elif b"com.huawei.hidisk" in open(ta_path, "rb").read():
         TEE = "trustedcore"
     elif b"GPAppLib_handleRequest" in open(ta_path, "rb").read():
-        if b"CElfFile_invoke" in open(ta_path, "rb").read():
-            TEE = "qsee_nongp"
-        else:
+        # GP and non-GP QSEE TAs both contain the CElfFile_invoke string, so
+        # that string alone misroutes every GP TA to the non-GP loader (which
+        # then exits on the non-GP metadata keys it cannot find). The sidecar
+        # metadata says which entry points were actually located, so ask it:
+        # GP TAs carry TA_*EntryPoint_*, non-GP TAs carry CElfFile_invoke_*.
+        TEE = "qsee"
+        try:
+            _info = set(load_ta_adjacent_info(Path(ta_path)))
+        except (FileNotFoundError, ValueError):
+            _info = set()
+        if "TA_InvokeCommandEntryPoint_start" in _info:
             TEE = "qsee"
+        elif "CElfFile_invoke_start" in _info:
+            TEE = "qsee_nongp"
+        elif b"CElfFile_invoke" in open(ta_path, "rb").read():
+            # no usable metadata: fall back to the string heuristic
+            TEE = "qsee_nongp"
     print(f"[+] TEE: {TEE} [+]")
     if TEE == "beanpod":
         if ta_elf.header["e_flags"] & 0x200 == 0:
