@@ -19,6 +19,13 @@ export AFL_AUTORESUME=1
 if [ -z "$1" ]; then 
     echo "usage: fuzzing ./fuzz.sh <path to ta|harness folder> [-I <new-crash hook command>] [--out_suffix <suffix>] [--in_dir <dir>] [--out_dir <dir>] [--triage_report_dir <dir>] [--log_file <file>]"
     echo "usage: replay seed ./fuzz.sh <path to ta|harness folder> <path to seed> [python-emulate-args...]"
+    echo ""
+    echo "env: FUZZTIME       seconds to fuzz for (default: until stopped)"
+    echo "     FUZZ_TIMEOUT   afl -t, ms per exec (default 5000). Large TAs need"
+    echo "                    more: several ~1 MB qsee_nongp TAs run ~1.8 s/exec"
+    echo "                    and every seed is discarded as a timeout at 5000,"
+    echo "                    so afl aborts with 'All test cases time out'."
+    echo "     TAEMU_DISABLE_REDIS  turn off double-fetch recording"
     exit 0
 fi
 
@@ -175,6 +182,9 @@ if [ -z "$replay_seed" ]; then
     if [ ! -e "$fuzz_out" ]; then
         mkdir "$fuzz_out"
     fi
+    # afl -t, in ms. 5 s is plenty for most TAs but not for the largest
+    # qsee_nongp ones (~1 MB), which need FUZZ_TIMEOUT raised or afl discards
+    # every seed as a timeout -- see the usage text above.
     [[ -z "$FUZZ_TIMEOUT" ]] && FUZZ_TIMEOUT=5000
     [[ -z "${FUZZTIME_GRACE:-}" ]] && FUZZTIME_GRACE=60
 
