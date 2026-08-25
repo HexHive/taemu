@@ -8,3 +8,4 @@ gmssl
 aiofiles
 loguru
 cachetools
+pytest
