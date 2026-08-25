@@ -119,11 +119,10 @@ def qsee_realloc(ql :Qiling, hook_data):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def qsee_free(ql: Qiling, hook_data):
-    # free_core(ql, hook_data, called_from_custom_lib) resolves the ptr from the
-    # live fcall params itself (3-arg signature, same as gp_api.free). The old
-    # 4-arg call (passing p["ptr"]) raised TypeError as soon as any QSEE TA that
-    # actually frees (e.g. bksecapp's dispatcher epilogue) was exercised.
-    free_core(ql, hook_data, False)
+    # free_core's signature is (ql, ptr, hook_data, called_from_api_emu); it does
+    # not resolve the pointer itself. Same shape as gp_api.free / TEE_Free.
+    ptr = ql.os.resolve_fcall_params({"ptr": INT})["ptr"]
+    free_core(ql, ptr, hook_data, False)
 
 def sm2_encrypt(ql: Qiling, hook_data):
     _ret(ql, 0)
@@ -494,7 +493,7 @@ def qsee_cipher_free_ctx(ql: Qiling, hook_data: "HookData"):
         ql.log.warning("qsee_cipher_free_ctx: unknown ctx %#x", ctx)
     else:
         QSEE_CIPHER_CTXS.pop(ctx)
-    free_core(ql, ctx, hook_data)
+    free_core(ql, ctx, hook_data, True)
     _ret(ql, 0)
 
 
@@ -649,7 +648,7 @@ def qsee_util_free_s_bigint(ql: Qiling, hook_data: "HookData"):
     })
     bigint = args["bigint"]
     ql.log.debug("qsee_util_free_s_bigint(%#x)", bigint)
-    free_core(ql, bigint, hook_data)
+    free_core(ql, bigint, hook_data, True)
     _ret(ql, 0)
 
 def qsee_spi_close(ql: Qiling, hook_data: "HookData"):

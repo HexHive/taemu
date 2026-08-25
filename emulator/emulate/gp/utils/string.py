@@ -82,7 +82,7 @@ def malloc_core(ql: Qiling, size, hook_data: 'HookData', called_from_api_emu):
     func_name = hook_data.func_name
 
     if WEAPONIZE:
-        _weapon_return(ql, hook_data, size, called_from_custom_lib)
+        _weapon_return(ql, hook_data, size, called_from_api_emu)
         return
 
     real_size = asan.memory_alignment_round_up(
@@ -170,7 +170,7 @@ def free_core(ql: Qiling, ptr, hook_data: 'HookData', called_from_api_emu):
         hook_data.emu.HEAP["freed"][ptr] = hook_data.emu.HEAP["allocated"][ptr]
         del hook_data.emu.HEAP["allocated"][ptr]
         ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
-        if not called_from_custom_lib:
+        if not called_from_api_emu:
             ql.arch.regs.arch_pc = ql.arch.regs.lr
         return
 
