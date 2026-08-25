@@ -55,6 +55,12 @@ DOCKER_RUN:=docker compose run -it --rm \
 		--workdir $(DOCKER_ROOT) \
 		emulator
 
+# Same container, no TTY: for batch targets that run under make without a
+# terminal (docker compose run -it fails with "stdin is not a terminal").
+DOCKER_RUN_BATCH:=docker compose run --rm -T \
+		--workdir $(DOCKER_ROOT) \
+		emulator
+
 json-file: $(addsuffix .json, $(basename $(YML_FILE)))
 %.json: %.yml
 	$(DOCKER_RUN) python3 emulator/scripts/yaml_to_json.py $< $@
@@ -74,3 +80,23 @@ endif
 
 %.nopauth.yml: %.yml
 	sudo ln -rsf $< $@
+
+.PHONY: nopauth-all
+nopauth-all: ## generate every .nopauth.elf/.yml a harness symlink points at
+	@missing=$$(find . -path ./.git -prune -o -type l -print 2>/dev/null \
+	    | while read -r l; do [ -e "$$l" ] || \
+	          realpath -m --relative-to=. "$$(dirname "$$l")/$$(readlink "$$l")"; done \
+	    | sort -u); \
+	if [ -z "$$missing" ]; then echo "nothing missing"; exit 0; fi; \
+	for t in $$missing; do \
+	    case "$$t" in \
+	      *.nopauth.elf) src="$${t%.nopauth.elf}.elf"; \
+	          [ -e "$$src" ] || { echo "no source for $$t"; exit 1; }; \
+	          echo "patching $$src -> $$t"; \
+	          $(DOCKER_RUN_BATCH) python3 emulator/scripts/patch_aarch64_auth.py "$$src" -o "$$t" ;; \
+	      *.nopauth.yml) src="$${t%.nopauth.yml}.yml"; \
+	          [ -e "$$src" ] || { echo "no source for $$t"; exit 1; }; \
+	          echo "linking $$src -> $$t"; ln -rsf "$$src" "$$t" ;; \
+	      *) echo "unresolved symlink target: $$t"; exit 1 ;; \
+	    esac; \
+	done
