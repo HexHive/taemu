@@ -100,7 +100,7 @@ def TEE_GenerateKey(ql: Qiling, hook_data):
 
     ql.log.info(f"TEE_GenerateKey: ")
     if para_object not in handle2obj:
-        crash("asdfas")
+        crash(ql, "TEE_GenerateKey")
         ql.log.error(
             f"TEE_GenerateKey: called with {hex(para_object)} not in {handle2obj}"
         )

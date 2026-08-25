@@ -158,7 +158,7 @@ def paytrigger_aes_cbc(ql: Qiling, hook_data):
         a = ql.mem.read(in_buf, in_buf_size) # just for checking if valid access
         ql.mem.write(out_buf, in_buf_size*b"A")
     except unicorn.unicorn_py3.unicorn.UcError:
-        crash(ql. hook_data.func_name)
+        crash(ql, hook_data.func_name)
         return
     ql.os.fcall.cc.setReturnValue(0x0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -176,7 +176,7 @@ def paytrigger_hmac(ql: Qiling, hook_data):
     try:
         a = ql.mem.read(in_buf, in_buf_size) # just for checking if valid access
     except unicorn.unicorn_py3.unicorn.UcError:
-        crash(ql. hook_data.func_name)
+        crash(ql, hook_data.func_name)
         return
     ql.os.fcall.cc.setReturnValue(0x0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
@@ -409,7 +409,7 @@ def dm_data_base_init(ql: Qiling, func_name):
 def base64_decode(ql: Qiling, hook_data):
     try:
         p = ql.os.resolve_fcall_params({"data": POINTER, "out": POINTER})
-        data = read_c_str(p["data"])
+        data = read_c_str(ql, p["data"])
         ql.mem.write(p["out"], base64.b64decode(data))
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, hook_data.func_name)
