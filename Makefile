@@ -81,6 +81,11 @@ endif
 %.nopauth.yml: %.yml
 	sudo ln -rsf $< $@
 
+.PHONY: test
+test: ## run the emulator unit tests in the container
+	$(DOCKER_RUN_BATCH) env PYTHONPATH=$(DOCKER_ROOT)/emulator \
+		python3 -m pytest emulator/emulate/tests emulator/tests -q
+
 .PHONY: nopauth-all
 nopauth-all: ## generate every .nopauth.elf/.yml a harness symlink points at
 	@missing=$$(find . -path ./.git -prune -o -type l -print 2>/dev/null \
