@@ -51,6 +51,10 @@ Options:
   -t, --tee NAME     only this TEE directory (repeatable), e.g. -t mitee -t beanpod
   -k, --keep GLOB    skip harness dirs whose name matches GLOB (repeatable)
   -s, --seeds        also clear the seed corpus in in/ (kept by default)
+      --tracked      also delete files that are committed to git (refused by
+                     default -- generated output should be gitignored, so a
+                     tracked file under out/ or df_fuzz/ means someone
+                     force-added it and probably wants to keep it)
   -h, --help         this message
 
 Examples:
@@ -64,6 +68,7 @@ EOF
 
 FORCE=0
 ASSUME_YES=0
+ALLOW_TRACKED=0
 WIPE_SEEDS=0
 TEES=()
 KEEP=()
@@ -74,6 +79,7 @@ while [[ $# -gt 0 ]]; do
         -f|--force)   FORCE=1; shift ;;
         -y|--yes)     ASSUME_YES=1; shift ;;
         -s|--seeds)   WIPE_SEEDS=1; shift ;;
+        --tracked)    ALLOW_TRACKED=1; shift ;;
         -n|--dry-run) FORCE=0; shift ;;
         -t|--tee)     [[ $# -ge 2 ]] || { echo "${RED}error:${RESET} --tee needs a value" >&2; exit 1; }; TEES+=("$2"); shift 2 ;;
         -k|--keep)    [[ $# -ge 2 ]] || { echo "${RED}error:${RESET} --keep needs a value" >&2; exit 1; }; KEEP+=("$2"); shift 2 ;;
@@ -189,8 +195,30 @@ if (( ! ASSUME_YES )); then
     esac
 fi
 
+# Generated output is gitignored; anything tracked under these paths was
+# force-added and is not ours to delete. Skip those paths unless --tracked.
+GIT=()
+if (( ! ALLOW_TRACKED )) && command -v git >/dev/null 2>&1 \
+   && git -C "$ROOT" -c safe.directory="$ROOT" rev-parse --show-toplevel >/dev/null 2>&1; then
+    GIT=(git -C "$ROOT" -c safe.directory="$ROOT")
+fi
+
 failed=0
+skipped=0
 for p in "${victims[@]}"; do
+    if [[ ${#GIT[@]} -gt 0 ]]; then
+        rel="${p#"$ROOT"/}"
+        if [[ -n "$("${GIT[@]}" ls-files -- "$rel" | head -1)" ]]; then
+            # keep the tracked files, drop everything else under this path
+            "${GIT[@]}" clean -fdxq -- "$rel" \
+                || { echo "${RED}failed:${RESET} $rel" >&2; failed=1; }
+            [[ "$(basename "$p")" == "in" ]] && mkdir -p -- "$p"
+            n=$("${GIT[@]}" ls-files -- "$rel" | wc -l)
+            echo "${YELLOW}kept${RESET} $n tracked file(s) in ${CYAN}${rel}${RESET}"
+            skipped=$(( skipped + 1 ))
+            continue
+        fi
+    fi
     if [[ "$(basename "$p")" == "in" ]]; then
         # keep the directory itself, drop its contents (afl needs a non-empty in/)
         rm -rf -- "${p:?}"/* "${p:?}"/.[!.]* 2>/dev/null
@@ -204,3 +232,5 @@ if (( failed )); then
     exit 1
 fi
 echo "${GREEN}Cleaned ${#victims[@]} paths (${human}).${RESET}"
+(( skipped )) && echo "${YELLOW}${skipped}${RESET} path(s) held tracked files and were cleaned with ${CYAN}git clean${RESET} instead of rm."
+exit 0
