@@ -1,5 +1,6 @@
 from multiprocessing import Process
 import os
+import signal
 import argparse
 from pathlib import Path
 
@@ -17,6 +18,28 @@ from .ta_mgr import TAEMU, Status
 from .ta_info import load_ta_adjacent_info
 from .custom.tc_loader import tc_load
 from concurrent_log_handler import ConcurrentRotatingFileHandler
+
+
+def _die_with_parent(parent_pid):
+    """Have the kernel SIGKILL this child as soon as its parent goes away.
+
+    The tidy shutdown at the end of main() only runs when emulate exits
+    normally. Under AFL the parent is routinely killed outright -- a hanging
+    target, the -V budget expiring, timeout(1) firing -- and multiprocessing
+    children are not daemons, so both the TAEMU and the recorder process survive
+    as orphans. Running harnesses back to back in one container then accumulates
+    a python3 -m emulate pair per campaign (~65 MB each, some spinning), until
+    later harnesses are starved or OOM-killed.
+    """
+    try:
+        import ctypes
+        PR_SET_PDEATHSIG = 1
+        ctypes.CDLL("libc.so.6", use_errno=True).prctl(PR_SET_PDEATHSIG, signal.SIGKILL)
+    except Exception:
+        return                       # not Linux, or no libc: nothing to arm
+    # PDEATHSIG is armed after the fork, so the parent may already be gone.
+    if os.getppid() != parent_pid:
+        os._exit(0)
 
 
 DIR = dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -374,7 +397,9 @@ if __name__ == "__main__":
         record_q = None
         
         
-    def launch_taemu(curr_record_q):
+    def launch_taemu(curr_record_q, parent_pid=None):
+        if parent_pid is not None:
+            _die_with_parent(parent_pid)
         print(
             f"[+] Loaded TA {ta_name} for TEE {TEE} with Qiling {ql.arch.type}/{ql.os.type}"
         )
@@ -411,7 +436,9 @@ if __name__ == "__main__":
                 print(f"[+] Error occurred: {e}")
 
 
-    def launch_recorder(curr_record_q):
+    def launch_recorder(curr_record_q, parent_pid=None):
+        if parent_pid is not None:
+            _die_with_parent(parent_pid)
         if curr_record_q is None:
             print(f"[+] Recorder is disabled and stopped automatically... [+]")
             return
@@ -441,10 +468,11 @@ if __name__ == "__main__":
 
 
     print("[+] Starting all the processes... [+]")
-    p1 = Process(target=launch_taemu, args=(record_q,))
+    _parent_pid = os.getpid()
+    p1 = Process(target=launch_taemu, args=(record_q,), kwargs={"parent_pid": _parent_pid})
     p1.start()
 
-    p2 = Process(target=launch_recorder, args=(record_q,))
+    p2 = Process(target=launch_recorder, args=(record_q,), kwargs={"parent_pid": _parent_pid})
     p2.start()
 
     print(f"[+] children pids {p1.pid}, {p2.pid}")
