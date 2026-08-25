@@ -29,7 +29,7 @@ from ghidra.program.model.pcode import (
 
 
 NON_GP_COMPLIANT = 0
-GP_COMPLIANT= 1
+GP_COMPLIANT = 1
 
 ################################################################################
 # LOGGING
@@ -45,7 +45,7 @@ log = logging.getLogger(__name__)
 
 
 def find_returns(function, is_thumb=False, is_pie=False):
-# iterate over instructions in function, mark all rets
+    # iterate over instructions in function, mark all rets
     ret_offsets = []
     listing = getCurrentProgram().getListing()
     instructions = listing.getInstructions(function.getBody(), True)
@@ -55,40 +55,39 @@ def find_returns(function, is_thumb=False, is_pie=False):
         if is_thumb:
             if "ldr pc,[lr" in str(instr):
                 if is_pie:
-                    ret_offsets.append(instr.getAddress().getOffset()-0x10000)
+                    ret_offsets.append(instr.getAddress().getOffset() - 0x10000)
                 else:
                     ret_offsets.append(instr.getAddress().getOffset())
             if "pop" in str(instr) and "pc" in str(instr):
                 if is_pie:
-                    ret_offsets.append(instr.getAddress().getOffset()-0x10000)
+                    ret_offsets.append(instr.getAddress().getOffset() - 0x10000)
                 else:
                     ret_offsets.append(instr.getAddress().getOffset())
             if "ldmia" in str(instr) and "pc" in str(instr):
                 if is_pie:
-                    ret_offsets.append(instr.getAddress().getOffset()-0x10000)
+                    ret_offsets.append(instr.getAddress().getOffset() - 0x10000)
                 else:
                     ret_offsets.append(instr.getAddress().getOffset())
             if "bx lr" in str(instr):
                 if is_pie:
-                    ret_offsets.append(instr.getAddress().getOffset()-0x10000)
+                    ret_offsets.append(instr.getAddress().getOffset() - 0x10000)
                 else:
                     ret_offsets.append(instr.getAddress().getOffset())
-        else: 
+        else:
             mnemonic = instr.getMnemonicString().upper()
-            if mnemonic in ["RET", "RETN", "RETQ"]:  
-                ret_offsets.append(instr.getAddress().getOffset()-0x100000)
-        last_instr = instr               
- 
+            if mnemonic in ["RET", "RETN", "RETQ", "RETA", "RETAB"]:
+                ret_offsets.append(instr.getAddress().getOffset() - 0x100000)
+        last_instr = instr
+
     match = re.match(r"b 0x([0-9a-fA-F]+)", str(last_instr))
     if match is not None:
         addr_int = int(match.group(1), 16)
-        addr = toAddr(addr_int)  
+        addr = toAddr(addr_int)
         if not function.getBody().contains(addr):
-            print(f'call terminator found!')
-            ret_offsets.append(instr.getAddress().getOffset()-0x100000)
-               
-    return ret_offsets
+            print(f"call terminator found!")
+            ret_offsets.append(instr.getAddress().getOffset() - 0x100000)
 
+    return ret_offsets
 
 
 def dump_raw_pcode(program: ProgramDB, func: Function):

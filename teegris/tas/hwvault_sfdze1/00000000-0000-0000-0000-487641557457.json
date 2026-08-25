@@ -1,0 +1,22 @@
+{
+    "_comment": "HvAUtW (hwvault) driver TA, build S921BXXSFDZE1 (sha256 f7245609a35c...). This is the SHIPPING build the RE writeups target (RE/samsung_teegris/hvautw.md) and the build that CONTAINS the cmd-10036 manifest-verify / FW_NUM-overflow code (finding #1 / #4, CRITICAL). The bundled corpus 487641557457.ta is the OLDER S9BYH2 build where that code is absent (build delta). Entry-point start addresses are the surviving dynsym FUNC symbols (PIE base 0 => file offset == vaddr); _end values are the RET addresses derived by aarch64-linux-gnu-objdump. TA_DestroyEntryPoint has no RET (it tail-branches to 0xc300 at 0xa4b4); _end left empty so ta_mgr.derive_entrypoint_ends recovers the stop point (same as the S9BYH2 json).",
+    "ta_sha256": "f7245609a35c9d6bc914ecd84ecdf7f9f082773fe824a3628d440d19722c77c7",
+    "TA_CreateEntryPoint_start": 40876,
+    "TA_CreateEntryPoint_end": [
+        41212
+    ],
+    "TA_OpenSessionEntryPoint_start": 42172,
+    "TA_OpenSessionEntryPoint_end": [
+        42356
+    ],
+    "TA_InvokeCommandEntryPoint_start": 42536,
+    "TA_InvokeCommandEntryPoint_end": [
+        42852
+    ],
+    "TA_CloseSessionEntryPoint_start": 42364,
+    "TA_CloseSessionEntryPoint_end": [
+        42424
+    ],
+    "TA_DestroyEntryPoint_start": 42004,
+    "TA_DestroyEntryPoint_end": []
+}

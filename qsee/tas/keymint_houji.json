@@ -1,0 +1,24 @@
+{
+    "_comment": "Xiaomi houji KeyMint QTEE TA (keymint.mbn, sha d57819…, 429024 B; Qualcomm reference image). SAME deserializeCharacteristics heap-OOB as Samsung S928B (S22-1), re-derived on the houji build (offsets DIFFER from S928B). Statically links libcmnlib; the real TA_*EntryPoint live in libcmnlib. GP lifecycle stubbed with a 'mov w0,wzr; ret' gadget (vaddr 0x250d8/ret 0x250dc) returning TEE_SUCCESS=0. InvokeCommand is pointed by the harness; the .json default points it at decodeKeyBlob@0x3115c (the keyblob CBOR deserializer behind the plaintext DKMK magic gate @0x3121c). The harness overrides x0..x3. _end is the gadget ret 0x250dc (a benign, non-overflowing decodeKeyBlob return is redirected there via the harness x30).",
+    "inline": {},
+    "TA_CreateEntryPoint_start": 151768,
+    "TA_CreateEntryPoint_end": [
+        151772
+    ],
+    "TA_OpenSessionEntryPoint_start": 151768,
+    "TA_OpenSessionEntryPoint_end": [
+        151772
+    ],
+    "TA_CloseSessionEntryPoint_start": 151768,
+    "TA_CloseSessionEntryPoint_end": [
+        151772
+    ],
+    "TA_DestroyEntryPoint_start": 151768,
+    "TA_DestroyEntryPoint_end": [
+        151772
+    ],
+    "TA_InvokeCommandEntryPoint_start": 201052,
+    "TA_InvokeCommandEntryPoint_end": [
+        151772
+    ]
+}

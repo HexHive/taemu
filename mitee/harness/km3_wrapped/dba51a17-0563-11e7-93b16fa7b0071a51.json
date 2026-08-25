@@ -1,0 +1,89 @@
+{
+  "inline": {
+    "TEE_Malloc": {
+      "addr": 855040,
+      "type": "gp_api"
+    },
+    "TEE_SeekObjectData": {
+      "addr": 857240,
+      "type": "gp_api"
+    },
+    "TEE_GetREETime": {
+      "addr": 854952,
+      "type": "gp_api"
+    },
+    "TEE_ReadObjectData": {
+      "addr": 856656,
+      "type": "gp_api"
+    },
+    "TEE_GenerateRandom": {
+      "addr": 857592,
+      "type": "gp_api"
+    },
+    "TEE_CloseAndDeletePersistentObject": {
+      "addr": 856288,
+      "type": "gp_api"
+    },
+    "TEE_CreatePersistentObject": {
+      "addr": 855936,
+      "type": "gp_api"
+    },
+    "TEE_GetObjectInfo": {
+      "addr": 855408,
+      "type": "gp_api"
+    },
+    "TEE_OpenPersistentObject": {
+      "addr": 855608,
+      "type": "gp_api"
+    },
+    "TEE_WriteObjectData": {
+      "addr": 856896,
+      "type": "gp_api"
+    },
+    "TEE_GetPropertyAsIdentity": {
+      "addr": 858904,
+      "type": "gp_api"
+    },
+    "TEE_CloseObject": {
+      "addr": 855528,
+      "type": "gp_api"
+    },
+    "TEE_GetSystemTime": {
+      "addr": 854872,
+      "type": "gp_api"
+    },
+    "TEE_TruncateObjectData": {
+      "addr": 857072,
+      "type": "gp_api"
+    },
+    "gen_random": {
+      "addr": 1229824,
+      "type": "tee"
+    },
+    "tee_get_cpuid": {
+      "addr": 901968,
+      "type": "tee"
+    }
+  },
+  "TA_DestroyEntryPoint_start": 809376,
+  "TA_DestroyEntryPoint_end": [
+    809412
+  ],
+  "TA_OpenSessionEntryPoint_start": 419936,
+  "TA_OpenSessionEntryPoint_end": [
+    419940
+  ],
+  "TA_CreateEntryPoint_start": 808440,
+  "TA_CreateEntryPoint_end": [
+    809364
+  ],
+  "TA_CloseSessionEntryPoint_start": 814240,
+  "TA_CloseSessionEntryPoint_end": [
+    814276
+  ],
+  "TA_InvokeCommandEntryPoint_start": 814280,
+  "TA_InvokeCommandEntryPoint_end": [
+    814872
+  ],
+  "_comment": "STAGED .ta binary-patched: swbcc_init @0xC22E8 -> mov w0,wzr;ret (BCC P256 ECC keygen returns !=SUCCESS in-emu). Create now runs full body + returns SUCCESS so Invoke->keymint_dispatcher reachable. Invoke @0xC6CC8, dispatcher @0xC6F38, paramTypes==0x65 hard gate (no GC). Non-RKP cmds dont need the BCC handle."
+}

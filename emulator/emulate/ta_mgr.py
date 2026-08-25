@@ -1,39 +1,90 @@
+from contextlib import contextmanager
+from dataclasses import dataclass
+import functools
 import os
 import tempfile
 import importlib
-from qiling import Qiling
-from qiling.extensions.afl import ql_afl_fuzz
+
+import time
+import threading
+
+from pathlib import Path
+
+import pwn
+from qiling.log import QL_VERBOSE
+from unicorn.arm64_const import UC_ARM64_REG_CP_REG, UC_ARM64_REG_W30, UC_ARM64_REG_X30
+import hashlib
+
+import yaml
+
+from emulate.non_gp.qsee.running import start_qsee_fuzz
+from emulate.non_gp.qsee.params import QseeCommandParams
+from emulate.asan import Asan
+
+from .ta_info import load_ta_adjacent_info
+
+from . import qsee_api
+# from qiling import Qiling
+from .qiling_extend import QilingExtend as Qiling
+from qiling.extensions.afl import ql_afl_fuzz, ql_afl_fuzz_custom
 from qiling.extensions.coverage import utils as cov_utils
 from qiling.extensions import pipe
+from .redis_queue import RedisQueue
 import unicorn
 from pwn import *
 from . import gp_api
+from . import asan
+from . import determinism
+from . import telemetry
 from .gp.utils.param import TEE_Param_Memref, TEE_Param_value
 import json
 import socket
 from hexdump import hexdump
 from colorama import Fore, Back, Style
+from .models import TA_Function, StubbedFunction
 from ctypes import *
 from enum import Enum
-from .params import *
+from .params import MIN_PARAM_ADDR, Param, ValueParam, MemRefParam, NoneParam, setup_params, setup_params_fuzz
 from .gp.utils.err import *
 from .gp.utils.param import *
 from .emulator_no_loader import (
+    HookData,
     fixup_got,
     mitee_setup,
+    qsee_setup,
     hook_ta_dl,
     hook_ta_custom,
-    teegris_32_setup
+    teegris_32_setup, 
+    optee_setup,
 )
-from .common import CRASH_PC, CRASH_PC_2, NOTIMPL_PC
+from .common import CRASH_PC, NOTIMPL_PC, CRASH_PC_2, finalize_fuzzing
+from capstone import Cs, CS_ARCH_ARM64, CS_ARCH_ARM, CS_MODE_ARM, CS_MODE_THUMB
+from elftools.elf.elffile import ELFFile
+from typing import Any, Callable, Optional, List, Dict
+from .fuzz_record import Record, Status
 
-class Status(Enum):
-    FUZZING = 1
-    REPLAYING = 2
-    INTERACTIVE = 3
-    DF_FUZZING = 4
-    DF_REPLAY = 5
-    DF_VALIDATE = 6
+
+def _frame_multi_input(raw, max_ops):
+    """Split a flat AFL input into up to ``max_ops`` length-prefixed records for
+    multi-command stateful fuzzing (TAEMU_MULTI_CMD).
+
+    Wire format: repeated ``[2-byte LE length L][L bytes]``. A record may be
+    short if the input is truncated mid-record (fine -- the harness sees the
+    bytes that exist). Empty input yields a single empty record so at least one
+    InvokeCommand still runs. Each record is handed to the harness's
+    place_input_callback as that command's input."""
+    ops = []
+    i, n = 0, len(raw)
+    while i + 2 <= n and len(ops) < max_ops:
+        L = raw[i] | (raw[i + 1] << 8)
+        i += 2
+        rec = raw[i:i + L]
+        i += L
+        ops.append(rec)
+    if not ops:
+        ops.append(b"")
+    return ops
+
 
 def parse_msg(msg):
     f = int(msg[0])
@@ -41,10 +92,130 @@ def parse_msg(msg):
     data = msg[2 : 2 + l]
     return (f, l, data)
 
+def pivot_df_not_hit(ql: Qiling, ta_mgr) -> None:
+    ql.log.info(
+        Fore.RED
+        + f"double fetch location not reproduced!"
+        + Style.RESET_ALL
+    )
+    ta_mgr.log.info(f"double fetch location not reproduced!")
+    ql.stop()
+    if ta_mgr.status == Status.DF_FUZZING:
+        open(os.path.join(ta_mgr.df_fuzz_out, "out", "default", "DF_NOT_REPRODUCED"), "w+").write("double fetch not reproduced")
+
+def df_validated(ql: Qiling, user_data) -> None:
+    ta_mgr, input_file = user_data
+    ql.log.info(
+        Fore.GREEN
+        + f"df validated (no crash)!"
+        + Style.RESET_ALL
+    )
+    ta_mgr.log.info(f"df validated!")
+    open(input_file + ".df", "wb+").write(open(input_file, "rb").read())
+    ql.stop()
 
 def pivot(ql: Qiling, cur) -> None:
-    ql.log.info(Fore.BLUE + f"[{cur}] reach end @{ql.arch.regs.read('PC'):#0x}" + Style.RESET_ALL)
+    ql.log.info(
+        Fore.BLUE
+        + f"[{cur}] reach end @{ql.arch.regs.read('PC'):#0x}"
+        + Style.RESET_ALL
+    )
     ql.stop()
+
+def derive_entrypoint_ends(ta_path, ep_name, json_start):
+    """Recover an entry point's return address(es) when the .json metadata left
+    its TA_*EntryPoint_end list empty.
+
+    ghidra leaves _end empty when it can't pin a RET -- which happens precisely
+    when the entry point is a *tail-call thunk*: it restores its frame then
+    `b`-branches to the real handler, which RETs straight to our caller (a
+    plain `b` preserves lr). 7 corpus TEEGRIS TAs (HvAUtW, KEYMST, MpNCIT,
+    Mpsaut, TIdspl, TIthLl, ...) are otherwise un-loadable for this reason, and
+    in every observed case the affected entry point is CloseSession or Destroy,
+    both of which return void -- so stopping at the tail-branch (where x0 is not
+    yet the callee's return value) is harmless.
+
+    The 5 GP entry-point FUNC symbols survive even in these stripped TAs, so we
+    bound the scan to the symbol's [value, value+size) and treat as a stop point
+    any RET, or any unconditional B/BR whose target leaves that range (the tail
+    call). Conditional branches (the stack-canary `b.ne`, loops) stay in range
+    and are ignored. Returns a list of file-offset addresses (the json
+    convention), or [] if nothing could be derived (caller then hard-fails as
+    before).
+    """
+    try:
+        with open(ta_path, "rb") as f:
+            elf = ELFFile(f)
+            is64 = elf.elfclass == 64
+            # locate the surviving FUNC symbol for this entry point
+            sym = None
+            for sec in elf.iter_sections():
+                if sec.header["sh_type"] not in ("SHT_SYMTAB", "SHT_DYNSYM"):
+                    continue
+                for s in sec.iter_symbols():
+                    if s.name == ep_name and s["st_info"]["type"] == "STT_FUNC" and s["st_size"] > 0:
+                        sym = (s["st_value"], s["st_size"])
+                        break
+                if sym:
+                    break
+            if sym is None:
+                return []
+            sym_value, size = sym
+            # 32-bit ARM entry functions carry the Thumb bit in st_value (odd
+            # address); strip it for address math and use it to bias disassembly.
+            val = (sym_value & ~1) if not is64 else sym_value
+            thumb_hint = (not is64) and bool(sym_value & 1)
+            # only trust an exact match with the json start (they coincide for
+            # every corpus TA: PIE base 0 -> file offset == vaddr; non-PIE
+            # ET_EXEC -> vaddr with the Thumb bit stripped). A mismatch means the
+            # symbol isn't the thing the json points at -- don't guess.
+            if json_start is not None and val != json_start:
+                return []
+            # map [val, val+size) to file bytes
+            code = None
+            for seg in elf.iter_segments():
+                if seg["p_type"] != "PT_LOAD":
+                    continue
+                if seg["p_vaddr"] <= val < seg["p_vaddr"] + seg["p_filesz"]:
+                    off = seg["p_offset"] + (val - seg["p_vaddr"])
+                    f.seek(off)
+                    code = f.read(min(size, seg["p_filesz"] - (val - seg["p_vaddr"])))
+                    break
+            if not code:
+                return []
+
+        lo, hi = val, val + size
+        ends = []
+
+        def scan(md):
+            found = []
+            for ins in md.disasm(code, val):
+                m = ins.mnemonic
+                if m == "ret" or (not is64 and m == "bx" and ins.op_str.strip() == "lr"):
+                    found.append(ins.address)
+                elif m in ("b", "b.w", "br"):  # unconditional only (conditionals carry a cc suffix like b.ne/b.eq); b.w is the Thumb-2 wide encoding
+                    tgt = None
+                    try:
+                        tgt = int(ins.op_str.strip().lstrip("#"), 0)
+                    except ValueError:
+                        pass
+                    if m == "br" or (tgt is not None and not (lo <= tgt < hi)):
+                        found.append(ins.address)
+                elif not is64 and m in ("pop", "ldm", "ldmia") and "pc" in ins.op_str:
+                    found.append(ins.address)
+            return found
+
+        if is64:
+            ends = scan(Cs(CS_ARCH_ARM64, CS_MODE_ARM))
+        elif thumb_hint:
+            # Thumb entry: disassemble Thumb first, fall back to ARM
+            ends = scan(Cs(CS_ARCH_ARM, CS_MODE_THUMB)) or scan(Cs(CS_ARCH_ARM, CS_MODE_ARM))
+        else:
+            ends = scan(Cs(CS_ARCH_ARM, CS_MODE_ARM)) or scan(Cs(CS_ARCH_ARM, CS_MODE_THUMB))
+        return sorted(set(ends))
+    except Exception as e:
+        print(f"derive_entrypoint_ends({ep_name}) failed: {e}")
+        return []
 
 
 def get_n_ptype(param_type: int, n: int):
@@ -63,18 +234,47 @@ class FUNCS(Enum):
     func_TEEC_RegisterSharedMemory = 4
     func_TEEC_ReleaseSharedMemory = 5
     func_TEEC_FinalizeContext = 6
+    func_TEEC_AllocateSharedMemory = 7
 
-
+@dataclass
 class Session:
-    def __init__(self, session_id_mem, session_id, sessionContext):
-        self.session_id_mem = session_id_mem
-        self.session_id = session_id
-        self.sessionContext = sessionContext
+    session_id_mem: int
+    session_id: int
+    sessionContext: int
 
 
 def get_ta_uuid(ta_name):
-    ta_name = ta_name.replace("-", "")
-    return bytes.fromhex(ta_name)
+    # Most staged TAs are named by their hex UUID (e.g. the OnePlus/teegris
+    # corpus). Samsung's QSEE TAs are named by function (tz_hdm, tz_iccc), which
+    # is not hex -- fall back to a UTF-8 encoding of the name so loading never
+    # aborts. taUUID is informational (not used for dispatch).
+    cleaned = ta_name.replace("-", "")
+    try:
+        return bytes.fromhex(cleaned)
+    except ValueError:
+        return ta_name.encode("utf-8", "replace")
+
+
+def require_class_attr(param_name, attr_name):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(self, **kwargs):
+            if param_name in kwargs:
+                val = kwargs[param_name]
+
+                if val != getattr(self, attr_name):
+                    raise ValueError(
+                        f"{param_name}={val} does not match self.{attr_name}={getattr(self, attr_name)}"
+                    )
+                return func(self, **kwargs)
+            else:
+                raise ValueError(
+                    f"{param_name} not found in args or kwargs. Probably a racing bug here."
+                )
+
+        return wrapper
+
+    return decorator
 
 
 class EmuLog:
@@ -82,111 +282,141 @@ class EmuLog:
     def __init__(self, ql: Qiling):
         self._ql = ql
 
-    def info(self, text: str):
-        self._ql.log.info(Fore.BLUE + text + Style.RESET_ALL)
+    def info(self, text: str, *args):
+        self._ql.log.info(Fore.BLUE + text + Style.RESET_ALL, *args)
 
 
 class TAEMU:
 
     def __init__(
-            self, 
-            ql: Qiling, 
-            tee: str, 
-            ta_path: str, 
-            ta_elf: ELF, 
-            status: Status = None,
-            std_implemented=True, 
-            tee_specific_implemented=True):
+        self,
+        ql: Qiling,
+        tee: str,
+        ta_path: str,
+        ta_elf: ELF,
+        *,
+        status: Status = None,
+        record_max_items=5000,
+        record_q: Optional[RedisQueue] = None,
+        use_cache: bool = False,
+    ):
         self.ql = ql
-        self.status = status
         self.log = EmuLog(ql)
         self.tee = tee
-        self.ta_path = ta_path
-        self.ta_name = ta_path.split("/")[-1].split(".ta")[0]
+        self.ta_path = Path(ta_path)
+        self.ta_name = self.ta_path.stem
         self.ta_elf = ta_elf
-        self.ta_base = ql.mem.get_lib_base(ta_path.split("/")[-1])
-        self.taUUID = get_ta_uuid(ta_path.split("/")[-1][:-3])
+        self.ta_base = ql.mem.get_lib_base(self.ta_path.name)
+        if self.tee.endswith("nongp"):
+            self.taUUID = None
+        else:
+            self.taUUID = get_ta_uuid(self.ta_name)
         self.ta_elf.address = self.ta_base
+        self.HEAP = {"allocated": {}, "freed": {}, "redzones": {}}
+        self.asan = Asan(self)
+        self.exit_non_implemented = None
+        self.REE_REGIONS = []  # [(start,end)] of REE/client shared buffers (params.py)
+        self.curr_params = None
+        self._qsee_setup_state = None
+        self.session_counter = 0
+        self.init_fuzz = False
+        self.df_replay_placed = False
+        self.status = status
+        self.df_fuzz_out = None
+        self.log.info(f"TAEMU initialized in {self.status.name} mode")
 
-        self.std_implemented= std_implemented
-        self.tee_specific_implemented = tee_specific_implemented
+        self.use_cache = use_cache
+        # Simple process management for recorder
+        self._record_q = record_q
+        if self.status in (Status.REPLAYING, Status.FUZZING):
+            # only visiable for one thread (separate copy on the process level)
+            self.curr_record_key = None
+            self.curr_input = None
+            self.fuzz_session = None
+            self._record_meta: Dict[str, Any] = {}
+            self._record_lock = threading.RLock()
+            self._record_max_items = record_max_items
+            self._record: List[Record] = []
+
+        # Optional API-subset restriction: a JSON list of API names that
+        # get_api_impl is allowed to resolve (everything else -> default_func).
+        # Used by the coverage-vs-implemented-API evaluation. None = no limit.
         self.implemented_apis = None
-        if "TAEMU_NO_STD_API" in os.environ:
-            self.std_implemented= False
-        if "TAEMU_NO_TEE_API" in os.environ:
-            self.tee_specific_implemented= False 
         if "TAEMU_IMPLEMENTED_APIS" in os.environ:
             self.implemented_apis = json.load(open(os.environ["TAEMU_IMPLEMENTED_APIS"]))
         self.crash_on_not_implemented = False
         if "TAEMU_CRASH_NOTIMPL" in os.environ:
-            self.crash_on_not_implemented = True 
+            self.ql.log.warning("TAEMU_CRASH_NOTIMPL is set, crashing on not implemented")
+            self.crash_on_not_implemented = True
 
-        self.HEAP = {"allocated": {}, "freed": {}, "redzones": {}}
-        self.curr_params = None
-        self.session_counter = 0
-        self.init_fuzz = False
-        self.fuzz_session = None
-        
-        self.sessions = []
+        self.sessions:List[Session] = []
         self._debugger = ql._debugger
 
-        f = open(f"{self.ta_path[:-3]}.json", "r")
-        ta_info = json.load(f)
-        self.ta_info = ta_info
-
-        if all(
-            i in ta_info
-            for i in [
-                "TA_InvokeCommandEntryPoint_start",
-                "TA_InvokeCommandEntryPoint_end",
-                "TA_CreateEntryPoint_start",
-                "TA_CreateEntryPoint_end",
-                "TA_OpenSessionEntryPoint_start",
-                "TA_OpenSessionEntryPoint_end",
-                "TA_CloseSessionEntryPoint_start",
-                "TA_CloseSessionEntryPoint_end",
-                "TA_DestroyEntryPoint_start",
-                "TA_DestroyEntryPoint_end",
-            ]
-        ):
-
-            self.TA_CreateEntryPoint_start = ta_info["TA_CreateEntryPoint_start"]
-            self.TA_CreateEntryPoint_end = ta_info["TA_CreateEntryPoint_end"]
-            self.TA_OpenSessionEntryPoint_start = ta_info["TA_OpenSessionEntryPoint_start"]
-            self.TA_OpenSessionEntryPoint_end = ta_info["TA_OpenSessionEntryPoint_end"]
-            self.TA_InvokeCommandEntryPoint_start = ta_info["TA_InvokeCommandEntryPoint_start"]
-            self.TA_InvokeCommandEntryPoint_end = ta_info["TA_InvokeCommandEntryPoint_end"]
-            self.TA_CloseSessionEntryPoint_start = ta_info["TA_CloseSessionEntryPoint_start"]
-            self.TA_CloseSessionEntryPoint_end = ta_info["TA_CloseSessionEntryPoint_end"]
-            self.TA_DestroyEntryPoint_start = ta_info["TA_DestroyEntryPoint_start"]
-            self.TA_DestroyEntryPoint_end = ta_info["TA_DestroyEntryPoint_end"]
+        self.CreateEntryPoint_ret = None
+        self.ta_info = load_ta_adjacent_info(self.ta_path)
+        self.ta_funcs: Dict[TA_Function, StubbedFunction] = {}
+        if self.tee.endswith("nongp"):
+            self._assign_functions([
+                TA_Function.CElfFile_invoke,
+                TA_Function.SetupTeardown,
+                TA_Function.CommandHandler,
+            ])
+            
         else:
-            print(f"TA info error")
-            exit(-1)
+            self._assign_functions([
+                TA_Function.InvokeCommandEntryPoint,
+                TA_Function.CreateEntryPoint,
+                TA_Function.OpenSessionEntryPoint,
+                TA_Function.CloseSessionEntryPoint,
+                TA_Function.DestroyEntryPoint,
+            ])
 
-        if (
-            len(self.TA_CloseSessionEntryPoint_end) == 0
-            or len(self.TA_DestroyEntryPoint_end) == 0
-            or len(self.TA_InvokeCommandEntryPoint_end) == 0
-            or len(self.TA_OpenSessionEntryPoint_end) == 0
-            or len(self.TA_CreateEntryPoint_end) == 0
-        ):
-            print(f"one or more TA_*_end entries is empty!")
-            exit(-1)
+    def _assign_functions(self, func_names: List[TA_Function]):
+        ta_info = self.ta_info
 
+        needed = set([f"{x.value}_end" for x in func_names] + [f"{x.value}_start" for x in func_names])
+        if not needed.issubset(set(ta_info)):
+            print(f"TA info error, missing keys: {needed - set(ta_info)}")
+            exit(-1)
+        
+        base = 0
         if self.ta_elf.pie:
-            self.TA_CreateEntryPoint_start = self.TA_CreateEntryPoint_start + self.ta_base
-            self.TA_CreateEntryPoint_end = [end + self.ta_base for end in self.TA_CreateEntryPoint_end]
-            self.TA_OpenSessionEntryPoint_start = self.TA_OpenSessionEntryPoint_start + self.ta_base
-            self.TA_OpenSessionEntryPoint_end = [end + self.ta_base for end in self.TA_OpenSessionEntryPoint_end]
-            self.TA_InvokeCommandEntryPoint_start = self.TA_InvokeCommandEntryPoint_start + self.ta_base
-            self.TA_InvokeCommandEntryPoint_end = [end + self.ta_base for end in self.TA_InvokeCommandEntryPoint_end]
-            self.TA_CloseSessionEntryPoint_start = self.TA_CloseSessionEntryPoint_start + self.ta_base
-            self.TA_CloseSessionEntryPoint_end = [end + self.ta_base for end in self.TA_CloseSessionEntryPoint_end]
-            self.TA_DestroyEntryPoint_start = self.TA_DestroyEntryPoint_start + self.ta_base
-            self.TA_DestroyEntryPoint_end = [end + self.ta_base for end in self.TA_DestroyEntryPoint_end]
+            base = self.ta_base
+        
+        for func in func_names:
+            func_end = f"{func.value}_end"
+            func_start = f"{func.value}_start"
+            if len(ta_info[func_end]) == 0:
+                # ghidra leaves *_end empty for tail-call thunk entry points;
+                # recover the stop address statically instead of hard-failing.
+                # TAEMU_NO_DERIVE_ENDS=1 restores the old strict behaviour.
+                derived = (
+                    derive_entrypoint_ends(self.ta_path, func.value, ta_info[func_start])
+                    if "TAEMU_NO_DERIVE_ENDS" not in os.environ
+                    else []
+                )
+                if derived:
+                    print(
+                        f"[ta_mgr] {func.value}_end was empty in .json; derived stop "
+                        f"address(es) {[hex(d) for d in derived]} (tail-call thunk)"
+                    )
+                    ta_info[func_end] = derived
+                else:
+                    print(f"TA_{func.value}_end is empty! (could not derive)")
+                    exit(-1)
+            self.ta_funcs[func] = StubbedFunction(
+                name=func,
+                start=ta_info[func_start] + base,
+                end=[x + base for x in ta_info[func_end]],
+            )
+            print("Parsed function: ", func.value)
 
-        f.close()
+    def is_ree_addr(self, addr, size=1):
+        """True if [addr, addr+size) lies in an REE/client shared buffer (vs
+        secure-world memory). Backs the REE/secure boundary in
+        TEE_CheckMemoryAccessRights and the double-fetch mode."""
+        return any(s <= addr and addr + size <= e for s, e in self.REE_REGIONS)
+
 
     def setup(self):
         # fix relocations and other miscellanous setup
@@ -194,8 +424,12 @@ class TAEMU:
         if self.tee == "mitee":
             # handle tpidr_el0 and fix relocations
             mitee_setup(self.ql, self.ta_path, self.ta_base)
+        if self.tee[:4] == "qsee":
+            qsee_setup(self.ql, self.ta_path, self.ta_base, self)
         if self.tee == "teegris" and self.ql.arch.pointersize == 4:
             teegris_32_setup(self.ql, self.ta_path, self.ta_base)
+        if self.tee == "optee":
+            optee_setup(self.ql, self.ta_path, self.ta_base, self)
 
     def hook(self):
         # setup api hooks
@@ -206,10 +440,15 @@ class TAEMU:
             self,
             is_mitee=self.tee == "mitee",
             is_tc=self.tee == "trustedcore",
-            std_implemented = self.std_implemented,
-            tee_specific_implemented = self.tee_specific_implemented
+            is_qsee=self.tee[:4] == "qsee",
+            is_optee=self.tee == "optee"
         )
-        hook_ta_custom(self.ql, self.ta_path, self.ta_elf, self, std_implemented = self.std_implemented, tee_specific_implemented=self.tee_specific_implemented)
+        hook_ta_custom(
+            self.ql,
+            self.ta_path,
+            self.ta_elf,
+            self,
+        )
         self.ql.do_lib_patch()
 
     def start(self, *args):
@@ -220,84 +459,220 @@ class TAEMU:
                 args[1], 
                 fuzz_replay=(self.status == Status.REPLAYING),
             )
+        elif self.status in (Status.DF_FUZZING, Status.DF_REPLAY, Status.DF_VALIDATE):
+            self.df_fuzz(*args, 
+                fuzz_replay=(self.status == Status.DF_REPLAY), 
+                df_validate=(self.status == Status.DF_VALIDATE)
+            )
         else:
             self.start_interactive()
 
-    def get_shm(self, pointer):
+    def hash_regs(self):
+        #TODO: to discuss, cause this will generate big int, which is unfriendly to parse json file later on in other languages
+        return str(int(hashlib.md5(str(self.ql.arch.regs.save()).encode()).hexdigest(),16))
+
+    def get_shm(self, pointer, size: Optional[int] = None, is_read: bool = True):
         if self.curr_params is None:
             return None
+
+        # self.log.info(f"[ql_get_shm] get_shm for pointer {pointer:#0x}")
+
+        if isinstance(self.curr_params, QseeCommandParams):
+            return None
+        
         for p in self.curr_params:
             if isinstance(p, MemRefParam):
-                if p.is_shared and pointer >= p.shm_pybuf and pointer <= p.shm_pybuf + p.size:
+                if (
+                    p.is_shared
+                    and pointer >= p.shm_pybuf
+                    and pointer <= p.shm_pybuf + p.size
+                ):
+                    if self.status in (Status.FUZZING, Status.REPLAYING) and not self.init_fuzz:
+                        self.update_records(
+                            key=self.curr_record_key,
+                            item=Record(
+                                pointer,
+                                size if size is not None else None,
+                                regs={
+                                    "PC": self.ql.arch.regs.read("PC"),
+                                    "ret_addr": self.ql.get_caller_pc(),
+                                    "ret_addr_offset": self.ql.get_caller_pc() - self.ql.emu.ta_base,
+                                    "is_read": is_read,
+                                    "reg_hash": self.hash_regs()
+                                },
+                            ),
+                            op=lambda a, b: a + [b],
+                        )
                     return p
         return None
 
-    def update_shm(self, pointer):
-        param = self.get_shm(pointer)
+    def update_shm(self, pointer, size: Optional[int] = None):
+        param = self.get_shm(pointer, size, is_read=True)
         if param is None:
             return
         if self.status == Status.INTERACTIVE:
-            self.ql.mem.write(param.shm_pybuf, param.shm.to_bytes()[:param.size])
+            self.ql.mem.write(param.shm_pybuf, param.shm.to_bytes()[: param.size])
 
-    def writeback_shm(self, pointer):
-        param = self.get_shm(pointer)
+    def writeback_shm(self, pointer, size: Optional[int] = None):
+        param = self.get_shm(pointer, size, is_read=False)
         if param is None:
             return
         if self.status == Status.INTERACTIVE:
             curr_data = self.ql.mem.read(param.shm_pybuf, param.size)
             param.shm.from_bytes(curr_data)
 
+    @require_class_attr("key", "curr_record_key")
+    def get_records(self, key):
+        with self._record_lock:
+            return self._record
+
+    @require_class_attr("key", "curr_record_key")
+    def set_records(self, *, key, value: List[Record]):
+        with self._record_lock:
+            if len(value) >= self._record_max_items:
+                self.log.info(
+                    f"[set_records] record cache full, truncating to {self._record_max_items} items"
+                )
+                value = value[: self._record_max_items]
+
+            self._record = value
+            self._record_meta["last_accessed"] = time.time()
+
+    @require_class_attr("key", "curr_record_key")
+    def update_records(
+        self,
+        *,
+        key,
+        item: Record,
+        op: Callable,
+    ):
+        with self._record_lock:
+            if self._record:
+                if len(self._record) >= self._record_max_items:
+                    self.log.info(
+                        f"[update_records] record cache full, skipping update"
+                    )
+                    self._record_meta["last_accessed"] = time.time()
+                    self._record_meta["full_record"] = True
+                    self._record_meta["skipped_updates"] = (
+                        self._record_meta["skipped_updates"]
+                        if "skipped_updates" in self._record_meta
+                        else 0
+                    ) + 1
+                    return
+
+                self._record = op(self._record, item)
+                self._record_meta["last_accessed"] = time.time()
+            else:
+                self.set_records(key=key, value=[item])
+        self.ql.log.debug(f"[update_records] current records is {self.records_info()}")
+
+    def records_info(self):
+        with self._record_lock:
+            return {
+                "num_items": len(self._record),
+                "key": self.curr_record_key,
+                **self._record_meta,
+                "details": self._record,
+            }
+
+    def save_records_to_queue(
+        self, checker: Optional[Callable[[List[Record]], bool]] = None
+    ):
+        with self._record_lock:
+            if checker is not None:
+                if not checker(self._record):
+                    return
+            record_copy = self._record.copy()
+            record_meta_copy = self._record_meta.copy()
+
+        self.log.info(
+            f"Saving records to queue: {self.curr_input}, {self.curr_record_key}"
+        )
+        if self._record_q:
+            self._record_q.put(
+                {
+                    "input": self.curr_input,
+                    "key": self.curr_record_key,
+                    "records": record_copy,
+                    "meta": record_meta_copy,
+                }
+            )
+
+    def clear_records(self):
+        if self.status in (Status.FUZZING, Status.REPLAYING):
+            with self._record_lock:
+                self._record.clear()
+                self._record_meta.clear()
+                self.curr_record_key = None
+
     def CreateEntryPoint(self):
-        self.log.info(f"[TA_CreateEntryPoint] start @{self.TA_CreateEntryPoint_start:#0x}")
-        entrypoint = self.TA_CreateEntryPoint_start
+        create_entrypoint = self.ta_funcs[TA_Function.CreateEntryPoint]
+        self.log.info(
+            f"[TA_CreateEntryPoint] start @{create_entrypoint.start:#0x}"
+        )
+        entrypoint = create_entrypoint.start
 
         # stop at TA_CreateEntryPoint_end
-        for e in self.TA_CreateEntryPoint_end:
+        for e in create_entrypoint.end:
             self.ql.hook_address(pivot, e, user_data="TA_CreateEntryPoint")
 
-        #_debugger = self.ql._debugger
-        self.ql.debugger = False
+        # _debugger = self.ql._debugger
+        # self.ql.debugger = False
+        #self.ql._debugger = self._debugger
         self.ql.run(begin=entrypoint)
 
         ret = self.ql.os.fcall.cc.getReturnValue()
         self.CreateEntryPoint_ret = ret
         if ret != TEE_SUCCESS:
-            self.ql.log.warning(f"[////TA_CreateEntryPoint////] return != TEE_SUCCESS {hex(ret)}")
+            self.ql.log.warning(
+                f"[////TA_CreateEntryPoint////] return != TEE_SUCCESS {hex(ret)}"
+            )
             return ret
         return ret
 
     def OpenSession(self):
+        open_session_fn = self.ta_funcs[TA_Function.OpenSessionEntryPoint]
+
         if self.CreateEntryPoint_ret != TEE_SUCCESS:
-            self.ql.log.warning(f"Calling OpenSession without succesfull CreateEntryPoint!")
+            self.ql.log.warning(
+                f"Calling OpenSession without succesfull CreateEntryPoint!"
+            )
             return TEE_ERROR_BAD_STATE
         # TODO: support parameters
         session_opened = self.session_counter
         self.session_counter += 1
         session_id_mem = self.ql.mem.map_anywhere(
-            0x1000, minaddr=min_addr, perms=3, info="session_id"
+            0x1000, minaddr=MIN_PARAM_ADDR, perms=3, info="session_id"
         )
         sessionContext = self.ql.mem.map_anywhere(
-            0x1000, minaddr=min_addr, perms=3, info="session_context"
+            0x1000, minaddr=MIN_PARAM_ADDR, perms=3, info="session_context"
         )
         self.ql.mem.write_ptr(session_id_mem, session_opened)
         new_session = Session(session_id_mem, session_opened, sessionContext)
         self.sessions.append(new_session)
 
-        self.log.info(f"[TA_OpenSessionEntryPoint] start @{self.TA_OpenSessionEntryPoint_start:#0x}")
-        for e in self.TA_OpenSessionEntryPoint_end:
+        self.log.info(
+            f"[TA_OpenSessionEntryPoint] start @{open_session_fn.start:#0x}"
+        )
+        for e in open_session_fn.end:
             self.ql.hook_address(pivot, e, user_data="TA_OpenSessionEntryPoint")
 
         # ql._debugger = _debugger
         self.ql.os.fcall.cc.setRawParam(2, sessionContext)
-        self.ql.run(begin=self.TA_OpenSessionEntryPoint_start)
+        self.ql.run(begin=open_session_fn.start)
 
         ret = self.ql.os.fcall.cc.getReturnValue()
+        open_session_fn.ret = ret
         if ret != TEE_SUCCESS:
-            self.ql.log.warning(f"[////TA_OpenSessionEntryPoint////] return != TEE_SUCCESS {hex(ret)}")
+            self.ql.log.warning(
+                f"[////TA_OpenSessionEntryPoint////] return != TEE_SUCCESS {hex(ret)}"
+            )
             return ret, None
         return ret, new_session
 
-    def InvokeCommand(self, sid, cmd, ptypes, params):
+    def InvokeCommand(self, sid:int, cmd, ptypes, params):
+        invoke_command_fn = self.ta_funcs[TA_Function.InvokeCommandEntryPoint]
         exit_hooks = []
         self.ql.log.debug(f"TEEC_InvokeCommand {sid} {cmd} {ptypes:#0x}")
         session = None
@@ -315,22 +690,24 @@ class TAEMU:
             cmd,
             ptypes,
             params,
-            is_32bit= self.ql.arch.pointersize==4,
+            is_32bit=self.ql.arch.pointersize == 4,
         )
         if status != TEE_SUCCESS:
             return status
         self.curr_params = params
 
         self.log.info(
-            f"[TA_InvokeCommandEntryPoint] start @{self.TA_InvokeCommandEntryPoint_start:#0x}"
+            f"[TA_InvokeCommandEntryPoint] start @{invoke_command_fn.start:#0x}"
         )
         # stop at TA_InvokeCommandEntryPoint_end
-        for e in self.TA_InvokeCommandEntryPoint_end:
-            exit_hooks.append(self.ql.hook_address(pivot, e, user_data="TA_InvokeCommandEntryPoint"))
+        for e in invoke_command_fn.end:
+            exit_hooks.append(
+                self.ql.hook_address(pivot, e, user_data="TA_InvokeCommandEntryPoint")
+            )
 
         # run
         self.ql._debugger = self._debugger
-        self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)
+        self.ql.run(begin=invoke_command_fn.start)
         ret = self.ql.os.fcall.cc.getReturnValue()
 
         params_mem_read = params_mem
@@ -342,17 +719,23 @@ class TAEMU:
                 param.b = int.from_bytes(self.ql.mem.read(params_mem_read, 4), "little")
                 params_mem_read += 4
                 if self.ql.arch.pointersize == 4:
-                    # 32 bit
                     params_mem_read += 8
             elif isinstance(param, MemRefParam):
-                pybuf = self.ql.mem.read_ptr(params_mem_read)
-                param.buf = bytes(self.ql.mem.read(pybuf, param.size))
-                self.ql.mem.unmap(pybuf, (param.size + 0xFFF) & ~0xFFF)
+                rz = getattr(param, "_rz", None)
+                if rz is not None:
+                    region, real_size = rz
+                    pybuf = region + asan.ASAN_REDZONE_SIZE
+                    param.buf = bytes(self.ql.mem.read(pybuf, param.size))
+                    asan.remove_param_redzones(self.ql, self, region, param.size, real_size)
+                else:
+                    pybuf = self.ql.mem.read_ptr(params_mem_read)
+                    param.buf = bytes(self.ql.mem.read(pybuf, param.size))
+                    self.ql.mem.unmap(pybuf, (param.size + 0xFFF) & ~0xFFF)
                 params_mem_read += self.ql.arch.pointersize * 2
             elif isinstance(param, NoneParam):
                 params_mem_read += self.ql.arch.pointersize * 2
             else:
-                self.ql.log.error(f"unknown ptype {param}")
+                self.ql.log.error(f"unknown ptype {t}")
                 return TEE_ERROR_BAD_PARAMETERS
 
         for e in exit_hooks:
@@ -379,30 +762,36 @@ class TAEMU:
         if session is None:
             self.ql.log.error(f"unknown session {sid}")
             return TEE_ERROR_BAD_STATE
-        self.log.info(f"[CloseSessionEntryPoint] start @{self.TA_CloseSessionEntryPoint_start:#0x}")
-        for e in self.TA_CloseSessionEntryPoint_end:
+        close_session_fn = self.ta_funcs[TA_Function.CloseSessionEntryPoint]
+        self.log.info(
+            f"[CloseSessionEntryPoint] start @{close_session_fn.start:#0x}"
+        )
+        for e in close_session_fn.end:
             self.ql.hook_address(pivot, e, user_data="TA_CloseSessionEntryPoint_end")
 
-        #self.ql._debugger = self._debugger
+        # self.ql._debugger = self._debugger
 
         self.ql.os.fcall.cc.setRawParam(0, session.sessionContext)
-        self.ql.run(begin=self.TA_CloseSessionEntryPoint_start)
+        self.ql.run(begin=close_session_fn.start)
 
         self.ql.mem.unmap(session.session_id_mem, 0x1000)
         self.ql.mem.unmap(session.sessionContext, 0x1000)
         self.sessions.pop(idx)
 
     def DestroyEntryPoint(self):
-        self.log.info(f"[TA_DestroyEntryPoint] start @{self.TA_DestroyEntryPoint_start:#0x}")
+        destroy_entrypoint_fn = self.ta_funcs[TA_Function.DestroyEntryPoint]
+        self.log.info(
+            f"[TA_DestroyEntryPoint] start @{destroy_entrypoint_fn.start:#0x}"
+        )
         if self.tee == "t6":
             self.ql.log.warning(f"t6 TA_DestroyEntryPoint not supported by emulator")
             return
-        for e in self.TA_DestroyEntryPoint_end:
-            self.ql.hook_address(pivot, e, user_data="TA_CloseSessionEntryPoint_end")
+        for e in destroy_entrypoint_fn.end:
+            self.ql.hook_address(pivot, e, user_data="TA_DestroyEntryPoint_end")
 
         # self.ql._debugger = self._debugger
 
-        self.ql.run(begin=self.TA_DestroyEntryPoint_start)
+        self.ql.run(begin=destroy_entrypoint_fn.start)
 
         self.CreateEntryPoint_ret = None
 
@@ -422,6 +811,11 @@ class TAEMU:
         shmdt.restype = c_int
         shmdt.argtypes = (c_void_p,)
 
+        if self.tee.endswith("nongp"):
+            if self.tee.startswith("qsee"):
+                from .non_gp.qsee.running import start_qsee_interactive
+                return start_qsee_interactive(self)
+
         ret = self.CreateEntryPoint()
         if ret != TEE_SUCCESS:
             self.ql.log.warning(f"CreateEntryPoint ret != TEE_SUCCESS {hex(ret)}")
@@ -431,6 +825,7 @@ class TAEMU:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(("0.0.0.0", 1337))
+        self.log.info("Listening on port 0.0.0.0:1337")
         sock.listen()
 
         (client_socket, address) = sock.accept()
@@ -443,9 +838,14 @@ class TAEMU:
                 return
             (f, l, d) = parse_msg(data)
 
-            if f == FUNCS.func_TEEC_InitializeContext.value and l == 5 and d == b"start":
+            if (
+                f == FUNCS.func_TEEC_InitializeContext.value
+                and l == 5
+                and d == b"start"
+            ):
                 self.ql.log.debug(f"TEEC_InitializeContext")
                 client_socket.send(b"ok")
+            
             elif f == FUNCS.func_TEEC_OpenSession.value and l == 0x10:
                 uuid = (
                     p32(u32(d[:4]), endian="big")
@@ -454,26 +854,35 @@ class TAEMU:
                     + d[8:]
                 ).hex()
                 self.ql.log.debug(f"TEEC_OpenSession from uuid {uuid}")
-                if "-" in self.ta_path:
-                    if uuid != self.ta_path.replace("-", "").split("/")[-1][:-3] and uuid != self.ta_path.replace("-", "").split("/")[-1][:-3].lower():
+                # self.ta_path is a pathlib.Path since the qsee work; these
+                # comparisons are textual, so operate on its string form.
+                ta_path_s = str(self.ta_path)
+                if "-" in ta_path_s:
+                    if uuid != ta_path_s.replace("-", "").split("/")[-1][:-3] and uuid != ta_path_s.replace("-", "").split("/")[-1][:-3].lower():
                         self.ql.log.error(f"Inconsistent TA name!")
                         sock.close()
                         return
                 else:
-                    if uuid != self.ta_path.split("/")[-1][:-3] and uuid != self.ta_path.split("/")[-1][:-3].lower():
+                    if uuid != ta_path_s.split("/")[-1][:-3] and uuid != ta_path_s.split("/")[-1][:-3].lower():
                         self.ql.log.error(f"Inconsistent TA name!")
                         sock.close()
-                        exit(-1) 
+                        exit(-1)
                 ret, new_session = self.OpenSession()
                 if ret != TEE_SUCCESS:
-                    self.ql.log.warning(f"[////TA_OpenSessionEntryPoint////] return != TEE_SUCCESS {hex(ret)}")
+                    self.ql.log.warning(
+                        f"[////TA_OpenSessionEntryPoint////] return != TEE_SUCCESS {hex(ret)}"
+                    )
                     return
                 client_socket.send(b"ok" + p32(new_session.session_id))
-            elif f == FUNCS.func_TEEC_RegisterSharedMemory.value and l == 16:
+            
+            elif (f == FUNCS.func_TEEC_RegisterSharedMemory.value or f == FUNCS.func_TEEC_AllocateSharedMemory.value) and l == 16:
                 shm_key = u32(d[:4])
                 size = u32(d[4:8])
                 buf = u64(d[8:])
-                self.ql.log.info(f"TEEC_RegisterSharedMemory {shm_key:#0x} {buf:#0x} {size:#0x}")
+                func_name = "TEEC_RegisterSharedMemory" if f == FUNCS.func_TEEC_RegisterSharedMemory.value else "TEEC_AllocateSharedMemory"
+                self.ql.log.info(
+                    f"{func_name} {shm_key:#0x} {buf:#0x} {size:#0x}"
+                )
 
                 class SHM(Structure):
                     _fields_ = [
@@ -504,13 +913,14 @@ class TAEMU:
                 bufc2py[buf] = (size, shm)
 
                 client_socket.send(b"ok")
+
             elif f == FUNCS.func_TEEC_InvokeCommand.value and l == 108:
                 sid = u32(d[:4])
                 cmd = u32(d[4:8])
                 ptypes = u32(d[8:12])
                 self.ql.log.debug(f"TEEC_InvokeCommand {sid} {cmd} {ptypes:#0x}")
 
-                command_params = []
+                command_params: List['Param'] = []
                 params = d[12:]
                 pcnt = 0
                 while pcnt < 4:
@@ -532,19 +942,18 @@ class TAEMU:
                             return
                         (shm_size, shm) = bufc2py[buf]
                         if size > shm_size:
-                            self.ql.log.error(f"size larger than shm: {size:#0x} v.s. {shm_size}")
+                            self.ql.log.error(
+                                f"size larger than shm: {size:#0x} v.s. {shm_size}"
+                            )
                             sock.close()
                             return
                         # get shared content
                         self.ql.log.debug(f"SHM IN content: {shm.to_bytes()}")
-                        if self.tee == "mitee" or self.tee == "teegris" or self.tee == "trustedcore":
-                            # shared memory
-                            memref = MemRefParam(shm.to_bytes(), size)
-                            memref.is_shared = True
-                            memref.shm = shm
-                            command_params.append(memref)
-                        else:
-                            command_params.append(MemRefParam(shm.to_bytes(), size))
+                        # shared memory
+                        memref = MemRefParam(shm.to_bytes(), size)
+                        memref.is_shared = True
+                        memref.shm = shm
+                        command_params.append(memref)
                     elif t == 0:
                         command_params.append(NoneParam())
                     else:
@@ -595,6 +1004,7 @@ class TAEMU:
                 del shm
                 del bufc2py[buf]
                 client_socket.send(b"ok")
+
             elif f == FUNCS.func_TEEC_CloseSession.value and l == 4:
                 sid = u32(d)
                 self.ql.log.debug(f"func_TEEC_CloseSession: {sid}")
@@ -602,6 +1012,7 @@ class TAEMU:
                 self.CloseSession(sid)
 
                 client_socket.send(b"ok")
+
             elif f == FUNCS.func_TEEC_FinalizeContext.value and l == 4 and d == b"quit":
                 self.ql.log.debug(f"func_TEEC_FinalizeContext")
                 break
@@ -626,9 +1037,11 @@ class TAEMU:
         return cov_path
 
     def start_fuzz(
-            self, input_file, fuzz_harness=None, fuzz_replay=False
-        ):
-
+        self, input_file, fuzz_harness=None, fuzz_replay=False, rec_cov=False
+    ):
+        if self.tee.endswith("nongp") and self.tee.startswith("qsee"):
+            return start_qsee_fuzz(self, input_file, fuzz_harness, fuzz_replay, rec_cov)
+        self.log.info(f"start fuzz args is {input_file} {fuzz_harness} {fuzz_replay}")
         ret = self.CreateEntryPoint()
         if ret != TEE_SUCCESS:
             self.ql.log.warning(f"CreateEntryPoint ret != TEE_SUCCESS {hex(ret)}")
@@ -649,7 +1062,7 @@ class TAEMU:
         command_params = [NoneParam()] * 4
         # ret = self.InvokeCommand(sid, cmd, ptypes, command_params)
 
-        for e in self.TA_InvokeCommandEntryPoint_end:
+        for e in self.ta_funcs[TA_Function.InvokeCommandEntryPoint].end:
             exit_addr.append(e)
         self.ql.log.debug(f"TEEC_InvokeCommand {sid} {cmd} {ptypes:#0x}")
         session = None
@@ -663,45 +1076,131 @@ class TAEMU:
 
         self.fuzz_session = session
 
-        init_fuzz = None
-        spec = importlib.util.spec_from_file_location(
-            os.path.basename(fuzz_harness)[:-3],
-            os.path.abspath(fuzz_harness),
-        )
-        module = importlib.util.module_from_spec(spec)
-        module.__package__ = __package__
-        spec.loader.exec_module(module)
-        place_input_callback = getattr(module, "place_input_callback")
-        if hasattr(module, "init_fuzz"):
-            init_fuzz = getattr(module, "init_fuzz")
+        def default_place_input_callback(ql: Qiling, input: bytes, _: int):
+            print(f"Placing input: {input}")
 
-        def crash_validation(ql: Qiling, result: int, input_bytes: bytes, round: int) -> bool:
-            print("crash callback: ", result)
+            if len(input) < 4:
+                return False
+
+            ptypes = 0
+            command_params = [NoneParam()] * 4
+            cmd = u32(input[:4])
+            print(f"cmdId: {cmd}")
+            ret, params_mem = setup_params_fuzz(
+                ql, cmd, ptypes, command_params
+            )  # assume the session is already set
+            if ret != TEE_SUCCESS:
+                return False
+
+            return True
+
+        init_fuzz = None
+        if fuzz_harness is None:
+            place_input_callback = default_place_input_callback
+        else:
+            # import shit
+            spec = importlib.util.spec_from_file_location(
+                os.path.basename(fuzz_harness)[:-3],
+                os.path.abspath(fuzz_harness),
+            )
+            module = importlib.util.module_from_spec(spec)
+            module.__package__ = __package__
+            spec.loader.exec_module(module)
+            place_input_callback = getattr(module, "place_input_callback")
+            if hasattr(module, "init_fuzz"):
+                init_fuzz = getattr(module, "init_fuzz")
+
+        # Multi-command stateful fuzzing (opt-in): one AFL input drives several
+        # InvokeCommands in a single session. 0 = off (classic single-command).
+        MULTI_CMD = int(os.environ.get("TAEMU_MULTI_CMD", "0"))
+        _user_place_input = place_input_callback
+
+        def place_input_callback(ql, inp, idx):
+            # Reset per-iteration deterministic state before each input is placed
+            # (no-op unless TAEMU_DETERMINISM is set).
+            determinism.reset()
+            if MULTI_CMD > 0:
+                # Stash the raw input; multi_fuzz_wrapper frames it into
+                # per-command records and places each via the harness.
+                self._mc_raw = bytes(inp)
+                return True
+            return _user_place_input(ql, inp, idx)
+
+        def crash_validation(
+            ql: Qiling, result: int, input_bytes: bytes, round: int
+        ) -> bool:
+            print("crash callback: ", result, hex(ql.arch.regs.arch_pc))
             if ql.arch.regs.arch_pc == CRASH_PC or ql.arch.regs.arch_pc == CRASH_PC_2 or ql.arch.regs.arch_pc == NOTIMPL_PC:
                 return True
-            if result == 6:
+            # Any non-zero unicorn errno is a genuine guest fault -> AFL crash.
+            # Previously only result==6 (UC_ERR_READ_UNMAPPED) counted, which
+            # MISSED control-flow hijacks: a smashed return address makes the
+            # `ret` fetch from unmapped memory == UC_ERR_FETCH_UNMAPPED (8), and
+            # bad data writes == UC_ERR_WRITE_UNMAPPED (7). The STZICCC-5 stack
+            # overflow (saved x30 -> attacker value -> ret -> errno 8) was being
+            # silently dropped. UC_ERR_OK is 0; treat everything else as a crash.
+            if result != 0:
                 return True
-            # if ql.arch.regs.arch_pc not in exit_addr:
-            # return True
             return False
 
         def pivot2(ql: Qiling):
             ql.arch.regs.arch_pc = 0x13370
+
+        def multi_fuzz_wrapper(ql):
+            # Run up to MULTI_CMD InvokeCommands in ONE session from a single AFL
+            # input. The CPU context is snapshotted at InvokeCommand entry and
+            # restored before each op (clean GP-style re-entry: fresh SP/regs),
+            # while guest memory -- heap, persistent store, session state --
+            # persists across ops. This reaches inter-command state bugs the
+            # single-shot driver structurally cannot. Returns a unicorn errno
+            # (0 == OK); a non-zero errno or crash sentinel marks an AFL crash.
+            InvokeStart = self.ta_funcs[TA_Function.InvokeCommandEntryPoint].start
+            ops = _frame_multi_input(getattr(self, "_mc_raw", b""), MULTI_CMD)
+            ctx0 = ql.arch.uc.context_save()
+            for i, rec in enumerate(ops):
+                if i > 0:
+                    ql.arch.uc.context_restore(ctx0)
+                if _user_place_input(ql, rec, i) is False:
+                    continue  # harness rejected this op; try the next
+                ql.arch.regs.arch_pc = InvokeStart
+                pc = getattr(ql.arch, "effective_pc", ql.arch.regs.arch_pc)
+                try:
+                    ql.arch.uc.emu_start(pc, 0)
+                except unicorn.UcError as err:
+                    return err.errno
+                if ql.arch.regs.arch_pc in (CRASH_PC, CRASH_PC_2, NOTIMPL_PC):
+                    return 6  # a bug detector tripped -> report crash to AFL
+            return 0
 
         def start_afl(_ql: Qiling):
             if fuzz_replay:
                 return
             if self.init_fuzz:
                 return
-            print("starting afl")
-            ql_afl_fuzz(
-                _ql,
-                input_file=input_file,
-                place_input_callback=place_input_callback,
-                exits=[0x13370],
-                validate_crash_callback=crash_validation,
-                always_validate=True,
-            )
+            if getattr(self, "_afl_started", False):
+                return  # re-entry from the multi-command wrapper: don't recurse
+            self._afl_started = True
+            if MULTI_CMD > 0:
+                self.log.info(f"[TAEMU] starting afl (multi-command, up to {MULTI_CMD} ops/session)")
+                ql_afl_fuzz_custom(
+                    _ql,
+                    input_file,
+                    place_input_callback,
+                    multi_fuzz_wrapper,
+                    [0x13370],
+                    crash_validation,
+                    True,
+                )
+            else:
+                self.log.info(f"[TAEMU] starting afl")
+                ql_afl_fuzz(
+                    _ql,
+                    input_file=input_file,
+                    place_input_callback=place_input_callback,
+                    exits=[0x13370],
+                    validate_crash_callback=crash_validation,
+                    always_validate=True,
+                )
 
         self.ql.os.fcall.cc.setRawParam(0, session.session_id_mem)
 
@@ -713,51 +1212,396 @@ class TAEMU:
                         pivot, e, user_data="TA_InvokeCommandEntryPoint"
                     )
                 )
+
         else:
             self.ql.hook_address(
                 callback=start_afl,
-                address=self.TA_InvokeCommandEntryPoint_start,
+                address=self.ta_funcs[TA_Function.InvokeCommandEntryPoint].start,
             )
-            for e in exit_addr:
-                exit_hooks.append(
-                    self.ql.hook_address(
-                        pivot2, e, user_data="TA_InvokeCommandEntryPoint"
-                    )
-                ) 
 
+        # set hooks for fuzzer's recording logics
+        for e in exit_addr:
+            self.ql.hook_address(
+                callback=finalize_fuzzing,
+                address=e,
+                user_data="Recording suspicious inputs",
+            )
+            self.ql.hook_address(
+                callback=pivot2,
+                address=e
+            )
+        
         if init_fuzz is not None:
             self.init_fuzz = True
             init_fuzz(self, sid)
             self.init_fuzz = False
 
-        if fuzz_replay:
+        if fuzz_replay and MULTI_CMD > 0:
+            # Multi-command REPLAY (mirror of multi_fuzz_wrapper): deterministically
+            # drive the same length-prefixed record sequence the fuzzer would, so a
+            # stateful crash/seed can be reproduced and triaged. CPU context is
+            # snapshotted at InvokeCommand entry and restored before each op; guest
+            # memory (heap/session/persistent store) persists across ops.
+            input_data = open(input_file, "rb").read()
+            ops = _frame_multi_input(input_data, MULTI_CMD)
+            cov_path = self.get_cov_file_path(os.path.basename(input_file), os.path.dirname(fuzz_harness))
+            InvokeStart = self.ta_funcs[TA_Function.InvokeCommandEntryPoint].start
+            InvokeEnds = list(self.ta_funcs[TA_Function.InvokeCommandEntryPoint].end)
+            with cov_utils.collect_coverage(self.ql, "drcov", cov_path):
+                ctx0 = self.ql.arch.uc.context_save()
+                for i, rec in enumerate(ops):
+                    if i > 0:
+                        self.ql.arch.uc.context_restore(ctx0)
+                    if _user_place_input(self.ql, rec, i) is False:
+                        print(f"[mc-replay] op#{i} rejected by harness; skipping")
+                        continue
+                    self.ql.arch.regs.arch_pc = InvokeStart
+                    pc = getattr(self.ql.arch, "effective_pc", self.ql.arch.regs.arch_pc)
+                    print(f"[mc-replay] === op#{i} (len {len(rec)}) ===")
+                    try:
+                        # stop cleanly at the InvokeCommand epilogue (before the
+                        # TLS-canary return to the poisoned caller LR); run forever
+                        # otherwise so any guest fault surfaces as a UcError crash.
+                        self.ql.arch.uc.emu_start(pc, InvokeEnds[0])
+                    except unicorn.UcError as err:
+                        print(f"[mc-replay] op#{i} CRASH errno={err.errno} pc={self.ql.arch.regs.arch_pc:#x}")
+                        raise
+            telemetry.dump(cov_path + ".unmodeled")
+        elif fuzz_replay:
 
             # use data from `input_file`
             input_data = open(input_file, "rb").read()
             if not place_input_callback(self.ql, input_data, -1):
-                print(f"place_input returend -1, returning")
+                print(f"place_input returned -1, returning")
                 return
 
             # record coverage while we replay `input_file`
-            cov_path = self.get_cov_file_path(os.path.basename(input_file), os.path.dirname(fuzz_harness))
+            cov_path = self.get_cov_file_path(
+                os.path.basename(input_file), os.path.dirname(fuzz_harness)
+            )
 
             with cov_utils.collect_coverage(self.ql, "drcov", cov_path):
-                self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)
+                self.ql.run(begin=self.ta_funcs[TA_Function.InvokeCommandEntryPoint].start)
+
+            # sidecar next to the drcov: which unmodeled APIs this replay hit, so
+            # triage can tell whether the finding flowed through a stub.
+            telemetry.dump(cov_path + ".unmodeled")
         else:
-            self.ql.run(begin=self.TA_InvokeCommandEntryPoint_start)
+            self.ql.run(begin=self.ta_funcs[TA_Function.InvokeCommandEntryPoint].start)
 
         ret = self.ql.os.fcall.cc.getReturnValue()
-        self.ql.log.info(f"InvokeCommand returned: {hex(ret)}")
+        self.log.info(f"InvokeCommand returned: {hex(ret)}")
 
         for e in exit_hooks:
             self.ql.hook_del(e)
-
         exit_hooks = []
         self.ql.debugger = False
         self.CloseSession(sid)
 
         self.DestroyEntryPoint()
         return
+
+    def df_fuzz(
+        self, input_file, fuzz_harness, df_seed, df_reg_hash, fuzz_replay=False, df_validate=False
+    ):
+        # df_seed: seed which triggered the double fetch 
+        # df_addr: shm address
+        # df_size: size of double fetched data
+
+        if df_validate: assert not fuzz_replay, "fuzz_replay can not be set for df_validate!"
+        if fuzz_replay: assert not df_validate, "df_validate can not be set for fuzz_replay"
+
+        self.df_fuzz_out = os.path.join(os.path.dirname(fuzz_harness), "df_fuzz", f"{os.path.basename(df_seed)}_{df_reg_hash}")
+
+        meta_path = df_seed + ".meta"
+        if not os.path.exists(meta_path):
+            print(f'double fetch seed meta does not exist')
+            return
+
+        df_meta = json.load(open(meta_path)) 
+
+        df_records = []
+
+        if df_reg_hash is not None:
+           for r in df_meta['records']:
+                if str(r["regs"]["reg_hash"]) == str(df_reg_hash):
+                    if r not in df_records:
+                        df_records.append(r)
+
+        if len(df_records) > 1:
+            # unicorn has an issue where the registers in a read callback stay the same for a basic block
+            # this leads to duplicate reg_hashes
+            # but since they're all in the same basic block we can just fuzz starting from there
+            print(f'multiple df record candidates: {df_records}, merging ranges')
+            ranges= []
+            for df_record in df_records:
+                addr = df_record["addr"]
+                size = df_record["size"]
+                found = False
+                for i, rangee in enumerate(ranges):
+                    if rangee[0] == addr + size:
+                        ranges[i] = (addr, rangee[1])
+                        found = True
+                        break
+                    if rangee[1] == addr:
+                        ranges[i] = (rangee[0], addr+size)
+                        found = True
+                        break
+                if not found:
+                    ranges.append((addr, addr+size))
+            if len(ranges) == 1:
+                df_records[0]["addr"] = ranges[0][0]
+                df_records[0]["size"] = ranges[0][1] - ranges[0][0]
+                self.log.info(f"merged range: {ranges[0]}")
+            else:
+                self.log.info(f"non overlapping ranges in multiple df candidates {ranges}")
+                return
+
+        if len(df_records) == 0:
+            print(f'no df record candidates from {df_meta["records"]}')
+            return
+
+        df_record = df_records[0]
+
+        if not df_record["regs"]["is_read"]:
+            print(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+            print(f'!!!!! THERE IS NO POINT IN FUZZING A WRITE TO SHARED MEMORY !!!!!!!')
+            print(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+            print(f'"-.-')
+            self.log.info(f"trying to fuzz write double fetch!! -> returning")
+            return
+        if df_record["size"] == 0:
+            print(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+            print(f'!!!!! THERE IS NO POINT IN FUZZING 0 SIZE FETCH             !!!!!!!')
+            print(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+            print(f'"-.-')
+            self.log.info(f"trying to fuzz 0-sized double fetch!! -> returning")
+            #return
+
+        self.log.info(f"df fuzz args is {input_file} {fuzz_harness} {fuzz_replay} {df_validate}")
+        self.log.info(f"    df@{hex(df_record['regs']['PC'])}->{hex(df_record['addr'])}:{df_record['size']} from {df_seed}")
+        
+        ret = self.CreateEntryPoint()
+        if ret != TEE_SUCCESS:
+            self.ql.log.warning(f"CreateEntryPoint ret != TEE_SUCCESS {hex(ret)}")
+            return
+
+        ret, new_session = self.OpenSession()
+        if ret != TEE_SUCCESS:
+            self.ql.log.warning(
+                f"[////TA_OpenSessionEntryPoint////] return != TEE_SUCCESS {hex(ret)}"
+            )
+            return
+
+        exit_addr = []
+        exit_hooks = []
+        df_hook = None
+        sid = new_session.session_id
+        cmd = 0
+        ptypes = 0
+
+        for e in self.ta_funcs[TA_Function.InvokeCommandEntryPoint].end:
+            exit_addr.append(e)
+        self.ql.log.debug(f"TEEC_InvokeCommand {sid} {cmd} {ptypes:#0x}")
+        session = None
+        for s in self.sessions:
+            if sid == s.session_id:
+                session = s
+                break
+        if session is None:
+            self.ql.log.error(f"unknown session {sid}")
+            return TEE_ERROR_BAD_STATE
+
+        self.fuzz_session = session
+        init_fuzz = None
+        # import shit
+        
+        spec = importlib.util.spec_from_file_location(
+            os.path.basename(fuzz_harness)[:-3],
+            os.path.abspath(fuzz_harness),
+        )
+        
+        module = importlib.util.module_from_spec(spec)
+        module.__package__ = __package__
+        spec.loader.exec_module(module)
+        place_input_callback = getattr(module, "place_input_callback")
+        if hasattr(module, "init_fuzz"):
+            init_fuzz = getattr(module, "init_fuzz")
+
+        def crash_validation(
+            ql: Qiling, result: int, input_bytes: bytes, round: int
+        ) -> bool:
+            print("crash callback: ", result, hex(ql.arch.regs.arch_pc))
+            if ql.arch.regs.arch_pc == CRASH_PC or ql.arch.regs.arch_pc == CRASH_PC_2 or ql.arch.regs.arch_pc == NOTIMPL_PC:
+                return True
+            if result == 6:
+                return True
+            # if ql.arch.regs.arch_pc not in exit_addr:
+            # return True
+            return False
+        
+        def df_write(ql: Qiling, df_data):
+            df_size = df_record['size']
+            if df_size is None:
+                ql.mem.write(df_record['addr'], df_data)
+            else:
+                if len(df_data) < df_size:
+                    df_data = df_data + (df_size-len(df_data))*b"\x00"
+                ql.mem.write(df_record['addr'], df_data[:df_size])
+
+        
+        def place_df_replay(ql: Qiling):
+            if self.df_replay_placed:
+                return
+            ql.log.debug(f"place_df_replay {ql.arch.regs.save()}")
+            if self.init_fuzz:
+                return
+            ql.log.debug(f"hashes: {self.hash_regs()} {df_record['regs']['reg_hash']}")
+            if self.hash_regs() != df_record['regs']['reg_hash']:
+                return
+            for e in exit_hooks:
+                self.ql.hook_del(e) 
+            exit_hooks.clear()
+            for e in exit_addr:
+                exit_hooks.append(
+                    self.ql.hook_address(
+                        pivot, e, user_data="TA_InvokeCommandEntryPoint"
+                    )
+                ) 
+            #self.ql.hook_del(df_hook)
+            self.log.info(f"placing double fetch data")
+            df_data = open(input_file, "rb").read()
+            df_write(ql, df_data) 
+            self.df_replay_placed = True
+
+        def place_df_fuzz(ql: Qiling, input: bytes, _:int): 
+            df_write(ql, input)
+
+        def start_afl(_ql: Qiling):
+            if fuzz_replay:
+                return
+            if df_validate:
+                return
+            #if self.init_fuzz:
+            #    return
+            print(self.hash_regs(), df_record['regs']['reg_hash'])
+            if self.hash_regs() != df_record['regs']['reg_hash']:
+                return
+            self.log.info(f"[TAEMU] starting afl")
+            for e in exit_hooks:
+                self.ql.hook_del(e)
+            exit_hooks.clear()
+            self.ql.hook_del(df_hook)
+            ql_afl_fuzz(
+                _ql,
+                input_file=input_file,
+                place_input_callback=place_df_fuzz,
+                exits=exit_addr,
+                validate_crash_callback=crash_validation,
+                always_validate=True,
+            )
+
+        if fuzz_replay:
+            self.ql._debugger = self._debugger
+            df_hook = self.ql.hook_address_front(
+                callback=place_df_replay,
+                address=df_record['regs']['PC']
+            ) 
+        elif df_validate: 
+            pass
+        else: #fuzzing
+            for e in exit_addr:
+                exit_hooks.append(
+                    self.ql.hook_address(
+                        pivot, e, user_data="TA_InvokeCommandEntryPoint"
+                    )
+                )
+            df_hook = self.ql.hook_address_front(
+                callback=start_afl,
+                address=df_record['regs']['PC']
+            )
+        
+        if init_fuzz is not None:
+            if fuzz_replay or df_validate:
+                for e in exit_addr:
+                    exit_hooks.append(
+                        self.ql.hook_address(
+                            pivot, e, user_data=self
+                        )
+                    )
+            self.init_fuzz = True
+            init_fuzz(self, sid)
+            self.init_fuzz = False
+            if fuzz_replay:
+                for e in exit_hooks:
+                    self.ql.hook_del(e) 
+                exit_hooks = []
+                for e in exit_addr:
+                    exit_hooks.append(
+                        self.ql.hook_address(
+                            pivot_df_not_hit, e, user_data=self
+                        )
+                    )       
+        else:
+            for e in exit_addr:
+                exit_hooks.append(
+                    self.ql.hook_address(
+                        pivot_df_not_hit, e, user_data=self
+                    )
+                )
+        
+
+        df_seed_data = open(df_seed, "rb").read()
+
+        if not place_input_callback(self.ql, df_seed_data, -1):
+            print("place_input_callback failed in setup for df fuzz..")
+            exit(-1)
+
+        if fuzz_replay:
+            df_fuzz_dir = os.path.dirname(input_file)[:os.path.dirname(input_file).find("/out/")]
+            cov_path = self.get_cov_file_path(
+                os.path.basename(input_file), df_fuzz_dir
+            )
+
+            with cov_utils.collect_coverage(self.ql, "drcov", cov_path):
+                self.ql.run(begin=self.ta_funcs[TA_Function.InvokeCommandEntryPoint].start)
+        elif df_validate:
+            # check if df fuzz data placed in beginning also triggers the crash
+            for e in exit_hooks:
+                self.ql.hook_del(e) 
+            exit_hooks = []
+            for e in exit_addr:
+                exit_hooks.append(
+                    self.ql.hook_address(
+                        df_validated, e, user_data=(self,input_file)
+                    )
+                ) 
+            self.log.info(f"placing double fetch data")
+            df_data = open(input_file, "rb").read()
+            df_write(self.ql, df_data) 
+            self.ql.run(begin=self.ta_funcs[TA_Function.InvokeCommandEntryPoint].start)
+        else: #fuzzing
+            for e in exit_hooks:
+                self.ql.hook_del(e) 
+            for e in exit_addr:
+                exit_hooks.append(
+                    self.ql.hook_address(
+                        pivot_df_not_hit, e, user_data=self
+                    )
+                )
+            self.ql.run(begin=self.ta_funcs[TA_Function.InvokeCommandEntryPoint].start)
+
+        ret = self.ql.os.fcall.cc.getReturnValue()
+        self.log.info(f"InvokeCommand returned: {hex(ret)}")
+
+        for e in exit_hooks:
+            self.ql.hook_del(e)
+        exit_hooks = []
+        self.ql.debugger = False
+        self.CloseSession(sid)
+
+        self.DestroyEntryPoint()
+        return 
 
     def __enter__(self):
         self.setup()
@@ -767,6 +1611,28 @@ class TAEMU:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         print("[TAEMU] Context manager cleanup...")
+        self.clear_records()
+        print("[TAEMU] queue cleared")
         self.ql.stop()
         print("[TAEMU] emulator stopped")
         return False
+
+    @contextmanager
+    def just_run(self, cache: bool = None):
+        """Disable the debugger and verbose output for the duration of the context. Use for entrypoints, teardowns etc."""
+        _dbg = self.ql.debugger
+        self.ql.debugger = False
+
+        qlmode = self.ql.verbose
+        self.ql.verbose = QL_VERBOSE.DEFAULT
+        
+        old_use_cache = self.use_cache
+        if cache is not None:
+            self.use_cache = cache
+        
+        try:
+            yield
+        finally:
+            self.ql.debugger = _dbg
+            self.ql.verbose = qlmode
+            self.use_cache = old_use_cache

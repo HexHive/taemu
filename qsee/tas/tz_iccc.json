@@ -1,0 +1,14 @@
+{
+    "_comment": "Samsung S24 Ultra (SM-S928B) ICCC QTEE TA. Same staging model as tz_hdm: GP lifecycle stubbed with a 'mov w0,wzr; ret' gadget (vaddr 0x7b0) returning TEE_SUCCESS. InvokeCommand points at the CICCCGetDeviceStatus data worker @0x254 (ABI: w0=status_slot, w1=class, x2=request_struct, w3=cmd). The harness builds a flat request struct in guest memory (fields: +0x00 ctx ptr, +0x08=4, +0x10 src ptr, +0x18 src size [UNBOUNDED], +0x20 out ptr, +0x28=8, +0x30/+0x38 2nd buf/size) and sets w1=0, w3=0x22 (GetDeviceStatus). param[1].size (+0x18) > 0x28 drives stpncpy(sp[32], src, size) -> STZICCC-5 stack overflow of saved x29/x30 at sp+0x20 (no canary), before the ACL @0x310. IMPORTANT: InvokeCommand_end is DELIBERATELY NOT the worker's ret @0x358 -- because the stpncpy primitive is internal (unhooked) the overflow is detected via the CORRUPTED RETURN, so the real `ldp x29,x30,[sp,#0x20]; ret` @0x358 must EXECUTE (a pivot hook at 0x358 would intercept it before the smashed x30 is used). Instead _end is the (never-reached-during-the-worker-path) lifecycle gadget ret @0x7b4; the harness sets x30=AFL_EXIT(0x13370) so a BENIGN (small-size) input returns cleanly to the AFL exit, while an overflow returns to the smashed x30 -> UC_ERR_FETCH_UNMAPPED -> AFL crash. Workers 0x3ec (ReadData) / 0x5bc (SaveData) are siblings with the same sink.",
+    "inline": {},
+    "TA_CreateEntryPoint_start": 1968,
+    "TA_CreateEntryPoint_end": [1972],
+    "TA_OpenSessionEntryPoint_start": 1968,
+    "TA_OpenSessionEntryPoint_end": [1972],
+    "TA_CloseSessionEntryPoint_start": 1968,
+    "TA_CloseSessionEntryPoint_end": [1972],
+    "TA_DestroyEntryPoint_start": 1968,
+    "TA_DestroyEntryPoint_end": [1972],
+    "TA_InvokeCommandEntryPoint_start": 596,
+    "TA_InvokeCommandEntryPoint_end": [1972]
+}

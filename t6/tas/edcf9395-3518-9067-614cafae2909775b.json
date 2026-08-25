@@ -9,7 +9,7 @@
             "type": "gp_api"
         },
         "TEE_SetTAPersistentTime": {
-            "addr": 5807768,
+            "addr": 5808032,
             "type": "gp_api"
         },
         "TEE_Malloc": {
@@ -34,10 +34,6 @@
         },
         "TEE_Sha256": {
             "addr": 5809248,
-            "type": "gp_api"
-        },
-        "TEE_GetTAPersistentTime": {
-            "addr": 5807768,
             "type": "gp_api"
         },
         "TEE_AllocateTransientObject": {
@@ -180,7 +176,7 @@
             "addr": 5831612,
             "type": "gp_api"
         },
-        "debug_log": {
+        "debug_log2": {
             "addr": 5843136,
             "type": "tee_std"
         },
@@ -194,6 +190,18 @@
         },
         "platform_open_driver": {
             "addr": 5802944,
+            "type": "tee"
+        },
+        "platform_fs_read":{
+            "addr": 5803532,
+            "type": "tee"
+        },
+        "platform_fs_write":{
+            "addr": 5803872,
+            "type": "tee"
+        },
+        "sensor_get_chip_id": {
+            "addr": 5772756,
             "type": "tee"
         }
     },

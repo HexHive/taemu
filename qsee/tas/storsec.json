@@ -1,0 +1,14 @@
+{
+    "_comment": "Samsung S24 Ultra (SM-S928B) Storsecapp secure-storage broker QTEE TA (qcom.tz.storsecapp). Dynamically links libcmnlib (NOT baked into the 33 KB image: all JUMP_SLOT sym-values point OUTSIDE the loaded segments), so the ONLY real code in the binary is the StorsecApp command handler @0x108 and the GP/cmnlib glue thunks. The GP lifecycle is stubbed with the 'mov w0,wzr; ret' gadget @vaddr 0xf1c (ret 0xf20) returning TEE_SUCCESS=0. InvokeCommand points DIRECTLY at the StorsecApp command handler @0x108. Handler ABI (confirmed in binary, prologue @0x108): w0=req_ptr (x0, !=NULL), w1=req_len (checked >0xb), x2=resp_ptr (!=NULL), w3=resp_len (checked >0xf). cmd = BE32(req[0..4]): 0=CMD_SET_SECURE_WP_CONFIG, 1=CMD_GET_SECURE_WP_CONFIG, else Unsupported. SET (@0x1b4): req_len>=0x3a, innerLen=LE32(req[8..0xc]) checked (req_len-0x3a)>=innerLen, then qsee_stor_write_wp_config(x0=req+innerLen). GET (@0x204): req_len>=0x3a + same innerLen check, resp_len>=0x4a, qsee_stor_read_wp_config(x0=resp), return value -> BE32 resp[4..8]. _end 0x364 is the handler's success retab (pivot2 fires before it executes; error paths tail-call qsee_log which returns to x30=AFL_EXIT=0x13370 set by the harness).",
+    "inline": {},
+    "TA_CreateEntryPoint_start": 3868,
+    "TA_CreateEntryPoint_end": [3872],
+    "TA_OpenSessionEntryPoint_start": 3868,
+    "TA_OpenSessionEntryPoint_end": [3872],
+    "TA_CloseSessionEntryPoint_start": 3868,
+    "TA_CloseSessionEntryPoint_end": [3872],
+    "TA_DestroyEntryPoint_start": 3868,
+    "TA_DestroyEntryPoint_end": [3872],
+    "TA_InvokeCommandEntryPoint_start": 264,
+    "TA_InvokeCommandEntryPoint_end": [868]
+}

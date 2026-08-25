@@ -1,0 +1,18 @@
+CElfFile_invoke:
+  end: [0xb354]
+  start: 0xb13c
+
+command_handler:
+  end: [0xb760]
+  start: 0xb514
+
+setup_teardown:
+  end: [0xb4f8]
+  start: 0xb414
+
+tz_app_cmd_handler:
+  end: [
+      0x510, # b TEE_MemMove
+      0x3e4, # b qsee_log
+    ]
+  start: 0x330

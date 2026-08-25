@@ -1,0 +1,14 @@
+{
+    "_comment": "Samsung S24 Ultra (SM-S928B) Knox Guard QTEE TA, tz_kg.ta (S7). Statically links libcmnlib; the real TA_*EntryPoint live in libcmnlib (not present as TA symbols). GP lifecycle is stubbed with a 'mov w0,wzr; ret' gadget (vaddr 0x114bc / ret 0x114c0) returning TEE_SUCCESS=0 so the emulator proceeds to InvokeCommand. InvokeCommand points DIRECTLY at the real dispatcher TA_KG_cmd@0x318 (ABI: x0=req, w1=req_len, x2=resp, w3=resp_len). Driving the dispatcher (not a leaf handler) exercises the full S7 logic: TEE_MemMove(&global,req,0x4418), the session_class==0x200 gate (req[4]), the PROCA path, and process_blcmd@0xea1c -> KGBL_write_fuse@0xa894 -> kg_write_fuse_bit@0x3d08 -> qsee_fuse_write(0x221C1358,state). _end 0x51c is TA_KG_cmd's only ret (the benign return). The harness overrides x0/x1/x2/w3 and sets x30=AFL_EXIT.",
+    "inline": {},
+    "TA_CreateEntryPoint_start": 70844,
+    "TA_CreateEntryPoint_end": [70848],
+    "TA_OpenSessionEntryPoint_start": 70844,
+    "TA_OpenSessionEntryPoint_end": [70848],
+    "TA_CloseSessionEntryPoint_start": 70844,
+    "TA_CloseSessionEntryPoint_end": [70848],
+    "TA_DestroyEntryPoint_start": 70844,
+    "TA_DestroyEntryPoint_end": [70848],
+    "TA_InvokeCommandEntryPoint_start": 792,
+    "TA_InvokeCommandEntryPoint_end": [1308]
+}

@@ -1,0 +1,24 @@
+CElfFile_invoke:
+  start: 0x187c
+  end: [0x1a9c]
+
+setup_teardown:
+  start: 0x1b58
+  end: [0x1c44]
+
+command_handler:
+  start: 0x1c5c
+  end: [0x1ec0]
+
+tz_app_cmd_handler:
+  start: 0x2a4
+  end: [
+      # after   b hdcp1_cmd_handler
+      0x2c4,
+      # after b qsee_log
+      0x2e4,
+    ]
+
+hdcp1_cmd_handler:
+  start: 0x420
+  end: [0x634]

@@ -20,21 +20,7 @@ from ..gp.session import *
 EMULATED_LIB_BSS_MEM = 0x850000
 
 
-def ut_pf_km_get_hmac_key(ql: Qiling, func_name):
-    # will go into subroutine so lr needs to be recorded
-    current_lr = ql.arch.regs.lr
-    # ql.arch.regs.arch_sp -= 0x38
 
-    params = ql.os.resolve_fcall_params({"a1": UINT, "a2": POINTER})
-    a1 = params["a1"]
-    a2 = params["a2"]
-    hmac_size = ql.mem.read_ptr(a2)
-
-    ql.log.info(f"ut_pf_km_get_hmac_key {hex(a1)}, {hex(a2)}, {hex(hmac_size)}")
-
-    ql.mem.write(a1, b'a'*hmac_size) 
-    ql.os.fcall.cc.setReturnValue(0)
-    ql.arch.regs.arch_pc = current_lr
 
     # temp_mem = ql.mem.map_anywhere(
     #     0x1000, minaddr=EMULATED_LIB_BSS_MEM, perms=3, info="emulated_libc_bss"
@@ -152,7 +138,9 @@ def ut_pf_log_msg_fake(ql, log_level, log):
 
 
 def ut_pf_km_enc_pw(ql: Qiling, func_name):
-    params = ql.os.resolve_fcall_params({"a1": POINTER, "a2": UINT, "a3": POINTER, "a4": POINTER})
+    params = ql.os.resolve_fcall_params(
+        {"a1": POINTER, "a2": UINT, "a3": POINTER, "a4": POINTER}
+    )
     a1 = params["a1"]
     a2 = params["a2"]
     a3 = params["a3"]
@@ -161,6 +149,6 @@ def ut_pf_km_enc_pw(ql: Qiling, func_name):
     ql.log.info(f"{func_name}: {a1:#0x} {a2:#0x} {a3:#0x} {a4:#0x}")
 
     ql.mem.write_ptr(a4, 0x20)
-    ql.mem.write(a3, b'b'*0x20)
+    ql.mem.write(a3, b"b" * 0x20)
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr

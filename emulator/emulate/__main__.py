@@ -1,19 +1,28 @@
-import os
 from multiprocessing import Process
+import os
 import argparse
 
 from pwn import ELF
-from qiling import Qiling
-from qiling.const import QL_VERBOSE
-from qiling.const import QL_ARCH, QL_OS, QL_VERBOSE
 
-from .emulator_no_loader import simple_diassembler, trace_block, simple_diassembler
+# from qiling import Qiling
+from .qiling_extend import QilingExtend as Qiling
+from .redis_queue import create_redis_queue
+from qiling.const import QL_STOP, QL_VERBOSE
+from qiling.const import QL_ARCH, QL_OS, QL_VERBOSE
+from .fuzz_record import SimpleFilterRecorder, Record
+from .redis_queue import RedisQueue
+from .emulator_no_loader import simple_diassembler, trace_block, simple_diassembler, unicorn_why
 from .ta_mgr import TAEMU, Status
 from .custom.tc_loader import tc_load
+from concurrent_log_handler import ConcurrentRotatingFileHandler
+
 
 DIR = dir_path = os.path.dirname(os.path.realpath(__file__))
 ROOTFS_PATH = os.path.join(DIR, "../rootfs")
 TEE = ""
+
+def to_int(x):
+    return int(x, 0)
 
 def setup_args():
     """Returns an initialized argument parser."""
@@ -43,11 +52,31 @@ def setup_args():
         "--fuzz",
         required=False,
         help="Fuzz the target with provided file.",
+        default=None,
+    )
+    parser.add_argument(
+        "-dff",
+        "--df_fuzz",
+        required=False,
+        help="fuzz a double fetch with provided file",
+        default=None
+    )
+    parser.add_argument(
+        "--df_reg_hash",
+        required=False,
+        type=to_int,
+        help="hash of registers at the point where double fetch is happening",
+        default=None
+    )
+    parser.add_argument(
+        "--df_seed",
+        required=False,
+        help="path to seed that triggered the double fetch",
         default=None
     )
     parser.add_argument(
         "--fuzz_harness",
-        required=True,
+        required=False,
         help="path to fuzzing harness",
         default=None,
     )
@@ -58,29 +87,49 @@ def setup_args():
         default=None,
     )
     parser.add_argument(
+        "--sus_in_replay",
+        required=False,
+        help="replay sus input",
+        default=False,
+        action="store_true",
+    )
+    parser.add_argument(
+        "--df_replay",
+        required=False,
+        help="path to replay df seed",
+        default=None,
+    )
+    parser.add_argument(
+        "--df_validate",
+        required=False,
+        help="path to replay+validate df seed",
+        default=None
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
         help="Verbose mode output.",
     )
     parser.add_argument(
-        "--tee",
-        help="specify the TEE.",
-        required=False,
-        default="beanpod"
+        "--log_file", required=False, help="Log output to specified file.", default=None
     )
     parser.add_argument(
-        "--no_std_apis",
-        help="don't hook standard (GP and libc) APIs",
-        default=False,
-        action="store_true"
+        "--tee", help="specify the TEE.", required=False, default=""
     )
     parser.add_argument(
-        "--no_tee_apis",
-        help="don't hook standard TEE specific APIs",
+        "--use-cache",
+        action="store_true",
+        help="Use cache for loading state after execution of entrypoint(s).",
         default=False,
-        action="store_true"
-    )    
+    )
+    parser.add_argument(
+        "--disable-redis",
+        action="store_true",
+        help="Disable Redis recording",
+        default=False,
+    )
+
 
     parser.add_argument("ta", help="The Trusted Application to be executed.")
 
@@ -88,7 +137,6 @@ def setup_args():
 
 
 if __name__ == "__main__":
-
     arg_parser = setup_args()
     args = arg_parser.parse_args()
 
@@ -96,28 +144,53 @@ if __name__ == "__main__":
     ta_path = ta_name
     ta_elf = ELF(ta_path)
 
-    if args.verbose:
+    if args.verbose or os.environ.get("TAEMU_VERBOSE", "0") == "1":
         v = QL_VERBOSE.DEBUG
     else:
         v = QL_VERBOSE.DEFAULT
 
-    if b"TEEGRIS" in open(ta_path, "rb").read():
+    custom_logger = None
+    if args.log_file:
+        print(f"[+] Logging to {args.log_file} [+]")
+        import logging
+
+        logging.basicConfig(
+            level=logging.DEBUG if args.verbose else logging.INFO,
+            format="%(asctime)s [%(levelname)s] %(message)s",
+            handlers=[
+                ConcurrentRotatingFileHandler(
+                    args.log_file,
+                    mode="a",
+                    maxBytes=10 * 1024 * 1024,
+                    backupCount=2,
+                    encoding="utf-8",
+                ),
+                logging.StreamHandler(),
+            ],
+        )
+        custom_logger = logging.getLogger()
+
+    specified_tee = args.tee or os.environ.get("TAEMU_TEE")
+    if specified_tee:
+        TEE = specified_tee
+    elif b"TEEGRIS" in open(ta_path, "rb").read():
         TEE = "teegris"
+    elif b"optee" in open(ta_path, "rb").read() and b"ta_head" in open(ta_path, "rb").read():
+        TEE = "optee"
     elif b"rom/libld-l4.so" in open(ta_path, "rb").read():
         TEE = "beanpod"
     elif b"ld.so.1" in open(ta_path, "rb").read():
         TEE = "mitee"
     elif b"ta_head" in open(ta_path, "rb").read():
         TEE = "t6"
-    elif b"optee" in open(ta_path, "rb").read() and b"ta_head" in open(ta_path, "rb").read():
-        TEE = "optee"
     elif b"com.huawei.hidisk" in open(ta_path, "rb").read():
         TEE = "trustedcore"
     elif b"GPAppLib_handleRequest" in open(ta_path, "rb").read():
-        TEE = "qsee"
-    if TEE == "":
-        TEE = args.tee
-
+        if b"CElfFile_invoke" in open(ta_path, "rb").read():
+            TEE = "qsee_nongp"
+        else:
+            TEE = "qsee"
+    print(f"[+] TEE: {TEE} [+]")
     if TEE == "beanpod":
         if ta_elf.header["e_flags"] & 0x200 == 0:
             is_thumb = True
@@ -131,7 +204,8 @@ if __name__ == "__main__":
             verbose=v,
             thumb=is_thumb,
             env={"LD_LIBRARY_PATH": "rom"},
-            profile="tee.ql"
+            profile="tee.ql",
+            log_override=custom_logger,
         )
     elif TEE == "teegris":
         print("doing teegris", ta_elf.arch)
@@ -143,30 +217,32 @@ if __name__ == "__main__":
                 archtype=QL_ARCH.ARM64,
                 verbose=v,
                 env={"LD_LIBRARY_PATH": "lib64"},
-                profile="tee.ql"
+                profile="tee.ql",
+                log_override=custom_logger,
             )
         else:
-           ql = Qiling(
+            ql = Qiling(
                 [ta_path],
                 rootfs=ROOTFS_PATH,
                 ostype=QL_OS.LINUX,
                 archtype=QL_ARCH.ARM,
                 verbose=v,
                 env={"LD_LIBRARY_PATH": "lib64"},
-                profile="tee.ql"
-            ) 
+                profile="tee.ql",
+                log_override=custom_logger,
+            )
     elif TEE == "mitee":
-        print("doing mitee")
         ql = Qiling(
             [ta_path],
             rootfs=ROOTFS_PATH,
             ostype=QL_OS.LINUX,
             archtype=QL_ARCH.ARM64,
             verbose=v,
-            env={"LD_LIBRARY_PATH": "/"},
-            profile="tee.ql"
+            env={"LD_LIBRARY_PATH": "/:/lib64"},
+            profile="tee.ql",
+            log_override=custom_logger,
         )
-    elif TEE == "qsee":
+    elif TEE == "qsee" or TEE == "qsee_nongp":
         ql = Qiling(
             [ta_path],
             rootfs=ROOTFS_PATH,
@@ -175,6 +251,8 @@ if __name__ == "__main__":
             verbose=v,
             env={"LD_LIBRARY_PATH": "/"},
             profile="tee.ql",
+            stop=QL_STOP.EXIT_TRAP,
+            log_override=custom_logger,
         )
     elif TEE == "optee":
         ql = Qiling(
@@ -185,9 +263,10 @@ if __name__ == "__main__":
             verbose=v,
             env={"LD_LIBRARY_PATH": "/"},
             profile="tee.ql",
+            log_override=custom_logger,
         )
     elif TEE == "t6":
-        if ta_elf.header['e_flags'] & 0x200 == 0:
+        if ta_elf.header["e_flags"] & 0x200 == 0:
             is_thumb = False
         else:
             is_thumb = True
@@ -202,8 +281,9 @@ if __name__ == "__main__":
             archtype=QL_ARCH.ARM,
             verbose=v,
             thumb=is_thumb,
-            #env={"LD_LIBRARY_PATH": "rom"},
-            profile="tee.ql"
+            # env={"LD_LIBRARY_PATH": "rom"},
+            profile="tee.ql",
+            log_override=custom_logger,
         )
     elif TEE == "trustedcore":
         ql = Qiling(
@@ -212,12 +292,13 @@ if __name__ == "__main__":
             ostype=QL_OS.LINUX,
             archtype=QL_ARCH.ARM,
             verbose=v,
-            #env={"LD_LIBRARY_PATH": "rom"},
-            profile="tee.ql"
+            # env={"LD_LIBRARY_PATH": "rom"},
+            profile="tee.ql",
+            log_override=custom_logger,
         )
         tc_load(ql, ta_path)
     else:
-        print(f'[!] TEE not set  [!]')
+        print(f"[!] TEE not set  [!]")
         exit(-1)
 
     if args.gdb:
@@ -227,14 +308,58 @@ if __name__ == "__main__":
     if args.trace:
         ql.hook_block(trace_block)
 
-    std_apis = True
-    tee_apis = True
-    if args.no_std_apis:
-        std_apis = False
-    if args.no_tee_apis:
-        tee_apis = False
+    # Optional pinpoint register/memory probe for manual RE confirmation.
+    # TAEMU_TRACE_ADDR="off[,off...]" installs a block hook that, when a basic
+    # block starts at the TA's (PIE base + off), prints x0..x3 / x19..x27 and a
+    # few pointer derefs. Lets a session see exactly what a handler observed at a
+    # chosen instruction without a full instruction trace. Diagnostic only.
+    _trace_addrs = os.environ.get("TAEMU_TRACE_ADDR", "")
+    if _trace_addrs:
+        _offs = [int(a, 0) for a in _trace_addrs.split(",") if a.strip()]
+        _taf = ta_path.split("/")[-1]
+        def _probe_block(ql, address, size):
+            base = ql.mem.get_lib_base(_taf)
+            off = address - base
+            if off not in _offs:
+                return
+            rs = ("x0","x1","x2","x3","x19","x20","x21","x22","x23","x24","x25","x26","x27")
+            vals = {r: ql.arch.regs.read(r) for r in rs}
+            print(f"[PROBE @0x{off:x}] " + " ".join(f"{r}={v:#x}" for r, v in vals.items()))
+            for r in ("x23","x0","x24","x22"):
+                p = vals[r]
+                try:
+                    print(f"    *{r}(0x{p:x}) = {bytes(ql.mem.read(p, 24)).hex()}")
+                except Exception:
+                    pass
+        ql.hook_block(_probe_block)
 
-    def launch_taemu():
+    if args.sus_in_replay:
+        ql.hook_code(unicorn_why)
+        
+    
+    if args.disable_redis:
+        print("[+] Redis recording is disabled. [+]")
+        record_q = None
+    elif args.fuzz or args.fuzz_replay:
+        # Create Redis queue
+        try:
+            record_q: RedisQueue = create_redis_queue(
+                queue_name="ta_emulator_queue_{}_{}".format(os.path.basename(os.path.dirname(args.fuzz_harness)), os.path.basename(ta_path)[:-3]),
+                redis_host=os.environ.get("REDIS_HOST", "localhost"),
+                redis_port=int(os.environ.get("REDIS_PORT", "6379")),
+                redis_db=int(os.environ.get("REDIS_DB", "0")),
+                logger=custom_logger,
+            )
+        except Exception as e:
+            print(
+                f"[+] Error creating Redis queue: {e}; Disable recording feature... [+]"
+            )
+            record_q = None
+    else:
+        record_q = None
+        
+        
+    def launch_taemu(curr_record_q):
         print(
             f"[+] Loaded TA {ta_name} for TEE {TEE} with Qiling {ql.arch.type}/{ql.os.type}"
         )
@@ -244,25 +369,89 @@ if __name__ == "__main__":
             ta_path,
             ta_elf,
             status=(
-                Status.FUZZING if args.fuzz
+                Status.FUZZING
+                if args.fuzz
                 else Status.REPLAYING if args.fuzz_replay 
+                else Status.DF_FUZZING if args.df_fuzz
+                else Status.DF_REPLAY if args.df_replay
+                else Status.DF_VALIDATE if args.df_validate
                 else Status.INTERACTIVE
             ),
-            std_implemented=std_apis, 
-            tee_specific_implemented=tee_apis
+            record_q=curr_record_q,
+            use_cache=args.use_cache,
         ) as emu:
             try:
+                print(args.df_validate)
                 emu.start(
-                    args.fuzz or args.fuzz_replay, 
-                    args.fuzz_harness
+                    args.fuzz or args.fuzz_replay or args.df_fuzz or args.df_replay or args.df_validate, 
+                    args.fuzz_harness,
+                    args.df_seed,
+                    args.df_reg_hash
                     )
-            #except KeyboardInterrupt:
-                #print("[+] Keyboard interrupt received...")
+            except KeyboardInterrupt:
+                print("[+] Keyboard interrupt received...")
             except Exception as e:
                 import traceback
                 traceback.print_exc()
                 print(f"[+] Error occurred: {e}")
 
-    launch_taemu()
+
+    def launch_recorder(curr_record_q):
+        if curr_record_q is None:
+            print(f"[+] Recorder is disabled and stopped automatically... [+]")
+            return
+        
+
+        suspicious_seeds_save_dir = os.path.join(
+            os.path.dirname(args.fuzz_harness),
+            "in/suspicious_inputs" + ("_replay" if args.fuzz_replay else ""),
+        )
+        if not os.path.exists(suspicious_seeds_save_dir):
+            os.makedirs(suspicious_seeds_save_dir)
+
+        print(f"[+] Saving suspicious inputs at dir: {suspicious_seeds_save_dir}")
+
+        record_meta_dir = os.path.join(
+            os.path.dirname(args.fuzz_harness),
+            "record_meta"
+        ) if args.fuzz else None
+
+        if record_meta_dir is not None and not os.path.exists(record_meta_dir):
+            os.makedirs(record_meta_dir)
+
+        with SimpleFilterRecorder(
+            curr_record_q, suspicious_seeds_save_dir, record_meta_dir, custom_logger
+        ) as recorder:
+            recorder.start()
 
 
+    print("[+] Starting all the processes... [+]")
+    p1 = Process(target=launch_taemu, args=(record_q,))
+    p1.start()
+
+    p2 = Process(target=launch_recorder, args=(record_q,))
+    p2.start()
+
+    print(f"[+] children pids {p1.pid}, {p2.pid}")
+
+    p1.join()
+    print(f"[+] TAEMU process stopped (exit code: {p1.exitcode})")
+
+    if record_q:
+        print(f"[+] Sending STOP message to recorder process...")
+        record_q.put("STOP")
+
+    p2.join(timeout=15.0)
+
+    if p2.is_alive():
+        p2.terminate()
+        p2.join(timeout=5.0)
+        if p2.is_alive():
+            p2.kill()
+            p2.join()
+
+    if record_q:
+        record_q.close()
+    print(f"[+] Recorder process stopped (exit code: {p2.exitcode})")
+
+    print("[+] Exiting all the procedures completed successfully. [+]")

@@ -1,0 +1,14 @@
+{
+    "_comment": "qcom.tz.uefisecapp (garnet, Qualcomm). QUEFI-NEW-1 cross-device build-presence harness. garnet is a VARIANT that is PATCHED: the SetVariable request builder @0x7d84 (reached from TzSetVariable@0x8058 via the only caller bl #0x7d84 @0x86f8) clamps the DATA copy vs the scratch capacity (0x7e34 sub w8,w8,w25; 0x7e38 subs w22,w8,w23; 0x7e3c b.hs 0x7e9c -> copy ONLY if remaining>=DataSize), and the scratch is qsee_malloc(0x10000) (a VARIANT size, single mov w0,#0x10000 @0x9660). We drive the builder's security-relevant clamp+DATA-copy logic directly, entering at the clamp @0x7e2c=32300 (end=0x7f80=32640 = the normal ret). The harness pre-allocates the asan-redzoned 0x10000 scratch and sets x19=&header(cap), w23=DataSize, x24=DataBuffer, [sp]=used; it hooks the copy registrar @0x2274 (=8820) to an asan-checked memcpy so an OOB into the scratch redzone trips. Negative control (clamp ON, oversized DataSize): the real b.hs rejects -> NO copy -> NO crash. Positive control (CLAMP_OFF=1): force the branch to the copy path 0x7e9c so the real DATA copy @0x7eec runs DataSize bytes -> OOB at scratch+0x10000 -> asan CRASH_PC (proves the clamp is the only guard + the detector works). Entering at the clamp avoids the upstream NAME marshal @0x36c0 (which dereferences an SCM request-context object far upstream of the bug). Create/Open/Close/Destroy stubbed at the 'mov w0,wzr; ret' gadget @0x225c (8796).",
+    "inline": {},
+    "TA_CreateEntryPoint_start": 8796,
+    "TA_CreateEntryPoint_end": [8800],
+    "TA_OpenSessionEntryPoint_start": 8796,
+    "TA_OpenSessionEntryPoint_end": [8800],
+    "TA_CloseSessionEntryPoint_start": 8796,
+    "TA_CloseSessionEntryPoint_end": [8800],
+    "TA_DestroyEntryPoint_start": 8796,
+    "TA_DestroyEntryPoint_end": [8800],
+    "TA_InvokeCommandEntryPoint_start": 32300,
+    "TA_InvokeCommandEntryPoint_end": [32496]
+}

@@ -7,11 +7,13 @@ from ...common import CRASH_PC
 
 BIGINTS = {}
 
+
 class BigInt:
-    def __init__(self, buf, size, ql:Qiling) -> None:
+    def __init__(self, buf, size, ql: Qiling) -> None:
         self.buf = buf
         self.size = size
-        ql.mem.write(self.buf, self.size*4*b"\x00")
+        ql.mem.write(self.buf, self.size * 4 * b"\x00")
+
 
 def panic(ql: Qiling, msg: str):
     ql.log.critical(msg)
@@ -54,10 +56,12 @@ def write_bigint(ql: Qiling, ptr: int, val: int, dest_obj: BigInt):
     ql.mem.write(ptr, val.to_bytes(nbytes, byteorder="little", signed=True))
     return True
 
+
 def bigint_to_int(ql, ptr):
     bigIntObj = BIGINTS[ptr]
     raw_bytes = ql.mem.read(ptr, bigIntObj.size * 4)
     return int.from_bytes(raw_bytes, "little", signed=True)
+
 
 def int_to_bigint(ql, ptr, value):
     bigIntObj = BIGINTS[ptr]
@@ -70,10 +74,7 @@ def int_to_bigint(ql, ptr, value):
 
 
 class BigInt:
-    def __init__(self, buf, size, ql:Qiling) -> None:
+    def __init__(self, buf, size, ql: Qiling) -> None:
         self.buf = buf
         self.size = size
-        ql.mem.write(self.buf, self.size*4*b"\x00")
-
-
-
+        ql.mem.write(self.buf, self.size * 4 * b"\x00")

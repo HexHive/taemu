@@ -7,6 +7,7 @@ EI_DATA = 5
 
 ET_DYN = 3
 
+
 def is_loader(path):
     try:
         with open(path, "rb") as f:
@@ -15,7 +16,7 @@ def is_loader(path):
                 return False
 
             elf_class = ident[EI_CLASS]
-            endian    = ident[EI_DATA]
+            endian = ident[EI_DATA]
 
             # endian format
             if endian == 1:  # little endian
@@ -32,11 +33,11 @@ def is_loader(path):
             # read type (e_type) and entry (e_entry)
             f.seek(16)
             if elf_class == 1:  # 32-bit
-                e_type  = struct.unpack(fmt16, f.read(2))[0]
+                e_type = struct.unpack(fmt16, f.read(2))[0]
                 f.seek(24)
                 e_entry = struct.unpack(fmt32, f.read(4))[0]
             elif elf_class == 2:  # 64-bit
-                e_type  = struct.unpack(fmt16, f.read(2))[0]
+                e_type = struct.unpack(fmt16, f.read(2))[0]
                 f.seek(24)
                 e_entry = struct.unpack(fmt64, f.read(8))[0]
             else:
@@ -58,6 +59,7 @@ def find_loaders(directory):
 
 if __name__ == "__main__":
     import sys
+
     if len(sys.argv) != 2:
         print(f"Usage: {sys.argv[0]} <directory>")
         sys.exit(1)

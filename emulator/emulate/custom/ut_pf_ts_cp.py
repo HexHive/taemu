@@ -8,16 +8,17 @@ from pwn import *
 fd2file = {}
 STROAGE = "emulate/files/L2/"
 
-def ut_pf_ts_cp_exist(ql:Qiling, func_name):
-    params = ql.os.resolve_fcall_params({'name': POINTER})
-    param_name = params['name']
+
+def ut_pf_ts_cp_exist(ql: Qiling, func_name):
+    params = ql.os.resolve_fcall_params({"name": POINTER})
+    param_name = params["name"]
 
     file_name = ql.mem.string(param_name)
     ql.log.info(f"ut_pf_ts_cp_exist, name: {file_name}")
 
     ret = 0
     try:
-        f = open(STROAGE + file_name, 'r')
+        f = open(STROAGE + file_name, "r")
         ret = 1
         f.close()
     except:
@@ -26,19 +27,20 @@ def ut_pf_ts_cp_exist(ql:Qiling, func_name):
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def ut_pf_ts_cp_open(ql:Qiling, func_name):
-    params = ql.os.resolve_fcall_params({'name': POINTER, 'flags': UINT})
-    param_name = params['name']
-    param_flags = params['flags']
+
+def ut_pf_ts_cp_open(ql: Qiling, func_name):
+    params = ql.os.resolve_fcall_params({"name": POINTER, "flags": UINT})
+    param_name = params["name"]
+    param_flags = params["flags"]
 
     file_name = ql.mem.string(param_name)
     ql.log.info(f"ut_pf_ts_cp_open: name: {file_name}, flags: {param_flags}")
 
     try:
         if param_flags == 0x41:
-            f = open(STROAGE + file_name, 'wb')
+            f = open(STROAGE + file_name, "wb")
         elif param_flags == 0:
-            f = open(STROAGE + file_name, 'rb')
+            f = open(STROAGE + file_name, "rb")
         else:
             raise ValueError("Not recognize this flag")
         fd2file[f.fileno()] = f
@@ -49,7 +51,7 @@ def ut_pf_ts_cp_open(ql:Qiling, func_name):
         ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def ut_pf_ts_cp_error(ql:Qiling, func_name):
+def ut_pf_ts_cp_error(ql: Qiling, func_name):
     # do nothing, return 0
     ql.log.info(f"ut_pf_ts_cp_error")
 
@@ -57,12 +59,11 @@ def ut_pf_ts_cp_error(ql:Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-
-def ut_pf_ts_cp_write(ql:Qiling, func_name):
-    params = ql.os.resolve_fcall_params({'fd': UINT, 'buffer': POINTER, 'len': UINT})
-    param_fd = params['fd']
-    param_buffer = params['buffer']
-    param_len = params['len']
+def ut_pf_ts_cp_write(ql: Qiling, func_name):
+    params = ql.os.resolve_fcall_params({"fd": UINT, "buffer": POINTER, "len": UINT})
+    param_fd = params["fd"]
+    param_buffer = params["buffer"]
+    param_len = params["len"]
 
     ql.log.info(f"ut_pf_ts_cp_write: write {param_len} bytes to file {param_fd}")
 
@@ -83,13 +84,13 @@ def ut_pf_ts_cp_write(ql:Qiling, func_name):
 
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
-    
 
-def ut_pf_ts_cp_read(ql:Qiling, func_name):
-    params = ql.os.resolve_fcall_params({'fd': UINT, 'buffer': POINTER, 'len': UINT})
-    param_fd = params['fd']
-    param_buffer = params['buffer']
-    param_len = params['len']
+
+def ut_pf_ts_cp_read(ql: Qiling, func_name):
+    params = ql.os.resolve_fcall_params({"fd": UINT, "buffer": POINTER, "len": UINT})
+    param_fd = params["fd"]
+    param_buffer = params["buffer"]
+    param_len = params["len"]
 
     ql.log.info(f"ut_pf_ts_cp_read: read {param_len} bytes from file {param_fd}")
 
@@ -114,9 +115,9 @@ def ut_pf_ts_cp_read(ql:Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def ut_pf_ts_cp_close(ql:Qiling, func_name):
-    params = ql.os.resolve_fcall_params({'fd': UINT})
-    param_fd = params['fd']
+def ut_pf_ts_cp_close(ql: Qiling, func_name):
+    params = ql.os.resolve_fcall_params({"fd": UINT})
+    param_fd = params["fd"]
 
     ret = 0
     if param_fd not in fd2file:
@@ -125,7 +126,7 @@ def ut_pf_ts_cp_close(ql:Qiling, func_name):
         try:
             fd2file[param_fd].close()
             del fd2file[param_fd]
-            ret = 0        
+            ret = 0
         except:
             ret = -1
 

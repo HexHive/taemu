@@ -19,9 +19,7 @@ from ghidra.app.decompiler import DecompileResults
 import logging
 
 FORMAT = "%(asctime)s,%(msecs)d %(levelname)-8s " "%(message)s"
-logging.basicConfig(
-    format=FORMAT, datefmt="%Y-%m-%d:%H:%M:%S", level=logging.DEBUG
-)
+logging.basicConfig(format=FORMAT, datefmt="%Y-%m-%d:%H:%M:%S", level=logging.DEBUG)
 log = logging.getLogger(__name__)
 
 ################################################################################
@@ -60,9 +58,7 @@ def main():
     logging.info("Changing function signatures...")
     data_type_manager = SignatureChanger(program)
     data_type_manager.apply_signature(INVOKE_COMMAND_FUNC_NAME)
-    data_type_manager.apply_open_session_entrypoint_signature(
-        OPEN_SESSION_FUNC_NAME
-    )
+    data_type_manager.apply_open_session_entrypoint_signature(OPEN_SESSION_FUNC_NAME)
 
     # Decompile the `TA_InvokeCommandEntryPoint` function
     # TODO: Extend this to `TA_OpenSessionEntryPoint`

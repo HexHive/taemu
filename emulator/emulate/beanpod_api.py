@@ -2,17 +2,18 @@ from enum import Enum
 from qiling import Qiling
 from qiling.os.const import STRING, INT, BYTE, POINTER, UINT
 from .gp.utils.param import TEE_Param_Memref
+import base64
+from .gp.utils.printf import read_c_str
 from .gp.utils.err import *
 from .gp.utils.string import *
-import base64
-from .common import CRASH_PC, NOTIMPL_PC, crash, crash_notimpl
 
-from Crypto.Random import get_random_bytes
+
+from .determinism import get_random_bytes
 
 from .custom import rpmb
 from unicorn import UC_PROT_READ, UC_PROT_WRITE
 
-from .gp.utils.printf import *
+from .gp_api import TEE_LogvPrintf, TEE_LogPrintf
 
 fd2file = {}
 STROAGE = "emulate/files/L2/"
@@ -23,73 +24,7 @@ RPMSESSION_BUFFER_L2_MEM = 0x920000
 RPMSESSIONS_L1 = None
 RPMSESSION_BUFFER_L1_MEM = 0x980000
 
-def base64_decode(ql: Qiling, hook_data):
-    try:
-        p = ql.os.resolve_fcall_params({"data": POINTER, "out": POINTER})
-        data = read_c_str(p["data"])
-        ql.mem.write(p["out"], base64.b64decode(data))
-    except unicorn.unicorn_py3.unicorn.UcError:
-        crash(ql, hook_data.func_name)
-        return
-    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
-    ql.arch.regs.arch_pc = ql.arch.regs.lr 
-
-def TEE_LogvPrintf(ql: Qiling, hook_data):
-    try:
-        p = ql.os.resolve_fcall_params({"log_level": INT, "format": POINTER})
-        log_level = p["log_level"]
-        format_param_ptr = p["format"]
-        hook_data.emu.update_shm(format_param_ptr)
-        format_param = ql.mem.string(format_param_ptr)
-        final_params = {"log_level": INT, "format": STRING}
-        params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
-        format_param = fixup_format(format_param)
-        string_params = [params[f"{i}"] for i in range(0, len(params))]
-        try:
-            out_str = format_param % tuple(string_params)
-        except TypeError:
-            ql.log.error(f"format string not supported: {format_param}")
-            if hook_data.emu.crash_on_not_implemented:
-                crash_notimpl(ql, f"format string not supported: {format_param}")
-                return
-        ql.log.info(f"{hook_data.func_name}: {log_level}, {out_str}")
-    except unicorn.unicorn_py3.unicorn.UcError:
-        crash(ql, hook_data.func_name)
-        return
-    ql.arch.regs.arch_pc = ql.arch.regs.lr
-
-def TEE_LogPrintf(ql: Qiling, hook_data):
-    try:
-        format_param_ptr = ql.os.resolve_fcall_params({"format": POINTER})["format"]
-        hook_data.emu.update_shm(format_param_ptr)
-        format_param = ql.mem.string(format_param_ptr)
-        final_params = {"format": STRING}
-        params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
-        string_params = [params[f"{i}"] for i in range(0, len(params))]
-        format_param = format_param.replace("%p", "0x%x")
-        format_param = format_param.replace("%llu", "%u")
-        format_param = format_param.replace("%zu", "%u")
-        try:
-            out_str = format_param % tuple(string_params)
-        except ValueError:
-            ql.log.error(f"format string not supported: {format_param}")
-            if hook_data.emu.crash_on_not_implemented:
-                crash_notimpl(ql, f"format string not supported: {format_param}")
-                return
-        ql.log.info(f"{hook_data.func_name}: {out_str}")
-        ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
-    except unicorn.unicorn_py3.unicorn.UcError:
-        crash(ql, hook_data.func_name)
-        return
-    ql.arch.regs.arch_pc = ql.arch.regs.lr
-
-def TEE_RpbmOpenSession(ql: Qiling, hook_data):
-    ut_pf_rpmb_open(ql, hook_data)
-
-def TEE_RpbmReadData(ql: Qiling, hook_data):
-    ut_pf_rpmb_read_data_blocks(ql, hook_data)
-
-def ut_pf_rpmb_open(ql: Qiling, hook_data):
+def ut_pf_rpmb_open(ql: Qiling, func_name):
     global RPMSESSIONS_L1
 
     ret = TEE_SUCCESS
@@ -106,7 +41,7 @@ def ut_pf_rpmb_open(ql: Qiling, hook_data):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
-def ut_pf_rpmb_read_data_blocks(ql: Qiling, hook_data):
+def ut_pf_rpmb_read_data_blocks(ql: Qiling, func_name):
     global RPMSESSIONS_L1
     params = ql.os.resolve_fcall_params(
         {"sessionID": UINT, "buf": POINTER, "size": UINT}
@@ -143,9 +78,6 @@ def ut_pf_cp_open(ql: Qiling, hook_data):
 def ut_pf_cp_close(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
-
-def ut_pf_info_get_deviceinfo(ql: Qiling, hook_data):
-    get_device_info(ql, hook_data)
 
 def get_device_info(ql: Qiling, hook_data):
     params = ql.os.resolve_fcall_params(
@@ -204,8 +136,8 @@ def ut_pf_cp_rd_random(ql: Qiling, hook_data):
     params = ql.os.resolve_fcall_params({"unno": INT, "buf": POINTER, "size": INT})
     buf = params["buf"]
     size = params["size"]
-    if not asan.is_access_valid(
-        ql, hook_data.emu.HEAP, buf, size, hook_data.func_name, is_write=True
+    if not hook_data.emu.asan.is_access_valid(
+        hook_data.emu.HEAP, buf, size, hook_data.func_name, is_write=True
     ):
         return
     ql.mem.write(buf, size * b"A")
@@ -374,6 +306,85 @@ def ut_pf_ts_cp_close(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+# --- ut_pf trusted-storage: the corpus imports both the `_cp_` verbs and their
+# base aliases, plus size/lseek/mkdir/rename/unlink which weren't modelled.
+# Back them with the same flat STROAGE files + fd2file table as the _cp_ set,
+# so a TA that uses trusted storage in OpenSession/Invoke runs instead of dying.
+def ut_pf_ts_cp_size(ql: Qiling, hook_data):
+    fd = ql.os.resolve_fcall_params({"fd": UINT})["fd"]
+    sz = 0
+    f = fd2file.get(fd)
+    if f:
+        try:
+            cur = f.tell(); f.seek(0, 2); sz = f.tell(); f.seek(cur)
+        except Exception:
+            sz = 0
+    ql.os.fcall.cc.setReturnValue(sz)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def ut_pf_ts_cp_lseek(ql: Qiling, hook_data):
+    p = ql.os.resolve_fcall_params({"fd": UINT, "off": INT, "whence": INT})
+    f = fd2file.get(p["fd"])
+    pos = -1
+    if f:
+        try:
+            f.seek(p["off"], p["whence"]); pos = f.tell()
+        except Exception:
+            pos = -1
+    ql.os.fcall.cc.setReturnValue(pos)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def ut_pf_ts_mkdir(ql: Qiling, hook_data):
+    import os
+    name = ql.mem.string(ql.os.resolve_fcall_params({"name": POINTER})["name"])
+    try:
+        os.makedirs(STROAGE + name, exist_ok=True)
+    except Exception:
+        pass
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def ut_pf_ts_rename(ql: Qiling, hook_data):
+    import os
+    p = ql.os.resolve_fcall_params({"old": POINTER, "new": POINTER})
+    try:
+        os.rename(STROAGE + ql.mem.string(p["old"]), STROAGE + ql.mem.string(p["new"]))
+        ret = 0
+    except Exception:
+        ret = -1
+    ql.os.fcall.cc.setReturnValue(ret)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def ut_pf_ts_unlink(ql: Qiling, hook_data):
+    import os
+    name = ql.mem.string(ql.os.resolve_fcall_params({"name": POINTER})["name"])
+    try:
+        os.remove(STROAGE + name); ret = 0
+    except Exception:
+        ret = -1
+    ql.os.fcall.cc.setReturnValue(ret)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+# base-name aliases of the _cp_ trusted-storage verbs
+def ut_pf_ts_open(ql: Qiling, hook_data):  ut_pf_ts_cp_open(ql, hook_data)
+def ut_pf_ts_close(ql: Qiling, hook_data): ut_pf_ts_cp_close(ql, hook_data)
+def ut_pf_ts_read(ql: Qiling, hook_data):  ut_pf_ts_cp_read(ql, hook_data)
+def ut_pf_ts_write(ql: Qiling, hook_data): ut_pf_ts_cp_write(ql, hook_data)
+def ut_pf_ts_exist(ql: Qiling, hook_data): ut_pf_ts_cp_exist(ql, hook_data)
+def ut_pf_ts_size(ql: Qiling, hook_data):  ut_pf_ts_cp_size(ql, hook_data)
+def ut_pf_ts_lseek(ql: Qiling, hook_data): ut_pf_ts_cp_lseek(ql, hook_data)
+
+# correctly-spelled RPMB session open (the bundled name had a typo:
+# TEE_RpbmOpenSession); delegate to the real implementation in custom/rpmb.py.
+def TEE_RpmbOpenSession(ql: Qiling, hook_data):
+    rpmb.TEE_RpmbOpenSession(ql, hook_data)
+
+def msee_get_system_free_memory(ql: Qiling, hook_data):
+    # report a plausible amount of free heap (1 MiB) so size checks pass
+    ql.os.fcall.cc.setReturnValue(0x100000)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
 def ut_pf_km_get_hmac_key(ql: Qiling, func_name):
     # will go into subroutine so lr needs to be recorded
     current_lr = ql.arch.regs.lr
@@ -392,3 +403,28 @@ def ut_pf_km_get_hmac_key(ql: Qiling, func_name):
 
 def dm_data_base_init(ql: Qiling, func_name):
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+# --- API stubs carried over from main (2058fea) ---
+
+def base64_decode(ql: Qiling, hook_data):
+    try:
+        p = ql.os.resolve_fcall_params({"data": POINTER, "out": POINTER})
+        data = read_c_str(p["data"])
+        ql.mem.write(p["out"], base64.b64decode(data))
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
+    ql.os.fcall.cc.setReturnValue(TEE_SUCCESS)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr 
+
+
+def TEE_RpbmOpenSession(ql: Qiling, hook_data):
+    ut_pf_rpmb_open(ql, hook_data)
+
+
+def TEE_RpbmReadData(ql: Qiling, hook_data):
+    ut_pf_rpmb_read_data_blocks(ql, hook_data)
+
+
+def ut_pf_info_get_deviceinfo(ql: Qiling, hook_data):
+    get_device_info(ql, hook_data)

@@ -1,0 +1,26 @@
+{
+  "inline": {
+    "knxgud_proca_authenticate_softpass": {
+      "addr": 146260,
+      "type": "tee"
+    }
+  },
+  "TA_CreateEntryPoint_start": 130168,
+  "TA_CreateEntryPoint_end": [
+    130288
+  ],
+  "TA_DestroyEntryPoint_start": 130296,
+  "TA_DestroyEntryPoint_end": [],
+  "TA_OpenSessionEntryPoint_start": 130420,
+  "TA_OpenSessionEntryPoint_end": [
+    130544
+  ],
+  "TA_CloseSessionEntryPoint_start": 130552,
+  "TA_CloseSessionEntryPoint_end": [],
+  "TA_InvokeCommandEntryPoint_start": 130684,
+  "TA_InvokeCommandEntryPoint_end": [
+    130960
+  ],
+  "ta_sha256": "1b8b2136930c3fbbb499e52a4cb08fb0e6605c1a019f5b23f1ce121f0ba0dbc0",
+  "_comment": "Shipping-build TEEGRIS TA 00000000-0000-0000-0000-6b6e78677564, staged additively by scripts/ida/stage_emulator_ta.py. sha256=1b8b2136930c3fbb... . _start values are the surviving dynsym FUNC symbols (PIE base 0 => file offset == vaddr); _end values are RET addresses from a capstone scan of each symbol's range, or [] for tail-call thunks (ta_mgr.derive_entrypoint_ends recovers those). The bundled corpus teegris/tas/00000000-0000-0000-0000-6b6e78677564.ta (older S9BYH2 build) is untouched."
+}

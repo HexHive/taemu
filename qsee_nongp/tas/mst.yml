@@ -1,0 +1,24 @@
+CElfFile_invoke:
+  end: [0xa9c]
+  start: 0x87c
+
+command_handler:
+  end: [0xec0]
+  start: 0xc5c
+
+mst_cmd_handler:
+  end: [0x458]
+  start: 0x384
+
+setup_teardown:
+  end: [0xc44]
+  start: 0xb58
+
+tz_app_cmd_handler:
+  end: [
+      0x274, # b qsee_log
+      0x218, # b qsee_log
+      0x1e4, # b qsee_log
+      0x250, # b mst_cmd_handler
+    ]
+  start: 0x168

@@ -1,0 +1,14 @@
+{
+    "_comment": "Samsung S24 Ultra (SM-S928B) Knox HDM QTEE TA. Statically links libcmnlib; the real TA_*EntryPoint live in libcmnlib (not present as TA symbols). We therefore stub the GP lifecycle with a 'mov w0,wzr; ret' gadget (vaddr 0x2e70) that returns TEE_SUCCESS, and point InvokeCommand directly at the app command handler process_cmd@0x4dd0 (ABI: w0=cmd, x1=req, x2=resp). The harness overrides x0/x1/x2/lr to drive a chosen cmd_id with a crafted request buffer (the cmd id is req[0]/the first word the GP plumbing would have copied; here we pass cmd in w0 and the request buffer in x1 directly). process_cmd's cmd-15 (GET_REVOKE_LIST) handler @0x55c0 falls through to generate_jws_response@0x4d0c (op=0) -> hdm_generate_response@0x9db0 -> the STZHDM-5 SAK heap overflow. _end 0x5f8c is process_cmd's first ret (benign-path return).",
+    "inline": {},
+    "TA_CreateEntryPoint_start": 11888,
+    "TA_CreateEntryPoint_end": [11892],
+    "TA_OpenSessionEntryPoint_start": 11888,
+    "TA_OpenSessionEntryPoint_end": [11892],
+    "TA_CloseSessionEntryPoint_start": 11888,
+    "TA_CloseSessionEntryPoint_end": [11892],
+    "TA_DestroyEntryPoint_start": 11888,
+    "TA_DestroyEntryPoint_end": [11892],
+    "TA_InvokeCommandEntryPoint_start": 19920,
+    "TA_InvokeCommandEntryPoint_end": [24460]
+}

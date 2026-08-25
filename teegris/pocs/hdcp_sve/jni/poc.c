@@ -34,24 +34,26 @@ void send_req(TEEC_Context *context, TEEC_Session *session)
 {
     TEEC_Operation op;
     memset(&op, 0, sizeof(op));
-    op.paramTypes = TEEC_PARAM_TYPES(TEEC_VALUE_OUTPUT, TEEC_VALUE_OUTPUT,
+    op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INPUT, TEEC_MEMREF_TEMP_OUTPUT,
                                      TEEC_VALUE_OUTPUT, TEEC_NONE);
     printf("params: 0x%lx\n", op.paramTypes);
-    op.params[0].value.a = 0xdeadbeef;  // the keyblock buffer
-    op.params[0].value.b =  0x370; 
+    char* buf = (char*)malloc(0x1000);
+    memset(buf, 0, 0x1000);
+    
+    op.params[0].tmpref.buffer = buf;  // the keyblock buffer
+    op.params[0].tmpref.size =  0x1000; 
     op.params[1].tmpref.buffer = (void*)malloc(0x1000);  // the keyblock buffer
-    op.params[1].tmpref.size =  0x4; 
+    op.params[1].tmpref.size =  0x1000; 
     uint32_t err_origin;
 
     TEEC_Result res = TEEC_InvokeCommand_impl(session, 0xc0, &op, &err_origin);
-	printf("TEEC_Result: %x origin: err_origin: %x\n", res, err_origin);
-
+    printf("TEEC_Result: %x origin: err_origin: %x\n", res, err_origin);
 }
 
 
 int main(int argc, char **argv)
 {
-    char* ta = "00000000-0000-0000-0000-000048444350";
+    char* ta = "00000000-0000-0000-0000-4662436b6d52";
     TEEC_UUID *uuid = teegris_uuid(ta); 
 
     uint32_t err_origin;
@@ -78,7 +80,6 @@ int main(int argc, char **argv)
         exit(-1);
     }
 
-    // write banner
     send_req(&context, &session);
     TEEC_CloseSession_impl(&session);
     TEEC_FinalizeContext_impl(&context);

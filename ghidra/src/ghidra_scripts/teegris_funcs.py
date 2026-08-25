@@ -15,7 +15,7 @@ from ghidra.util.task import ConsoleTaskMonitor
 from ghidra.program.util import DefinedDataIterator
 from ghidra.app.util import XReferenceUtil
 
-from utils import find_returns 
+from utils import find_returns
 
 ################################################################################
 # TYPING
@@ -33,9 +33,7 @@ from ghidra.app.decompiler import DecompileResults
 import logging
 
 FORMAT = "%(asctime)s,%(msecs)d %(levelname)-8s " "%(message)s"
-logging.basicConfig(
-    format=FORMAT, datefmt="%Y-%m-%d:%H:%M:%S", level=logging.DEBUG
-)
+logging.basicConfig(format=FORMAT, datefmt="%Y-%m-%d:%H:%M:%S", level=logging.DEBUG)
 log = logging.getLogger(__name__)
 
 ################################################################################
@@ -50,6 +48,7 @@ DECOMPILER: Decompiler = Decompiler(PROGRAM)
 # CODE
 ################################################################################
 
+
 def beanpod_find_GP():
     print("working..")
     program = getCurrentProgram()
@@ -63,41 +62,46 @@ def beanpod_find_GP():
     functionManager = program.getFunctionManager()
     functions = functionManager.getFunctions(True)
     addressFactory = program.getAddressFactory()
-    print(
-    8 * "*"
-    + "teegris finder analyzing: "
-    + filename
-    + 8 * "="
-    )
-    out = { 
-    }
-    funcs = ["TA_InvokeCommandEntryPoint",  "TA_CreateEntryPoint",  "TA_OpenSessionEntryPoint", "TA_CloseSessionEntryPoint", "TA_DestroyEntryPoint"]
+    print(8 * "*" + "teegris finder analyzing: " + filename + 8 * "=")
+    out = {}
+    funcs = [
+        "TA_InvokeCommandEntryPoint",
+        "TA_CreateEntryPoint",
+        "TA_OpenSessionEntryPoint",
+        "TA_CloseSessionEntryPoint",
+        "TA_DestroyEntryPoint",
+    ]
     for func in funcs:
         ghidra_func = getGlobalFunctions(func)[0]
         ptrSize = program.getDefaultPointerSize()
-        returns = find_returns(ghidra_func, is_thumb=ptrSize==4, is_pie=True)
+        returns = find_returns(ghidra_func, is_thumb=ptrSize == 4, is_pie=True)
         if ptrSize == 4:
-            out[f'{func}_start'] = ghidra_func.getEntryPoint().getOffset()-0x10000
+            out[f"{func}_start"] = ghidra_func.getEntryPoint().getOffset() - 0x10000
         else:
-            out[f'{func}_start'] = ghidra_func.getEntryPoint().getOffset()-0x100000
-        out[f'{func}_end'] = returns 
+            out[f"{func}_start"] = ghidra_func.getEntryPoint().getOffset() - 0x100000
+        out[f"{func}_end"] = returns
 
     return out
 
+
 def main():
-	logging.info("Initializing...")
-	# create a target-specific output directory
+    logging.info("Initializing...")
+    # create a target-specific output directory
 
-	arg_parser = ArgumentParser(
-	description="ghidra analyzer to find GP funcs for teegris", prog="script", prefix_chars="+")
-	args = arg_parser.parse_args(args=getScriptArgs())
-	prog_path = getCurrentProgram().getExecutablePath()
-	out_path = prog_path[:-3] + ".json"
+    arg_parser = ArgumentParser(
+        description="ghidra analyzer to find GP funcs for teegris",
+        prog="script",
+        prefix_chars="+",
+    )
+    args = arg_parser.parse_args(args=getScriptArgs())
+    prog_path = getCurrentProgram().getExecutablePath()
+    out_path = prog_path[:-3] + ".json"
 
-	out = beanpod_find_GP()
-	open(out_path, "w").write(json.dumps(out, indent=4))
-	os.system(f'chmod 666 {out_path}')
-	return
+    out = beanpod_find_GP()
+    open(out_path, "w").write(json.dumps(out, indent=4))
+    os.system(f"chmod 666 {out_path}")
+    return
+
 
 if __name__ == "__main__":
     main()

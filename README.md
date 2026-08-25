@@ -106,3 +106,13 @@ for gdb:
 
 Bump afl++ / unicornAfl to version with cmplog support
 multiple command ids
+
+# Double Fetch Sanity Check
+
+```
+./fuzz.sh ../mitee/harness/377e_double_fetch_stackov/ 
+# -> meta second entry should be the relevant df
+AFL_DEBUG=1 ./df_fuzz.sh ../mitee/harness/377e_double_fetch_stackov/ ../mitee/harness/377e_double_fetch_stackov/in/suspicious_inputs/run\:id\:d3b07384d113edec49eaa6238ad5ff00 205374383998289612021010690897642464208
+# different sizes for memmove should be correct
+``` 
+

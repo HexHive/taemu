@@ -1,22 +1,28 @@
 {
-    "TA_InvokeCommandEntryPoint_start": 106996,
-    "TA_InvokeCommandEntryPoint_end": [
-        107872
-    ],
-    "TA_CreateEntryPoint_start": 106664,
-    "TA_CreateEntryPoint_end": [
-        106736
-    ],
-    "TA_OpenSessionEntryPoint_start": 106820,
-    "TA_OpenSessionEntryPoint_end": [
-        106912
-    ],
-    "TA_CloseSessionEntryPoint_start": 106920,
-    "TA_CloseSessionEntryPoint_end": [
-        106988
-    ],
-    "TA_DestroyEntryPoint_start": 106744,
-    "TA_DestroyEntryPoint_end": [
-        106812
-    ]
+  "TA_InvokeCommandEntryPoint_start": 106996,
+  "TA_InvokeCommandEntryPoint_end": [
+    107872
+  ],
+  "TA_CreateEntryPoint_start": 106664,
+  "TA_CreateEntryPoint_end": [
+    106736
+  ],
+  "TA_OpenSessionEntryPoint_start": 106820,
+  "TA_OpenSessionEntryPoint_end": [
+    106912
+  ],
+  "TA_CloseSessionEntryPoint_start": 106920,
+  "TA_CloseSessionEntryPoint_end": [
+    106988
+  ],
+  "TA_DestroyEntryPoint_start": 106744,
+  "TA_DestroyEntryPoint_end": [
+    106812
+  ],
+  "inline": {
+    "vltkpr_authenticate_ca_softpass": {
+      "addr": 108192,
+      "type": "tee"
+    }
+  }
 }

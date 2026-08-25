@@ -113,10 +113,7 @@ class GraphHelper(object):
         first_node = keys[0]
         print("first_node", first_node)
         dom_edges = sorted(
-            [
-                (b, a)
-                for a, b in immediate_dominators(self._ga, first_node).items()
-            ]
+            [(b, a) for a, b in immediate_dominators(self._ga, first_node).items()]
         )
 
         # create the animator object returned from this function

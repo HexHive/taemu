@@ -4,38 +4,63 @@ from qiling.os.const import STRING, INT, BYTE, POINTER
 from .gp.utils.param import TEE_Param_Memref
 from .gp.utils.err import *
 from .gp.utils.string import *
-from Crypto.Random import get_random_bytes
+from .determinism import get_random_bytes
 from .custom import rpmb
 from unicorn import UC_PROT_READ, UC_PROT_WRITE
 import time as pytime
 from .common import crash, crash_notimpl
 
-from .gp.utils.printf import parse_fmt_str, fixup_format
+from .gp_api import TEE_LogvPrintf, TEE_LogPrintf, TEE_MemCompare, malloc, free
+from .gp.utils.printf import parse_fmt_str, fixup_format, read_c_str
+
+from .gp.session import TEE_OpenTASession
+
+
+def TEE_OpenSession(ql: Qiling, hook_data):
+    # t6 names the TA-to-TA session open TEE_OpenSession; reuse the modelled
+    # TEE_OpenTASession (returns SUCCESS + a session handle).
+    TEE_OpenTASession(ql, hook_data)
 
 def GetBootSeed(ql: Qiling, hook_data):
-    ql.log.info(
-        f'{hook_data.func_name} returning 0'
-    )
+    ql.log.info(f"{hook_data.func_name} returning 0")
     out = ql.os.resolve_fcall_params({"buf": POINTER, "size": INT})
     buf = out["buf"]
     size = out["size"]
     try:
-        ql.mem.write(buf, size*b"A")
+        ql.mem.write(buf, size * b"A")
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, hook_data.func_name)
         return
+    hook_data.emu.writeback_shm(buf, size)
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+
 def debug_log2(ql: Qiling, hook_data):
     try:
-        p = ql.os.resolve_fcall_params({"filename": STRING, "linenumber": INT, "nr1":INT, "nr2":INT, "format": STRING})
+        p = ql.os.resolve_fcall_params(
+            {
+                "filename": STRING,
+                "linenumber": INT,
+                "nr1": INT,
+                "nr2": INT,
+                "format": POINTER,
+            }
+        )
         linenumber = p["linenumber"]
         filename = p["filename"]
         nr1 = p["nr1"]
         nr2 = p["nr2"]
-        format_param = p["format"]
-        final_params = {"filename": STRING, "linenumber": linenumber, "nr1": nr1, "nr2": nr2, "format": STRING}
+        format_param_ptr = p["format"]
+        final_params = {
+            "filename": STRING,
+            "linenumber": linenumber,
+            "nr1": nr1,
+            "nr2": nr2,
+            "format": STRING,
+        }
+        hook_data.emu.update_shm(format_param_ptr)
+        format_param = ql.mem.string(format_param_ptr)
         params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
         format_param = fixup_format(format_param)
         string_params = [params[f"{i}"] for i in range(0, len(params))]
@@ -44,20 +69,31 @@ def debug_log2(ql: Qiling, hook_data):
         except TypeError:
             ql.log.error(f"format string not supported: {format_param}")
             if hook_data.emu.crash_on_not_implemented:
-                crash_notimpl(ql, f'format string not supported: {format_param}')
-                return 
+                crash_notimpl(ql, f"format string not supported: {format_param}")
+                return
         ql.log.info(f"{hook_data.func_name}: {filename}({linenumber}): {out_str}")
     except unicorn.unicorn_py3.unicorn.UcError:
         crash(ql, hook_data.func_name)
         return
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+
 def debug_log(ql: Qiling, hook_data):
+    # A logging call whose args we can't fully parse is NOT memory corruption --
+    # this t6 build's debug_log doesn't match the assumed
+    # {log_level, filename, format} layout (it passes a non-pointer where the
+    # filename string is expected), which made the old `except UcError: crash()`
+    # abort CreateEntryPoint with a bogus "memory corruption". Parse best-effort
+    # and always return cleanly to the caller.
     try:
-        p = ql.os.resolve_fcall_params({"log_level": INT, "filename": STRING, "format": STRING})
+        p = ql.os.resolve_fcall_params(
+            {"log_level": INT, "filename": STRING, "format": POINTER}
+        )
         log_level = p["log_level"]
         filename = p["filename"]
-        format_param = p["format"]
+        format_param_ptr = p["format"]
+        hook_data.emu.update_shm(format_param_ptr)
+        format_param = ql.mem.string(format_param_ptr)
         final_params = {"log_level": INT, "filename": STRING, "format": STRING}
         params = parse_fmt_str(ql, format_param, final_params, hook_data.func_name)
         format_param = fixup_format(format_param)
@@ -67,40 +103,83 @@ def debug_log(ql: Qiling, hook_data):
         except TypeError:
             ql.log.error(f"format string not supported: {format_param}")
             if hook_data.emu.crash_on_not_implemented:
-                crash_notimpl(ql, f'format string not supported: {format_param}')
-                return 
+                crash_notimpl(ql, f"format string not supported: {format_param}")
+                return
         ql.log.info(f"{hook_data.func_name}: {log_level}, {filename}{out_str}")
-    except unicorn.unicorn_py3.unicorn.UcError:
-        crash(ql, hook_data.func_name)
-        return
+    except (unicorn.unicorn_py3.unicorn.UcError, TypeError, ValueError, KeyError) as e:
+        ql.log.info(f"{hook_data.func_name}: <unparsable log args: {type(e).__name__}>")
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
 
 def check_license(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def platform_spi_write_read(ql: Qiling, hook_data):
+    ql.log.info(f"{hook_data.func_name}: {hex(ql.arch.regs.lr)}")
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+FS = {}
+
+def platform_fs_read(ql: Qiling, hook_data):
+    p = ql.os.resolve_fcall_params(
+            {"path": STRING, "buf": POINTER, "size": INT}
+        )
+    path = p["path"]
+    buf = p["buf"]
+    size = p["size"]
+
+    ql.log.info(f"{hook_data.func_name}: {path}, {size}")
+    if path not in FS:
+        ql.os.fcall.cc.setReturnValue(-1)
+    else:
+        ql.mem.write(buf, FS[path][:size])
+        ql.os.fcall.cc.setReturnValue(min(size, len(FS[path])))
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def platform_fs_write(ql: Qiling, hook_data):
+    p = ql.os.resolve_fcall_params(
+            {"path": STRING, "buf": POINTER, "size": INT}
+        ) 
+    path = p["path"]
+    buf = p["buf"]
+    size = p["size"]
+    ql.log.info(f"{hook_data.func_name}: {path}, {size}")
+    FS[path] = ql.mem.read(buf, size)
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+def sensor_get_chip_id(ql: Qiling, hook_data):
+    ql.os.fcall.cc.setReturnValue(0x20)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+ 
+
+
+# --- API stubs carried over from main (2058fea) ---
 
 def __assert_fail(ql: Qiling, hook_data):
     ql.log.error(f'assertion failure!')
     crash(ql, hook_data.func_name)
     return
 
+
 def init_ta_session(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
-def platform_spi_write_read(ql: Qiling, hook_data):
-    ql.os.fcall.cc.setReturnValue(0)
-    ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 def sf_spi_write_buf(ql: Qiling, hook_data):
     p = ql.os.resolve_fcall_params({"data": POINTER})
     ql.os.fcall.cc.setReturnValue(len(p["data"]))
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
+
 def sf_spi_write_buf_then_read_buf(ql: Qiling, hook_data):
     p = ql.os.resolve_fcall_params({"data": POINTER})
     ql.os.fcall.cc.setReturnValue(len(p["data"]))
     ql.arch.regs.arch_pc = ql.arch.regs.lr
+
 
 def platform_open_driver(ql: Qiling, hook_data):
     ql.os.fcall.cc.setReturnValue(0)

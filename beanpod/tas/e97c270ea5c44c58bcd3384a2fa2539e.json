@@ -18,5 +18,8 @@
         742778
     ],
     "TA_DestroyEntryPoint_start": 40104,
-    "TA_DestroyEntryPoint_end": []
+    "TA_DestroyEntryPoint_end": 
+    [
+        40104
+    ]
 }

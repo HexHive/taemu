@@ -1,0 +1,15 @@
+CElfFile_invoke:
+  end: [0x9f8]
+  start: 0x7d8
+
+command_handler:
+  end: [0xc60, 0xe1c]
+  start: 0xbb8
+
+setup_teardown:
+  end: [0xba0]
+  start: 0xab4
+
+tz_app_cmd_handler:
+  end: [0x570, 0x3cc, 0x3fc, 0x4fc]
+  start: 0x1e0

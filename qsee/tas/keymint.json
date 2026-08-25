@@ -1,0 +1,24 @@
+{
+    "_comment": "Samsung S24 Ultra (SM-S928B) KeyMint QTEE TA. Statically links libcmnlib; the real TA_*EntryPoint live in libcmnlib (not present as TA symbols). GP lifecycle stubbed with a 'mov w0,wzr; ret' gadget (vaddr 0xd7f4/ret 0xd7f8) returning TEE_SUCCESS=0. InvokeCommand is pointed by the harness; the .json default points it at decodeKeyBlob@0x30740 (the keyblob CBOR deserializer behind the DKMK plaintext magic gate). The harness overrides x0..x3. _end is the gadget ret 0xd7f8 (the handler's own benign ret is reached when no crash).",
+    "inline": {},
+    "TA_CreateEntryPoint_start": 55284,
+    "TA_CreateEntryPoint_end": [
+        55288
+    ],
+    "TA_OpenSessionEntryPoint_start": 55284,
+    "TA_OpenSessionEntryPoint_end": [
+        55288
+    ],
+    "TA_CloseSessionEntryPoint_start": 55284,
+    "TA_CloseSessionEntryPoint_end": [
+        55288
+    ],
+    "TA_DestroyEntryPoint_start": 55284,
+    "TA_DestroyEntryPoint_end": [
+        55288
+    ],
+    "TA_InvokeCommandEntryPoint_start": 198464,
+    "TA_InvokeCommandEntryPoint_end": [
+        55288
+    ]
+}

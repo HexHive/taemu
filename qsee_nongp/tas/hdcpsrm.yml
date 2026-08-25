@@ -1,0 +1,18 @@
+CElfFile_invoke:
+  end: [0x1474]
+  start: 0x1254
+
+command_handler:
+  end: [0x1898]
+  start: 0x1634
+
+setup_teardown:
+  end: [0x161c]
+  start: 0x1530
+
+tz_app_cmd_handler:
+  end: [
+      0x78c, # b log
+      0x758, # b hdcpsrm_cmd_handler
+    ]
+  start: 0x6cc

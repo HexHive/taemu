@@ -24,5 +24,3 @@ def place_input_callback(ql: Qiling, input: bytes, _: int):
         ql, 1, ptypes, command_params, input
     )  # assume the session is already set
     return True
-
-

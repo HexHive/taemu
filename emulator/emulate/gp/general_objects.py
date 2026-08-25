@@ -9,27 +9,35 @@ import unicorn
 from ..common import crash
 
 
-def TEE_GetObjectBufferAttribute(ql:Qiling, hook_data):
-    params = ql.os.resolve_fcall_params({'object': UINT, 'attributeID': UINT, 'buffer': POINTER, 'size': POINTER})
-    para_object = params['object']
-    para_attributeID = params['attributeID']
-    para_buffer = params['buffer']
-    para_size = params['size']  
+def TEE_GetObjectBufferAttribute(ql: Qiling, hook_data):
+    params = ql.os.resolve_fcall_params(
+        {"object": UINT, "attributeID": UINT, "buffer": POINTER, "size": POINTER}
+    )
+    para_object = params["object"]
+    para_attributeID = params["attributeID"]
+    para_buffer = params["buffer"]
+    para_size = params["size"]
 
     ql.log.info(f"TEE_GetObjectBufferAttribute")
-    ql.log.debug(f"TEE_GetObjectBufferAttribute: current {handle2obj}, with para_object {para_object}:{hex(para_object)}")
+    ql.log.debug(
+        f"TEE_GetObjectBufferAttribute: current {handle2obj}, with para_object {para_object}:{hex(para_object)}"
+    )
 
     if para_object not in handle2obj:
-        ql.log.error(f'TEE_GetObjectBufferAttribute: called with {hex(para_object)} not in {handle2obj}')
+        ql.log.error(
+            f"TEE_GetObjectBufferAttribute: called with {hex(para_object)} not in {handle2obj}"
+        )
         ql.emu_stop()
     obj = handle2obj[para_object]
 
     if obj.initialized == False:
-        ql.log.error(f'TEE_GetObjectBufferAttribute: obj {hex(para_object)} not initialized')
+        ql.log.error(
+            f"TEE_GetObjectBufferAttribute: obj {hex(para_object)} not initialized"
+        )
         ql.emu_stop()
 
     if (para_attributeID >> 29) & 0x1 != 0:
-        ql.log.error(f'TEE_GetObjectBufferAttribute: not a buffer attribute')
+        ql.log.error(f"TEE_GetObjectBufferAttribute: not a buffer attribute")
         ql.emu_stop()
 
     # @TODO: If Bit [28] of attributeID is set to 0, denoting a protected attribute, and the object usage does not contain the TEE_USAGE_EXTRACTABLE flag.
@@ -37,7 +45,6 @@ def TEE_GetObjectBufferAttribute(ql:Qiling, hook_data):
     #     ql.log.error(f'TEE_GetObjectBufferAttribute: not a buffer attribute')
     #     ql.emu_stop()
 
-    
     if para_attributeID not in obj.attrs:
         ret = TEE_ERROR_ITEM_NOT_FOUND
     else:
@@ -53,6 +60,7 @@ def TEE_GetObjectBufferAttribute(ql:Qiling, hook_data):
             return
         ret = TEE_SUCCESS
 
+    hook_data.emu.writeback_shm(para_buffer, para_size)
     ql.log.info(f"\treturn {hex(ret)}")
     ql.os.fcall.cc.setReturnValue(ret)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
