@@ -459,6 +459,22 @@ emulator/rootfs/*
 emulator/emulate/files/*
 **/Cargo.lock.ghidra-projects
 
+### Generated fuzzing output inside harness dirs
+# These are produced by fuzz.sh / df_fuzz.sh / the recorder and are not source.
+# `out/` was already ignored above but had been force-added; these were not.
+**/harness/*/df_fuzz/
+**/harness_dev/*/df_fuzz/
+**/harness/*/record_meta/
+**/harness_dev/*/record_meta/
+**/harness/*/api_cov/
+**/harness_dev/*/api_cov/
+**/harness/*/campaign_out/
+**/harness_dev/*/campaign_out/
+**/harness_dev/*/out/
+**/in/suspicious_inputs_replay
+**/harness/*/drcov.log
+**/harness_dev/*/drcov.log
+
 ### Artifact evaluation
 # the generic `lib/` rule above (C++ template) would swallow ae/lib/,
 # which holds the AE's own library -- re-include it
