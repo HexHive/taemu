@@ -119,9 +119,11 @@ counter = 0
 ql_resolve_mem = 0x99999000
 ql_resolve_mem_size = 0x1000
 
-def fixup_got(ql: Qiling, ta_path:Path, ta_elf: ELF, is_mitee=False):
+def fixup_got(ql: Qiling, ta_path, ta_elf: ELF, is_mitee=False):
     # ... :/
-    ta_base = ql.mem.get_lib_base(ta_path.name)
+    # ta_path is a Path from hook_ta_dl but a plain str from the libscrypto.so
+    # branch below (os.path.join), so go through basename rather than .name.
+    ta_base = ql.mem.get_lib_base(os.path.basename(str(ta_path)))
     for section in ta_elf.iter_sections():
         if not isinstance(section, RelocationSection):
             continue
