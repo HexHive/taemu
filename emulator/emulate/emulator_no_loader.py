@@ -380,8 +380,44 @@ def teegris_32_setup(ql: Qiling, ta_path, ta_base):
         v = ql.mem.read_ptr(ta_base + rel)
         ql.mem.write_ptr(ta_base + rel, v + ta_base)
 
+def _optee_force_ret0(ql: Qiling, *args):
+    # neutralize a function: set its return value to 0 and return to the caller
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
 def optee_setup(ql: Qiling, ta_path, ta_base, emu):
     ql.hook_intno(optee_api.optee_syscall, 2, user_data=emu)
+
+    # Reproducer aid: TAEMU_FORCE_RET0 is a comma-separated list of image-base-
+    # relative offsets (Ghidra vaddr - 0x100000) of functions to force-return 0.
+    # Used to model preconditions the emulator cannot satisfy (e.g. an attacker-
+    # supplied *validly-signed* image: stub the RSA/ECC signature verifier so the
+    # documented post-verification bug is reachable).
+    for tok in os.environ.get("TAEMU_FORCE_RET0", "").split(","):
+        tok = tok.strip()
+        if not tok:
+            continue
+        off = int(tok, 0)
+        ql.hook_address(_optee_force_ret0, ta_base + off)
+        ql.log.info(
+            f"[optee] TAEMU_FORCE_RET0: {hex(ta_base + off)} (off {hex(off)}) -> return 0"
+        )
+
+    # Reproducer aid: TAEMU_SET_GLOBAL="off=val,..." writes a 4-byte value to a
+    # global (image-base-relative offset) after relocation -- e.g. to set a
+    # verify-state flag a successful (key-gated) init would have set.
+    for tok in os.environ.get("TAEMU_SET_GLOBAL", "").split(","):
+        tok = tok.strip()
+        if not tok:
+            continue
+        off_s, val_s = tok.split("=")
+        off = int(off_s, 0)
+        val = int(val_s, 0) & 0xFFFFFFFF
+        ql.mem.write(ta_base + off, val.to_bytes(4, "little"))
+        ql.log.info(
+            f"[optee] TAEMU_SET_GLOBAL: [{hex(ta_base + off)}] (off {hex(off)}) = {hex(val)}"
+        )
 
 def qsee_setup(ql: Qiling, ta_path:Path, ta_base, emu: 'TAEMU'):
     reloc_offsets = mitee_rela_relocs(ta_path)
