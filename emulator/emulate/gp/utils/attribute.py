@@ -1,4 +1,3 @@
-from enum import Enum
 from qiling import Qiling
 
 ATTRIBUTE_MEM = 0x770000

@@ -1,6 +1,4 @@
 from qiling import Qiling
-from qiling.os.const import STRING, UINT, POINTER
-from .data import *
 import os
 from .object import filepaths2tranobjs, handle2obj
 from ...common import NOTIMPL_PC

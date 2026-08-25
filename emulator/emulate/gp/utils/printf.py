@@ -1,4 +1,4 @@
-from qiling.os.const import STRING, INT, BYTE, POINTER
+from qiling.os.const import STRING, INT
 
 
 def read_c_str(ql, addr):

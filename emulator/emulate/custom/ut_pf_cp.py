@@ -1,9 +1,7 @@
 from qiling import Qiling
-from qiling.os.const import STRING, UINT, POINTER
-from pwn import *
+from qiling.os.const import UINT, POINTER
 
 
-from Crypto.PublicKey import RSA  # provided by pycryptodome
 
 from ..gp.utils.string import malloc_core, memset_core, free_core
 

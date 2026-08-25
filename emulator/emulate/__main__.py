@@ -11,7 +11,7 @@ from .qiling_extend import QilingExtend as Qiling
 from .redis_queue import create_redis_queue
 from qiling.const import QL_STOP, QL_VERBOSE
 from qiling.const import QL_ARCH, QL_OS, QL_VERBOSE
-from .fuzz_record import SimpleFilterRecorder, Record
+from .fuzz_record import SimpleFilterRecorder
 from .redis_queue import RedisQueue
 from .emulator_no_loader import simple_diassembler, trace_block, simple_diassembler, unicorn_why
 from .ta_mgr import TAEMU, Status

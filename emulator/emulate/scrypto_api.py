@@ -20,13 +20,13 @@
 # are logged as stubs.
 
 from qiling import Qiling
-from qiling.os.const import STRING, INT, UINT, BYTE, POINTER
-from .common import crash, crash_notimpl, HEAP_MEM
+from qiling.os.const import INT, POINTER
+from .common import crash, HEAP_MEM
 import unicorn
 
 try:
     from Crypto.Cipher import AES
-    from Crypto.Hash import SHA1, SHA256, SHA384, SHA512
+    from Crypto.Hash import SHA1, SHA256, SHA384
     from Crypto.Hash import HMAC as _PHMAC
     from Crypto.Protocol.KDF import PBKDF2
     from .determinism import get_random_bytes

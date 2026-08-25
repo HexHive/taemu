@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from elftools.elf.dynamic import DynamicSegment
 from pwn import *
 import json
 import importlib
@@ -9,10 +8,8 @@ import subprocess
 import pathlib
 import io
 from qiling import Qiling
-from qiling.utils import ql_get_module
 from capstone import Cs
 from pathlib import Path
-from elftools.elf.elffile import ELFFile
 from qiling.const import QL_ARCH, QL_OS 
 from elftools.elf.relocation import RelocationSection
 from . import gp_api

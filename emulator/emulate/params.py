@@ -4,7 +4,6 @@ from qiling import Qiling
 
 from . import gp_api
 from . import asan
-from .gp.utils.param import TEE_Param_Memref, TEE_Param_value
 import json
 import os
 import socket

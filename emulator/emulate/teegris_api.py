@@ -1,17 +1,12 @@
-from enum import Enum
 import os
 from qiling import Qiling
-from qiling.os.const import STRING, INT, BYTE, POINTER
-from .gp.utils.param import TEE_Param_Memref
+from qiling.os.const import STRING, INT, POINTER
 from .gp.utils.err import *
 from .gp.utils.string import *
-from .gp.session import TEE_OpenTASession
-from .determinism import get_random_bytes
 from .custom import rpmb
 from unicorn import UC_PROT_READ, UC_PROT_WRITE, UC_PROT_EXEC
 from .common import crash, crash_notimpl
 
-from .gp_api import TEE_LogvPrintf, TEE_LogPrintf
 
 def TEES_GetClientCredentials(ql: Qiling, hook_data):
     p = ql.os.resolve_fcall_params({"out": POINTER})

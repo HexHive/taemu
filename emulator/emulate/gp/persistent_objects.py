@@ -1,12 +1,12 @@
 from qiling import Qiling
-from qiling.os.const import STRING, UINT, POINTER
+from qiling.os.const import UINT, POINTER
 
 from .utils.data import *
 from .utils.persistent_object import *
 from .utils.err import *
 
 from .transient_objects import handle2obj
-from ..common import crash, crash_notimpl
+from ..common import crash
 import unicorn
 import os
 

@@ -8,7 +8,7 @@ from queue import Empty
 import sys
 from emulate.redis_queue import RedisQueue
 from dataclasses import dataclass
-from typing import Optional, Callable, Dict, Any, List, Tuple
+from typing import Optional, Dict, Any, List, Tuple
 from enum import Enum
 import hashlib
 

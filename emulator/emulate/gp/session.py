@@ -1,5 +1,5 @@
 from qiling import Qiling
-from qiling.os.const import STRING, UINT, POINTER
+from qiling.os.const import UINT, POINTER
 from .utils.err import *
 from .utils.param import *
 from ..common import crash_notimpl

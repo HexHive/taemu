@@ -1,6 +1,5 @@
-from enum import Enum
 from qiling import Qiling
-from qiling.os.const import STRING, UINT, POINTER
+from qiling.os.const import UINT, POINTER
 from .utils.object import *
 from .utils.attribute import *
 from .utils.err import *

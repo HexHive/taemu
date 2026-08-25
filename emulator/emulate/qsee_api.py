@@ -1,7 +1,5 @@
-from collections import defaultdict
 from dataclasses import dataclass
 import datetime
-from enum import Enum
 import functools
 import hashlib
 import os
@@ -10,14 +8,13 @@ import struct
 from colorama import Fore
 import pwn
 from qiling import Qiling
-from qiling.os.const import LONGLONG, STRING, INT, BYTE, POINTER
+from qiling.os.const import STRING, INT, BYTE, POINTER
 
-from .gp.utils.param import TEE_Param_Memref
 from .gp.utils.err import *
 from .gp.utils.string import *
 from .gp_api import TEE_LogPrintf, malloc
 from .common import crash, crash_notimpl
-from .gp.utils.printf import parse_fmt_str, fixup_format, read_c_str
+from .gp.utils.printf import parse_fmt_str, fixup_format
 import time
 from typing import TYPE_CHECKING
 from .non_gp.qsee.api_common import _ret, _read_u32, _log_args, nonfaithful

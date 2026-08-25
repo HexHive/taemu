@@ -1,17 +1,14 @@
-from enum import Enum
 from qiling import Qiling
-from qiling.os.const import STRING, INT, BYTE, POINTER
-from .gp.utils.param import TEE_Param_Memref
+from qiling.os.const import INT, POINTER
 from .gp.utils.err import *
 from .gp.utils.string import *
 from .gp.session import TEE_OpenTASession
 from .determinism import get_random_bytes, now as _det_now
 from .custom import rpmb
-from unicorn import UC_PROT_READ, UC_PROT_WRITE
 import time as pytime
 from .common import crash
 
-from .gp_api import TEE_LogvPrintf, TEE_LogPrintf, TEE_MemCompare, malloc, free
+from .gp_api import TEE_MemCompare, malloc, free
 
 
 def zx_check_memory_access_rights(ql: Qiling, hook_data):

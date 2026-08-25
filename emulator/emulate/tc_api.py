@@ -1,4 +1,3 @@
-from qiling.os.const import STRING, INT, BYTE, POINTER
 from .gp_api import printf 
 
 

@@ -1,7 +1,7 @@
-from .fuzz_record import Record, Status
+from .fuzz_record import Record
 from .qiling_extend import QilingExtend as Qiling
-from colorama import Fore, Back, Style
-from typing import Any, Callable, Optional, List, Dict
+from colorama import Fore, Style
+from typing import Any, List
 
 CRASH_PC = 0xDEADBEEF
 CRASH_PC_2 = 0xDEADBEEE

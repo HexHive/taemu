@@ -1,5 +1,5 @@
 from qiling import Qiling
-from qiling.os.const import STRING, UINT, POINTER
+from qiling.os.const import UINT, POINTER
 from ..gp.utils.err import *
 from ..gp.utils.param import *
 

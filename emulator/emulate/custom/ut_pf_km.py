@@ -3,11 +3,9 @@ ut pf keymaster
 """
 
 from qiling import Qiling
-from qiling.os.const import STRING, UINT, POINTER
-from pwn import *
+from qiling.os.const import UINT, POINTER
 
 # from emulator_no_loader import TA_ELF
-from ..gp.session import *
 
 
 ### ut_pf_km_get_hmac_key

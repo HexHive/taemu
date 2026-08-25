@@ -20,7 +20,7 @@ from .optee import numbers as scn
 from .optee.syscalls import SYSCALLS
 from .common import crash, crash_notimpl, finalize_fuzzing, AFL_EXIT_PC
 from .fuzz_record import Status
-from .gp.utils.err import TEE_ERROR_NOT_IMPLEMENTED, TEE_ERROR_ITEM_NOT_FOUND
+from .gp.utils.err import TEE_ERROR_NOT_IMPLEMENTED
 
 
 # --- ARM/MediaTek CryptoCell secure-element emulation -----------------------

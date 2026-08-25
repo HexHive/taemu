@@ -1,20 +1,16 @@
-from collections import defaultdict
-from dataclasses import dataclass
 import datetime
-from enum import Enum
 import functools
 import hashlib
 import os
 import random
 import struct
-from colorama import Fore
 import pwn
 from qiling import Qiling
-from qiling.os.const import LONGLONG, STRING, INT, BYTE, POINTER
+from qiling.os.const import INT, POINTER
 
 import time
 from typing import TYPE_CHECKING, Dict
-from .api_common import _ret, _read_u32
+from .api_common import _ret
 
 if TYPE_CHECKING:
     from emulate.emulator_no_loader import HookData

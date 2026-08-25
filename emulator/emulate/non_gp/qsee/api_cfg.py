@@ -1,23 +1,18 @@
-from collections import defaultdict
-from dataclasses import dataclass
 import datetime
-from enum import Enum
 import functools
 import hashlib
 import os
 import random
 import struct
-from colorama import Fore
 import pwn
 from qiling import Qiling
-from qiling.os.const import LONGLONG, STRING, INT, BYTE, POINTER, UINT
+from qiling.os.const import STRING, POINTER, UINT
 
 import time
-from typing import TYPE_CHECKING, Dict
-from .api_common import _ret, _read_u32, _log_args, nonfaithful
+from typing import TYPE_CHECKING
+from .api_common import _ret, _log_args
 if TYPE_CHECKING:
     from emulate.emulator_no_loader import HookData
-    from emulate.ta_mgr import TAEMU
 
 
 __all__ = ["qsee_cfg_getpropval", "qsee_query_rpmb_enablement"]

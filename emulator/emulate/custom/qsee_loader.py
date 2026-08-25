@@ -6,13 +6,6 @@ from pathlib import Path
 import logging
 from typing import List
 
-from elftools.elf.dynamic import Dynamic, DynamicSegment
-from elftools.elf.relocation import RelocationSection
-from pwnlib.elf import ELF
-from elftools.elf.elffile import ELFFile
-from qiling import Qiling
-from qiling.core import QL_ARCH, QL_OS
-from unicorn import UC_PROT_EXEC, UC_PROT_READ, UC_PROT_WRITE
 log = logging.getLogger(__name__)
 
 @dataclass

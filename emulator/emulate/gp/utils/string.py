@@ -1,9 +1,9 @@
 from qiling import Qiling
-from qiling.os.const import STRING, INT, BYTE, POINTER
+from qiling.os.const import INT, BYTE, POINTER
 from unicorn.arm_const import *
 from .err import *
 from ... import asan
-from ...common import CRASH_PC, HEAP_MEM, crash
+from ...common import HEAP_MEM, crash
 import unicorn
 from typing import TYPE_CHECKING
 

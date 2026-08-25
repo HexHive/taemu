@@ -1,6 +1,4 @@
-from enum import Enum
 from qiling import Qiling
-from qiling.os.const import STRING, INT, BYTE, POINTER
 from ..gp.utils.param import TEE_Param_Memref
 from ..gp.utils.err import *
 from ..gp.utils.string import *

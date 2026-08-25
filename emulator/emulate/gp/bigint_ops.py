@@ -1,10 +1,10 @@
 from .utils.crypto import *
 from qiling import Qiling
-from qiling.os.const import STRING, UINT, POINTER, INT
+from qiling.os.const import POINTER, INT
 from .utils.err import *
 from .utils.object import *
 from .utils.bigint import *
-from ..common import CRASH_PC, crash
+from ..common import crash
 import unicorn
 
 

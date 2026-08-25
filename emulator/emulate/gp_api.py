@@ -1,15 +1,14 @@
-from enum import Enum
 import os
 import time as pytime
 from qiling import Qiling
-from qiling.os.const import STRING, INT, BYTE, POINTER
+from qiling.os.const import STRING, INT, POINTER
 from .gp.utils.param import TEE_Param_Memref
 from .gp.utils.err import *
 from .gp.utils.string import *
 from . import asan
 from .gp.utils.printf import *
 from .gp.utils.const import *
-from .common import CRASH_PC, NOTIMPL_PC, crash, crash_notimpl, finalize_fuzzing
+from .common import NOTIMPL_PC, crash, crash_notimpl, finalize_fuzzing
 from .fuzz_record import Status
 from . import cmplog
 from . import telemetry

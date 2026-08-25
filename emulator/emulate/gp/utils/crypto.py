@@ -4,7 +4,6 @@ from Crypto.Hash import SHA256, MD5
 from Crypto.PublicKey import RSA  # provided by pycryptodome
 from Crypto.Cipher import PKCS1_v1_5
 from Crypto.Cipher import AES
-from Crypto.Util.number import size
 from Crypto.Util.number import bytes_to_long
 from qiling import Qiling
 

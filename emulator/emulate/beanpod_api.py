@@ -1,17 +1,13 @@
-from enum import Enum
 from qiling import Qiling
-from qiling.os.const import STRING, INT, BYTE, POINTER, UINT
-from .gp.utils.param import TEE_Param_Memref
+from qiling.os.const import INT, POINTER, UINT
 import base64
 from .gp.utils.printf import read_c_str
 from .gp.utils.err import *
 from .gp.utils.string import *
 
 
-from .determinism import get_random_bytes
 
 from .custom import rpmb
-from unicorn import UC_PROT_READ, UC_PROT_WRITE
 
 from .gp_api import TEE_LogvPrintf, TEE_LogPrintf
 

@@ -10,7 +10,6 @@ from .api_common import _ret, _log_args, nonfaithful
 
 if TYPE_CHECKING:
     from emulate.emulator_no_loader import HookData
-    from emulate.ta_mgr import TAEMU
 
 
 BIGVAL_WORDS = 0x12
