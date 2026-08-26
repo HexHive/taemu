@@ -1,0 +1,14 @@
+{
+    "_comment": "SVLTKPR-5 repro harness. Samsung S24 Ultra (SM-S928B) VaultKeeper QTEE TA, vaultkeeper.ta (sha256 82bd205f...), staged byte-identical as vk_write_sheltered.ta. Heap OOB-write-via-32-bit-integer-underflow in the WRITE_SHELTERED everyman handler vk_everyman_write_sheltered@0x1235C (cmd 0xC000C08, inside compound sub_11FB8). GP lifecycle stubbed at the 'mov w0,wzr; ret' gadget (vaddr 0x20c0 / ret 0x20c4) returning TEE_SUCCESS=0. InvokeCommand points DIRECTLY at the handler @0x1235C. Handler ABI on entry (from the framework's per-vault vtable dispatch inside process_vault_cmd): x0=target(vault obj, null-checked @0x12388), x1=request(null-checked @0x12390), x2=resp(null-checked @0x12398). BUG: alloc size = req[123] (LDR W1,[X20,#0x1EC]@0x12640 -> sub_8F0 -> vkqsee_memory_alloc@0x1F44 -> qsee_malloc, NO min); the size bound SUB W8,W8,#0x160@0x12664 (req[123]-352, 32-bit, WRAPS when req[123]<352) + CMP/B.HI@0x1266c; then memcpy(working_buf+0x160, *(req+0xC0), req[50])@0x12818 (sub_165E8, plain memcpy, UNCLAMPED). Setting req[123]=300(<352) underflows the bound AND shrinks the alloc to 300 B; dst=working_buf+352 is already 52 B past the end -> qsee_malloc's trailing asan redzone catches the first OOB byte. The harness points target+0x140 at vkqsee_memory_alloc@0x1F44 (so the alloc really calls the modeled qsee_malloc) and target+0xF8 at the ret-0 gadget@0x20c0 (so sub_900 'read existing vault' -- which tail-calls *(target+0xF8) -- returns 0 and the copy is reached). _end 0x12584 is the handler's unified RET (benign cap path); 0x13370 is the AFL_EXIT pad.",
+    "inline": {},
+    "TA_CreateEntryPoint_start": 8384,
+    "TA_CreateEntryPoint_end": [8388],
+    "TA_OpenSessionEntryPoint_start": 8384,
+    "TA_OpenSessionEntryPoint_end": [8388],
+    "TA_CloseSessionEntryPoint_start": 8384,
+    "TA_CloseSessionEntryPoint_end": [8388],
+    "TA_DestroyEntryPoint_start": 8384,
+    "TA_DestroyEntryPoint_end": [8388],
+    "TA_InvokeCommandEntryPoint_start": 74588,
+    "TA_InvokeCommandEntryPoint_end": [75140, 78704]
+}

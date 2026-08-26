@@ -272,10 +272,11 @@ def strstr(ql, hook_data):
     s1 = read_c_str(ql, str1)
     s2 = read_c_str(ql, str2)
     ql.log.info(f"strstr {s1}, {s2}")
-    try:
-        ql.os.fcall.cc.setReturnValue(s1.index(s2))
-    except:
-        ql.os.fcall.cc.setReturnValue(0)
+    # C strstr yields a POINTER INTO str1 (NULL if absent). Returning the bare
+    # index made every caller that chains on the result (e.g. TEEGRIS hwvault's
+    # strchr(strstr(s, "FW_IMAGE_LIST"), '[')) dereference a small integer.
+    idx = s1.find(s2)
+    ql.os.fcall.cc.setReturnValue(str1 + idx if idx >= 0 else 0)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 
@@ -970,6 +971,60 @@ def strchr(ql: Qiling, hook_data):
         crash(ql, hook_data.func_name)
         return
     ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def strrchr(ql: Qiling, hook_data):
+    params = ql.os.resolve_fcall_params({"s": POINTER, "c": INT})
+    s = params["s"]
+    c = params["c"] & 0xFF
+    hook_data.emu.update_shm(s)
+    addr = s
+    last = 0
+    try:
+        # cap the scan so a corrupted / unterminated string can't spin forever
+        for _ in range(0x10000):
+            b = ql.mem.read(addr, 1)[0]
+            if b == c:
+                last = addr
+            if b == 0:
+                # strrchr(s, '\0') returns a pointer to the terminating NUL
+                ql.os.fcall.cc.setReturnValue(addr if c == 0 else last)
+                ql.arch.regs.arch_pc = ql.arch.regs.lr
+                return
+            addr += 1
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
+    ql.os.fcall.cc.setReturnValue(last)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
+
+def atoi(ql: Qiling, hook_data):
+    """C atoi(): leading space, optional sign, decimal digits; 0 on no-parse.
+
+    The result is truncated to 32 bits, since the ABI return register is w0.
+    """
+    s = ql.os.resolve_fcall_params({"s": POINTER})["s"]
+    hook_data.emu.update_shm(s)
+    try:
+        raw = read_c_str(ql, s)
+    except unicorn.unicorn_py3.unicorn.UcError:
+        crash(ql, hook_data.func_name)
+        return
+    i, n = 0, len(raw)
+    while i < n and raw[i:i + 1] in b" \t\n\r\f\v":
+        i += 1
+    sign = 1
+    if i < n and raw[i:i + 1] in b"+-":
+        sign = -1 if raw[i:i + 1] == b"-" else 1
+        i += 1
+    j = i
+    while j < n and raw[j:j + 1].isdigit():
+        j += 1
+    val = (sign * int(raw[i:j]) if j > i else 0) & 0xFFFFFFFF
+    ql.log.info(f"atoi {raw[:32]!r} -> {val}")
+    ql.os.fcall.cc.setReturnValue(val)
     ql.arch.regs.arch_pc = ql.arch.regs.lr
 
 

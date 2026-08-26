@@ -502,6 +502,12 @@ def get_errno_addr(ql: Qiling, hook_data):
 def __errno_location(ql: Qiling, hook_data):
     get_errno_addr(ql, hook_data)
 
+
+def RAND_enable_fork_unsafe_buffering(ql: Qiling, hook_data):
+    """BoringSSL fork-safety knob; a no-op under the emulator (void return)."""
+    ql.os.fcall.cc.setReturnValue(0)
+    ql.arch.regs.arch_pc = ql.arch.regs.lr
+
 def mmap(ql: Qiling, hook_data):
     # Anonymous-only mmap model: ignore the addr hint / fd, hand back a fresh
     # zero-filled region of the requested length with prot-derived perms.
