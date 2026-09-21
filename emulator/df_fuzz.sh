@@ -60,12 +60,25 @@ ta_name="${ta::-3}"
 cp -n "$ta" rootfs/
 cp -n "${ta_name}.json" rootfs/
 
+# afl-fuzz creates its own output tree (out/default/...) mode 0700 while it
+# runs, so the pre-run chmod cannot reach it. Relax it on the way out: the
+# container is root and the repo is a host bind mount, so otherwise the host
+# user cannot read the crashes it just produced.
+relax_out_perms() {
+    [ -n "${fuzz_out:-}" ] && [ -d "$fuzz_out" ] && chmod -R a+rwX "$fuzz_out" 2>/dev/null
+    return 0
+}
+trap relax_out_perms EXIT
+
 if [ -z "$4" ]; then
 
     echo "starting fuzzing"
 
     fuzz_dir="$harness_path/df_fuzz/${df_seed}_${df_reg_hash}"
     mkdir -p $fuzz_dir
+    # Created as root inside the container on a host bind mount; leave it
+    # writable so the host user can prune/inspect the results.
+    chmod -R 777 "$harness_path/df_fuzz" "$fuzz_dir"
     fuzz_in="$fuzz_dir/in"
     fuzz_out="$fuzz_dir/out"
 

@@ -168,6 +168,16 @@ v1b="${ta%.*}.json"
 
 cp -u "$v1a" "rootfs/" || cp -u "$v1b" "rootfs/" || { echo "File $v1a or $v1b not found" && exit 1; }
 
+# afl-fuzz creates its own output tree (out/default/...) mode 0700 while it
+# runs, so the pre-run chmod cannot reach it. Relax it on the way out: the
+# container is root and the repo is a host bind mount, so otherwise the host
+# user cannot read the crashes it just produced.
+relax_out_perms() {
+    [ -n "${fuzz_out:-}" ] && [ -d "$fuzz_out" ] && chmod -R a+rwX "$fuzz_out" 2>/dev/null
+    return 0
+}
+trap relax_out_perms EXIT
+
 if [ -z "$replay_seed" ]; then
     echo "Starting fuzzing..."
     # no seed specified -> fuzz

@@ -104,11 +104,6 @@ for gdb:
 
 # Double-Fetch Fuzzing (ScHMuzz)
 
-Finding an attacker-triggerable double fetch runs in three stages, named as in
-the paper: **Exploration**, **Fetch-Anchored Fuzzing**, and **Distillation**.
-Every command below is run inside the emulator container (`./run-docker.sh`),
-from `/srv/emulator`.
-
 Exploration needs the Redis-backed recorder: it is what observes overlapped
 fetches and writes the snapshots the later stages consume. `run-docker.sh`
 offers to start the Redis container -- say yes. Setting `TAEMU_DISABLE_REDIS=1`
@@ -145,18 +140,7 @@ python3 -c 'import json,sys; print([(r["regs"]["reg_hash"], hex(r["addr"])) \
   ../<tee>/harness/<h>/in/suspicious_inputs/<seed>.meta
 ```
 
-The paper fuzzes each TA 5x24h here and merges the resulting snapshots before
-moving on.
-
-## Merging snapshots (deduplication)
-
-Exploration rediscovers the same double fetch on many seeds, so the raw
-snapshot set is heavily redundant -- the paper merges 913,249 overlapped
-fetches down to 17,232 snapshots before stage 2. Deduplicate before spending
-Fetch-Anchored Fuzzing time on copies.
-
-Unlike the rest of the pipeline, `eval/deduplicate.py` runs on the **host**: it
-starts and drives the containers itself.
+### Merging snapshots (deduplication)
 
 ```
 python3 eval/deduplicate.py --mode control_flow                # report only
@@ -179,20 +163,8 @@ Without `--enable-del` nothing is removed, it only reports duplicate hashes.
 harness, and `harness_dev/` is always skipped. Deleting a duplicate removes
 both the seed and its `.meta`.
 
-Two things that will bite you:
-
-* `deduplicate.py` imports `tqdm`, which is in neither
-  `emulator/requirements.txt` nor the image, so it fails to import in the
-  container. Install it into whatever environment you run the eval scripts
-  from (`aiofiles` is already in `requirements.txt`).
-* `fuzz.sh` writes `in/suspicious_inputs/` as root, but `deduplicate.py` runs
-  on the host as you, so `--enable-del` aborts with `PermissionError`. Take
-  ownership of the harness `in/` dir first:
-
-```
-docker compose run --rm -T --workdir /srv emulator \
-    chown -R $(id -u):$(id -g) /srv/<tee>/harness/<h>/in
-```
+Fuzzing artifacts are created world-writable even though the emulator runs as
+root in the container, so pruning from the host needs no `sudo` or `chown`.
 
 ## Stage 2: Fetch-Anchored Fuzzing
 

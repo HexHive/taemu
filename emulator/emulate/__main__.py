@@ -2,6 +2,8 @@ from multiprocessing import Process
 import os
 import signal
 import argparse
+
+from emulate.artifacts import shared_makedirs
 from pathlib import Path
 
 from pwn import ELF
@@ -448,8 +450,7 @@ if __name__ == "__main__":
             os.path.dirname(args.fuzz_harness),
             "in/suspicious_inputs" + ("_replay" if args.fuzz_replay else ""),
         )
-        if not os.path.exists(suspicious_seeds_save_dir):
-            os.makedirs(suspicious_seeds_save_dir)
+        shared_makedirs(suspicious_seeds_save_dir)
 
         print(f"[+] Saving suspicious inputs at dir: {suspicious_seeds_save_dir}")
 
@@ -458,8 +459,8 @@ if __name__ == "__main__":
             "record_meta"
         ) if args.fuzz else None
 
-        if record_meta_dir is not None and not os.path.exists(record_meta_dir):
-            os.makedirs(record_meta_dir)
+        if record_meta_dir is not None:
+            shared_makedirs(record_meta_dir)
 
         with SimpleFilterRecorder(
             curr_record_q, suspicious_seeds_save_dir, record_meta_dir, custom_logger

@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Empty
 import sys
 from emulate.redis_queue import RedisQueue
+from emulate.artifacts import shared_makedirs, shared_chmod
 from dataclasses import dataclass
 from typing import Optional, Dict, Any, List, Tuple
 from enum import Enum
@@ -81,10 +82,9 @@ class Recorder:
 
         self._batch_items = []
 
-        if not os.path.exists(self.record_seed_dir):
-            os.makedirs(self.record_seed_dir)
-        if self.record_meta_dir is not None and not os.path.exists(self.record_meta_dir):
-            os.makedirs(self.record_meta_dir)
+        shared_makedirs(self.record_seed_dir)
+        if self.record_meta_dir is not None:
+            shared_makedirs(self.record_meta_dir)
         
         while True:
             try:
@@ -137,6 +137,7 @@ class Recorder:
                             f.write(input_data)
                         else:
                             f.write(str(input_data).encode("utf-8"))
+                    shared_chmod(file_path)
                 except Exception as e:
                     return False, f"Error saving file {file_path}: {e}"
 
@@ -152,6 +153,7 @@ class Recorder:
                     }
                     with open(metadata_file, "w") as f:
                         json.dump(metadata, f, indent=2)
+                    shared_chmod(metadata_file)
                 except Exception as e:
                     return False, f"Error saving metadata to {metadata_file}: {e}"
 
@@ -252,5 +254,9 @@ class SimpleFilterRecorder(Recorder):
 
     def _dump_info(self):
         if self.record_meta_dir is not None:
-            open(os.path.join(self.record_meta_dir, f'{os.getpid()}_hash2count.json'),'w+').write(json.dumps(self._seen_addresses_2_count, indent=2))
-            open(os.path.join(self.record_meta_dir, f'{os.getpid()}_hash2data.json'),'w+').write(json.dumps(self._seen_addresses_2_data, indent=2))
+            for _name, _data in (("hash2count", self._seen_addresses_2_count),
+                                 ("hash2data", self._seen_addresses_2_data)):
+                _p = os.path.join(self.record_meta_dir, f'{os.getpid()}_{_name}.json')
+                with open(_p, 'w+') as _f:
+                    _f.write(json.dumps(_data, indent=2))
+                shared_chmod(_p)
