@@ -477,6 +477,26 @@ emulator/emulate/files/*
 **/harness/*/drcov.log
 **/harness_dev/*/drcov.log
 
+### Android PoC app: build caches, IDE state, machine-specific config
+**/.cxx/
+**/.idea/
+**/*.iml
+**/local.properties
+**/gradle-wrapper.jar
+# NDK build output next to the PoC sources
+**/pocs/*/obj/
+**/pocs/*/libs/
+
+### Editor / IDE
+.vscode/
+
+### eval: rendered graphs + ordering dumps, regenerable from the .py beside them
+eval/bbs_out/
+eval/fuzz_graphs/
+
+### Untracked AFL seed corpora dropped into harness in/ dirs
+**/in/run:id:*
+
 ### Artifact evaluation
 # the generic `lib/` rule above (C++ template) would swallow ae/lib/,
 # which holds the AE's own library -- re-include it
