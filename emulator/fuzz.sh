@@ -148,6 +148,22 @@ else
     fuzz_out="${out_dir:-/tmp/out${out_suffix}}"
 fi
 
+# orchestrator/cli.py, eval/fuzz.py, eval/cov_api.py and eval/fuzz_postprocess.py
+# all skip a harness carrying an IGNORE* marker -- these are known-broken or
+# deliberately excluded (dead entry point, blocked channel, auth stub). fuzz.sh
+# did not, so running one by hand gave a confusing failure deep inside afl
+# ("We need at least one valid input seed", forkserver handshake) rather than
+# saying the harness is excluded on purpose. Honour it, overridable.
+if [ -d "$in_path" ] && [ -z "${FUZZ_IGNORE_MARKER:-}" ]; then
+    marker=$(find "$in_path" -maxdepth 1 -type f -name 'IGNORE*' | head -n 1)
+    if [ -n "$marker" ]; then
+        echo "[-] $(basename "$in_path") is marked excluded by $(basename "$marker")"
+        [ -s "$marker" ] && echo "[-] reason: $(tr -d '\n' < "$marker")"
+        echo "[-] set FUZZ_IGNORE_MARKER=1 to run it anyway"
+        exit 1
+    fi
+fi
+
 echo ""Using TA: $ta
 echo "Using harness: $harness"
 echo "Using fuzz input dir: $fuzz_in"
