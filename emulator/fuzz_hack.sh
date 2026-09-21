@@ -94,8 +94,8 @@ if [ -z "$2" ]; then
     if [ ! -e "$fuzz_out" ]; then
         mkdir $fuzz_out
     fi
-    chmod -R 777 "$fuzz_in"
-    chmod -R 777 "$fuzz_out"
+    chmod -R a+rwX "$fuzz_in"
+    chmod -R a+rwX "$fuzz_out"
 
 	if [ -z "${FUZZTIME}" ]; then
         	afl-fuzz -t 5000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --fuzz @@ --fuzz_harness $harness "rootfs/$(basename "$ta")" $log_arg

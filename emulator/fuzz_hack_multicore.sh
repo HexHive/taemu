@@ -94,8 +94,8 @@ if [ -z "$2" ]; then
         mkdir $fuzz_out
     fi
 
-    chmod -R 777 "$fuzz_in"
-    chmod -R 777 "$fuzz_out"
+    chmod -R a+rwX "$fuzz_in"
+    chmod -R a+rwX "$fuzz_out"
 
 
     NUM_INSTANCES=10

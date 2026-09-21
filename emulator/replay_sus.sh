@@ -48,8 +48,8 @@ echo "Using harness: $harness"
 echo "Using fuzz input dir: $fuzz_in"
 echo "Using fuzz output dir: $fuzz_out"
 
-chmod -R 777 "$fuzz_in"
-chmod -R 777 "$fuzz_out"
+chmod -R a+rwX "$fuzz_in"
+chmod -R a+rwX "$fuzz_out"
 
 ta_name="${ta::-3}"
 cp -u "$ta" rootfs/

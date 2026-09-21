@@ -173,8 +173,8 @@ echo "Using triage report dir: ${triage_report_dir:-<default>}"
 
 mkdir -p "$fuzz_in"
 mkdir -p "$fuzz_out"
-chmod -R 777 "$fuzz_in"
-chmod -R 777 "$fuzz_out"
+chmod -R a+rwX "$fuzz_in"
+chmod -R a+rwX "$fuzz_out"
 
 ta_name="${ta%.*}"
 cp -u "$ta" rootfs/

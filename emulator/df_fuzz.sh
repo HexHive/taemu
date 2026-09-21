@@ -78,7 +78,7 @@ if [ -z "$4" ]; then
     mkdir -p $fuzz_dir
     # Created as root inside the container on a host bind mount; leave it
     # writable so the host user can prune/inspect the results.
-    chmod -R 777 "$harness_path/df_fuzz" "$fuzz_dir"
+    chmod -R a+rwX "$harness_path/df_fuzz" "$fuzz_dir"
     fuzz_in="$fuzz_dir/in"
     fuzz_out="$fuzz_dir/out"
 
@@ -99,8 +99,11 @@ if [ -z "$4" ]; then
         mkdir $fuzz_out
     fi
 
-    chmod -R 777 "$fuzz_in"
-    chmod -R 777 "$fuzz_out"
+    # a+rwX, not 777: capital X only adds execute where it already exists
+    # (or on directories), so tracked seed files under in/ keep mode 644
+    # instead of being flipped to 755 and showing up as modified in git.
+    chmod -R a+rwX "$fuzz_in"
+    chmod -R a+rwX "$fuzz_out"
     
     if [ -z "${FUZZTIME}" ]; then
             afl-fuzz -t 5000 -i $fuzz_in -o $fuzz_out -m none -U -- python3 -m emulate --df_fuzz @@ --fuzz_harness $harness --df_seed $df_seed_path --df_reg_hash $df_reg_hash "rootfs/$(basename "$ta")" $log_arg
