@@ -147,40 +147,17 @@ python3 eval/deduplicate.py --mode control_flow                # report only
 python3 eval/deduplicate.py --mode control_flow --enable-del   # actually prune
 ```
 
-Two modes:
-
-* `control_flow` (default) hashes each `.meta`'s `records`. Pure metadata, no
-  emulation, fast. `--non-conservative` hashes only the `regs` of each record
-  rather than the whole record, merging more aggressively.
-* `coverage` replays every snapshot through `replay_sus.sh` across
-  `--num-replay-containers` emulator containers (default 20), hashes the sorted
-  basic-block set from the drcov output, and drops snapshots whose coverage is
-  identical. Needs Redis and the emulator containers; the script offers to
-  start them.
-
-Without `--enable-del` nothing is removed, it only reports duplicate hashes.
-`--tee <name>` restricts the sweep, `--per-harness-limit N` samples per
-harness, and `harness_dev/` is always skipped. Deleting a duplicate removes
-both the seed and its `.meta`.
-
-Fuzzing artifacts are created world-writable even though the emulator runs as
-root in the container, so pruning from the host needs no `sudo` or `chown`.
-
 ## Stage 2: Fetch-Anchored Fuzzing
 
 Restore the snapshot and fuzz only the value returned by the second fetch,
-leaving the rest of the input fixed. This is what turns a benign overlapped
-fetch into a memory corruption.
+leaving the rest of the input fixed. 
+Results go to `<harness-folder>/df_fuzz/<seed>_<reg_hash>/{in,out}`.
 
 ```
 ./df_fuzz.sh ../<tee>/harness/<h> \
              ../<tee>/harness/<h>/in/suspicious_inputs/<seed> \
              <reg_hash>
 ```
-
-Results go to `<harness-folder>/df_fuzz/<seed>_<reg_hash>/{in,out}`. Set
-`FUZZTIME=<seconds>` to time-box the run; the paper uses 15 minutes per
-snapshot, which is enough to either corrupt memory or saturate coverage.
 
 Replay one of its crashes (append the crash file as a 4th argument):
 
@@ -193,12 +170,6 @@ Replay one of its crashes (append the crash file as a 4th argument):
 which is what you want when triaging.
 
 ## Stage 3: Distillation
-
-Decide whether a stage-2 crash is genuinely reachable by an attacker who only
-controls shared memory, or is an artifact of the injected fetch value. The
-crash is replayed from program start using the original Exploration seed, with
-the stage-2 crashing input injected into the shared-memory region before
-`TA_InvokeCommandEntryPoint`, and no further shared-memory modification.
 
 ```
 ./df_validate.sh ../<tee>/harness/<h> \
