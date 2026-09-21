@@ -134,8 +134,10 @@ Seeds that produced an overlapped fetch land in:
 
 Each `.meta` holds a `records` list, one entry per fetch, with the faulting
 `PC`, the shared-memory `addr`, and a `reg_hash` identifying that fetch site.
-The entry marked `"is_second_fetch": true` is the overlapped re-fetch -- its
-`reg_hash` is what anchors stage 2.
+Every entry marked `"is_second_fetch": true` is an overlapped re-fetch, and
+each one is a separate snapshot with its own `reg_hash` to anchor stage 2 on --
+a single seed commonly yields several. Contiguous second-fetch accesses are
+merged into one logical overlapped fetch before this point.
 
 ```
 python3 -c 'import json,sys; print([(r["regs"]["reg_hash"], hex(r["addr"])) \
@@ -145,6 +147,52 @@ python3 -c 'import json,sys; print([(r["regs"]["reg_hash"], hex(r["addr"])) \
 
 The paper fuzzes each TA 5x24h here and merges the resulting snapshots before
 moving on.
+
+## Merging snapshots (deduplication)
+
+Exploration rediscovers the same double fetch on many seeds, so the raw
+snapshot set is heavily redundant -- the paper merges 913,249 overlapped
+fetches down to 17,232 snapshots before stage 2. Deduplicate before spending
+Fetch-Anchored Fuzzing time on copies.
+
+Unlike the rest of the pipeline, `eval/deduplicate.py` runs on the **host**: it
+starts and drives the containers itself.
+
+```
+python3 eval/deduplicate.py --mode control_flow                # report only
+python3 eval/deduplicate.py --mode control_flow --enable-del   # actually prune
+```
+
+Two modes:
+
+* `control_flow` (default) hashes each `.meta`'s `records`. Pure metadata, no
+  emulation, fast. `--non-conservative` hashes only the `regs` of each record
+  rather than the whole record, merging more aggressively.
+* `coverage` replays every snapshot through `replay_sus.sh` across
+  `--num-replay-containers` emulator containers (default 20), hashes the sorted
+  basic-block set from the drcov output, and drops snapshots whose coverage is
+  identical. Needs Redis and the emulator containers; the script offers to
+  start them.
+
+Without `--enable-del` nothing is removed, it only reports duplicate hashes.
+`--tee <name>` restricts the sweep, `--per-harness-limit N` samples per
+harness, and `harness_dev/` is always skipped. Deleting a duplicate removes
+both the seed and its `.meta`.
+
+Two things that will bite you:
+
+* `deduplicate.py` imports `tqdm`, which is in neither
+  `emulator/requirements.txt` nor the image, so it fails to import in the
+  container. Install it into whatever environment you run the eval scripts
+  from (`aiofiles` is already in `requirements.txt`).
+* `fuzz.sh` writes `in/suspicious_inputs/` as root, but `deduplicate.py` runs
+  on the host as you, so `--enable-del` aborts with `PermissionError`. Take
+  ownership of the harness `in/` dir first:
+
+```
+docker compose run --rm -T --workdir /srv emulator \
+    chown -R $(id -u):$(id -g) /srv/<tee>/harness/<h>/in
+```
 
 ## Stage 2: Fetch-Anchored Fuzzing
 
